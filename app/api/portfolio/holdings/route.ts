@@ -1,12 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { getStockPrice, isStockPriceError } from '@/lib/api/stock-price';
 
 /**
  * POST /api/portfolio/holdings
  * Add a new stock holding to an account
+ * Also fetches and caches the current stock price from Yahoo Finance
  */
 export async function POST(request: NextRequest) {
   try {
+    // Authentication check
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { accountId, symbol, quantity, avgCostBasis } = body;
 
@@ -39,7 +51,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify account exists
+    // Verify account exists and belongs to the authenticated user (authorization check)
     const account = await prisma.stockAccount.findUnique({
       where: { id: accountId },
     });
@@ -48,6 +60,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Account not found' },
         { status: 404 }
+      );
+    }
+
+    // Authorization check - verify user owns this account
+    if (account.userId !== session.user.id) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden' },
+        { status: 403 }
       );
     }
 
@@ -71,19 +91,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const upperSymbol = symbol.toUpperCase().trim();
+
+    // Fetch and cache the current stock price
+    // This runs in parallel with creating the holding but we don't block on it
+    const pricePromise = getStockPrice(upperSymbol);
+
     // Create the holding
     const holding = await prisma.stockHolding.create({
       data: {
         accountId,
-        symbol: symbol.toUpperCase().trim(),
+        symbol: upperSymbol,
         quantity,
         avgCostBasis,
       },
     });
 
+    // Wait for price fetch to complete (it's already cached by getStockPrice)
+    const priceResult = await pricePromise;
+    const currentPrice = !isStockPriceError(priceResult) ? priceResult.price : null;
+
     return NextResponse.json({
       success: true,
-      data: holding,
+      data: {
+        ...holding,
+        currentPrice,
+        priceFromCache: !isStockPriceError(priceResult) ? priceResult.fromCache : null,
+      },
     });
   } catch (error) {
     console.error('Error creating holding:', error);

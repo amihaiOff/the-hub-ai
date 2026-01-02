@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-
-// For now, we'll use a hardcoded user ID until auth is implemented
-const DEMO_USER_ID = 'demo-user';
 
 /**
  * POST /api/portfolio/accounts
@@ -10,8 +8,17 @@ const DEMO_USER_ID = 'demo-user';
  */
 export async function POST(request: NextRequest) {
   try {
+    // Authentication check
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
-    const { name, broker, userId = DEMO_USER_ID } = body;
+    const { name, broker } = body;
 
     // Validate required fields
     if (!name || typeof name !== 'string' || name.trim() === '') {
@@ -21,23 +28,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Ensure user exists (create demo user if needed)
-    await prisma.user.upsert({
-      where: { id: userId },
-      update: {},
-      create: {
-        id: userId,
-        email: 'demo@example.com',
-        name: 'Demo User',
-      },
-    });
-
-    // Create the account
+    // Create the account for the authenticated user
     const account = await prisma.stockAccount.create({
       data: {
         name: name.trim(),
         broker: broker?.trim() || null,
-        userId,
+        userId: session.user.id,
       },
       include: {
         holdings: true,
@@ -59,15 +55,22 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET /api/portfolio/accounts
- * Get all accounts for a user (without holdings detail)
+ * Get all accounts for the authenticated user (without holdings detail)
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId') || DEMO_USER_ID;
+    // Authentication check
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
 
+    // Get accounts only for the authenticated user (authorization enforced by query)
     const accounts = await prisma.stockAccount.findMany({
-      where: { userId },
+      where: { userId: session.user.id },
       include: {
         _count: {
           select: { holdings: true },

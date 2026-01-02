@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 
 interface RouteParams {
@@ -11,6 +12,15 @@ interface RouteParams {
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
+    // Authentication check
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
 
     const holding = await prisma.stockHolding.findUnique({
@@ -24,6 +34,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(
         { success: false, error: 'Holding not found' },
         { status: 404 }
+      );
+    }
+
+    // Authorization check - verify user owns the account containing this holding
+    if (holding.account.userId !== session.user.id) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden' },
+        { status: 403 }
       );
     }
 
@@ -46,6 +64,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  */
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
+    // Authentication check
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
     const body = await request.json();
     const { quantity, avgCostBasis } = body;
@@ -65,15 +92,24 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Check if holding exists
+    // Check if holding exists and include account for authorization
     const existing = await prisma.stockHolding.findUnique({
       where: { id },
+      include: { account: true },
     });
 
     if (!existing) {
       return NextResponse.json(
         { success: false, error: 'Holding not found' },
         { status: 404 }
+      );
+    }
+
+    // Authorization check - verify user owns the account containing this holding
+    if (existing.account.userId !== session.user.id) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden' },
+        { status: 403 }
       );
     }
 
@@ -105,17 +141,35 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
+    // Authentication check
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
 
-    // Check if holding exists
+    // Check if holding exists and include account for authorization
     const existing = await prisma.stockHolding.findUnique({
       where: { id },
+      include: { account: true },
     });
 
     if (!existing) {
       return NextResponse.json(
         { success: false, error: 'Holding not found' },
         { status: 404 }
+      );
+    }
+
+    // Authorization check - verify user owns the account containing this holding
+    if (existing.account.userId !== session.user.id) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden' },
+        { status: 403 }
       );
     }
 

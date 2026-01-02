@@ -6,6 +6,9 @@ const CACHE_DURATION_MS = 6 * 60 * 60 * 1000;
 // Alpha Vantage API rate limits
 const ALPHA_VANTAGE_BASE_URL = 'https://www.alphavantage.co/query';
 
+// Yahoo Finance API
+const YAHOO_FINANCE_BASE_URL = 'https://query1.finance.yahoo.com/v8/finance/chart';
+
 interface AlphaVantageQuote {
   'Global Quote': {
     '01. symbol': string;
@@ -18,6 +21,22 @@ interface AlphaVantageQuote {
     '08. previous close': string;
     '09. change': string;
     '10. change percent': string;
+  };
+}
+
+interface YahooChartResponse {
+  chart?: {
+    result?: Array<{
+      meta?: {
+        regularMarketPrice?: number;
+        symbol?: string;
+        currency?: string;
+      };
+    }>;
+    error?: {
+      code?: string;
+      description?: string;
+    };
   };
 }
 
@@ -78,7 +97,46 @@ async function cachePrice(symbol: string, price: number): Promise<void> {
 }
 
 /**
- * Fetch stock price from Alpha Vantage API
+ * Fetch stock price from Yahoo Finance API (primary source - no API key needed)
+ */
+async function fetchFromYahooFinance(symbol: string): Promise<number | null> {
+  try {
+    const url = `${YAHOO_FINANCE_BASE_URL}/${encodeURIComponent(symbol.toUpperCase())}?interval=1d&range=1d`;
+
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`Yahoo Finance API error: ${response.status}`);
+      return null;
+    }
+
+    const data: YahooChartResponse = await response.json();
+
+    // Check for errors in response
+    if (data.chart?.error) {
+      console.warn(`Yahoo Finance error for ${symbol}: ${data.chart.error.description}`);
+      return null;
+    }
+
+    const price = data.chart?.result?.[0]?.meta?.regularMarketPrice;
+    if (price === undefined || price === null) {
+      console.warn(`No price data from Yahoo Finance for symbol: ${symbol}`);
+      return null;
+    }
+
+    return price;
+  } catch (error) {
+    console.error(`Error fetching price from Yahoo Finance for ${symbol}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Fetch stock price from Alpha Vantage API (fallback source)
  */
 async function fetchFromAlphaVantage(symbol: string): Promise<number | null> {
   const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
@@ -124,8 +182,9 @@ async function fetchFromAlphaVantage(symbol: string): Promise<number | null> {
 /**
  * Get stock price with caching
  * 1. Check cache first
- * 2. If cache miss/expired, fetch from API
- * 3. If API fails, return most recent cached price (fallback)
+ * 2. If cache miss/expired, fetch from Yahoo Finance (primary)
+ * 3. If Yahoo fails, try Alpha Vantage (fallback)
+ * 4. If both fail, return most recent cached price (stale fallback)
  */
 export async function getStockPrice(symbol: string): Promise<StockPriceResult> {
   const upperSymbol = symbol.toUpperCase();
@@ -136,8 +195,14 @@ export async function getStockPrice(symbol: string): Promise<StockPriceResult> {
     return cached;
   }
 
-  // Fetch from API
-  const apiPrice = await fetchFromAlphaVantage(upperSymbol);
+  // Try Yahoo Finance first (no API key required)
+  let apiPrice = await fetchFromYahooFinance(upperSymbol);
+
+  // If Yahoo fails, try Alpha Vantage as fallback
+  if (apiPrice === null) {
+    console.log(`Yahoo Finance failed for ${upperSymbol}, trying Alpha Vantage...`);
+    apiPrice = await fetchFromAlphaVantage(upperSymbol);
+  }
 
   if (apiPrice !== null) {
     // Cache the new price
@@ -193,16 +258,15 @@ export async function getStockPrices(symbols: string[]): Promise<Map<string, Sto
     }
   }
 
-  // Fetch remaining symbols from API (with rate limiting)
-  // Alpha Vantage free tier: 5 API calls per minute
+  // Fetch remaining symbols from API
+  // Yahoo Finance (primary) has more lenient rate limits than Alpha Vantage
   for (const symbol of symbolsToFetch) {
     const result = await getStockPrice(symbol);
     results.set(symbol, result);
 
-    // Rate limit: wait 12 seconds between API calls for free tier
-    // In production, use a paid tier or implement proper rate limiting
+    // Small delay to be respectful to the API
     if (symbolsToFetch.indexOf(symbol) < symbolsToFetch.length - 1) {
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
 
@@ -239,10 +303,18 @@ export async function getLatestCachedPrice(symbol: string): Promise<StockPrice |
 /**
  * Manually update the cache for a symbol
  * Useful for the cron job that updates prices periodically
+ * Uses Yahoo Finance as primary, Alpha Vantage as fallback
  */
 export async function updateStockPriceCache(symbol: string): Promise<StockPriceResult> {
   const upperSymbol = symbol.toUpperCase();
-  const apiPrice = await fetchFromAlphaVantage(upperSymbol);
+
+  // Try Yahoo Finance first
+  let apiPrice = await fetchFromYahooFinance(upperSymbol);
+
+  // Fallback to Alpha Vantage if Yahoo fails
+  if (apiPrice === null) {
+    apiPrice = await fetchFromAlphaVantage(upperSymbol);
+  }
 
   if (apiPrice !== null) {
     await cachePrice(upperSymbol, apiPrice);
