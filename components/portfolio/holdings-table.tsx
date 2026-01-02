@@ -12,15 +12,18 @@ import { Badge } from '@/components/ui/badge';
 import { EditHoldingDialog } from './edit-holding-dialog';
 import { DeleteConfirmDialog } from './delete-confirm-dialog';
 import { useDeleteHolding } from '@/lib/hooks/use-portfolio';
-import { formatCurrency, formatPercent, formatQuantity } from '@/lib/utils/portfolio';
+import { formatPercent, formatQuantity } from '@/lib/utils/portfolio';
+import { useCurrency } from '@/lib/contexts/currency-context';
 import type { HoldingValue } from '@/lib/utils/portfolio';
 
 interface HoldingsTableProps {
   holdings: HoldingValue[];
+  baseCurrency?: string;
 }
 
-export function HoldingsTable({ holdings }: HoldingsTableProps) {
+export function HoldingsTable({ holdings, baseCurrency = 'USD' }: HoldingsTableProps) {
   const deleteHolding = useDeleteHolding();
+  const { formatValue } = useCurrency();
 
   if (holdings.length === 0) {
     return (
@@ -59,13 +62,13 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
                   {formatQuantity(holding.quantity)}
                 </TableCell>
                 <TableCell className="hidden text-right tabular-nums sm:table-cell">
-                  {formatCurrency(holding.avgCostBasis)}
+                  {formatValue(holding.avgCostBasis, baseCurrency)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatCurrency(holding.currentPrice)}
+                  {formatValue(holding.currentPrice, baseCurrency)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums font-medium">
-                  {formatCurrency(holding.currentValue)}
+                  {formatValue(holding.currentValue, baseCurrency)}
                 </TableCell>
                 <TableCell className="hidden text-right md:table-cell">
                   <div className="flex flex-col items-end">
@@ -78,7 +81,7 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
                       }
                     >
                       {isPositive ? '+' : ''}
-                      {formatCurrency(holding.gainLoss)}
+                      {formatValue(holding.gainLoss, baseCurrency)}
                     </Badge>
                     <span
                       className={`text-xs ${

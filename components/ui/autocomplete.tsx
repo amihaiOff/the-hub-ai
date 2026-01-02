@@ -10,6 +10,7 @@ export interface AutocompleteOption {
   label: string;
   description?: string;
   badge?: string;
+  currency?: string;
 }
 
 interface AutocompleteProps {
@@ -199,7 +200,14 @@ export function Autocomplete({
                 )}
               >
                 <div className="flex flex-col min-w-0 flex-1">
-                  <span className="font-medium truncate">{option.value}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium truncate">{option.value}</span>
+                    {option.currency && (
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        {option.currency}
+                      </span>
+                    )}
+                  </div>
                   {option.label && (
                     <span className="text-xs text-muted-foreground truncate">
                       {option.label}

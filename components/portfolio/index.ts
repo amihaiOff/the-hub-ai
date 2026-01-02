@@ -6,3 +6,4 @@ export { PortfolioSummary } from './portfolio-summary';
 export { HoldingsTable } from './holdings-table';
 export { AccountCard } from './account-card';
 export { AllocationChart } from './allocation-chart';
+export { CurrencyToggle } from './currency-toggle';

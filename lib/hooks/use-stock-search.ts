@@ -2,8 +2,14 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect, useMemo } from 'react';
-import type { StockSymbol } from '@/lib/data/stock-symbols';
 import type { AutocompleteOption } from '@/components/ui/autocomplete';
+
+interface StockSymbol {
+  symbol: string;
+  name: string;
+  exchange: string;
+  currency?: string;
+}
 
 interface StockSearchResponse {
   success: boolean;
@@ -54,6 +60,7 @@ export function useStockSearch(query: string, debounceMs: number = 300) {
       value: stock.symbol,
       label: stock.name,
       badge: stock.exchange,
+      currency: stock.currency,
     }));
   }, [queryResult.data]);
 

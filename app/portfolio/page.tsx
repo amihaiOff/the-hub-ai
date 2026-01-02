@@ -4,14 +4,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { TrendingUp, AlertCircle, Loader2 } from 'lucide-react';
 import { usePortfolio } from '@/lib/hooks/use-portfolio';
 import { calculateAllocation } from '@/lib/utils/portfolio';
+import { CurrencyProvider } from '@/lib/contexts/currency-context';
 import {
   AddAccountDialog,
   PortfolioSummary,
   AccountCard,
   AllocationChart,
+  CurrencyToggle,
 } from '@/components/portfolio';
 
-export default function PortfolioPage() {
+function PortfolioContent() {
   const { data: portfolio, isLoading, error } = usePortfolio();
 
   // Calculate allocation from portfolio data
@@ -25,7 +27,10 @@ export default function PortfolioPage() {
           <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Stock Portfolio</h1>
           <p className="text-muted-foreground">Manage your stock holdings and brokerage accounts</p>
         </div>
-        <AddAccountDialog />
+        <div className="flex items-center gap-3">
+          <CurrencyToggle />
+          <AddAccountDialog />
+        </div>
       </div>
 
       {/* Error State */}
@@ -105,5 +110,13 @@ export default function PortfolioPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PortfolioPage() {
+  return (
+    <CurrencyProvider>
+      <PortfolioContent />
+    </CurrencyProvider>
   );
 }

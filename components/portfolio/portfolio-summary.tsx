@@ -2,7 +2,8 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, DollarSign, PieChart } from 'lucide-react';
-import { formatCurrency, formatPercent } from '@/lib/utils/portfolio';
+import { formatPercent } from '@/lib/utils/portfolio';
+import { useCurrency } from '@/lib/contexts/currency-context';
 
 interface PortfolioSummaryProps {
   totalValue: number;
@@ -10,6 +11,7 @@ interface PortfolioSummaryProps {
   totalGainLossPercent: number;
   totalHoldings: number;
   isLoading?: boolean;
+  baseCurrency?: string;
 }
 
 export function PortfolioSummary({
@@ -18,7 +20,9 @@ export function PortfolioSummary({
   totalGainLossPercent,
   totalHoldings,
   isLoading,
+  baseCurrency = 'USD',
 }: PortfolioSummaryProps) {
+  const { formatValue } = useCurrency();
   const isPositive = totalGainLoss >= 0;
 
   return (
@@ -34,7 +38,7 @@ export function PortfolioSummary({
           ) : (
             <>
               <div className="text-2xl font-bold tabular-nums">
-                {formatCurrency(totalValue)}
+                {formatValue(totalValue, baseCurrency)}
               </div>
               <p className="text-xs text-muted-foreground">Across all accounts</p>
             </>
@@ -62,7 +66,7 @@ export function PortfolioSummary({
                 }`}
               >
                 {isPositive ? '+' : ''}
-                {formatCurrency(totalGainLoss)}
+                {formatValue(totalGainLoss, baseCurrency)}
               </div>
               <p
                 className={`text-xs ${

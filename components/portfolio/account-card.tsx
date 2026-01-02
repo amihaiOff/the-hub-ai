@@ -10,16 +10,19 @@ import { HoldingsTable } from './holdings-table';
 import { AddHoldingDialog } from './add-holding-dialog';
 import { DeleteConfirmDialog } from './delete-confirm-dialog';
 import { useDeleteAccount } from '@/lib/hooks/use-portfolio';
-import { formatCurrency, formatPercent } from '@/lib/utils/portfolio';
+import { formatPercent } from '@/lib/utils/portfolio';
+import { useCurrency } from '@/lib/contexts/currency-context';
 import type { AccountSummary } from '@/lib/utils/portfolio';
 
 interface AccountCardProps {
   account: AccountSummary;
+  baseCurrency?: string;
 }
 
-export function AccountCard({ account }: AccountCardProps) {
+export function AccountCard({ account, baseCurrency = 'USD' }: AccountCardProps) {
   const [isOpen, setIsOpen] = useState(true);
   const deleteAccount = useDeleteAccount();
+  const { formatValue } = useCurrency();
   const isPositive = account.totalGainLoss >= 0;
 
   return (
@@ -48,7 +51,7 @@ export function AccountCard({ account }: AccountCardProps) {
             <div className="flex items-center gap-2">
               <div className="text-right">
                 <div className="text-lg font-bold tabular-nums">
-                  {formatCurrency(account.totalValue)}
+                  {formatValue(account.totalValue, baseCurrency)}
                 </div>
                 <Badge
                   variant="outline"

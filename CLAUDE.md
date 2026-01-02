@@ -124,11 +124,15 @@ Configured in `vercel.json`:
 - Add/remove stocks with quantity tracking
 - Portfolio value calculation and allocation charts
 - **Stock Symbol Autocomplete:** When adding stocks, symbol input shows suggestions dropdown
-  - Searches US exchanges (NYSE, NASDAQ) and Tel Aviv Stock Exchange (TASE)
+  - Uses Yahoo Finance API for comprehensive stock search
+  - Searches all major exchanges (NYSE, NASDAQ, TASE, European exchanges)
   - Debounced search (300ms) to avoid excessive API calls
-  - Shows symbol, company name, and exchange
+  - Shows symbol, company name, exchange, and currency
   - TASE symbols suffixed with `.TA` (e.g., `TEVA.TA`)
-  - Uses local stock symbol database for fast lookups
+  - Search by English symbol or company name
+- **Currency Conversion:** Toggle to display portfolio values in ILS
+  - Fetches real-time exchange rates from Yahoo Finance (USD, EUR, GBP to ILS)
+  - Rates cached for 1 hour
 
 **Pension/Hishtalmut:**
 - Track deposits with salary month attribution
