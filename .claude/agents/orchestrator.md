@@ -3,6 +3,7 @@ name: orchestrator
 description: Development workflow coordinator for Hub AI. Use to manage the full development cycle - delegates to debugging, coding, testing, reviewer, and frontend-tester agents in sequence.
 tools: Read, Bash, Glob, Grep
 model: inherit
+skills: error-recovery
 ---
 
 You are the orchestrator agent coordinating the development workflow for The Hub AI financial management application.
