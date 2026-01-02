@@ -1,8 +1,22 @@
+'use client';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Plus, TrendingUp } from 'lucide-react';
+import { TrendingUp, AlertCircle, Loader2 } from 'lucide-react';
+import { usePortfolio } from '@/lib/hooks/use-portfolio';
+import { calculateAllocation } from '@/lib/utils/portfolio';
+import {
+  AddAccountDialog,
+  PortfolioSummary,
+  AccountCard,
+  AllocationChart,
+} from '@/components/portfolio';
 
 export default function PortfolioPage() {
+  const { data: portfolio, isLoading, error } = usePortfolio();
+
+  // Calculate allocation from portfolio data
+  const allocation = portfolio?.accounts ? calculateAllocation(portfolio.accounts) : [];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -11,64 +25,85 @@ export default function PortfolioPage() {
           <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Stock Portfolio</h1>
           <p className="text-muted-foreground">Manage your stock holdings and brokerage accounts</p>
         </div>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Account
-        </Button>
+        <AddAccountDialog />
       </div>
 
-      {/* Portfolio Summary */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Value</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">$0.00</div>
-            <p className="text-xs text-muted-foreground">Across all accounts</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Gain/Loss</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-500">$0.00</div>
-            <p className="text-xs text-muted-foreground">+0.00%</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Holdings</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground">Unique stocks</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Accounts List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Brokerage Accounts</CardTitle>
-          <CardDescription>Your stock brokerage accounts and holdings</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-border">
-            <div className="text-center">
-              <TrendingUp className="mx-auto h-12 w-12 text-muted-foreground" />
-              <p className="mt-2 text-muted-foreground">No accounts yet</p>
+      {/* Error State */}
+      {error && (
+        <Card className="border-destructive">
+          <CardContent className="flex items-center gap-3 py-4">
+            <AlertCircle className="h-5 w-5 text-destructive" />
+            <div>
+              <p className="font-medium text-destructive">Failed to load portfolio</p>
               <p className="text-sm text-muted-foreground">
-                Add your first brokerage account to start tracking
+                {error instanceof Error ? error.message : 'An unexpected error occurred'}
               </p>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Portfolio Summary */}
+      <PortfolioSummary
+        totalValue={portfolio?.totalValue ?? 0}
+        totalGainLoss={portfolio?.totalGainLoss ?? 0}
+        totalGainLossPercent={portfolio?.totalGainLossPercent ?? 0}
+        totalHoldings={portfolio?.totalHoldings ?? 0}
+        isLoading={isLoading}
+      />
+
+      {/* Main Content Grid */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Accounts List - Takes 2 columns on large screens */}
+        <div className="space-y-4 lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Brokerage Accounts</h2>
+            {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
           </div>
-        </CardContent>
-      </Card>
+
+          {isLoading ? (
+            // Loading skeleton
+            <Card>
+              <CardContent className="py-8">
+                <div className="flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              </CardContent>
+            </Card>
+          ) : portfolio?.accounts && portfolio.accounts.length > 0 ? (
+            // Accounts list
+            <div className="space-y-4">
+              {portfolio.accounts.map((account) => (
+                <AccountCard key={account.id} account={account} />
+              ))}
+            </div>
+          ) : (
+            // Empty state
+            <Card>
+              <CardHeader>
+                <CardTitle>Brokerage Accounts</CardTitle>
+                <CardDescription>Your stock brokerage accounts and holdings</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-border">
+                  <div className="text-center">
+                    <TrendingUp className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <p className="mt-2 text-muted-foreground">No accounts yet</p>
+                    <p className="text-sm text-muted-foreground">
+                      Add your first brokerage account to start tracking
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Allocation Chart - Takes 1 column on large screens */}
+        <div>
+          <AllocationChart allocation={allocation} isLoading={isLoading} />
+        </div>
+      </div>
     </div>
   );
 }

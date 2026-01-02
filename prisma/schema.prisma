@@ -18,5 +18,51 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // Relations
+  stockAccounts StockAccount[]
+
   @@map("users")
+}
+
+// Stock Portfolio Models
+model StockAccount {
+  id        String   @id @default(cuid())
+  name      String   // e.g., "Fidelity Brokerage", "Robinhood"
+  broker    String?  // e.g., "Fidelity", "Robinhood", "Interactive Brokers"
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  holdings StockHolding[]
+
+  @@map("stock_accounts")
+}
+
+model StockHolding {
+  id           String   @id @default(cuid())
+  symbol       String   // Stock ticker symbol (e.g., "AAPL", "GOOGL")
+  quantity     Decimal  @db.Decimal(18, 8) // Number of shares (supports fractional)
+  avgCostBasis Decimal  @map("avg_cost_basis") @db.Decimal(18, 4) // Average cost per share
+  accountId    String   @map("account_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  account StockAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, symbol]) // One holding per symbol per account
+  @@map("stock_holdings")
+}
+
+model StockPriceHistory {
+  id        String   @id @default(cuid())
+  symbol    String   // Stock ticker symbol
+  price     Decimal  @db.Decimal(18, 4) // Current/cached price
+  timestamp DateTime @default(now()) // When this price was fetched
+
+  @@unique([symbol, timestamp])
+  @@index([symbol])
+  @@map("stock_price_history")
 }
