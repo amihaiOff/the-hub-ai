@@ -123,6 +123,12 @@ Configured in `vercel.json`:
 - Real-time stock prices (cached 6 hours)
 - Add/remove stocks with quantity tracking
 - Portfolio value calculation and allocation charts
+- **Stock Symbol Autocomplete:** When adding stocks, symbol input shows suggestions dropdown
+  - Searches US exchanges (NYSE, NASDAQ) and Tel Aviv Stock Exchange (TASE)
+  - Debounced search (300ms) to avoid excessive API calls
+  - Shows symbol, company name, and exchange
+  - TASE symbols suffixed with `.TA` (e.g., `TEVA.TA`)
+  - Uses local stock symbol database for fast lookups
 
 **Pension/Hishtalmut:**
 - Track deposits with salary month attribution

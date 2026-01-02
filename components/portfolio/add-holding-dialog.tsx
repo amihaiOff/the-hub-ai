@@ -14,7 +14,9 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Autocomplete } from '@/components/ui/autocomplete';
 import { useCreateHolding } from '@/lib/hooks/use-portfolio';
+import { useStockSearch } from '@/lib/hooks/use-stock-search';
 
 interface AddHoldingDialogProps {
   accountId: string;
@@ -28,6 +30,7 @@ export function AddHoldingDialog({ accountId, accountName }: AddHoldingDialogPro
   const [avgCostBasis, setAvgCostBasis] = useState('');
   const [error, setError] = useState('');
   const createHolding = useCreateHolding();
+  const { options, isLoading: isSearching } = useStockSearch(symbol);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,14 +94,19 @@ export function AddHoldingDialog({ accountId, accountName }: AddHoldingDialogPro
             )}
             <div className="grid gap-2">
               <Label htmlFor="symbol">Stock Symbol *</Label>
-              <Input
+              <Autocomplete
                 id="symbol"
                 value={symbol}
-                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                onChange={(value) => setSymbol(value.toUpperCase())}
+                onSelect={(option) => setSymbol(option.value)}
+                options={options}
+                isLoading={isSearching}
                 placeholder="e.g., AAPL, GOOGL, MSFT"
                 required
-                className="uppercase"
               />
+              <p className="text-xs text-muted-foreground">
+                Type to search or enter a symbol manually
+              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="quantity">Quantity *</Label>
