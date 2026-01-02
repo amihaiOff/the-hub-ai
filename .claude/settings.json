@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '📝 Code changed - consider running testing-agent next'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Before stopping, verify: 1) If code was written, were tests run? 2) If tests exist, did they pass? 3) Was the code reviewed? If any of these are missing and the task involved code changes, suggest the appropriate next step (testing-agent, reviewer-agent). Only approve stopping if the workflow is complete or the user explicitly requested to stop.",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
