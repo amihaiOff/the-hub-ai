@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,19 +43,26 @@ export function EditHoldingDialog({
       setInternalOpen(value);
     }
   };
+
+  // Create a key that changes when dialog opens with new values
+  const dialogKey = useMemo(
+    () => `${open}-${holdingId}-${holding.quantity}-${holding.avgCostBasis}`,
+    [open, holdingId, holding.quantity, holding.avgCostBasis]
+  );
+
   const [quantity, setQuantity] = useState(holding.quantity.toString());
   const [avgCostBasis, setAvgCostBasis] = useState(holding.avgCostBasis.toString());
   const [error, setError] = useState('');
+  const [lastDialogKey, setLastDialogKey] = useState(dialogKey);
   const updateHolding = useUpdateHolding();
 
-  // Reset form when dialog opens with new values
-  useEffect(() => {
-    if (open) {
-      setQuantity(holding.quantity.toString());
-      setAvgCostBasis(holding.avgCostBasis.toString());
-      setError('');
-    }
-  }, [open, holding.quantity, holding.avgCostBasis]);
+  // Reset form when dialog key changes (instead of useEffect with setState)
+  if (dialogKey !== lastDialogKey) {
+    setQuantity(holding.quantity.toString());
+    setAvgCostBasis(holding.avgCostBasis.toString());
+    setError('');
+    setLastDialogKey(dialogKey);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

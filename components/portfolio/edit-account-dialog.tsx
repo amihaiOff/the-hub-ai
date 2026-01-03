@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -29,19 +29,25 @@ export function EditAccountDialog({
   open,
   onOpenChange,
 }: EditAccountDialogProps) {
+  // Create a key that changes when dialog opens with new values
+  const dialogKey = useMemo(
+    () => `${open}-${accountName}-${accountBroker}`,
+    [open, accountName, accountBroker]
+  );
+
   const [name, setName] = useState(accountName);
   const [broker, setBroker] = useState(accountBroker || '');
   const [error, setError] = useState('');
+  const [lastDialogKey, setLastDialogKey] = useState(dialogKey);
   const updateAccount = useUpdateAccount();
 
-  // Reset form when dialog opens with new values
-  useEffect(() => {
-    if (open) {
-      setName(accountName);
-      setBroker(accountBroker || '');
-      setError('');
-    }
-  }, [open, accountName, accountBroker]);
+  // Reset form when dialog key changes (instead of useEffect with setState)
+  if (dialogKey !== lastDialogKey) {
+    setName(accountName);
+    setBroker(accountBroker || '');
+    setError('');
+    setLastDialogKey(dialogKey);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

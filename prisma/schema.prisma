@@ -19,7 +19,8 @@ model User {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  stockAccounts StockAccount[]
+  stockAccounts   StockAccount[]
+  pensionAccounts PensionAccount[]
 
   @@map("users")
 }
@@ -66,4 +67,46 @@ model StockPriceHistory {
   @@unique([symbol, timestamp])
   @@index([symbol])
   @@map("stock_price_history")
+}
+
+// Pension/Hishtalmut Models
+enum PensionAccountType {
+  pension
+  hishtalmut
+}
+
+model PensionAccount {
+  id             String             @id @default(cuid())
+  type           PensionAccountType
+  providerName   String             @map("provider_name") // e.g., "Meitav", "Altshuler Shaham"
+  accountName    String             @map("account_name")  // User-defined name
+  currentValue   Decimal            @map("current_value") @db.Decimal(18, 2) // Current total value
+  feeFromDeposit Decimal            @map("fee_from_deposit") @db.Decimal(5, 4) // Fee % from each deposit
+  feeFromTotal   Decimal            @map("fee_from_total") @db.Decimal(5, 4) // Annual management fee %
+  userId         String             @map("user_id")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deposits PensionDeposit[]
+
+  @@map("pension_accounts")
+}
+
+model PensionDeposit {
+  id          String   @id @default(cuid())
+  depositDate DateTime @map("deposit_date") @db.Date // When money was deposited
+  salaryMonth DateTime @map("salary_month") @db.Date // Which month's salary (first of month)
+  amount      Decimal  @db.Decimal(18, 2) // Deposit amount
+  employer    String   // Company name
+  accountId   String   @map("account_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  account PensionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([salaryMonth])
+  @@map("pension_deposits")
 }
