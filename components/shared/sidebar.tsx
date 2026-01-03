@@ -1,18 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
-import { Home, TrendingUp, Building2, Wallet, LogOut, LogIn } from 'lucide-react';
+import { LogOut, LogIn } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-
-const navItems = [
-  { href: '/', label: 'Dashboard', icon: Home },
-  { href: '/portfolio', label: 'Portfolio', icon: TrendingUp },
-  { href: '/pension', label: 'Pension', icon: Building2 },
-  { href: '/assets', label: 'Assets', icon: Wallet },
-];
+import { navItems } from '@/lib/constants/navigation';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -41,6 +36,7 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={isActive ? 'page' : undefined}
                 className={cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                   isActive
@@ -63,10 +59,12 @@ export function Sidebar() {
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 {session.user.image ? (
-                  <img
+                  <Image
                     src={session.user.image}
                     alt={session.user.name || 'User'}
-                    className="h-8 w-8 rounded-full"
+                    width={32}
+                    height={32}
+                    className="rounded-full"
                   />
                 ) : (
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">

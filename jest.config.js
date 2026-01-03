@@ -64,6 +64,7 @@ const config = {
           },
         }],
       },
+      setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
     },
   ],
 };
