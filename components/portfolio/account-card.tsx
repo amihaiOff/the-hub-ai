@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { ChevronDown, ChevronRight, Building2, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,7 +44,7 @@ export function AccountCard({ account }: AccountCardProps) {
 
   // Format value in the selected display currency
   // Note: rates are TO ILS (e.g., rates.USD = 3.18 means 1 USD = 3.18 ILS)
-  const formatDisplayValue = (value: number): string => {
+  const formatDisplayValue = useCallback((value: number): string => {
     if (showInAlternate && rates) {
       let convertedValue: number;
       if (nativeCurrency === 'ILS' && alternateCurrency === 'USD') {
@@ -69,7 +69,7 @@ export function AccountCard({ account }: AccountCardProps) {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
-  };
+  }, [showInAlternate, rates, nativeCurrency, alternateCurrency]);
 
   const toggleDisabled = isLoadingRates || !!ratesError;
 
@@ -77,6 +77,7 @@ export function AccountCard({ account }: AccountCardProps) {
     <Card>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CardHeader className="pb-3 px-3 sm:px-6">
+          {/* Row 1: Account info (left) + Amount (right, prominent) */}
           <div className="flex items-start justify-between">
             <CollapsibleTrigger asChild>
               <button
@@ -100,59 +101,70 @@ export function AccountCard({ account }: AccountCardProps) {
                 </div>
               </button>
             </CollapsibleTrigger>
-            <div className="flex items-center gap-2">
-              {/* Currency toggle */}
-              <div
-                role="group"
-                aria-label="Display currency"
-                className="flex items-center gap-0.5 rounded-md border bg-muted/50 p-0.5"
+            <div className="text-right">
+              <div className="text-xl sm:text-2xl font-bold tabular-nums">
+                {formatDisplayValue(account.totalValue)}
+              </div>
+              <Badge
+                variant="outline"
+                className={
+                  isPositive
+                    ? 'border-green-500/50 text-green-500'
+                    : 'border-red-500/50 text-red-500'
+                }
               >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowInAlternate(false)}
-                  aria-pressed={!showInAlternate}
-                  className={cn(
-                    'h-8 sm:h-6 px-3 sm:px-2 text-xs font-medium',
-                    !showInAlternate
-                      ? 'bg-background shadow-sm'
-                      : 'hover:bg-transparent'
-                  )}
-                >
-                  {nativeCurrency}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowInAlternate(true)}
-                  disabled={toggleDisabled}
-                  aria-pressed={showInAlternate}
-                  className={cn(
-                    'h-8 sm:h-6 px-3 sm:px-2 text-xs font-medium',
-                    showInAlternate
-                      ? 'bg-background shadow-sm'
-                      : 'hover:bg-transparent',
-                    toggleDisabled && 'opacity-50 cursor-not-allowed'
-                  )}
-                >
-                  {alternateCurrency}
-                </Button>
-              </div>
-              <div className="text-right">
-                <div className="text-lg font-bold tabular-nums">
-                  {formatDisplayValue(account.totalValue)}
-                </div>
-                <Badge
-                  variant="outline"
-                  className={
-                    isPositive
-                      ? 'border-green-500/50 text-green-500'
-                      : 'border-red-500/50 text-red-500'
-                  }
-                >
-                  {formatPercent(account.totalGainLossPercent)}
-                </Badge>
-              </div>
+                {formatPercent(account.totalGainLossPercent)}
+              </Badge>
+            </div>
+          </div>
+
+          {/* Row 2: Currency toggle (left) + Action buttons (right) */}
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
+            {/* Currency toggle */}
+            <div
+              role="group"
+              aria-label="Display currency"
+              className="flex items-center gap-0.5 rounded-md border bg-muted/50 p-0.5"
+            >
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowInAlternate(false)}
+                aria-pressed={!showInAlternate}
+                className={cn(
+                  'h-8 sm:h-6 px-3 sm:px-2 text-xs font-medium',
+                  !showInAlternate
+                    ? 'bg-background shadow-sm'
+                    : 'hover:bg-transparent'
+                )}
+              >
+                {nativeCurrency}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowInAlternate(true)}
+                disabled={toggleDisabled}
+                aria-pressed={showInAlternate}
+                className={cn(
+                  'h-8 sm:h-6 px-3 sm:px-2 text-xs font-medium',
+                  showInAlternate
+                    ? 'bg-background shadow-sm'
+                    : 'hover:bg-transparent',
+                  toggleDisabled && 'opacity-50 cursor-not-allowed'
+                )}
+              >
+                {alternateCurrency}
+              </Button>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-1">
+              <AddHoldingDialog
+                accountId={account.id}
+                accountName={account.name}
+                accountCurrency={nativeCurrency}
+              />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -179,35 +191,31 @@ export function AccountCard({ account }: AccountCardProps) {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <EditAccountDialog
-                accountId={account.id}
-                accountName={account.name}
-                accountBroker={account.broker}
-                open={showEditDialog}
-                onOpenChange={setShowEditDialog}
-              />
-              <DeleteConfirmDialog
-                title={`Delete ${account.name}?`}
-                description={`This will permanently delete the account "${account.name}" and all its holdings. This action cannot be undone.`}
-                onConfirm={() => deleteAccount.mutateAsync(account.id)}
-                open={showDeleteDialog}
-                onOpenChange={setShowDeleteDialog}
-              />
             </div>
           </div>
+
+          {/* Dialogs */}
+          <EditAccountDialog
+            accountId={account.id}
+            accountName={account.name}
+            accountBroker={account.broker}
+            open={showEditDialog}
+            onOpenChange={setShowEditDialog}
+          />
+          <DeleteConfirmDialog
+            title={`Delete ${account.name}?`}
+            description={`This will permanently delete the account "${account.name}" and all its holdings. This action cannot be undone.`}
+            onConfirm={() => deleteAccount.mutateAsync(account.id)}
+            open={showDeleteDialog}
+            onOpenChange={setShowDeleteDialog}
+          />
         </CardHeader>
         <CollapsibleContent>
           <CardContent className="pt-0">
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-4">
               <div className="text-sm text-muted-foreground">
                 {account.holdings.length} holding{account.holdings.length !== 1 ? 's' : ''}
               </div>
-              <AddHoldingDialog
-                accountId={account.id}
-                accountName={account.name}
-                accountCurrency={nativeCurrency}
-                displayCurrency={displayCurrency}
-              />
             </div>
             <HoldingsTable
               holdings={account.holdings}

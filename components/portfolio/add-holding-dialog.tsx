@@ -22,7 +22,6 @@ interface AddHoldingDialogProps {
   accountId: string;
   accountName: string;
   accountCurrency?: string;
-  displayCurrency?: string;
 }
 
 export function AddHoldingDialog({ accountId, accountName, accountCurrency = 'USD' }: AddHoldingDialogProps) {
@@ -76,9 +75,9 @@ export function AddHoldingDialog({ accountId, accountName, accountCurrency = 'US
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Plus className="mr-1 h-3 w-3" />
-          Add Stock
+        <Button variant="ghost" size="icon-sm" title="Add stock">
+          <Plus className="h-4 w-4" />
+          <span className="sr-only">Add stock to {accountName}</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
