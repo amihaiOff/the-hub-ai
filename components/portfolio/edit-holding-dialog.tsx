@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,14 +20,42 @@ import type { HoldingValue } from '@/lib/utils/portfolio';
 interface EditHoldingDialogProps {
   holdingId: string;
   holding: HoldingValue;
+  // Controlled mode props
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function EditHoldingDialog({ holdingId, holding }: EditHoldingDialogProps) {
-  const [open, setOpen] = useState(false);
+export function EditHoldingDialog({
+  holdingId,
+  holding,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+}: EditHoldingDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+
+  // Support both controlled and uncontrolled modes
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = (value: boolean) => {
+    if (isControlled && controlledOnOpenChange) {
+      controlledOnOpenChange(value);
+    } else {
+      setInternalOpen(value);
+    }
+  };
   const [quantity, setQuantity] = useState(holding.quantity.toString());
   const [avgCostBasis, setAvgCostBasis] = useState(holding.avgCostBasis.toString());
   const [error, setError] = useState('');
   const updateHolding = useUpdateHolding();
+
+  // Reset form when dialog opens with new values
+  useEffect(() => {
+    if (open) {
+      setQuantity(holding.quantity.toString());
+      setAvgCostBasis(holding.avgCostBasis.toString());
+      setError('');
+    }
+  }, [open, holding.quantity, holding.avgCostBasis]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,11 +88,14 @@ export function EditHoldingDialog({ holdingId, holding }: EditHoldingDialogProps
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon-sm">
-          <Pencil className="h-3 w-3" />
-        </Button>
-      </DialogTrigger>
+      {/* Only render trigger in uncontrolled mode */}
+      {!isControlled && (
+        <DialogTrigger asChild>
+          <Button variant="ghost" size="icon-sm">
+            <Pencil className="h-3 w-3" />
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
@@ -75,7 +106,7 @@ export function EditHoldingDialog({ holdingId, holding }: EditHoldingDialogProps
           </DialogHeader>
           <div className="grid gap-4 py-4">
             {error && (
-              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              <div role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
                 {error}
               </div>
             )}
@@ -109,6 +140,7 @@ export function EditHoldingDialog({ holdingId, holding }: EditHoldingDialogProps
               type="button"
               variant="outline"
               onClick={() => setOpen(false)}
+              disabled={updateHolding.isPending}
             >
               Cancel
             </Button>

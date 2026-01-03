@@ -18,6 +18,9 @@ interface DeleteConfirmDialogProps {
   description: string;
   onConfirm: () => Promise<void>;
   trigger?: React.ReactNode;
+  // Controlled mode props
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function DeleteConfirmDialog({
@@ -25,17 +28,38 @@ export function DeleteConfirmDialog({
   description,
   onConfirm,
   trigger,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }: DeleteConfirmDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState('');
+
+  // Support both controlled and uncontrolled modes
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = (value: boolean) => {
+    if (isControlled && controlledOnOpenChange) {
+      controlledOnOpenChange(value);
+    } else {
+      setInternalOpen(value);
+    }
+    // Clear error when dialog closes
+    if (!value) {
+      setError('');
+    }
+  };
 
   const handleConfirm = async () => {
     setIsDeleting(true);
+    setError('');
     try {
       await onConfirm();
       setOpen(false);
-    } catch (error) {
-      console.error('Delete failed:', error);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete. Please try again.';
+      setError(errorMessage);
+      console.error('Delete failed:', err);
     } finally {
       setIsDeleting(false);
     }
@@ -43,18 +67,26 @@ export function DeleteConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive">
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        )}
-      </DialogTrigger>
+      {/* Only render trigger in uncontrolled mode */}
+      {!isControlled && (
+        <DialogTrigger asChild>
+          {trigger || (
+            <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive">
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
+        {error && (
+          <div role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
         <DialogFooter>
           <Button
             type="button"

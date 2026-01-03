@@ -45,21 +45,6 @@ function PortfolioContent() {
         </Card>
       )}
 
-      {/* Portfolio Performance Chart */}
-      <Card>
-        <CardContent className="pt-4 pb-2">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-muted-foreground">Portfolio Performance</span>
-            <span className="text-xs text-muted-foreground">Last 6 months</span>
-          </div>
-          <PortfolioGainsChart
-            currentValue={portfolio?.totalValue ?? 0}
-            totalGainLoss={portfolio?.totalGainLoss ?? 0}
-            isLoading={isLoading}
-          />
-        </CardContent>
-      </Card>
-
       {/* Portfolio Summary */}
       <PortfolioSummary
         totalValue={portfolio?.totalValue ?? 0}
@@ -68,6 +53,17 @@ function PortfolioContent() {
         totalHoldings={portfolio?.totalHoldings ?? 0}
         isLoading={isLoading}
       />
+
+      {/* Portfolio Performance Chart */}
+      <Card>
+        <CardContent className="pt-4 pb-3">
+          <PortfolioGainsChart
+            currentValue={portfolio?.totalValue ?? 0}
+            totalGainLoss={portfolio?.totalGainLoss ?? 0}
+            isLoading={isLoading}
+          />
+        </CardContent>
+      </Card>
 
       {/* Main Content Grid */}
       <div className="grid gap-6 lg:grid-cols-3">

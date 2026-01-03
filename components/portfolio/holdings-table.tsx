@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
+import { MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -10,6 +11,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { EditHoldingDialog } from './edit-holding-dialog';
 import { DeleteConfirmDialog } from './delete-confirm-dialog';
 import { useDeleteHolding } from '@/lib/hooks/use-portfolio';
@@ -21,6 +30,101 @@ interface HoldingsTableProps {
   holdings: HoldingValue[];
   baseCurrency?: string;
   displayCurrency?: string;
+}
+
+interface HoldingRowProps {
+  holding: HoldingValue;
+  formatDisplayValue: (value: number) => string;
+  onDelete: () => Promise<void>;
+}
+
+function HoldingRow({ holding, formatDisplayValue, onDelete }: HoldingRowProps) {
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const isPositive = holding.gainLoss >= 0;
+
+  return (
+    <TableRow>
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{holding.symbol}</span>
+        </div>
+      </TableCell>
+      <TableCell className="text-right tabular-nums">
+        {formatQuantity(holding.quantity)}
+      </TableCell>
+      <TableCell className="hidden text-right tabular-nums sm:table-cell">
+        {formatDisplayValue(holding.avgCostBasis)}
+      </TableCell>
+      <TableCell className="text-right tabular-nums">
+        {formatDisplayValue(holding.currentPrice)}
+      </TableCell>
+      <TableCell className="text-right tabular-nums font-medium">
+        {formatDisplayValue(holding.currentValue)}
+      </TableCell>
+      <TableCell className="hidden text-right md:table-cell">
+        <div className="flex flex-col items-end">
+          <Badge
+            variant="outline"
+            className={
+              isPositive
+                ? 'border-green-500/50 text-green-500'
+                : 'border-red-500/50 text-red-500'
+            }
+          >
+            {isPositive ? '+' : ''}
+            {formatDisplayValue(holding.gainLoss)}
+          </Badge>
+          <span
+            className={`text-xs ${
+              isPositive ? 'text-green-500' : 'text-red-500'
+            }`}
+          >
+            {formatPercent(holding.gainLossPercent)}
+          </span>
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center justify-end">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" className="text-muted-foreground">
+                <MoreVertical className="h-4 w-4" />
+                <span className="sr-only">Holding options</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit holding
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setShowDeleteDialog(true)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete holding
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <EditHoldingDialog
+            holdingId={holding.id}
+            holding={holding}
+            open={showEditDialog}
+            onOpenChange={setShowEditDialog}
+          />
+          <DeleteConfirmDialog
+            title={`Delete ${holding.symbol}?`}
+            description={`This will remove ${holding.symbol} from your account. This action cannot be undone.`}
+            onConfirm={onDelete}
+            open={showDeleteDialog}
+            onOpenChange={setShowDeleteDialog}
+          />
+        </div>
+      </TableCell>
+    </TableRow>
+  );
 }
 
 export function HoldingsTable({ holdings, baseCurrency = 'USD', displayCurrency }: HoldingsTableProps) {
@@ -80,63 +184,14 @@ export function HoldingsTable({ holdings, baseCurrency = 'USD', displayCurrency 
           </TableRow>
         </TableHeader>
         <TableBody>
-          {holdings.map((holding) => {
-            const isPositive = holding.gainLoss >= 0;
-
-            return (
-              <TableRow key={holding.id}>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{holding.symbol}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {formatQuantity(holding.quantity)}
-                </TableCell>
-                <TableCell className="hidden text-right tabular-nums sm:table-cell">
-                  {formatDisplayValue(holding.avgCostBasis)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {formatDisplayValue(holding.currentPrice)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums font-medium">
-                  {formatDisplayValue(holding.currentValue)}
-                </TableCell>
-                <TableCell className="hidden text-right md:table-cell">
-                  <div className="flex flex-col items-end">
-                    <Badge
-                      variant="outline"
-                      className={
-                        isPositive
-                          ? 'border-green-500/50 text-green-500'
-                          : 'border-red-500/50 text-red-500'
-                      }
-                    >
-                      {isPositive ? '+' : ''}
-                      {formatDisplayValue(holding.gainLoss)}
-                    </Badge>
-                    <span
-                      className={`text-xs ${
-                        isPositive ? 'text-green-500' : 'text-red-500'
-                      }`}
-                    >
-                      {formatPercent(holding.gainLossPercent)}
-                    </span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center justify-end gap-1">
-                    <EditHoldingDialog holdingId={holding.id} holding={holding} />
-                    <DeleteConfirmDialog
-                      title={`Delete ${holding.symbol}?`}
-                      description={`This will remove ${holding.symbol} from your account. This action cannot be undone.`}
-                      onConfirm={() => deleteHolding.mutateAsync(holding.id)}
-                    />
-                  </div>
-                </TableCell>
-              </TableRow>
-            );
-          })}
+          {holdings.map((holding) => (
+            <HoldingRow
+              key={holding.id}
+              holding={holding}
+              formatDisplayValue={formatDisplayValue}
+              onDelete={() => deleteHolding.mutateAsync(holding.id)}
+            />
+          ))}
         </TableBody>
       </Table>
     </div>

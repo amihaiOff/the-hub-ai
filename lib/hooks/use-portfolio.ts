@@ -63,6 +63,28 @@ async function createAccount(params: { name: string; broker?: string; currency?:
   return data.data;
 }
 
+async function updateAccount(params: {
+  id: string;
+  name?: string;
+  broker?: string | null;
+}): Promise<StockAccount> {
+  const { id, ...updateData } = params;
+
+  const response = await fetch(`/api/portfolio/accounts/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updateData),
+  });
+
+  const data: ApiResponse<StockAccount> = await response.json();
+
+  if (!data.success || !data.data) {
+    throw new Error(data.error || 'Failed to update account');
+  }
+
+  return data.data;
+}
+
 async function deleteAccount(accountId: string): Promise<void> {
   const response = await fetch(`/api/portfolio/accounts/${accountId}`, {
     method: 'DELETE',
@@ -143,6 +165,17 @@ export function useCreateAccount() {
 
   return useMutation({
     mutationFn: createAccount,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+    },
+  });
+}
+
+export function useUpdateAccount() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: updateAccount,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolio'] });
     },

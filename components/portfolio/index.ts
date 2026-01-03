@@ -1,5 +1,6 @@
 export { AddAccountDialog } from './add-account-dialog';
 export { AddHoldingDialog } from './add-holding-dialog';
+export { EditAccountDialog } from './edit-account-dialog';
 export { EditHoldingDialog } from './edit-holding-dialog';
 export { DeleteConfirmDialog } from './delete-confirm-dialog';
 export { PortfolioSummary } from './portfolio-summary';

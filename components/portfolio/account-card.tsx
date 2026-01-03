@@ -1,13 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Building2, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Building2, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { HoldingsTable } from './holdings-table';
 import { AddHoldingDialog } from './add-holding-dialog';
+import { EditAccountDialog } from './edit-account-dialog';
 import { DeleteConfirmDialog } from './delete-confirm-dialog';
 import { useDeleteAccount } from '@/lib/hooks/use-portfolio';
 import { formatPercent } from '@/lib/utils/portfolio';
@@ -23,6 +31,8 @@ export function AccountCard({ account }: AccountCardProps) {
   const [isOpen, setIsOpen] = useState(true);
   // Display currency: either account's native currency or alternate (ILS/USD)
   const [showInAlternate, setShowInAlternate] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const deleteAccount = useDeleteAccount();
   const { rates, isLoadingRates, ratesError } = useCurrency();
   const isPositive = account.totalGainLoss >= 0;
@@ -69,7 +79,11 @@ export function AccountCard({ account }: AccountCardProps) {
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <CollapsibleTrigger asChild>
-              <button className="flex items-center gap-2 text-left hover:opacity-80">
+              <button
+                className="flex items-center gap-2 text-left hover:opacity-80"
+                aria-expanded={isOpen}
+                aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${account.name} account details`}
+              >
                 {isOpen ? (
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 ) : (
@@ -88,11 +102,16 @@ export function AccountCard({ account }: AccountCardProps) {
             </CollapsibleTrigger>
             <div className="flex items-center gap-2">
               {/* Currency toggle */}
-              <div className="flex items-center gap-0.5 rounded-md border bg-muted/50 p-0.5">
+              <div
+                role="group"
+                aria-label="Display currency"
+                className="flex items-center gap-0.5 rounded-md border bg-muted/50 p-0.5"
+              >
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowInAlternate(false)}
+                  aria-pressed={!showInAlternate}
                   className={cn(
                     'h-6 px-2 text-xs font-medium',
                     !showInAlternate
@@ -107,6 +126,7 @@ export function AccountCard({ account }: AccountCardProps) {
                   size="sm"
                   onClick={() => setShowInAlternate(true)}
                   disabled={toggleDisabled}
+                  aria-pressed={showInAlternate}
                   className={cn(
                     'h-6 px-2 text-xs font-medium',
                     showInAlternate
@@ -134,19 +154,45 @@ export function AccountCard({ account }: AccountCardProps) {
                   {formatPercent(account.totalGainLossPercent)}
                 </Badge>
               </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                    <span className="sr-only">Account options</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit name & broker
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setShowDeleteDialog(true)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete account
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <EditAccountDialog
+                accountId={account.id}
+                accountName={account.name}
+                accountBroker={account.broker}
+                open={showEditDialog}
+                onOpenChange={setShowEditDialog}
+              />
               <DeleteConfirmDialog
                 title={`Delete ${account.name}?`}
                 description={`This will permanently delete the account "${account.name}" and all its holdings. This action cannot be undone.`}
                 onConfirm={() => deleteAccount.mutateAsync(account.id)}
-                trigger={
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                }
+                open={showDeleteDialog}
+                onOpenChange={setShowDeleteDialog}
               />
             </div>
           </div>
