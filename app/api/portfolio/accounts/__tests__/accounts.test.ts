@@ -38,7 +38,7 @@ describe('Portfolio Accounts API', () => {
 
   describe('POST /api/portfolio/accounts', () => {
     it('should create account successfully', async () => {
-      const mockUser = { id: 'user-1', email: 'test@example.com' };
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
       const mockAccount = {
         id: 'acc-1',
         name: 'Test Account',
@@ -102,7 +102,7 @@ describe('Portfolio Accounts API', () => {
     });
 
     it('should return 400 when name is missing', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com' });
+      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com', name: 'Test User' });
 
       const request = new NextRequest('http://localhost:3000/api/portfolio/accounts', {
         method: 'POST',
@@ -118,7 +118,7 @@ describe('Portfolio Accounts API', () => {
     });
 
     it('should return 400 when name is empty', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com' });
+      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com', name: 'Test User' });
 
       const request = new NextRequest('http://localhost:3000/api/portfolio/accounts', {
         method: 'POST',
@@ -133,7 +133,7 @@ describe('Portfolio Accounts API', () => {
     });
 
     it('should default to USD for invalid currency', async () => {
-      const mockUser = { id: 'user-1', email: 'test@example.com' };
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
       (mockPrisma.stockAccount.create as jest.Mock).mockResolvedValueOnce({
         id: 'acc-1',
@@ -159,7 +159,7 @@ describe('Portfolio Accounts API', () => {
     });
 
     it('should accept valid currencies', async () => {
-      const mockUser = { id: 'user-1', email: 'test@example.com' };
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
       (mockPrisma.stockAccount.create as jest.Mock).mockResolvedValueOnce({
         id: 'acc-1',
@@ -185,7 +185,7 @@ describe('Portfolio Accounts API', () => {
     });
 
     it('should trim name and broker', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com' });
+      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com', name: 'Test User' });
       (mockPrisma.stockAccount.create as jest.Mock).mockResolvedValueOnce({
         id: 'acc-1',
         name: 'Test Account',
@@ -214,7 +214,7 @@ describe('Portfolio Accounts API', () => {
     });
 
     it('should handle null broker', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com' });
+      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com', name: 'Test User' });
       (mockPrisma.stockAccount.create as jest.Mock).mockResolvedValueOnce({
         id: 'acc-1',
         name: 'Test',
@@ -239,7 +239,7 @@ describe('Portfolio Accounts API', () => {
 
   describe('GET /api/portfolio/accounts', () => {
     it('should return user accounts', async () => {
-      const mockUser = { id: 'user-1', email: 'test@example.com' };
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
       const mockAccounts = [
         { id: 'acc-1', name: 'Account 1', _count: { holdings: 3 } },
         { id: 'acc-2', name: 'Account 2', _count: { holdings: 5 } },
@@ -275,7 +275,7 @@ describe('Portfolio Accounts API', () => {
 
   describe('GET /api/portfolio/accounts/[id]', () => {
     it('should return account with holdings', async () => {
-      const mockUser = { id: 'user-1', email: 'test@example.com' };
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
       const mockAccount = {
         id: 'acc-1',
         name: 'Test',
@@ -296,7 +296,7 @@ describe('Portfolio Accounts API', () => {
     });
 
     it('should return 404 when account not found', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com' });
+      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com', name: 'Test User' });
       (mockPrisma.stockAccount.findUnique as jest.Mock).mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/portfolio/accounts/invalid');
@@ -308,7 +308,7 @@ describe('Portfolio Accounts API', () => {
     });
 
     it('should return 403 when user does not own account', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com' });
+      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com', name: 'Test User' });
       (mockPrisma.stockAccount.findUnique as jest.Mock).mockResolvedValueOnce({
         id: 'acc-1',
         userId: 'other-user',
@@ -325,7 +325,7 @@ describe('Portfolio Accounts API', () => {
 
   describe('PUT /api/portfolio/accounts/[id]', () => {
     it('should update account name and broker', async () => {
-      const mockUser = { id: 'user-1', email: 'test@example.com' };
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
       const mockExisting = { id: 'acc-1', userId: 'user-1', name: 'Old Name' };
       const mockUpdated = {
         id: 'acc-1',
@@ -359,7 +359,7 @@ describe('Portfolio Accounts API', () => {
     });
 
     it('should update only name when broker not provided', async () => {
-      const mockUser = { id: 'user-1', email: 'test@example.com' };
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
       (mockPrisma.stockAccount.findUnique as jest.Mock).mockResolvedValueOnce({
         id: 'acc-1',
@@ -386,7 +386,7 @@ describe('Portfolio Accounts API', () => {
     });
 
     it('should set broker to null when provided as null', async () => {
-      const mockUser = { id: 'user-1', email: 'test@example.com' };
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
       (mockPrisma.stockAccount.findUnique as jest.Mock).mockResolvedValueOnce({
         id: 'acc-1',
@@ -413,7 +413,7 @@ describe('Portfolio Accounts API', () => {
     });
 
     it('should return 400 when name is empty string', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com' });
+      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com', name: 'Test User' });
 
       const request = new NextRequest('http://localhost:3000/api/portfolio/accounts/acc-1', {
         method: 'PUT',
@@ -428,7 +428,7 @@ describe('Portfolio Accounts API', () => {
     });
 
     it('should return 404 when account not found', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com' });
+      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com', name: 'Test User' });
       (mockPrisma.stockAccount.findUnique as jest.Mock).mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/portfolio/accounts/invalid', {
@@ -444,7 +444,7 @@ describe('Portfolio Accounts API', () => {
     });
 
     it('should return 403 when user does not own account', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com' });
+      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com', name: 'Test User' });
       (mockPrisma.stockAccount.findUnique as jest.Mock).mockResolvedValueOnce({
         id: 'acc-1',
         userId: 'other-user',
@@ -465,7 +465,7 @@ describe('Portfolio Accounts API', () => {
 
   describe('DELETE /api/portfolio/accounts/[id]', () => {
     it('should delete account successfully', async () => {
-      const mockUser = { id: 'user-1', email: 'test@example.com' };
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
       (mockPrisma.stockAccount.findUnique as jest.Mock).mockResolvedValueOnce({
         id: 'acc-1',
@@ -490,7 +490,7 @@ describe('Portfolio Accounts API', () => {
     });
 
     it('should return 404 when account not found', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com' });
+      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com', name: 'Test User' });
       (mockPrisma.stockAccount.findUnique as jest.Mock).mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/portfolio/accounts/invalid', {
@@ -505,7 +505,7 @@ describe('Portfolio Accounts API', () => {
     });
 
     it('should return 403 when user does not own account', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com' });
+      mockGetCurrentUser.mockResolvedValueOnce({ id: 'user-1', email: 'test@example.com', name: 'Test User' });
       (mockPrisma.stockAccount.findUnique as jest.Mock).mockResolvedValueOnce({
         id: 'acc-1',
         userId: 'other-user',

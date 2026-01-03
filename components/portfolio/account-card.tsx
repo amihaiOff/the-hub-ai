@@ -76,7 +76,7 @@ export function AccountCard({ account }: AccountCardProps) {
   return (
     <Card>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CardHeader className="pb-3">
+        <CardHeader className="pb-3 px-3 sm:px-6">
           <div className="flex items-start justify-between">
             <CollapsibleTrigger asChild>
               <button
@@ -113,7 +113,7 @@ export function AccountCard({ account }: AccountCardProps) {
                   onClick={() => setShowInAlternate(false)}
                   aria-pressed={!showInAlternate}
                   className={cn(
-                    'h-6 px-2 text-xs font-medium',
+                    'h-8 sm:h-6 px-3 sm:px-2 text-xs font-medium',
                     !showInAlternate
                       ? 'bg-background shadow-sm'
                       : 'hover:bg-transparent'
@@ -128,7 +128,7 @@ export function AccountCard({ account }: AccountCardProps) {
                   disabled={toggleDisabled}
                   aria-pressed={showInAlternate}
                   className={cn(
-                    'h-6 px-2 text-xs font-medium',
+                    'h-8 sm:h-6 px-3 sm:px-2 text-xs font-medium',
                     showInAlternate
                       ? 'bg-background shadow-sm'
                       : 'hover:bg-transparent',
@@ -150,7 +150,6 @@ export function AccountCard({ account }: AccountCardProps) {
                       : 'border-red-500/50 text-red-500'
                   }
                 >
-                  {isPositive ? '+' : ''}
                   {formatPercent(account.totalGainLossPercent)}
                 </Badge>
               </div>

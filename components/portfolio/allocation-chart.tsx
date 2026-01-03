@@ -136,8 +136,10 @@ export function AllocationChart({ allocation, isLoading }: AllocationChartProps)
                 verticalAlign="bottom"
                 align="center"
                 formatter={(value: string) => (
-                  <span className="text-sm">{value}</span>
+                  <span className="text-sm" aria-label={`${value} allocation`}>{value}</span>
                 )}
+                iconType="circle"
+                wrapperStyle={{ paddingTop: '8px' }}
               />
             </PieChart>
           </ResponsiveContainer>

@@ -26,13 +26,17 @@ export function BottomNav() {
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? 'page' : undefined}
               className={cn(
-                'flex flex-1 flex-col items-center justify-center gap-1 py-2 transition-colors',
+                'relative flex flex-1 flex-col items-center justify-center gap-1 py-2 transition-colors',
                 isActive
                   ? 'text-primary'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
+              {isActive && (
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-8 rounded-full bg-primary" />
+              )}
               <Icon className="h-5 w-5" />
               <span className="text-xs font-medium">{item.label}</span>
             </Link>

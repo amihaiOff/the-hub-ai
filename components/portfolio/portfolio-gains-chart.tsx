@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   AreaChart,
   Area,
@@ -10,7 +10,7 @@ import {
   Tooltip,
   LabelList,
 } from 'recharts';
-import { formatCurrency } from '@/lib/utils/portfolio';
+import { formatCurrency, formatPercent } from '@/lib/utils/portfolio';
 
 interface PortfolioGainsChartProps {
   currentValue: number;
@@ -19,6 +19,7 @@ interface PortfolioGainsChartProps {
 }
 
 type TimeRange = '6M' | '1Y' | '3Y' | '5Y' | 'YTD';
+type ViewMode = 'absolute' | 'percentage';
 
 const TIME_RANGES: { label: string; value: TimeRange }[] = [
   { label: '6M', value: '6M' },
@@ -75,17 +76,25 @@ function generateMockData(currentValue: number, totalGainLoss: number, timeRange
     const yearsBack = Math.floor((monthsBack - 1 - monthsFromStart) / 12);
     const year = currentYear - yearsBack;
 
+    const actualValue = Math.max(0, value);
+    const percentageGain = costBasis > 0 ? ((actualValue - costBasis) / costBasis) * 100 : 0;
+
     data.push({
       month: `${monthNames[targetMonth]} '${String(year).slice(-2)}`,
-      value: Math.max(0, value),
-      displayValue: formatCurrency(Math.max(0, value)),
+      value: actualValue,
+      percentageGain,
+      displayValue: formatCurrency(actualValue),
+      displayPercent: formatPercent(percentageGain),
     });
   }
 
   // Ensure last point is current value
   if (data.length > 0) {
+    const finalPercentageGain = costBasis > 0 ? ((currentValue - costBasis) / costBasis) * 100 : 0;
     data[data.length - 1].value = currentValue;
+    data[data.length - 1].percentageGain = finalPercentageGain;
     data[data.length - 1].displayValue = formatCurrency(currentValue);
+    data[data.length - 1].displayPercent = formatPercent(finalPercentageGain);
   }
 
   return data;
@@ -97,6 +106,16 @@ export function PortfolioGainsChart({
   isLoading,
 }: PortfolioGainsChartProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('1Y');
+  const [viewMode, setViewMode] = useState<ViewMode>('absolute');
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile viewport for hiding labels
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const data = useMemo(
     () => generateMockData(currentValue, totalGainLoss, timeRange),
@@ -106,6 +125,8 @@ export function PortfolioGainsChart({
   const isPositive = totalGainLoss >= 0;
   const strokeColor = isPositive ? '#22c55e' : '#ef4444';
   const fillColor = isPositive ? '#22c55e' : '#ef4444';
+  const dataKey = viewMode === 'percentage' ? 'percentageGain' : 'value';
+  const displayKey = viewMode === 'percentage' ? 'displayPercent' : 'displayValue';
 
   if (isLoading) {
     return (
@@ -122,10 +143,37 @@ export function PortfolioGainsChart({
 
   return (
     <div className="space-y-3">
-      {/* Header with title and time range selector */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold text-foreground">Portfolio Performance</h3>
-        <div className="flex gap-1" role="group" aria-label="Time range selection">
+      {/* Header with title and controls */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center justify-between sm:justify-start gap-3">
+          <h3 className="text-base font-semibold text-foreground">Portfolio Performance</h3>
+          {/* View mode toggle */}
+          <div className="flex rounded-md border bg-muted/50 p-0.5" role="group" aria-label="View mode">
+            <button
+              onClick={() => setViewMode('absolute')}
+              aria-pressed={viewMode === 'absolute'}
+              className={`px-2 py-1 text-xs rounded transition-colors ${
+                viewMode === 'absolute'
+                  ? 'bg-background shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              $
+            </button>
+            <button
+              onClick={() => setViewMode('percentage')}
+              aria-pressed={viewMode === 'percentage'}
+              className={`px-2 py-1 text-xs rounded transition-colors ${
+                viewMode === 'percentage'
+                  ? 'bg-background shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              %
+            </button>
+          </div>
+        </div>
+        <div className="flex gap-1.5 sm:gap-1" role="group" aria-label="Time range selection">
           {TIME_RANGES.map(({ label, value }) => (
             <button
               key={value}
@@ -169,11 +217,11 @@ export function PortfolioGainsChart({
             <Tooltip
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {
-                  const value = payload[0].value as number;
+                  const dataPoint = payload[0].payload as { displayValue: string; displayPercent: string };
                   return (
                     <div className="rounded-md border bg-background px-2 py-1 shadow-sm">
                       <p className="text-xs font-medium tabular-nums">
-                        {formatCurrency(value)}
+                        {viewMode === 'percentage' ? dataPoint.displayPercent : dataPoint.displayValue}
                       </p>
                     </div>
                   );
@@ -183,7 +231,7 @@ export function PortfolioGainsChart({
             />
             <Area
               type="monotone"
-              dataKey="value"
+              dataKey={dataKey}
               stroke={strokeColor}
               strokeWidth={2}
               fill="url(#gainGradient)"
@@ -199,13 +247,15 @@ export function PortfolioGainsChart({
                 stroke: '#fff',
               }}
             >
-              <LabelList
-                dataKey="displayValue"
-                position="top"
-                offset={8}
-                fontSize={9}
-                fill="#71717a"
-              />
+              {!isMobile && (
+                <LabelList
+                  dataKey={displayKey}
+                  position="top"
+                  offset={8}
+                  fontSize={9}
+                  fill="#71717a"
+                />
+              )}
             </Area>
           </AreaChart>
         </ResponsiveContainer>
