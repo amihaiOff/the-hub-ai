@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 
 interface RouteParams {
@@ -13,8 +13,8 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     // Authentication check
-    const session = await auth();
-    if (!session?.user?.id) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Authorization check - verify user owns the account containing this holding
-    if (holding.account.userId !== session.user.id) {
+    if (holding.account.userId !== user.id) {
       return NextResponse.json(
         { success: false, error: 'Forbidden' },
         { status: 403 }
@@ -65,8 +65,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     // Authentication check
-    const session = await auth();
-    if (!session?.user?.id) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -106,7 +106,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     // Authorization check - verify user owns the account containing this holding
-    if (existing.account.userId !== session.user.id) {
+    if (existing.account.userId !== user.id) {
       return NextResponse.json(
         { success: false, error: 'Forbidden' },
         { status: 403 }
@@ -142,8 +142,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     // Authentication check
-    const session = await auth();
-    if (!session?.user?.id) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -166,7 +166,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Authorization check - verify user owns the account containing this holding
-    if (existing.account.userId !== session.user.id) {
+    if (existing.account.userId !== user.id) {
       return NextResponse.json(
         { success: false, error: 'Forbidden' },
         { status: 403 }

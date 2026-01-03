@@ -70,6 +70,35 @@ Cause: Using JavaScript number instead of Decimal
 Fix: Use Prisma Decimal type throughout
 ```
 
+## API Security
+
+### All API Routes Need Authentication
+
+Every API route that accesses user data or external services must check authentication:
+
+```typescript
+import { getCurrentUser } from '@/lib/auth-utils';
+
+export async function GET(request: NextRequest) {
+  // ALWAYS add auth check first
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized' },
+      { status: 401 }
+    );
+  }
+
+  // ... rest of handler
+}
+```
+
+Protected routes include:
+- `/api/stocks/search` - Stock symbol search
+- `/api/stocks/price/[symbol]` - Stock price lookup
+- `/api/exchange-rates` - Currency exchange rates
+- All portfolio, pension, and asset endpoints
+
 ## Stock Price API Issues
 
 ### "API rate limit exceeded"

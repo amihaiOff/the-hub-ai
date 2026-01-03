@@ -72,6 +72,30 @@ Use shadcn/ui for consistency:
 - `Dialog`, `Sheet` (mobile-friendly modals)
 - `Table` (with horizontal scroll on mobile)
 
+## Performance Optimization
+
+### Memoize Expensive Formatting Functions
+
+Use `useCallback` for formatting functions that depend on props/state:
+
+```tsx
+// BAD: Function recreated on every render
+const formatDisplayValue = (value: number): string => {
+  if (displayCurrency !== baseCurrency && rates) {
+    // expensive conversion logic
+  }
+  return formatValue(value, baseCurrency);
+};
+
+// GOOD: Memoized with dependencies
+const formatDisplayValue = useCallback((value: number): string => {
+  if (displayCurrency !== baseCurrency && rates) {
+    // expensive conversion logic
+  }
+  return formatValue(value, baseCurrency);
+}, [displayCurrency, baseCurrency, rates, formatValue]);
+```
+
 ## Checklist
 
 - [ ] Works on 320px width
@@ -79,3 +103,4 @@ Use shadcn/ui for consistency:
 - [ ] Touch targets 44px minimum
 - [ ] Numbers use tabular figures
 - [ ] Charts readable on mobile
+- [ ] Expensive functions memoized with useCallback

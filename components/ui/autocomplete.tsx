@@ -190,7 +190,10 @@ export function Autocomplete({
                 id={`${id}-option-${index}`}
                 role="option"
                 aria-selected={highlightedIndex === index}
-                onClick={() => handleSelect(option)}
+                onMouseDown={(e) => {
+                  e.preventDefault(); // Prevent input blur
+                  handleSelect(option);
+                }}
                 onMouseEnter={() => setHighlightedIndex(index)}
                 className={cn(
                   'relative flex cursor-pointer select-none items-center justify-between rounded-sm px-2 py-2 text-sm outline-none transition-colors',

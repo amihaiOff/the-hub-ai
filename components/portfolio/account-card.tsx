@@ -12,18 +12,56 @@ import { DeleteConfirmDialog } from './delete-confirm-dialog';
 import { useDeleteAccount } from '@/lib/hooks/use-portfolio';
 import { formatPercent } from '@/lib/utils/portfolio';
 import { useCurrency } from '@/lib/contexts/currency-context';
+import { cn } from '@/lib/utils';
 import type { AccountSummary } from '@/lib/utils/portfolio';
 
 interface AccountCardProps {
   account: AccountSummary;
-  baseCurrency?: string;
 }
 
-export function AccountCard({ account, baseCurrency = 'USD' }: AccountCardProps) {
+export function AccountCard({ account }: AccountCardProps) {
   const [isOpen, setIsOpen] = useState(true);
+  // Display currency: either account's native currency or alternate (ILS/USD)
+  const [showInAlternate, setShowInAlternate] = useState(false);
   const deleteAccount = useDeleteAccount();
-  const { formatValue } = useCurrency();
+  const { rates, isLoadingRates, ratesError } = useCurrency();
   const isPositive = account.totalGainLoss >= 0;
+
+  // Determine the alternate currency (if account is USD, alternate is ILS; if account is ILS, alternate is USD)
+  const nativeCurrency = account.currency || 'USD';
+  const alternateCurrency = nativeCurrency === 'ILS' ? 'USD' : 'ILS';
+  const displayCurrency = showInAlternate ? alternateCurrency : nativeCurrency;
+
+  // Format value in the selected display currency
+  // Note: rates are TO ILS (e.g., rates.USD = 3.18 means 1 USD = 3.18 ILS)
+  const formatDisplayValue = (value: number): string => {
+    if (showInAlternate && rates) {
+      let convertedValue: number;
+      if (nativeCurrency === 'ILS' && alternateCurrency === 'USD') {
+        // Convert ILS to USD: divide by USD-to-ILS rate
+        convertedValue = value / (rates.USD || 1);
+      } else {
+        // Convert native currency to ILS: multiply by the currency's rate to ILS
+        const rate = rates[nativeCurrency as keyof typeof rates] || rates.USD || 1;
+        convertedValue = value * rate;
+      }
+      return new Intl.NumberFormat(alternateCurrency === 'ILS' ? 'he-IL' : 'en-US', {
+        style: 'currency',
+        currency: alternateCurrency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(convertedValue);
+    }
+
+    return new Intl.NumberFormat(nativeCurrency === 'ILS' ? 'he-IL' : 'en-US', {
+      style: 'currency',
+      currency: nativeCurrency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  };
+
+  const toggleDisabled = isLoadingRates || !!ratesError;
 
   return (
     <Card>
@@ -49,9 +87,40 @@ export function AccountCard({ account, baseCurrency = 'USD' }: AccountCardProps)
               </button>
             </CollapsibleTrigger>
             <div className="flex items-center gap-2">
+              {/* Currency toggle */}
+              <div className="flex items-center gap-0.5 rounded-md border bg-muted/50 p-0.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowInAlternate(false)}
+                  className={cn(
+                    'h-6 px-2 text-xs font-medium',
+                    !showInAlternate
+                      ? 'bg-background shadow-sm'
+                      : 'hover:bg-transparent'
+                  )}
+                >
+                  {nativeCurrency}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowInAlternate(true)}
+                  disabled={toggleDisabled}
+                  className={cn(
+                    'h-6 px-2 text-xs font-medium',
+                    showInAlternate
+                      ? 'bg-background shadow-sm'
+                      : 'hover:bg-transparent',
+                    toggleDisabled && 'opacity-50 cursor-not-allowed'
+                  )}
+                >
+                  {alternateCurrency}
+                </Button>
+              </div>
               <div className="text-right">
                 <div className="text-lg font-bold tabular-nums">
-                  {formatValue(account.totalValue, baseCurrency)}
+                  {formatDisplayValue(account.totalValue)}
                 </div>
                 <Badge
                   variant="outline"
@@ -88,9 +157,18 @@ export function AccountCard({ account, baseCurrency = 'USD' }: AccountCardProps)
               <div className="text-sm text-muted-foreground">
                 {account.holdings.length} holding{account.holdings.length !== 1 ? 's' : ''}
               </div>
-              <AddHoldingDialog accountId={account.id} accountName={account.name} />
+              <AddHoldingDialog
+                accountId={account.id}
+                accountName={account.name}
+                accountCurrency={nativeCurrency}
+                displayCurrency={displayCurrency}
+              />
             </div>
-            <HoldingsTable holdings={account.holdings} />
+            <HoldingsTable
+              holdings={account.holdings}
+              baseCurrency={nativeCurrency}
+              displayCurrency={displayCurrency}
+            />
           </CardContent>
         </CollapsibleContent>
       </Collapsible>

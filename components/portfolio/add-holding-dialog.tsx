@@ -21,9 +21,12 @@ import { useStockSearch } from '@/lib/hooks/use-stock-search';
 interface AddHoldingDialogProps {
   accountId: string;
   accountName: string;
+  accountCurrency?: string;
+  displayCurrency?: string;
 }
 
-export function AddHoldingDialog({ accountId, accountName }: AddHoldingDialogProps) {
+export function AddHoldingDialog({ accountId, accountName, accountCurrency = 'USD' }: AddHoldingDialogProps) {
+  // Cost basis is always entered in the account's native currency
   const [open, setOpen] = useState(false);
   const [symbol, setSymbol] = useState('');
   const [quantity, setQuantity] = useState('');
@@ -125,7 +128,7 @@ export function AddHoldingDialog({ accountId, accountName }: AddHoldingDialogPro
               </p>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="avgCostBasis">Average Cost Basis *</Label>
+              <Label htmlFor="avgCostBasis">Average Cost Basis ({accountCurrency}) *</Label>
               <Input
                 id="avgCostBasis"
                 type="number"
@@ -137,7 +140,7 @@ export function AddHoldingDialog({ accountId, accountName }: AddHoldingDialogPro
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Average price per share you paid
+                Average price per share in {accountCurrency}
               </p>
             </div>
           </div>

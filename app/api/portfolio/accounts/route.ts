@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 
 /**
@@ -9,8 +9,8 @@ import { prisma } from '@/lib/db';
 export async function POST(request: NextRequest) {
   try {
     // Authentication check
-    const session = await auth();
-    if (!session?.user?.id) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, broker } = body;
+    const { name, broker, currency } = body;
 
     // Validate required fields
     if (!name || typeof name !== 'string' || name.trim() === '') {
@@ -28,12 +28,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate currency if provided
+    const validCurrencies = ['USD', 'ILS', 'EUR', 'GBP'];
+    const accountCurrency = currency && validCurrencies.includes(currency) ? currency : 'USD';
+
     // Create the account for the authenticated user
     const account = await prisma.stockAccount.create({
       data: {
         name: name.trim(),
         broker: broker?.trim() || null,
-        userId: session.user.id,
+        currency: accountCurrency,
+        userId: user.id,
       },
       include: {
         holdings: true,
@@ -60,8 +65,8 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   try {
     // Authentication check
-    const session = await auth();
-    if (!session?.user?.id) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -70,7 +75,7 @@ export async function GET() {
 
     // Get accounts only for the authenticated user (authorization enforced by query)
     const accounts = await prisma.stockAccount.findMany({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       include: {
         _count: {
           select: { holdings: true },

@@ -71,6 +71,9 @@ Is this the first occurrence?
 | Assertion fails | Change expected value | Verify if code or test is wrong |
 | Timeout | Increase timeout | Find what's hanging |
 | Flaky test | Re-run until passes | Fix race condition |
+| Tests pass alone, fail together | Add more isolation | Use `jest.resetAllMocks()` not `clearAllMocks()` |
+
+**Important:** `jest.clearAllMocks()` only clears call history but keeps mock implementations. Use `jest.resetAllMocks()` in `beforeEach` to fully reset mock state including implementations, ensuring proper test isolation.
 
 ## Recovery Strategies
 

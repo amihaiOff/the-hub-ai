@@ -240,19 +240,33 @@ export async function getStockPrice(symbol: string): Promise<StockPriceResult> {
 
 /**
  * Get prices for multiple symbols
- * Optimized to check cache first, then batch API calls
+ * Optimized to check cache first with a single query, then batch API calls
  */
 export async function getStockPrices(symbols: string[]): Promise<Map<string, StockPriceResult>> {
   const results = new Map<string, StockPriceResult>();
+  const upperSymbols = symbols.map(s => s.toUpperCase());
+
+  // Fetch all cached prices in a single query (fixes N+1 issue)
+  const cachedPrices = await prisma.stockPriceHistory.findMany({
+    where: { symbol: { in: upperSymbols } },
+    orderBy: { timestamp: 'desc' },
+    distinct: ['symbol'],
+  });
+
+  // Build a map of valid cached prices
   const symbolsToFetch: string[] = [];
+  const cachedMap = new Map(cachedPrices.map(c => [c.symbol, c]));
 
-  // Check cache for all symbols first
-  for (const symbol of symbols) {
-    const upperSymbol = symbol.toUpperCase();
-    const cached = await getCachedPrice(upperSymbol);
+  for (const upperSymbol of upperSymbols) {
+    const cached = cachedMap.get(upperSymbol);
 
-    if (cached) {
-      results.set(upperSymbol, cached);
+    if (cached && isCacheValid(cached.timestamp)) {
+      results.set(upperSymbol, {
+        symbol: cached.symbol,
+        price: cached.price.toNumber(),
+        timestamp: cached.timestamp,
+        fromCache: true,
+      });
     } else {
       symbolsToFetch.push(upperSymbol);
     }

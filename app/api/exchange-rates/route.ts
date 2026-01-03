@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/auth-utils';
 
 export interface ExchangeRates {
   USD: number;
@@ -48,6 +49,15 @@ async function fetchRate(symbol: string): Promise<number | null> {
 
 export async function GET(): Promise<NextResponse<ExchangeRatesResponse>> {
   try {
+    // Require authentication
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { success: false, baseCurrency: 'ILS', error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const [usdRate, eurRate, gbpRate] = await Promise.all([
       fetchRate('USDILS=X'),
       fetchRate('EURILS=X'),

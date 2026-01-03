@@ -2,6 +2,7 @@ import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { prisma } from '@/lib/db';
 import type { NextAuthConfig, Session, User } from 'next-auth';
+import type { JWT } from 'next-auth/jwt';
 
 // Email allowlist - only these emails can access the app
 const ALLOWED_EMAILS =
@@ -47,16 +48,23 @@ const config: NextAuthConfig = {
 
       return true;
     },
-    async session({ session }: { session: Session }) {
-      // Add user ID to session
-      if (session.user?.email) {
+    async jwt({ token, user }: { token: JWT; user?: User }) {
+      // On initial sign-in, user object is available - look up database user ID
+      if (user?.email) {
         const dbUser = await prisma.user.findUnique({
-          where: { email: session.user.email },
+          where: { email: user.email },
           select: { id: true },
         });
         if (dbUser) {
-          session.user.id = dbUser.id;
+          token.userId = dbUser.id;
         }
+      }
+      return token;
+    },
+    async session({ session, token }: { session: Session; token: JWT }) {
+      // Pass user ID from token to session
+      if (token.userId) {
+        session.user.id = token.userId as string;
       }
       return session;
     },
@@ -78,5 +86,12 @@ declare module 'next-auth' {
       email?: string | null;
       image?: string | null;
     };
+  }
+}
+
+// Extend the JWT type to include userId
+declare module 'next-auth/jwt' {
+  interface JWT {
+    userId?: string;
   }
 }

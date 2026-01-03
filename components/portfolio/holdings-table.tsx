@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback } from 'react';
 import {
   Table,
   TableBody,
@@ -19,11 +20,42 @@ import type { HoldingValue } from '@/lib/utils/portfolio';
 interface HoldingsTableProps {
   holdings: HoldingValue[];
   baseCurrency?: string;
+  displayCurrency?: string;
 }
 
-export function HoldingsTable({ holdings, baseCurrency = 'USD' }: HoldingsTableProps) {
+export function HoldingsTable({ holdings, baseCurrency = 'USD', displayCurrency }: HoldingsTableProps) {
   const deleteHolding = useDeleteHolding();
-  const { formatValue } = useCurrency();
+  const { formatValue, rates } = useCurrency();
+
+  // Use displayCurrency if provided, otherwise use baseCurrency
+  const effectiveDisplayCurrency = displayCurrency || baseCurrency;
+
+  // Convert and format a value from baseCurrency to displayCurrency
+  // Note: rates are TO ILS (e.g., rates.USD = 3.18 means 1 USD = 3.18 ILS)
+  // Memoized to prevent unnecessary recalculations on re-renders
+  const formatDisplayValue = useCallback((value: number): string => {
+    if (effectiveDisplayCurrency !== baseCurrency && rates) {
+      let convertedValue: number;
+      if (baseCurrency === 'ILS' && effectiveDisplayCurrency === 'USD') {
+        // Convert ILS to USD: divide by USD-to-ILS rate
+        convertedValue = value / (rates.USD || 1);
+      } else if (baseCurrency === 'USD' && effectiveDisplayCurrency === 'ILS') {
+        // Convert USD to ILS: multiply by USD-to-ILS rate
+        convertedValue = value * (rates.USD || 1);
+      } else {
+        // Default: no conversion
+        convertedValue = value;
+      }
+      return new Intl.NumberFormat(effectiveDisplayCurrency === 'ILS' ? 'he-IL' : 'en-US', {
+        style: 'currency',
+        currency: effectiveDisplayCurrency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(convertedValue);
+    }
+
+    return formatValue(value, baseCurrency);
+  }, [effectiveDisplayCurrency, baseCurrency, rates, formatValue]);
 
   if (holdings.length === 0) {
     return (
@@ -62,13 +94,13 @@ export function HoldingsTable({ holdings, baseCurrency = 'USD' }: HoldingsTableP
                   {formatQuantity(holding.quantity)}
                 </TableCell>
                 <TableCell className="hidden text-right tabular-nums sm:table-cell">
-                  {formatValue(holding.avgCostBasis, baseCurrency)}
+                  {formatDisplayValue(holding.avgCostBasis)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatValue(holding.currentPrice, baseCurrency)}
+                  {formatDisplayValue(holding.currentPrice)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums font-medium">
-                  {formatValue(holding.currentValue, baseCurrency)}
+                  {formatDisplayValue(holding.currentValue)}
                 </TableCell>
                 <TableCell className="hidden text-right md:table-cell">
                   <div className="flex flex-col items-end">
@@ -81,7 +113,7 @@ export function HoldingsTable({ holdings, baseCurrency = 'USD' }: HoldingsTableP
                       }
                     >
                       {isPositive ? '+' : ''}
-                      {formatValue(holding.gainLoss, baseCurrency)}
+                      {formatDisplayValue(holding.gainLoss)}
                     </Badge>
                     <span
                       className={`text-xs ${

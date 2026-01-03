@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { getStockPrice, isStockPriceError } from '@/lib/api/stock-price';
 
@@ -11,8 +11,8 @@ import { getStockPrice, isStockPriceError } from '@/lib/api/stock-price';
 export async function POST(request: NextRequest) {
   try {
     // Authentication check
-    const session = await auth();
-    if (!session?.user?.id) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Authorization check - verify user owns this account
-    if (account.userId !== session.user.id) {
+    if (account.userId !== user.id) {
       return NextResponse.json(
         { success: false, error: 'Forbidden' },
         { status: 403 }

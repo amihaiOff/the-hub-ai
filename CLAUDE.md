@@ -2,6 +2,26 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Development Workflow (IMPORTANT)
+
+**Always follow this workflow for any coding task:**
+
+1. **Debug** (if fixing a bug) - Use `debugging-agent` to investigate root cause before fixing
+2. **Code** - Implement the fix/feature
+3. **Test** - Use `testing-agent` to verify changes work and don't break existing functionality
+4. **Review** - Use `reviewer-agent` to check code quality, security, and best practices
+5. **Update Spec** (if applicable) - Update `docs/the_hub_ai_spec.md` when features, architecture, or behavior changes
+
+**This workflow is mandatory.** Do not skip the test and review steps after writing code. The agents should be run in parallel when possible to save time.
+
+Example after completing a coding task:
+```
+<Task tool call to testing-agent>
+<Task tool call to reviewer-agent>
+```
+
+**Spec updates:** When implementing new features or changing existing behavior, update the spec file to reflect the current state of the application. Keep the spec as the source of truth for what the app does.
+
 ## Project Overview
 
 The Hub AI is a personal household financial management application for tracking net worth across multiple asset types: stock portfolios, pension/retirement accounts (Hishtalmut), and miscellaneous assets/debts. Built with Next.js for both frontend and backend, it features Google SSO authentication with email allowlist, mobile-first responsive design with dark mode, and automated background jobs for stock price updates and notifications.
@@ -201,7 +221,10 @@ GOOGLE_CLIENT_SECRET="..."
 NEXTAUTH_SECRET="random-secret"
 NEXTAUTH_URL="http://localhost:3000"  # or production URL
 ALPHA_VANTAGE_API_KEY="..."
+SKIP_AUTH="true"                      # DEV ONLY - bypasses OAuth for local development
 ```
+
+**Note:** `SKIP_AUTH` only works when `NODE_ENV !== 'production'`. It's safe to have in `.env.local` but will be ignored in production even if accidentally set.
 
 ### Deployment
 

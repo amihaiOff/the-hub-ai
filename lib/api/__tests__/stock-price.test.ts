@@ -9,6 +9,7 @@ jest.mock('@/lib/db', () => ({
   prisma: {
     stockPriceHistory: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
       create: jest.fn(),
     },
   },
@@ -29,8 +30,7 @@ import {
 
 describe('Stock Price Module', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest.resetModules();
+    jest.resetAllMocks();
     // Reset environment variables
     process.env.ALPHA_VANTAGE_API_KEY = 'test-api-key';
   });
@@ -372,23 +372,19 @@ describe('Stock Price Module', () => {
     it('should fetch multiple stock prices', async () => {
       const cachedTime = new Date(Date.now() - 1 * 60 * 60 * 1000);
 
-      // AAPL is cached
-      const aaplCached = {
-        symbol: 'AAPL',
-        price: { toNumber: () => 150.00 },
-        timestamp: cachedTime,
-      };
-
-      // GOOGL is cached
-      const googlCached = {
-        symbol: 'GOOGL',
-        price: { toNumber: () => 175.00 },
-        timestamp: cachedTime,
-      };
-
-      (prisma.stockPriceHistory.findFirst as jest.Mock)
-        .mockResolvedValueOnce(aaplCached)
-        .mockResolvedValueOnce(googlCached);
+      // Both symbols are cached - using findMany now
+      (prisma.stockPriceHistory.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          symbol: 'AAPL',
+          price: { toNumber: () => 150.00 },
+          timestamp: cachedTime,
+        },
+        {
+          symbol: 'GOOGL',
+          price: { toNumber: () => 175.00 },
+          timestamp: cachedTime,
+        },
+      ]);
 
       const results = await getStockPrices(['AAPL', 'GOOGL']);
 
@@ -408,16 +404,19 @@ describe('Stock Price Module', () => {
     });
 
     it('should fetch from API for uncached symbols', async () => {
-      // AAPL is cached
       const cachedTime = new Date(Date.now() - 1 * 60 * 60 * 1000);
-      const aaplCached = {
-        symbol: 'AAPL',
-        price: { toNumber: () => 150.00 },
-        timestamp: cachedTime,
-      };
 
+      // Only AAPL is cached - findMany returns only cached items
+      (prisma.stockPriceHistory.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          symbol: 'AAPL',
+          price: { toNumber: () => 150.00 },
+          timestamp: cachedTime,
+        },
+      ]);
+
+      // MSFT cache check in getStockPrice (called for uncached symbol)
       (prisma.stockPriceHistory.findFirst as jest.Mock)
-        .mockResolvedValueOnce(aaplCached) // AAPL cache check
         .mockResolvedValueOnce(null) // MSFT cache check
         .mockResolvedValueOnce(null); // MSFT fallback check (if API fails)
 

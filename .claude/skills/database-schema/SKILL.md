@@ -62,3 +62,29 @@ model Example {
 3. Run `npx prisma migrate dev --name descriptive-name`
 4. Update TypeScript types if needed
 5. Test with `npx prisma studio`
+
+## Query Optimization
+
+### Avoid N+1 Queries with findMany + distinct
+
+Instead of calling `findFirst` in a loop:
+
+```typescript
+// BAD: N+1 queries
+for (const symbol of symbols) {
+  const cached = await prisma.stockPriceHistory.findFirst({
+    where: { symbol },
+    orderBy: { timestamp: 'desc' },
+  });
+}
+
+// GOOD: Single query with distinct
+const cachedPrices = await prisma.stockPriceHistory.findMany({
+  where: { symbol: { in: symbols } },
+  orderBy: { timestamp: 'desc' },
+  distinct: ['symbol'],  // Get latest per symbol
+});
+
+// Build Map for O(1) lookup
+const cachedMap = new Map(cachedPrices.map(c => [c.symbol, c]));
+```

@@ -69,6 +69,25 @@ async function fetchStockPrice(symbol: string): Promise<Decimal> {
 ALPHA_VANTAGE_API_KEY=your_key_here
 ```
 
+## Exchange Rate Conversions
+
+When working with Yahoo Finance exchange rates, rates are always **TO ILS**:
+
+```typescript
+// rates.USD = 3.18 means 1 USD = 3.18 ILS
+// rates.EUR = 3.45 means 1 EUR = 3.45 ILS
+// rates.ILS = 1 (always)
+
+// Convert USD to ILS: MULTIPLY by rates.USD
+const ilsValue = usdValue * rates.USD;
+
+// Convert ILS to USD: DIVIDE by rates.USD
+const usdValue = ilsValue / rates.USD;
+
+// WRONG: Don't use rates.ILS for conversion (always 1)
+const wrong = usdValue * rates.ILS;  // Does nothing!
+```
+
 ## Testing
 
 - Mock external APIs in tests

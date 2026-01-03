@@ -10,7 +10,7 @@ import {
   PortfolioSummary,
   AccountCard,
   AllocationChart,
-  CurrencyToggle,
+  PortfolioGainsChart,
 } from '@/components/portfolio';
 
 function PortfolioContent() {
@@ -27,10 +27,7 @@ function PortfolioContent() {
           <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Stock Portfolio</h1>
           <p className="text-muted-foreground">Manage your stock holdings and brokerage accounts</p>
         </div>
-        <div className="flex items-center gap-3">
-          <CurrencyToggle />
-          <AddAccountDialog />
-        </div>
+        <AddAccountDialog />
       </div>
 
       {/* Error State */}
@@ -47,6 +44,21 @@ function PortfolioContent() {
           </CardContent>
         </Card>
       )}
+
+      {/* Portfolio Performance Chart */}
+      <Card>
+        <CardContent className="pt-4 pb-2">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-muted-foreground">Portfolio Performance</span>
+            <span className="text-xs text-muted-foreground">Last 6 months</span>
+          </div>
+          <PortfolioGainsChart
+            currentValue={portfolio?.totalValue ?? 0}
+            totalGainLoss={portfolio?.totalGainLoss ?? 0}
+            isLoading={isLoading}
+          />
+        </CardContent>
+      </Card>
 
       {/* Portfolio Summary */}
       <PortfolioSummary
@@ -105,7 +117,7 @@ function PortfolioContent() {
         </div>
 
         {/* Allocation Chart - Takes 1 column on large screens */}
-        <div>
+        <div className="lg:self-start">
           <AllocationChart allocation={allocation} isLoading={isLoading} />
         </div>
       </div>

@@ -29,6 +29,7 @@ model StockAccount {
   id        String   @id @default(cuid())
   name      String   // e.g., "Fidelity Brokerage", "Robinhood"
   broker    String?  // e.g., "Fidelity", "Robinhood", "Interactive Brokers"
+  currency  String   @default("USD") // Account currency (USD, ILS, EUR, etc.)
   userId    String   @map("user_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

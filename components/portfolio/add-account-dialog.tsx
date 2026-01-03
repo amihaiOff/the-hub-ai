@@ -14,12 +14,27 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useCreateAccount } from '@/lib/hooks/use-portfolio';
+
+const CURRENCIES = [
+  { value: 'USD', label: 'USD - US Dollar' },
+  { value: 'ILS', label: 'ILS - Israeli Shekel' },
+  { value: 'EUR', label: 'EUR - Euro' },
+  { value: 'GBP', label: 'GBP - British Pound' },
+];
 
 export function AddAccountDialog() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [broker, setBroker] = useState('');
+  const [currency, setCurrency] = useState('USD');
   const createAccount = useCreateAccount();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,9 +46,11 @@ export function AddAccountDialog() {
       await createAccount.mutateAsync({
         name: name.trim(),
         broker: broker.trim() || undefined,
+        currency,
       });
       setName('');
       setBroker('');
+      setCurrency('USD');
       setOpen(false);
     } catch (error) {
       console.error('Failed to create account:', error);
@@ -75,6 +92,24 @@ export function AddAccountDialog() {
                 onChange={(e) => setBroker(e.target.value)}
                 placeholder="e.g., Fidelity, Robinhood, Interactive Brokers"
               />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="currency">Currency *</Label>
+              <Select value={currency} onValueChange={setCurrency}>
+                <SelectTrigger id="currency">
+                  <SelectValue placeholder="Select currency" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCIES.map((curr) => (
+                    <SelectItem key={curr.value} value={curr.value}>
+                      {curr.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Currency for cost basis and valuations in this account
+              </p>
             </div>
           </div>
           <DialogFooter>

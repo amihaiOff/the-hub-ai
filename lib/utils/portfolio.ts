@@ -28,6 +28,7 @@ export interface AccountSummary {
   id: string;
   name: string;
   broker: string | null;
+  currency: string;
   totalValue: number;
   totalCostBasis: number;
   totalGainLoss: number;
@@ -153,6 +154,7 @@ export function calculateAccountSummary(
     id: string;
     name: string;
     broker: string | null;
+    currency?: string;
     holdings: HoldingWithPrice[];
   }
 ): AccountSummary {
@@ -166,6 +168,7 @@ export function calculateAccountSummary(
     id: account.id,
     name: account.name,
     broker: account.broker,
+    currency: account.currency || 'USD',
     totalValue,
     totalCostBasis,
     totalGainLoss,
@@ -182,6 +185,7 @@ export function calculatePortfolioSummary(
     id: string;
     name: string;
     broker: string | null;
+    currency?: string;
     holdings: HoldingWithPrice[];
   }>
 ): PortfolioSummary {

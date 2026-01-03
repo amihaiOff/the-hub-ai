@@ -59,6 +59,7 @@ Const vs. non const expenses
 ### Features
 1. **Manage Multiple Accounts**
    - Create account with institution name (e.g., "Fidelity", "Charles Schwab")
+   - Select account currency (USD, ILS, EUR, GBP)
    - Optional: Auto-fetch institution logo/icon
    - Rename or delete accounts
 
@@ -85,17 +86,19 @@ Const vs. non const expenses
 
 **Add New Account:**
 1. Click "Add Account" button
-2. Enter institution name
-3. (Optional) App fetches institution logo
-4. Account created, now empty
+2. Enter account name (user-defined)
+3. Enter institution name (broker)
+4. Select account currency (USD, ILS, EUR, GBP) - determines currency for cost basis entries
+5. Account created, now empty
 
 **Add Stock to Account:**
 1. Navigate to specific account
 2. Click "Add Stock"
 3. Type ticker symbol → autocomplete suggestions appear
 4. Enter quantity of shares
-5. App fetches current price and stock name
-6. Stock added to account
+5. Enter average cost basis (in account's currency)
+6. App fetches current price and stock name
+7. Stock added to account
 
 **Remove Stock from Account:**
 1. Navigate to specific account
@@ -583,6 +586,7 @@ Configured in `vercel.json`:
 - `institution_name` (string) - e.g., "Fidelity", "Charles Schwab"
 - `institution_icon_url` (string, nullable) - Fetched logo
 - `account_name` (string) - User-defined name, e.g., "Joint Brokerage"
+- `currency` (string, default: "USD") - Account currency for cost basis (USD, ILS, EUR, GBP)
 - `created_at` (timestamp)
 - `updated_at` (timestamp)
 
