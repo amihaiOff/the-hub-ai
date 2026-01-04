@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Before stopping, verify: 1) If code was written, were tests run? 2) If tests exist, did they pass? 3) Was the code reviewed? If any of these are missing and the task involved code changes, suggest the appropriate next step (testing-agent, reviewer-agent). Only approve stopping if the workflow is complete or the user explicitly requested to stop.",
+            "prompt": "Check if code was written during this session (Edit or Write tools used on source files like .ts, .tsx, .js, .jsx, .prisma). If NO code was written, respond: {\"ok\": true}. If code WAS written but tests were not run, respond: {\"ok\": false, \"reason\": \"Tests not run after code changes\"}. Respond ONLY with valid JSON.",
             "timeout": 30
           }
         ]
