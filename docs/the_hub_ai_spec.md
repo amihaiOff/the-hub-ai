@@ -787,7 +787,17 @@ Configured in `vercel.json`:
 # Future Features
 
 ## Shopping List
-(To be specified)
+- Shared household shopping list
+- Add/remove items with quantities
+- Mark items as purchased
+- Categorize by store sections (produce, dairy, etc.)
+- Sync between household members
+
+## Supermarket Cart Scraper
+- Scrape supermarket websites to build shopping carts from list
+- Auto-populate online grocery carts (e.g., Shufersal, Rami Levy)
+- Price comparison across supermarkets
+- One-click order preparation
 
 ## Monthly Budget
 (See placeholder sections above - to be expanded)
