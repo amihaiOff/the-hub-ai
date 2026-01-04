@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { format } from 'date-fns';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Dialog,
   DialogContent,
@@ -32,7 +34,7 @@ interface AddDepositDialogProps {
 export function AddDepositDialog({ accountId, accountName }: AddDepositDialogProps) {
   const [open, setOpen] = useState(false);
   const [salaryMonth, setSalaryMonth] = useState('');
-  const [depositDate, setDepositDate] = useState('');
+  const [depositDate, setDepositDate] = useState<Date | undefined>(undefined);
   const [amount, setAmount] = useState('');
   const [employer, setEmployer] = useState('');
   const [error, setError] = useState('');
@@ -70,13 +72,13 @@ export function AddDepositDialog({ accountId, accountName }: AddDepositDialogPro
       await createDeposit.mutateAsync({
         accountId,
         salaryMonth,
-        depositDate,
+        depositDate: format(depositDate, 'yyyy-MM-dd'),
         amount: amountNum,
         employer: employer.trim(),
       });
       // Reset form
       setSalaryMonth('');
-      setDepositDate('');
+      setDepositDate(undefined);
       setAmount('');
       setEmployer('');
       setOpen(false);
@@ -127,12 +129,11 @@ export function AddDepositDialog({ accountId, accountName }: AddDepositDialogPro
             </div>
             <div className="grid gap-2">
               <Label htmlFor="depositDate">Deposit Date *</Label>
-              <Input
+              <DatePicker
                 id="depositDate"
-                type="date"
-                value={depositDate}
-                onChange={(e) => setDepositDate(e.target.value)}
-                required
+                date={depositDate}
+                onDateChange={setDepositDate}
+                placeholder="Select deposit date"
               />
               <p className="text-xs text-muted-foreground">
                 When the money was actually deposited

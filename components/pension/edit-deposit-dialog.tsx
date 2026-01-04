@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Dialog,
   DialogContent,
@@ -33,7 +35,12 @@ interface EditDepositDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-// Convert dates to string format for inputs
+// Convert dates to Date object for DatePicker
+const parseDate = (date: Date | string): Date => {
+  return typeof date === 'string' ? new Date(date) : date;
+};
+
+// Convert dates to string format for salary month select
 const formatDateForInput = (date: Date | string): string => {
   const d = typeof date === 'string' ? new Date(date) : date;
   return d.toISOString().split('T')[0];
@@ -55,7 +62,7 @@ export function EditDepositDialog({
   );
 
   const [salaryMonth, setSalaryMonth] = useState(formatDateForInput(initialSalaryMonth));
-  const [depositDate, setDepositDate] = useState(formatDateForInput(initialDepositDate));
+  const [depositDate, setDepositDate] = useState<Date | undefined>(parseDate(initialDepositDate));
   const [amount, setAmount] = useState(String(initialAmount));
   const [employer, setEmployer] = useState(initialEmployer);
   const [error, setError] = useState('');
@@ -67,7 +74,7 @@ export function EditDepositDialog({
   // Reset state when dialog key changes (instead of useEffect with setState)
   if (dialogKey !== lastDialogKey) {
     setSalaryMonth(formatDateForInput(initialSalaryMonth));
-    setDepositDate(formatDateForInput(initialDepositDate));
+    setDepositDate(parseDate(initialDepositDate));
     setAmount(String(initialAmount));
     setEmployer(initialEmployer);
     setError('');
@@ -104,7 +111,7 @@ export function EditDepositDialog({
       await updateDeposit.mutateAsync({
         id: depositId,
         salaryMonth,
-        depositDate,
+        depositDate: format(depositDate, 'yyyy-MM-dd'),
         amount: amountNum,
         employer: employer.trim(),
       });
@@ -147,12 +154,11 @@ export function EditDepositDialog({
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-depositDate">Deposit Date *</Label>
-              <Input
+              <DatePicker
                 id="edit-depositDate"
-                type="date"
-                value={depositDate}
-                onChange={(e) => setDepositDate(e.target.value)}
-                required
+                date={depositDate}
+                onDateChange={setDepositDate}
+                placeholder="Select deposit date"
               />
             </div>
             <div className="grid gap-2">
