@@ -4,6 +4,7 @@ import './globals.css';
 import { AppShell } from '@/components/shared';
 import { QueryProvider } from '@/lib/providers/query-provider';
 import { SessionProvider } from '@/lib/providers/session-provider';
+import { HouseholdProvider } from '@/lib/contexts/household-context';
 
 const inter = Inter({
   variable: '--font-inter',
@@ -25,7 +26,9 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans antialiased`}>
         <SessionProvider>
           <QueryProvider>
-            <AppShell>{children}</AppShell>
+            <HouseholdProvider>
+              <AppShell>{children}</AppShell>
+            </HouseholdProvider>
           </QueryProvider>
         </SessionProvider>
       </body>

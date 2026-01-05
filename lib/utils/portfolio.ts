@@ -24,6 +24,13 @@ export interface HoldingValue {
   gainLossPercent: number;
 }
 
+export interface Owner {
+  id: string;
+  name: string;
+  image?: string | null;
+  color?: string | null;
+}
+
 export interface AccountSummary {
   id: string;
   name: string;
@@ -34,6 +41,7 @@ export interface AccountSummary {
   totalGainLoss: number;
   totalGainLossPercent: number;
   holdings: HoldingValue[];
+  owners?: Owner[];
 }
 
 export interface PortfolioSummary {
@@ -155,6 +163,7 @@ export function calculateAccountSummary(account: {
   broker: string | null;
   currency?: string;
   holdings: HoldingWithPrice[];
+  owners?: Owner[];
 }): AccountSummary {
   const holdingValues = account.holdings.map(calculateHoldingDetails);
   const totalValue = calculateAccountTotal(holdingValues);
@@ -172,6 +181,7 @@ export function calculateAccountSummary(account: {
     totalGainLoss,
     totalGainLossPercent,
     holdings: holdingValues,
+    owners: account.owners,
   };
 }
 
@@ -185,6 +195,7 @@ export function calculatePortfolioSummary(
     broker: string | null;
     currency?: string;
     holdings: HoldingWithPrice[];
+    owners?: Owner[];
   }>
 ): PortfolioSummary {
   const accountSummaries = accounts.map(calculateAccountSummary);

@@ -2,6 +2,13 @@
 
 export type PensionAccountType = 'pension' | 'hishtalmut';
 
+export interface Owner {
+  id: string;
+  name: string;
+  image?: string | null;
+  color?: string | null;
+}
+
 export interface DepositValue {
   id: string;
   depositDate: Date | string;
@@ -21,6 +28,7 @@ export interface PensionAccountSummary {
   totalDeposits: number;
   depositsCount: number;
   deposits: DepositValue[];
+  owners?: Owner[];
 }
 
 export interface PensionSummary {

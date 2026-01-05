@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { getStockPrices, isStockPriceError } from '@/lib/api/stock-price';
@@ -8,7 +8,7 @@ import { calculatePortfolioSummary, HoldingWithPrice } from '@/lib/utils/portfol
  * GET /api/portfolio
  * Get user's portfolio with all accounts and holdings
  */
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
     // Get current user (dev user in local mode, or authenticated user in production)
     const user = await getCurrentUser();
@@ -17,11 +17,23 @@ export async function GET(_request: NextRequest) {
     }
     const userId = user.id;
 
-    // Fetch all accounts with holdings for the user
+    // Fetch all accounts with holdings and owners for the user
     const accounts = await prisma.stockAccount.findMany({
       where: { userId },
       include: {
         holdings: true,
+        owners: {
+          include: {
+            profile: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+                color: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -37,7 +49,7 @@ export async function GET(_request: NextRequest) {
     // Fetch current prices for all symbols
     const prices = await getStockPrices(Array.from(allSymbols));
 
-    // Transform accounts to include current prices
+    // Transform accounts to include current prices and owners
     const accountsWithPrices = accounts.map((account) => ({
       id: account.id,
       name: account.name,
@@ -55,6 +67,12 @@ export async function GET(_request: NextRequest) {
           currentPrice,
         } as HoldingWithPrice;
       }),
+      owners: account.owners.map((o) => ({
+        id: o.profile.id,
+        name: o.profile.name,
+        image: o.profile.image,
+        color: o.profile.color,
+      })),
     }));
 
     // Calculate portfolio summary

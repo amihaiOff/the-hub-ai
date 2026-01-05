@@ -4,12 +4,12 @@
  */
 
 import { navItems, NavItem } from '../navigation';
-import { Home, TrendingUp, Building2, Wallet, LucideIcon } from 'lucide-react';
+import { Home, TrendingUp, Building2, Wallet, Settings } from 'lucide-react';
 
 describe('Navigation Constants', () => {
   describe('navItems array', () => {
-    it('should contain exactly 4 navigation items', () => {
-      expect(navItems).toHaveLength(4);
+    it('should contain exactly 5 navigation items', () => {
+      expect(navItems).toHaveLength(5);
     });
 
     it('should be an array of NavItem objects', () => {
@@ -133,6 +133,26 @@ describe('Navigation Constants', () => {
     });
   });
 
+  describe('Settings navigation item', () => {
+    let settingsItem: NavItem | undefined;
+
+    beforeEach(() => {
+      settingsItem = navItems.find((item) => item.label === 'Settings');
+    });
+
+    it('should exist', () => {
+      expect(settingsItem).toBeDefined();
+    });
+
+    it('should have href as "/settings"', () => {
+      expect(settingsItem?.href).toBe('/settings');
+    });
+
+    it('should have Settings icon', () => {
+      expect(settingsItem?.icon).toBe(Settings);
+    });
+  });
+
   describe('navItems order', () => {
     it('should have Dashboard as the first item', () => {
       expect(navItems[0].label).toBe('Dashboard');
@@ -148,6 +168,10 @@ describe('Navigation Constants', () => {
 
     it('should have Assets as the fourth item', () => {
       expect(navItems[3].label).toBe('Assets');
+    });
+
+    it('should have Settings as the fifth item', () => {
+      expect(navItems[4].label).toBe('Settings');
     });
   });
 

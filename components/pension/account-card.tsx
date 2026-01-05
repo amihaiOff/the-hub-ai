@@ -17,6 +17,7 @@ import { DepositsTable } from './deposits-table';
 import { AddDepositDialog } from './add-deposit-dialog';
 import { EditAccountDialog } from './edit-account-dialog';
 import { DeleteConfirmDialog } from '@/components/portfolio/delete-confirm-dialog';
+import { OwnerBadges } from '@/components/shared/owner-badges';
 import { useDeletePensionAccount } from '@/lib/hooks/use-pension';
 import {
   formatCurrency,
@@ -53,7 +54,12 @@ export function AccountCard({ account }: AccountCardProps) {
                   <ChevronRight className="text-muted-foreground h-4 w-4" />
                 )}
                 <div>
-                  <CardTitle className="text-lg">{account.accountName}</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-lg">{account.accountName}</CardTitle>
+                    {account.owners && account.owners.length > 0 && (
+                      <OwnerBadges owners={account.owners} size="xs" />
+                    )}
+                  </div>
                   <div className="text-muted-foreground flex items-center gap-2 text-sm">
                     <Building2 className="h-3 w-3" />
                     {account.providerName}

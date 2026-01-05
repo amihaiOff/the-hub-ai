@@ -8,6 +8,8 @@ import { LogOut, LogIn } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { navItems } from '@/lib/constants/navigation';
+import { HouseholdSwitcher } from './household-switcher';
+import { ProfileSelector } from './profile-selector';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -25,6 +27,14 @@ export function Sidebar() {
             <span className="text-sidebar-foreground text-lg font-semibold">The Hub AI</span>
           </Link>
         </div>
+
+        {/* Household & Profile Selection */}
+        {session?.user && (
+          <div className="border-border space-y-2 border-b p-4">
+            <HouseholdSwitcher className="w-full" />
+            <ProfileSelector className="w-full justify-between" />
+          </div>
+        )}
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 p-4">

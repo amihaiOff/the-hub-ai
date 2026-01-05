@@ -60,6 +60,7 @@ describe('Assets API', () => {
           userId: 'user-1',
           createdAt: new Date(),
           updatedAt: new Date(),
+          owners: [],
         },
         {
           id: 'asset-2',
@@ -73,6 +74,7 @@ describe('Assets API', () => {
           userId: 'user-1',
           createdAt: new Date(),
           updatedAt: new Date(),
+          owners: [],
         },
       ];
 

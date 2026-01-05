@@ -4,6 +4,9 @@
  * - SKIP_AUTH should ONLY work when NODE_ENV is NOT 'production'
  * - Dev user caching prevents repeated DB calls
  * - getCurrentUser returns correct user object
+ * - getCurrentContext returns profile and household data
+ * - getAccessibleProfileIds returns correct profile IDs
+ * - isHouseholdAdmin checks role correctly
  */
 
 // Store original env values
@@ -13,6 +16,8 @@ const originalSkipAuth = process.env.SKIP_AUTH;
 // Mock auth module factory - will be used by dynamic imports
 const mockAuth = jest.fn();
 const mockUpsert = jest.fn();
+const mockProfileFindUnique = jest.fn();
+const mockHouseholdMemberFindMany = jest.fn();
 
 // Setup mocks that will be used by all dynamic imports
 jest.mock('@/lib/auth', () => ({
@@ -23,6 +28,12 @@ jest.mock('@/lib/db', () => ({
   prisma: {
     user: {
       upsert: mockUpsert,
+    },
+    profile: {
+      findUnique: mockProfileFindUnique,
+    },
+    householdMember: {
+      findMany: mockHouseholdMemberFindMany,
     },
   },
 }));
@@ -41,6 +52,8 @@ describe('Auth Utils', () => {
     // Reset mocks
     mockAuth.mockReset();
     mockUpsert.mockReset();
+    mockProfileFindUnique.mockReset();
+    mockHouseholdMemberFindMany.mockReset();
     // Reset module cache to get fresh devUserCreated state
     jest.resetModules();
     // Reset environment
@@ -498,5 +511,383 @@ describe('Security Verification Summary', () => {
     process.env.SKIP_AUTH = 'true';
     mod = await import('../auth-utils');
     expect(mod.isDevAuthMode()).toBe(true);
+  });
+});
+
+describe('Profile/Household Context', () => {
+  beforeEach(() => {
+    mockAuth.mockReset();
+    mockUpsert.mockReset();
+    mockProfileFindUnique.mockReset();
+    mockHouseholdMemberFindMany.mockReset();
+    jest.resetModules();
+    setNodeEnv(originalNodeEnv || 'test');
+    delete process.env.SKIP_AUTH;
+  });
+
+  afterAll(() => {
+    setNodeEnv(originalNodeEnv || 'test');
+    if (originalSkipAuth !== undefined) {
+      process.env.SKIP_AUTH = originalSkipAuth;
+    } else {
+      delete process.env.SKIP_AUTH;
+    }
+  });
+
+  // Sample test data
+  const mockProfile = {
+    id: 'profile-1',
+    name: 'Test User',
+    image: 'https://example.com/avatar.png',
+    color: '#3b82f6',
+    userId: 'user-123',
+    householdMemberships: [
+      {
+        id: 'member-1',
+        householdId: 'household-1',
+        profileId: 'profile-1',
+        role: 'owner',
+        household: {
+          id: 'household-1',
+          name: "Test User's Household",
+          description: null,
+        },
+      },
+    ],
+  };
+
+  const mockHouseholdMembers = [
+    {
+      id: 'member-1',
+      householdId: 'household-1',
+      profileId: 'profile-1',
+      role: 'owner',
+      profile: {
+        id: 'profile-1',
+        name: 'Test User',
+        image: 'https://example.com/avatar.png',
+        color: '#3b82f6',
+        userId: 'user-123',
+      },
+    },
+    {
+      id: 'member-2',
+      householdId: 'household-1',
+      profileId: 'profile-2',
+      role: 'member',
+      profile: {
+        id: 'profile-2',
+        name: 'Family Member',
+        image: null,
+        color: '#10b981',
+        userId: null, // Non-login profile
+      },
+    },
+  ];
+
+  describe('getCurrentContext', () => {
+    it('should return null when user is not authenticated', async () => {
+      setNodeEnv('production');
+      mockAuth.mockResolvedValueOnce(null);
+
+      const { getCurrentContext } = await import('../auth-utils');
+      const context = await getCurrentContext();
+
+      expect(context).toBeNull();
+    });
+
+    it('should return null when user has no profile (needs onboarding)', async () => {
+      setNodeEnv('production');
+      mockAuth.mockResolvedValueOnce({
+        user: { id: 'user-123', email: 'test@example.com', name: 'Test' },
+      });
+      mockProfileFindUnique.mockResolvedValueOnce(null);
+
+      const { getCurrentContext } = await import('../auth-utils');
+      const context = await getCurrentContext();
+
+      expect(context).toBeNull();
+    });
+
+    it('should return null when user has profile but no households', async () => {
+      setNodeEnv('production');
+      mockAuth.mockResolvedValueOnce({
+        user: { id: 'user-123', email: 'test@example.com', name: 'Test' },
+      });
+      mockProfileFindUnique.mockResolvedValueOnce({
+        ...mockProfile,
+        householdMemberships: [], // No households
+      });
+
+      const { getCurrentContext } = await import('../auth-utils');
+      const context = await getCurrentContext();
+
+      expect(context).toBeNull();
+    });
+
+    it('should return full context with profile, households, and household profiles', async () => {
+      setNodeEnv('production');
+      mockAuth.mockResolvedValueOnce({
+        user: { id: 'user-123', email: 'test@example.com', name: 'Test User' },
+      });
+      mockProfileFindUnique.mockResolvedValueOnce(mockProfile);
+      mockHouseholdMemberFindMany.mockResolvedValueOnce(mockHouseholdMembers);
+
+      const { getCurrentContext } = await import('../auth-utils');
+      const context = await getCurrentContext();
+
+      expect(context).not.toBeNull();
+      expect(context?.user.id).toBe('user-123');
+      expect(context?.profile.id).toBe('profile-1');
+      expect(context?.profile.name).toBe('Test User');
+      expect(context?.households).toHaveLength(1);
+      expect(context?.activeHousehold.id).toBe('household-1');
+      expect(context?.activeHousehold.role).toBe('owner');
+      expect(context?.householdProfiles).toHaveLength(2);
+    });
+
+    it('should use specified householdId as active household', async () => {
+      setNodeEnv('production');
+      mockAuth.mockResolvedValueOnce({
+        user: { id: 'user-123', email: 'test@example.com', name: 'Test' },
+      });
+
+      const multiHouseholdProfile = {
+        ...mockProfile,
+        householdMemberships: [
+          ...mockProfile.householdMemberships,
+          {
+            id: 'member-3',
+            householdId: 'household-2',
+            profileId: 'profile-1',
+            role: 'member',
+            household: {
+              id: 'household-2',
+              name: 'Second Household',
+              description: 'Another household',
+            },
+          },
+        ],
+      };
+
+      mockProfileFindUnique.mockResolvedValueOnce(multiHouseholdProfile);
+      mockHouseholdMemberFindMany.mockResolvedValueOnce([
+        {
+          id: 'member-3',
+          householdId: 'household-2',
+          profileId: 'profile-1',
+          role: 'member',
+          profile: {
+            id: 'profile-1',
+            name: 'Test User',
+            image: null,
+            color: '#3b82f6',
+            userId: 'user-123',
+          },
+        },
+      ]);
+
+      const { getCurrentContext } = await import('../auth-utils');
+      const context = await getCurrentContext('household-2');
+
+      expect(context?.activeHousehold.id).toBe('household-2');
+      expect(context?.activeHousehold.name).toBe('Second Household');
+    });
+
+    it('should default to first household if specified householdId not found', async () => {
+      setNodeEnv('production');
+      mockAuth.mockResolvedValueOnce({
+        user: { id: 'user-123', email: 'test@example.com', name: 'Test' },
+      });
+      mockProfileFindUnique.mockResolvedValueOnce(mockProfile);
+      mockHouseholdMemberFindMany.mockResolvedValueOnce(mockHouseholdMembers);
+
+      const { getCurrentContext } = await import('../auth-utils');
+      const context = await getCurrentContext('non-existent-household');
+
+      // Should fall back to first household
+      expect(context?.activeHousehold.id).toBe('household-1');
+    });
+
+    it('should correctly identify profiles with and without linked users', async () => {
+      setNodeEnv('production');
+      mockAuth.mockResolvedValueOnce({
+        user: { id: 'user-123', email: 'test@example.com', name: 'Test' },
+      });
+      mockProfileFindUnique.mockResolvedValueOnce(mockProfile);
+      mockHouseholdMemberFindMany.mockResolvedValueOnce(mockHouseholdMembers);
+
+      const { getCurrentContext } = await import('../auth-utils');
+      const context = await getCurrentContext();
+
+      const ownerProfile = context?.householdProfiles.find((p) => p.id === 'profile-1');
+      const memberProfile = context?.householdProfiles.find((p) => p.id === 'profile-2');
+
+      expect(ownerProfile?.hasUser).toBe(true);
+      expect(memberProfile?.hasUser).toBe(false);
+    });
+  });
+
+  describe('getAccessibleProfileIds', () => {
+    it('should return all profile IDs in the household', async () => {
+      setNodeEnv('production');
+      mockAuth.mockResolvedValueOnce({
+        user: { id: 'user-123', email: 'test@example.com', name: 'Test' },
+      });
+      mockProfileFindUnique.mockResolvedValueOnce(mockProfile);
+      mockHouseholdMemberFindMany.mockResolvedValueOnce(mockHouseholdMembers);
+
+      const { getCurrentContext, getAccessibleProfileIds } = await import('../auth-utils');
+      const context = await getCurrentContext();
+
+      expect(context).not.toBeNull();
+      const profileIds = getAccessibleProfileIds(context!);
+
+      expect(profileIds).toHaveLength(2);
+      expect(profileIds).toContain('profile-1');
+      expect(profileIds).toContain('profile-2');
+    });
+
+    it('should return empty array for household with no profiles', async () => {
+      const { getAccessibleProfileIds } = await import('../auth-utils');
+
+      const emptyContext = {
+        user: { id: 'user-123', email: 'test@example.com', name: 'Test' },
+        profile: { id: 'profile-1', name: 'Test', image: null, color: null, userId: 'user-123' },
+        households: [
+          { id: 'household-1', name: 'Test', description: null, role: 'owner' as const },
+        ],
+        activeHousehold: {
+          id: 'household-1',
+          name: 'Test',
+          description: null,
+          role: 'owner' as const,
+        },
+        householdProfiles: [],
+      };
+
+      const profileIds = getAccessibleProfileIds(emptyContext);
+      expect(profileIds).toHaveLength(0);
+    });
+  });
+
+  describe('isHouseholdAdmin', () => {
+    it('should return true for owner role', async () => {
+      const { isHouseholdAdmin } = await import('../auth-utils');
+
+      const ownerContext = {
+        user: { id: 'user-123', email: 'test@example.com', name: 'Test' },
+        profile: { id: 'profile-1', name: 'Test', image: null, color: null, userId: 'user-123' },
+        households: [
+          { id: 'household-1', name: 'Test', description: null, role: 'owner' as const },
+        ],
+        activeHousehold: {
+          id: 'household-1',
+          name: 'Test',
+          description: null,
+          role: 'owner' as const,
+        },
+        householdProfiles: [],
+      };
+
+      expect(isHouseholdAdmin(ownerContext)).toBe(true);
+    });
+
+    it('should return true for admin role', async () => {
+      const { isHouseholdAdmin } = await import('../auth-utils');
+
+      const adminContext = {
+        user: { id: 'user-123', email: 'test@example.com', name: 'Test' },
+        profile: { id: 'profile-1', name: 'Test', image: null, color: null, userId: 'user-123' },
+        households: [
+          { id: 'household-1', name: 'Test', description: null, role: 'admin' as const },
+        ],
+        activeHousehold: {
+          id: 'household-1',
+          name: 'Test',
+          description: null,
+          role: 'admin' as const,
+        },
+        householdProfiles: [],
+      };
+
+      expect(isHouseholdAdmin(adminContext)).toBe(true);
+    });
+
+    it('should return false for member role', async () => {
+      const { isHouseholdAdmin } = await import('../auth-utils');
+
+      const memberContext = {
+        user: { id: 'user-123', email: 'test@example.com', name: 'Test' },
+        profile: { id: 'profile-1', name: 'Test', image: null, color: null, userId: 'user-123' },
+        households: [
+          { id: 'household-1', name: 'Test', description: null, role: 'member' as const },
+        ],
+        activeHousehold: {
+          id: 'household-1',
+          name: 'Test',
+          description: null,
+          role: 'member' as const,
+        },
+        householdProfiles: [],
+      };
+
+      expect(isHouseholdAdmin(memberContext)).toBe(false);
+    });
+  });
+
+  describe('getCurrentContext with dev mode', () => {
+    it('should work with dev user when auth is bypassed', async () => {
+      setNodeEnv('development');
+      process.env.SKIP_AUTH = 'true';
+
+      mockUpsert.mockResolvedValueOnce({
+        id: 'dev-user-local',
+        email: 'dev@localhost',
+        name: 'Dev User',
+      });
+      mockProfileFindUnique.mockResolvedValueOnce({
+        id: 'dev-profile',
+        name: 'Dev User',
+        image: null,
+        color: '#3b82f6',
+        userId: 'dev-user-local',
+        householdMemberships: [
+          {
+            id: 'dev-member',
+            householdId: 'dev-household',
+            profileId: 'dev-profile',
+            role: 'owner',
+            household: {
+              id: 'dev-household',
+              name: "Dev User's Household",
+              description: null,
+            },
+          },
+        ],
+      });
+      mockHouseholdMemberFindMany.mockResolvedValueOnce([
+        {
+          id: 'dev-member',
+          householdId: 'dev-household',
+          profileId: 'dev-profile',
+          role: 'owner',
+          profile: {
+            id: 'dev-profile',
+            name: 'Dev User',
+            image: null,
+            color: '#3b82f6',
+            userId: 'dev-user-local',
+          },
+        },
+      ]);
+
+      const { getCurrentContext } = await import('../auth-utils');
+      const context = await getCurrentContext();
+
+      expect(context).not.toBeNull();
+      expect(context?.user.id).toBe('dev-user-local');
+      expect(context?.profile.id).toBe('dev-profile');
+    });
   });
 });

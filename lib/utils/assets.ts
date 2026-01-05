@@ -2,6 +2,13 @@
 
 export type MiscAssetType = 'bank_deposit' | 'loan' | 'mortgage' | 'child_savings';
 
+export interface Owner {
+  id: string;
+  name: string;
+  image?: string | null;
+  color?: string | null;
+}
+
 export interface MiscAsset {
   id: string;
   type: MiscAssetType;
@@ -13,6 +20,7 @@ export interface MiscAsset {
   maturityDate: Date | string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
+  owners?: Owner[];
 }
 
 export interface AssetsSummary {

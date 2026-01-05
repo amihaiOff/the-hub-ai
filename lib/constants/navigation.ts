@@ -1,4 +1,4 @@
-import { Home, TrendingUp, Building2, Wallet, type LucideIcon } from 'lucide-react';
+import { Home, TrendingUp, Building2, Wallet, Settings, type LucideIcon } from 'lucide-react';
 
 export interface NavItem {
   href: string;
@@ -11,4 +11,5 @@ export const navItems: NavItem[] = [
   { href: '/portfolio', label: 'Portfolio', icon: TrendingUp },
   { href: '/pension', label: 'Pension', icon: Building2 },
   { href: '/assets', label: 'Assets', icon: Wallet },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];

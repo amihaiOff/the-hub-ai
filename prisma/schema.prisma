@@ -9,7 +9,7 @@ datasource db {
   provider = "postgresql"
 }
 
-// Basic User model - will be expanded later
+// User model - authentication entity (Google OAuth)
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -18,12 +18,113 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  // Relations
+  // Profile relation (1:1 optional)
+  profile Profile?
+
+  // Legacy relations (kept during migration, will be removed later)
   stockAccounts   StockAccount[]
   pensionAccounts PensionAccount[]
   miscAssets      MiscAsset[]
 
   @@map("users")
+}
+
+// Profile - represents a person whose finances are tracked
+// Can be linked to a User (for login) or standalone (for family members)
+model Profile {
+  id        String   @id @default(cuid())
+  name      String
+  image     String?
+  color     String?  @default("#3b82f6") // UI accent color for identification
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Optional User link (null for non-login profiles like children)
+  userId String? @unique @map("user_id")
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Household memberships (many-to-many)
+  householdMemberships HouseholdMember[]
+
+  // Asset ownership (many-to-many via junction tables)
+  stockAccountOwners   StockAccountOwner[]
+  pensionAccountOwners PensionAccountOwner[]
+  miscAssetOwners      MiscAssetOwner[]
+
+  @@map("profiles")
+}
+
+// Household - groups profiles together (family/unit)
+model Household {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Members
+  members HouseholdMember[]
+
+  @@map("households")
+}
+
+// HouseholdMember - junction table with role
+enum HouseholdRole {
+  owner
+  admin
+  member
+}
+
+model HouseholdMember {
+  id          String        @id @default(cuid())
+  householdId String        @map("household_id")
+  profileId   String        @map("profile_id")
+  role        HouseholdRole @default(member)
+  joinedAt    DateTime      @default(now()) @map("joined_at")
+
+  // Relations
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  profile   Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, profileId])
+  @@map("household_members")
+}
+
+// Junction tables for asset ownership (supports multi-profile ownership)
+model StockAccountOwner {
+  id        String @id @default(cuid())
+  accountId String @map("account_id")
+  profileId String @map("profile_id")
+
+  account StockAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  profile Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, profileId])
+  @@map("stock_account_owners")
+}
+
+model PensionAccountOwner {
+  id        String @id @default(cuid())
+  accountId String @map("account_id")
+  profileId String @map("profile_id")
+
+  account PensionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  profile Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, profileId])
+  @@map("pension_account_owners")
+}
+
+model MiscAssetOwner {
+  id        String @id @default(cuid())
+  assetId   String @map("asset_id")
+  profileId String @map("profile_id")
+
+  asset   MiscAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  profile Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, profileId])
+  @@map("misc_asset_owners")
 }
 
 // Stock Portfolio Models
@@ -32,12 +133,15 @@ model StockAccount {
   name      String   // e.g., "Fidelity Brokerage", "Robinhood"
   broker    String?  // e.g., "Fidelity", "Robinhood", "Interactive Brokers"
   currency  String   @default("USD") // Account currency (USD, ILS, EUR, etc.)
-  userId    String   @map("user_id")
+  userId    String?  @map("user_id") // Legacy - nullable during migration
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  // Relations
-  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Legacy relation (kept during migration)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // New ownership relation
+  owners   StockAccountOwner[]
   holdings StockHolding[]
 
   @@map("stock_accounts")
@@ -84,12 +188,15 @@ model PensionAccount {
   currentValue   Decimal            @map("current_value") @db.Decimal(18, 2) // Current total value
   feeFromDeposit Decimal            @map("fee_from_deposit") @db.Decimal(5, 4) // Fee % from each deposit
   feeFromTotal   Decimal            @map("fee_from_total") @db.Decimal(5, 4) // Annual management fee %
-  userId         String             @map("user_id")
+  userId         String?            @map("user_id") // Legacy - nullable during migration
   createdAt      DateTime           @default(now()) @map("created_at")
   updatedAt      DateTime           @updatedAt @map("updated_at")
 
-  // Relations
-  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Legacy relation (kept during migration)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // New ownership relation
+  owners   PensionAccountOwner[]
   deposits PensionDeposit[]
 
   @@map("pension_accounts")
@@ -129,12 +236,15 @@ model MiscAsset {
   monthlyPayment Decimal?      @map("monthly_payment") @db.Decimal(18, 2) // For loans/mortgages
   monthlyDeposit Decimal?      @map("monthly_deposit") @db.Decimal(18, 2) // For savings plans
   maturityDate   DateTime?     @map("maturity_date") @db.Date             // When deposit matures or loan ends
-  userId         String        @map("user_id")
+  userId         String?       @map("user_id") // Legacy - nullable during migration
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
 
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Legacy relation (kept during migration)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // New ownership relation
+  owners MiscAssetOwner[]
 
   @@index([userId])
   @@map("misc_assets")

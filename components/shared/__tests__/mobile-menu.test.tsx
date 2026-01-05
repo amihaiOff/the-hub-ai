@@ -6,10 +6,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ReactNode } from 'react';
 
-// Track Sheet open state for testing
-let mockSheetOpen = false;
-let mockOnOpenChange: ((open: boolean) => void) | null = null;
-
 // Mock next/navigation
 const mockPathname = jest.fn().mockReturnValue('/');
 jest.mock('next/navigation', () => ({
@@ -79,14 +75,11 @@ jest.mock('@/components/ui/sheet', () => ({
   Sheet: function MockSheet({
     children,
     open,
-    onOpenChange,
   }: {
     children: ReactNode;
     open: boolean;
     onOpenChange: (open: boolean) => void;
   }) {
-    mockSheetOpen = open;
-    mockOnOpenChange = onOpenChange;
     return open ? <div data-testid="sheet">{children}</div> : null;
   },
   SheetContent: function MockSheetContent({
@@ -169,31 +162,61 @@ jest.mock('@/components/ui/button', () => ({
   },
 }));
 
+// Create mock icon component factory
+const createMockIcon = (testId: string) => {
+  return function MockIcon({ className }: { className?: string }) {
+    return <svg data-testid={testId} className={className} />;
+  };
+};
+
 // Mock lucide-react icons
 jest.mock('lucide-react', () => ({
-  Home: function MockHome({ className }: { className?: string }) {
-    return <svg data-testid="icon-home" className={className} />;
-  },
-  TrendingUp: function MockTrendingUp({ className }: { className?: string }) {
-    return <svg data-testid="icon-trending-up" className={className} />;
-  },
-  Building2: function MockBuilding2({ className }: { className?: string }) {
-    return <svg data-testid="icon-building2" className={className} />;
-  },
-  Wallet: function MockWallet({ className }: { className?: string }) {
-    return <svg data-testid="icon-wallet" className={className} />;
-  },
-  LogOut: function MockLogOut({ className }: { className?: string }) {
-    return <svg data-testid="icon-logout" className={className} />;
-  },
-  LogIn: function MockLogIn({ className }: { className?: string }) {
-    return <svg data-testid="icon-login" className={className} />;
-  },
+  Home: createMockIcon('icon-home'),
+  TrendingUp: createMockIcon('icon-trending-up'),
+  Building2: createMockIcon('icon-building2'),
+  Wallet: createMockIcon('icon-wallet'),
+  Settings: createMockIcon('icon-settings'),
+  LogOut: createMockIcon('icon-logout'),
+  LogIn: createMockIcon('icon-login'),
+}));
+
+// Mock navigation constants to ensure icons are properly mocked
+jest.mock('@/lib/constants/navigation', () => ({
+  navItems: [
+    { href: '/', label: 'Dashboard', icon: createMockIcon('icon-home') },
+    { href: '/portfolio', label: 'Portfolio', icon: createMockIcon('icon-trending-up') },
+    { href: '/pension', label: 'Pension', icon: createMockIcon('icon-building2') },
+    { href: '/assets', label: 'Assets', icon: createMockIcon('icon-wallet') },
+  ],
 }));
 
 // Mock @/lib/utils
 jest.mock('@/lib/utils', () => ({
   cn: (...classes: (string | undefined | null | false)[]) => classes.filter(Boolean).join(' '),
+}));
+
+// Mock HouseholdSwitcher component which uses HouseholdContext
+// mobile-menu.tsx imports from './household-switcher' (relative path)
+jest.mock('../household-switcher', () => ({
+  HouseholdSwitcher: function MockHouseholdSwitcher({ className }: { className?: string }) {
+    return (
+      <div data-testid="household-switcher" className={className}>
+        Mock Household Switcher
+      </div>
+    );
+  },
+}));
+
+// Mock ProfileSelector component which uses HouseholdContext
+// mobile-menu.tsx imports from './profile-selector' (relative path)
+jest.mock('../profile-selector', () => ({
+  ProfileSelector: function MockProfileSelector({ className }: { className?: string }) {
+    return (
+      <div data-testid="profile-selector" className={className}>
+        Mock Profile Selector
+      </div>
+    );
+  },
 }));
 
 // Import after mocks
@@ -203,8 +226,6 @@ describe('MobileMenu', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     mockPathname.mockReturnValue('/');
-    mockSheetOpen = false;
-    mockOnOpenChange = null;
   });
 
   describe('Open/Close state', () => {

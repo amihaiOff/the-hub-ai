@@ -15,6 +15,8 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { navItems } from '@/lib/constants/navigation';
+import { HouseholdSwitcher } from './household-switcher';
+import { ProfileSelector } from './profile-selector';
 
 interface MobileMenuProps {
   open: boolean;
@@ -43,6 +45,14 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
             </Link>
             <SheetDescription className="sr-only">Main navigation menu</SheetDescription>
           </SheetHeader>
+
+          {/* Household & Profile Selection */}
+          {session?.user && (
+            <div className="border-border space-y-2 border-b p-4">
+              <HouseholdSwitcher className="w-full" />
+              <ProfileSelector className="w-full justify-between" />
+            </div>
+          )}
 
           {/* Navigation */}
           <nav className="flex-1 space-y-1 p-4">

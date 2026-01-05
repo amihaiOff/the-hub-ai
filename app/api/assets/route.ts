@@ -14,9 +14,23 @@ export async function GET() {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch all misc assets for the user
+    // Fetch all misc assets with owners for the user
     const assets = await prisma.miscAsset.findMany({
       where: { userId: user.id },
+      include: {
+        owners: {
+          include: {
+            profile: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+                color: true,
+              },
+            },
+          },
+        },
+      },
       orderBy: { createdAt: 'asc' },
     });
 
@@ -43,6 +57,12 @@ export async function GET() {
         maturityDate: asset.maturityDate,
         createdAt: asset.createdAt,
         updatedAt: asset.updatedAt,
+        owners: asset.owners.map((o) => ({
+          id: o.profile.id,
+          name: o.profile.name,
+          image: o.profile.image,
+          color: o.profile.color,
+        })),
       };
     });
 

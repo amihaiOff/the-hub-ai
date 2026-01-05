@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 
@@ -6,7 +6,7 @@ import { prisma } from '@/lib/db';
  * GET /api/pension
  * Get user's pension summary with all accounts and deposits
  */
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
     // Authentication check
     const user = await getCurrentUser();
@@ -14,12 +14,24 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch all pension accounts with deposits for the user
+    // Fetch all pension accounts with deposits and owners for the user
     const accounts = await prisma.pensionAccount.findMany({
       where: { userId: user.id },
       include: {
         deposits: {
           orderBy: { salaryMonth: 'desc' },
+        },
+        owners: {
+          include: {
+            profile: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+                color: true,
+              },
+            },
+          },
         },
       },
       orderBy: { createdAt: 'asc' },
@@ -66,6 +78,12 @@ export async function GET(_request: NextRequest) {
           salaryMonth: d.salaryMonth,
           amount: Number(d.amount),
           employer: d.employer,
+        })),
+        owners: account.owners.map((o) => ({
+          id: o.profile.id,
+          name: o.profile.name,
+          image: o.profile.image,
+          color: o.profile.color,
         })),
       };
     });

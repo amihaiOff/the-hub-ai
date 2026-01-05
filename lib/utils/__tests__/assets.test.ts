@@ -203,7 +203,6 @@ describe('Assets Utility Functions', () => {
     it('should calculate correct payoff date', () => {
       const result = calculatePayoffDate(10000, 5, 500);
       const now = new Date();
-      const expectedMonth = now.getMonth() + 21;
 
       expect(result).not.toBeNull();
       // Check it's approximately 21 months from now

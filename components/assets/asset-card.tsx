@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { EditAssetDialog } from './edit-asset-dialog';
 import { DeleteConfirmDialog } from '@/components/portfolio/delete-confirm-dialog';
+import { OwnerBadges } from '@/components/shared/owner-badges';
 import { useDeleteAsset } from '@/lib/hooks/use-assets';
 import {
   type MiscAsset,
@@ -128,7 +129,12 @@ export function AssetCard({ asset }: AssetCardProps) {
               <Icon className={`h-5 w-5 ${isDebt ? 'text-red-500' : 'text-emerald-500'}`} />
             </div>
             <div>
-              <CardTitle className="text-lg">{asset.name}</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-lg">{asset.name}</CardTitle>
+                {asset.owners && asset.owners.length > 0 && (
+                  <OwnerBadges owners={asset.owners} size="xs" />
+                )}
+              </div>
               <Badge
                 variant="outline"
                 className={
