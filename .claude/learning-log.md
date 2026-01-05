@@ -69,4 +69,14 @@ Each entry should include:
 
 ---
 
+### Prisma Client Not Regenerated After Schema Changes
+
+- **Date**: 2026-01-05
+- **Category**: database
+- **Problem**: API returns 500 error with "Cannot read properties of undefined (reading 'findMany')" when accessing a newly added model (e.g., `prisma.miscAsset.findMany()`)
+- **Solution**: After adding new models to Prisma schema, always run `npx prisma generate` to regenerate the Prisma client. The client doesn't auto-update when schema changes. After regenerating, restart the dev server for changes to take effect.
+- **Skill**: hub-ai-troubleshooting
+
+---
+
 <!-- New entries go here -->

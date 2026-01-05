@@ -70,6 +70,20 @@ Cause: Using JavaScript number instead of Decimal
 Fix: Use Prisma Decimal type throughout
 ```
 
+### Prisma Client Not Regenerated After Schema Changes
+
+```
+Symptom: API returns 500 error with "Cannot read properties of undefined (reading 'findMany')"
+         when accessing a newly added model (e.g., prisma.miscAsset.findMany())
+Cause: Prisma client wasn't regenerated after adding/modifying models in schema.prisma
+Fix:
+  1. Run `npx prisma generate` to regenerate the client
+  2. Restart the dev server
+  3. The new model should now be available on the prisma client
+Note: This commonly happens after running `npx prisma migrate dev` - the migration runs
+      but the client isn't always auto-regenerated
+```
+
 ## API Security
 
 ### All API Routes Need Authentication
