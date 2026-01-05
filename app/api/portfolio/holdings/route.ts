@@ -13,10 +13,7 @@ export async function POST(request: NextRequest) {
     // Authentication check
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -57,18 +54,12 @@ export async function POST(request: NextRequest) {
     });
 
     if (!account) {
-      return NextResponse.json(
-        { success: false, error: 'Account not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Account not found' }, { status: 404 });
     }
 
     // Authorization check - verify user owns this account
     if (account.userId !== user.id) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden' },
-        { status: 403 }
-      );
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     // Check if holding already exists for this symbol in this account
@@ -85,7 +76,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: `A holding for ${symbol.toUpperCase()} already exists in this account. Use PUT to update it.`
+          error: `A holding for ${symbol.toUpperCase()} already exists in this account. Use PUT to update it.`,
         },
         { status: 409 }
       );

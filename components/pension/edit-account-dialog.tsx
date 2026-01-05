@@ -38,8 +38,16 @@ export function EditAccountDialog({
 }: EditAccountDialogProps) {
   // Create a key that changes when dialog opens with new values
   const dialogKey = useMemo(
-    () => `${open}-${initialProviderName}-${initialAccountName}-${initialCurrentValue}-${initialFeeFromDeposit}-${initialFeeFromTotal}`,
-    [open, initialProviderName, initialAccountName, initialCurrentValue, initialFeeFromDeposit, initialFeeFromTotal]
+    () =>
+      `${open}-${initialProviderName}-${initialAccountName}-${initialCurrentValue}-${initialFeeFromDeposit}-${initialFeeFromTotal}`,
+    [
+      open,
+      initialProviderName,
+      initialAccountName,
+      initialCurrentValue,
+      initialFeeFromDeposit,
+      initialFeeFromTotal,
+    ]
   );
 
   const [providerName, setProviderName] = useState(initialProviderName);
@@ -116,13 +124,14 @@ export function EditAccountDialog({
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Edit Account</DialogTitle>
-            <DialogDescription>
-              Update account details and current value.
-            </DialogDescription>
+            <DialogDescription>Update account details and current value.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             {error && (
-              <div role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              <div
+                role="alert"
+                className="bg-destructive/10 text-destructive rounded-md p-3 text-sm"
+              >
                 {error}
               </div>
             )}
@@ -164,7 +173,7 @@ export function EditAccountDialog({
                 placeholder="e.g., 100000"
                 required
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 Update with your latest statement value
               </p>
             </div>
@@ -200,11 +209,7 @@ export function EditAccountDialog({
             </div>
           </div>
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={updateAccount.isPending}>

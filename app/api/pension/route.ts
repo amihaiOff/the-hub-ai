@@ -11,10 +11,7 @@ export async function GET(_request: NextRequest) {
     // Authentication check
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     // Fetch all pension accounts with deposits for the user
@@ -37,10 +34,7 @@ export async function GET(_request: NextRequest) {
     const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const accountSummaries = accounts.map((account) => {
-      const accountTotalDeposits = account.deposits.reduce(
-        (sum, d) => sum + Number(d.amount),
-        0
-      );
+      const accountTotalDeposits = account.deposits.reduce((sum, d) => sum + Number(d.amount), 0);
 
       const accountThisMonth = account.deposits
         .filter((d) => {

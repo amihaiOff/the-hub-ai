@@ -85,7 +85,7 @@ const ilsValue = usdValue * rates.USD;
 const usdValue = ilsValue / rates.USD;
 
 // WRONG: Don't use rates.ILS for conversion (always 1)
-const wrong = usdValue * rates.ILS;  // Does nothing!
+const wrong = usdValue * rates.ILS; // Does nothing!
 ```
 
 ## Testing

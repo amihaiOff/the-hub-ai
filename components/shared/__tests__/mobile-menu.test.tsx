@@ -193,8 +193,7 @@ jest.mock('lucide-react', () => ({
 
 // Mock @/lib/utils
 jest.mock('@/lib/utils', () => ({
-  cn: (...classes: (string | undefined | null | false)[]) =>
-    classes.filter(Boolean).join(' '),
+  cn: (...classes: (string | undefined | null | false)[]) => classes.filter(Boolean).join(' '),
 }));
 
 // Import after mocks

@@ -15,10 +15,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Authentication check
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
@@ -33,18 +30,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!account) {
-      return NextResponse.json(
-        { success: false, error: 'Account not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Account not found' }, { status: 404 });
     }
 
     // Authorization check - verify user owns this account
     if (account.userId !== user.id) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden' },
-        { status: 403 }
-      );
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     return NextResponse.json({
@@ -53,10 +44,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     console.error('Error fetching account:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch account' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to fetch account' }, { status: 500 });
   }
 }
 
@@ -69,10 +57,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // Authentication check
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
@@ -93,18 +78,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { success: false, error: 'Account not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Account not found' }, { status: 404 });
     }
 
     // Authorization check - verify user owns this account
     if (existing.userId !== user.id) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden' },
-        { status: 403 }
-      );
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     // Update the account
@@ -141,10 +120,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // Authentication check
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
@@ -155,18 +131,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { success: false, error: 'Account not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Account not found' }, { status: 404 });
     }
 
     // Authorization check - verify user owns this account
     if (existing.userId !== user.id) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden' },
-        { status: 403 }
-      );
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     // Delete the account (holdings will cascade delete)

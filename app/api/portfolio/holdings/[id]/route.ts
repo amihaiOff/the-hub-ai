@@ -15,10 +15,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Authentication check
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
@@ -31,18 +28,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!holding) {
-      return NextResponse.json(
-        { success: false, error: 'Holding not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Holding not found' }, { status: 404 });
     }
 
     // Authorization check - verify user owns the account containing this holding
     if (holding.account.userId !== user.id) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden' },
-        { status: 403 }
-      );
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     return NextResponse.json({
@@ -51,10 +42,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     console.error('Error fetching holding:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch holding' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to fetch holding' }, { status: 500 });
   }
 }
 
@@ -67,10 +55,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // Authentication check
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
@@ -99,18 +84,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { success: false, error: 'Holding not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Holding not found' }, { status: 404 });
     }
 
     // Authorization check - verify user owns the account containing this holding
     if (existing.account.userId !== user.id) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden' },
-        { status: 403 }
-      );
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     // Update the holding
@@ -144,10 +123,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // Authentication check
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
@@ -159,18 +135,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { success: false, error: 'Holding not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Holding not found' }, { status: 404 });
     }
 
     // Authorization check - verify user owns the account containing this holding
     if (existing.account.userId !== user.id) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden' },
-        { status: 403 }
-      );
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     // Delete the holding

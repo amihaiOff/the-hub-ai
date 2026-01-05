@@ -58,7 +58,7 @@ describe('Stock Price Module', () => {
         const cachedTime = new Date(Date.now() - 3 * 60 * 60 * 1000); // 3 hours ago
         const mockCached = {
           symbol: 'AAPL',
-          price: { toNumber: () => 150.50 },
+          price: { toNumber: () => 150.5 },
           timestamp: cachedTime,
         };
 
@@ -68,7 +68,7 @@ describe('Stock Price Module', () => {
 
         expect(result).toEqual({
           symbol: 'AAPL',
-          price: 150.50,
+          price: 150.5,
           timestamp: cachedTime,
           fromCache: true,
         });
@@ -79,7 +79,7 @@ describe('Stock Price Module', () => {
         const expiredTime = new Date(Date.now() - 7 * 60 * 60 * 1000); // 7 hours ago
         const mockExpiredCache = {
           symbol: 'AAPL',
-          price: { toNumber: () => 145.00 },
+          price: { toNumber: () => 145.0 },
           timestamp: expiredTime,
         };
 
@@ -120,7 +120,7 @@ describe('Stock Price Module', () => {
         const cachedTime = new Date(Date.now() - 1 * 60 * 60 * 1000); // 1 hour ago
         const mockCached = {
           symbol: 'AAPL',
-          price: { toNumber: () => 150.00 },
+          price: { toNumber: () => 150.0 },
           timestamp: cachedTime,
         };
 
@@ -149,7 +149,7 @@ describe('Stock Price Module', () => {
               result: [
                 {
                   meta: {
-                    regularMarketPrice: 175.50,
+                    regularMarketPrice: 175.5,
                     symbol: 'GOOGL',
                     currency: 'USD',
                   },
@@ -166,7 +166,7 @@ describe('Stock Price Module', () => {
         expect(isStockPriceError(result)).toBe(false);
         if (!isStockPriceError(result)) {
           expect(result.symbol).toBe('GOOGL');
-          expect(result.price).toBe(175.50);
+          expect(result.price).toBe(175.5);
           expect(result.fromCache).toBe(false);
         }
 
@@ -225,12 +225,10 @@ describe('Stock Price Module', () => {
       });
 
       it('should handle Yahoo Finance network error', async () => {
-        mockFetch
-          .mockRejectedValueOnce(new Error('Network error'))
-          .mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({}),
-          });
+        mockFetch.mockRejectedValueOnce(new Error('Network error')).mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({}),
+        });
 
         const result = await getStockPrice('AAPL');
 
@@ -276,7 +274,7 @@ describe('Stock Price Module', () => {
         expect(isStockPriceError(result)).toBe(false);
         if (!isStockPriceError(result)) {
           expect(result.symbol).toBe('MSFT');
-          expect(result.price).toBe(380.50);
+          expect(result.price).toBe(380.5);
         }
 
         // Verify both APIs were called
@@ -325,7 +323,7 @@ describe('Stock Price Module', () => {
         const staleTime = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 hours ago
         const staleCached = {
           symbol: 'AAPL',
-          price: { toNumber: () => 140.00 },
+          price: { toNumber: () => 140.0 },
           timestamp: staleTime,
         };
 
@@ -344,7 +342,7 @@ describe('Stock Price Module', () => {
         expect(isStockPriceError(result)).toBe(false);
         if (!isStockPriceError(result)) {
           expect(result.symbol).toBe('AAPL');
-          expect(result.price).toBe(140.00);
+          expect(result.price).toBe(140.0);
           expect(result.fromCache).toBe(true);
         }
       });
@@ -376,12 +374,12 @@ describe('Stock Price Module', () => {
       (prisma.stockPriceHistory.findMany as jest.Mock).mockResolvedValueOnce([
         {
           symbol: 'AAPL',
-          price: { toNumber: () => 150.00 },
+          price: { toNumber: () => 150.0 },
           timestamp: cachedTime,
         },
         {
           symbol: 'GOOGL',
-          price: { toNumber: () => 175.00 },
+          price: { toNumber: () => 175.0 },
           timestamp: cachedTime,
         },
       ]);
@@ -393,13 +391,13 @@ describe('Stock Price Module', () => {
       const aaplResult = results.get('AAPL');
       expect(aaplResult).toBeDefined();
       if (aaplResult && !isStockPriceError(aaplResult)) {
-        expect(aaplResult.price).toBe(150.00);
+        expect(aaplResult.price).toBe(150.0);
       }
 
       const googlResult = results.get('GOOGL');
       expect(googlResult).toBeDefined();
       if (googlResult && !isStockPriceError(googlResult)) {
-        expect(googlResult.price).toBe(175.00);
+        expect(googlResult.price).toBe(175.0);
       }
     });
 
@@ -410,7 +408,7 @@ describe('Stock Price Module', () => {
       (prisma.stockPriceHistory.findMany as jest.Mock).mockResolvedValueOnce([
         {
           symbol: 'AAPL',
-          price: { toNumber: () => 150.00 },
+          price: { toNumber: () => 150.0 },
           timestamp: cachedTime,
         },
       ]);
@@ -428,7 +426,7 @@ describe('Stock Price Module', () => {
             result: [
               {
                 meta: {
-                  regularMarketPrice: 380.00,
+                  regularMarketPrice: 380.0,
                   symbol: 'MSFT',
                 },
               },
@@ -460,7 +458,7 @@ describe('Stock Price Module', () => {
       const oldTime = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
       const mockCached = {
         symbol: 'AAPL',
-        price: { toNumber: () => 120.00 },
+        price: { toNumber: () => 120.0 },
         timestamp: oldTime,
       };
 
@@ -471,7 +469,7 @@ describe('Stock Price Module', () => {
       expect(result).not.toBeNull();
       if (result) {
         expect(result.symbol).toBe('AAPL');
-        expect(result.price).toBe(120.00);
+        expect(result.price).toBe(120.0);
         expect(result.timestamp).toEqual(oldTime);
       }
     });
@@ -494,7 +492,7 @@ describe('Stock Price Module', () => {
             result: [
               {
                 meta: {
-                  regularMarketPrice: 160.00,
+                  regularMarketPrice: 160.0,
                   symbol: 'AAPL',
                 },
               },
@@ -509,14 +507,14 @@ describe('Stock Price Module', () => {
 
       expect(isStockPriceError(result)).toBe(false);
       if (!isStockPriceError(result)) {
-        expect(result.price).toBe(160.00);
+        expect(result.price).toBe(160.0);
         expect(result.fromCache).toBe(false);
       }
 
       expect(prisma.stockPriceHistory.create).toHaveBeenCalledWith({
         data: {
           symbol: 'AAPL',
-          price: 160.00,
+          price: 160.0,
           timestamp: expect.any(Date),
         },
       });
@@ -543,7 +541,7 @@ describe('Stock Price Module', () => {
 
       expect(isStockPriceError(result)).toBe(false);
       if (!isStockPriceError(result)) {
-        expect(result.price).toBe(155.00);
+        expect(result.price).toBe(155.0);
       }
     });
 
@@ -566,7 +564,7 @@ describe('Stock Price Module', () => {
       const almostExpiredTime = new Date(Date.now() - (6 * 60 * 60 * 1000 - 60000)); // 5h 59m ago
       const mockCached = {
         symbol: 'AAPL',
-        price: { toNumber: () => 150.00 },
+        price: { toNumber: () => 150.0 },
         timestamp: almostExpiredTime,
       };
 
@@ -585,7 +583,7 @@ describe('Stock Price Module', () => {
       const justExpiredTime = new Date(Date.now() - (6 * 60 * 60 * 1000 + 60000)); // 6h 1m ago
       const mockCached = {
         symbol: 'AAPL',
-        price: { toNumber: () => 150.00 },
+        price: { toNumber: () => 150.0 },
         timestamp: justExpiredTime,
       };
 
@@ -598,7 +596,7 @@ describe('Stock Price Module', () => {
         ok: true,
         json: async () => ({
           chart: {
-            result: [{ meta: { regularMarketPrice: 155.00 } }],
+            result: [{ meta: { regularMarketPrice: 155.0 } }],
           },
         }),
       });
@@ -610,7 +608,7 @@ describe('Stock Price Module', () => {
       expect(mockFetch).toHaveBeenCalled();
       expect(isStockPriceError(result)).toBe(false);
       if (!isStockPriceError(result)) {
-        expect(result.price).toBe(155.00);
+        expect(result.price).toBe(155.0);
         expect(result.fromCache).toBe(false);
       }
     });

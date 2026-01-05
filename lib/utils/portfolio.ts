@@ -149,15 +149,13 @@ export function calculateAccountCostBasis(holdings: HoldingValue[]): number {
 /**
  * Calculate account summary with all holdings
  */
-export function calculateAccountSummary(
-  account: {
-    id: string;
-    name: string;
-    broker: string | null;
-    currency?: string;
-    holdings: HoldingWithPrice[];
-  }
-): AccountSummary {
+export function calculateAccountSummary(account: {
+  id: string;
+  name: string;
+  broker: string | null;
+  currency?: string;
+  holdings: HoldingWithPrice[];
+}): AccountSummary {
   const holdingValues = account.holdings.map(calculateHoldingDetails);
   const totalValue = calculateAccountTotal(holdingValues);
   const totalCostBasis = calculateAccountCostBasis(holdingValues);
@@ -195,10 +193,7 @@ export function calculatePortfolioSummary(
   const totalCostBasis = accountSummaries.reduce((sum, account) => sum + account.totalCostBasis, 0);
   const totalGainLoss = calculateGainLoss(totalValue, totalCostBasis);
   const totalGainLossPercent = calculateGainLossPercent(totalValue, totalCostBasis);
-  const totalHoldings = accountSummaries.reduce(
-    (sum, account) => sum + account.holdings.length,
-    0
-  );
+  const totalHoldings = accountSummaries.reduce((sum, account) => sum + account.holdings.length, 0);
 
   return {
     totalValue,

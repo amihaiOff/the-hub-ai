@@ -2,11 +2,7 @@
 
 import { Building2 } from 'lucide-react';
 import { usePension } from '@/lib/hooks/use-pension';
-import {
-  PensionSummary,
-  AddAccountDialog,
-  AccountCard,
-} from '@/components/pension';
+import { PensionSummary, AddAccountDialog, AccountCard } from '@/components/pension';
 
 export default function PensionPage() {
   const { data, isLoading, error } = usePension();
@@ -24,7 +20,7 @@ export default function PensionPage() {
 
       {/* Error State */}
       {error && (
-        <div className="rounded-md bg-destructive/10 p-4 text-destructive">
+        <div className="bg-destructive/10 text-destructive rounded-md p-4">
           Failed to load pension data. Please try again.
         </div>
       )}
@@ -45,10 +41,7 @@ export default function PensionPage() {
           // Loading skeleton
           <div className="space-y-4">
             {[1, 2].map((i) => (
-              <div
-                key={i}
-                className="h-48 animate-pulse rounded-lg bg-muted"
-              />
+              <div key={i} className="bg-muted h-48 animate-pulse rounded-lg" />
             ))}
           </div>
         ) : data?.accounts && data.accounts.length > 0 ? (
@@ -60,11 +53,11 @@ export default function PensionPage() {
           </div>
         ) : (
           // Empty state
-          <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-border">
+          <div className="border-border flex h-48 items-center justify-center rounded-lg border border-dashed">
             <div className="text-center">
-              <Building2 className="mx-auto h-12 w-12 text-muted-foreground" />
-              <p className="mt-2 text-muted-foreground">No accounts yet</p>
-              <p className="text-sm text-muted-foreground">
+              <Building2 className="text-muted-foreground mx-auto h-12 w-12" />
+              <p className="text-muted-foreground mt-2">No accounts yet</p>
+              <p className="text-muted-foreground text-sm">
                 Add your first pension account to start tracking deposits
               </p>
             </div>

@@ -39,11 +39,7 @@ function createTestQueryClient() {
 function createWrapper() {
   const queryClient = createTestQueryClient();
   return function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        {children}
-      </QueryClientProvider>
-    );
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   };
 }
 
@@ -180,9 +176,9 @@ describe('Portfolio Hooks', () => {
       });
 
       await act(async () => {
-        await expect(
-          result.current.mutateAsync({ name: 'Duplicate' })
-        ).rejects.toThrow('Account name already exists');
+        await expect(result.current.mutateAsync({ name: 'Duplicate' })).rejects.toThrow(
+          'Account name already exists'
+        );
       });
     });
 
@@ -610,9 +606,9 @@ describe('Portfolio Hooks', () => {
       });
 
       await act(async () => {
-        await expect(
-          result.current.mutateAsync({ id: 'invalid', quantity: 10 })
-        ).rejects.toThrow('Holding not found');
+        await expect(result.current.mutateAsync({ id: 'invalid', quantity: 10 })).rejects.toThrow(
+          'Holding not found'
+        );
       });
     });
   });
@@ -653,9 +649,7 @@ describe('Portfolio Hooks', () => {
       });
 
       await act(async () => {
-        await expect(result.current.mutateAsync('invalid')).rejects.toThrow(
-          'Holding not found'
-        );
+        await expect(result.current.mutateAsync('invalid')).rejects.toThrow('Holding not found');
       });
     });
   });
@@ -666,9 +660,7 @@ describe('Portfolio Hooks', () => {
       const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
 
       const wrapper = ({ children }: { children: ReactNode }) => (
-        <QueryClientProvider client={queryClient}>
-          {children}
-        </QueryClientProvider>
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
       );
 
       mockFetch.mockResolvedValueOnce({
@@ -693,9 +685,7 @@ describe('Portfolio Hooks', () => {
       const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
 
       const wrapper = ({ children }: { children: ReactNode }) => (
-        <QueryClientProvider client={queryClient}>
-          {children}
-        </QueryClientProvider>
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
       );
 
       mockFetch.mockResolvedValueOnce({
@@ -720,9 +710,7 @@ describe('Portfolio Hooks', () => {
       const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
 
       const wrapper = ({ children }: { children: ReactNode }) => (
-        <QueryClientProvider client={queryClient}>
-          {children}
-        </QueryClientProvider>
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
       );
 
       mockFetch.mockResolvedValueOnce({
@@ -744,9 +732,7 @@ describe('Portfolio Hooks', () => {
       const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
 
       const wrapper = ({ children }: { children: ReactNode }) => (
-        <QueryClientProvider client={queryClient}>
-          {children}
-        </QueryClientProvider>
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
       );
 
       mockFetch.mockResolvedValueOnce({
@@ -776,9 +762,7 @@ describe('Portfolio Hooks', () => {
       const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
 
       const wrapper = ({ children }: { children: ReactNode }) => (
-        <QueryClientProvider client={queryClient}>
-          {children}
-        </QueryClientProvider>
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
       );
 
       mockFetch.mockResolvedValueOnce({
@@ -803,9 +787,7 @@ describe('Portfolio Hooks', () => {
       const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
 
       const wrapper = ({ children }: { children: ReactNode }) => (
-        <QueryClientProvider client={queryClient}>
-          {children}
-        </QueryClientProvider>
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
       );
 
       mockFetch.mockResolvedValueOnce({

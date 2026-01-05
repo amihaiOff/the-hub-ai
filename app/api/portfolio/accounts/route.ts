@@ -11,10 +11,7 @@ export async function POST(request: NextRequest) {
     // Authentication check
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -67,10 +64,7 @@ export async function GET() {
     // Authentication check
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get accounts only for the authenticated user (authorization enforced by query)

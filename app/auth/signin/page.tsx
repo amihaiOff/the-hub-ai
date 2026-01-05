@@ -18,28 +18,22 @@ function SignInContent() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+    <div className="bg-background flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary">
-            <span className="text-xl font-bold text-primary-foreground">H</span>
+          <div className="bg-primary mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg">
+            <span className="text-primary-foreground text-xl font-bold">H</span>
           </div>
           <CardTitle className="text-2xl">Welcome to The Hub AI</CardTitle>
-          <CardDescription>
-            Sign in to manage your household finances
-          </CardDescription>
+          <CardDescription>Sign in to manage your household finances</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {error && (
-            <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="bg-destructive/10 text-destructive rounded-lg p-3 text-sm">
               {errorMessages[error] || errorMessages.Default}
             </div>
           )}
-          <Button
-            onClick={() => signIn('google', { callbackUrl })}
-            className="w-full"
-            size="lg"
-          >
+          <Button onClick={() => signIn('google', { callbackUrl })} className="w-full" size="lg">
             <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
               <path
                 fill="currentColor"
@@ -60,7 +54,7 @@ function SignInContent() {
             </svg>
             Sign in with Google
           </Button>
-          <p className="text-center text-xs text-muted-foreground">
+          <p className="text-muted-foreground text-center text-xs">
             Only authorized email addresses can access this application.
           </p>
         </CardContent>
@@ -71,11 +65,13 @@ function SignInContent() {
 
 export default function SignInPage() {
   return (
-    <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="bg-background flex min-h-screen items-center justify-center">
+          <div className="text-muted-foreground">Loading...</div>
+        </div>
+      }
+    >
       <SignInContent />
     </Suspense>
   );

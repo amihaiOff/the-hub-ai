@@ -29,6 +29,7 @@ npx playwright show-report    # View test report
 ## Key Testing Areas for Hub AI
 
 ### Critical User Flows
+
 1. **Authentication**
    - Google SSO login
    - Session persistence
@@ -57,18 +58,21 @@ npx playwright show-report    # View test report
    - Interest calculations display
 
 ### Responsive Design
+
 - Test at breakpoints: 320px, 375px, 768px, 1024px, 1440px
 - Mobile navigation works
 - Tables scroll horizontally on mobile
 - Touch targets are adequate (44px minimum)
 
 ### Dark Mode
+
 - All text is readable
 - Charts have proper contrast
 - Form inputs are visible
 - No white flashes on load
 
 ### Accessibility
+
 - Keyboard navigation works
 - Focus indicators visible
 - Screen reader compatibility
@@ -122,6 +126,7 @@ test('user can add stock to portfolio', async ({ page }) => {
 ## Integration with Playwright MCP
 
 If the Playwright MCP server is installed, you can use browser automation commands for visual inspection:
+
 - Navigate to pages
 - Take screenshots
 - Inspect DOM elements

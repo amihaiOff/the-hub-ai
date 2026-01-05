@@ -15,10 +15,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Authentication check
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
@@ -33,24 +30,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!account) {
-      return NextResponse.json(
-        { success: false, error: 'Account not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Account not found' }, { status: 404 });
     }
 
     // Authorization check - verify user owns this account
     if (account.userId !== user.id) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden' },
-        { status: 403 }
-      );
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    const totalDeposits = account.deposits.reduce(
-      (sum, d) => sum + Number(d.amount),
-      0
-    );
+    const totalDeposits = account.deposits.reduce((sum, d) => sum + Number(d.amount), 0);
 
     return NextResponse.json({
       success: true,
@@ -91,10 +79,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // Authentication check
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
@@ -102,14 +87,20 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const { providerName, accountName, currentValue, feeFromDeposit, feeFromTotal } = body;
 
     // Validate inputs if provided
-    if (providerName !== undefined && (typeof providerName !== 'string' || providerName.trim() === '')) {
+    if (
+      providerName !== undefined &&
+      (typeof providerName !== 'string' || providerName.trim() === '')
+    ) {
       return NextResponse.json(
         { success: false, error: 'Provider name cannot be empty' },
         { status: 400 }
       );
     }
 
-    if (accountName !== undefined && (typeof accountName !== 'string' || accountName.trim() === '')) {
+    if (
+      accountName !== undefined &&
+      (typeof accountName !== 'string' || accountName.trim() === '')
+    ) {
       return NextResponse.json(
         { success: false, error: 'Account name cannot be empty' },
         { status: 400 }
@@ -123,14 +114,20 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    if (feeFromDeposit !== undefined && (typeof feeFromDeposit !== 'number' || feeFromDeposit < 0 || feeFromDeposit > 100)) {
+    if (
+      feeFromDeposit !== undefined &&
+      (typeof feeFromDeposit !== 'number' || feeFromDeposit < 0 || feeFromDeposit > 100)
+    ) {
       return NextResponse.json(
         { success: false, error: 'Fee from deposit must be a percentage between 0 and 100' },
         { status: 400 }
       );
     }
 
-    if (feeFromTotal !== undefined && (typeof feeFromTotal !== 'number' || feeFromTotal < 0 || feeFromTotal > 100)) {
+    if (
+      feeFromTotal !== undefined &&
+      (typeof feeFromTotal !== 'number' || feeFromTotal < 0 || feeFromTotal > 100)
+    ) {
       return NextResponse.json(
         { success: false, error: 'Fee from total must be a percentage between 0 and 100' },
         { status: 400 }
@@ -143,18 +140,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { success: false, error: 'Account not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Account not found' }, { status: 404 });
     }
 
     // Authorization check - verify user owns this account
     if (existing.userId !== user.id) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden' },
-        { status: 403 }
-      );
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     // Update the account
@@ -174,10 +165,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    const totalDeposits = account.deposits.reduce(
-      (sum, d) => sum + Number(d.amount),
-      0
-    );
+    const totalDeposits = account.deposits.reduce((sum, d) => sum + Number(d.amount), 0);
 
     return NextResponse.json({
       success: true,
@@ -218,10 +206,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // Authentication check
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
@@ -232,18 +217,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { success: false, error: 'Account not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Account not found' }, { status: 404 });
     }
 
     // Authorization check - verify user owns this account
     if (existing.userId !== user.id) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden' },
-        { status: 403 }
-      );
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     // Delete the account (deposits will cascade delete)

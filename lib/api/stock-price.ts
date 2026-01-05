@@ -244,7 +244,7 @@ export async function getStockPrice(symbol: string): Promise<StockPriceResult> {
  */
 export async function getStockPrices(symbols: string[]): Promise<Map<string, StockPriceResult>> {
   const results = new Map<string, StockPriceResult>();
-  const upperSymbols = symbols.map(s => s.toUpperCase());
+  const upperSymbols = symbols.map((s) => s.toUpperCase());
 
   // Fetch all cached prices in a single query (fixes N+1 issue)
   const cachedPrices = await prisma.stockPriceHistory.findMany({
@@ -255,7 +255,7 @@ export async function getStockPrices(symbols: string[]): Promise<Map<string, Sto
 
   // Build a map of valid cached prices
   const symbolsToFetch: string[] = [];
-  const cachedMap = new Map(cachedPrices.map(c => [c.symbol, c]));
+  const cachedMap = new Map(cachedPrices.map((c) => [c.symbol, c]));
 
   for (const upperSymbol of upperSymbols) {
     const cached = cachedMap.get(upperSymbol);

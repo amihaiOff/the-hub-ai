@@ -34,16 +34,14 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
       <SheetContent side="left" className="w-72 p-0">
         <div className="flex h-full flex-col">
           {/* Header with Logo */}
-          <SheetHeader className="border-b border-border p-4">
+          <SheetHeader className="border-border border-b p-4">
             <Link href="/" className="flex items-center gap-2" onClick={handleNavClick}>
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                <span className="text-sm font-bold text-primary-foreground">H</span>
+              <div className="bg-primary flex h-8 w-8 items-center justify-center rounded-lg">
+                <span className="text-primary-foreground text-sm font-bold">H</span>
               </div>
               <SheetTitle className="text-lg font-semibold">The Hub AI</SheetTitle>
             </Link>
-            <SheetDescription className="sr-only">
-              Main navigation menu
-            </SheetDescription>
+            <SheetDescription className="sr-only">Main navigation menu</SheetDescription>
           </SheetHeader>
 
           {/* Navigation */}
@@ -73,9 +71,9 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
           </nav>
 
           {/* Footer - User Section */}
-          <div className="border-t border-border p-4">
+          <div className="border-border border-t p-4">
             {status === 'loading' ? (
-              <div className="h-10 animate-pulse rounded-lg bg-muted" />
+              <div className="bg-muted h-10 animate-pulse rounded-lg" />
             ) : session?.user ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
@@ -88,17 +86,13 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
                       className="rounded-full"
                     />
                   ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-medium text-primary-foreground">
+                    <div className="bg-primary text-primary-foreground flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium">
                       {session.user.name?.[0] || session.user.email?.[0] || '?'}
                     </div>
                   )}
                   <div className="flex-1 truncate">
-                    <p className="truncate text-sm font-medium">
-                      {session.user.name}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {session.user.email}
-                    </p>
+                    <p className="truncate text-sm font-medium">{session.user.name}</p>
+                    <p className="text-muted-foreground truncate text-xs">{session.user.email}</p>
                   </div>
                 </div>
                 <Button

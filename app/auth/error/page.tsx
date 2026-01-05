@@ -13,7 +13,8 @@ function ErrorContent() {
   const errorMessages: Record<string, { title: string; description: string }> = {
     Configuration: {
       title: 'Server Configuration Error',
-      description: 'There is a problem with the server configuration. Please contact the administrator.',
+      description:
+        'There is a problem with the server configuration. Please contact the administrator.',
     },
     AccessDenied: {
       title: 'Access Denied',
@@ -32,11 +33,11 @@ function ErrorContent() {
   const { title, description } = errorMessages[error || ''] || errorMessages.Default;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+    <div className="bg-background flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-destructive">
-            <span className="text-xl font-bold text-destructive-foreground">!</span>
+          <div className="bg-destructive mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg">
+            <span className="text-destructive-foreground text-xl font-bold">!</span>
           </div>
           <CardTitle className="text-2xl">{title}</CardTitle>
           <CardDescription>{description}</CardDescription>
@@ -53,11 +54,13 @@ function ErrorContent() {
 
 export default function AuthErrorPage() {
   return (
-    <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="bg-background flex min-h-screen items-center justify-center">
+          <div className="text-muted-foreground">Loading...</div>
+        </div>
+      }
+    >
       <ErrorContent />
     </Suspense>
   );

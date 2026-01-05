@@ -8,11 +8,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface DatePickerProps {
   date: Date | undefined;
@@ -30,9 +26,7 @@ export function DatePicker({
   id,
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
-  const [inputValue, setInputValue] = React.useState(
-    date ? format(date, 'dd/MM/yyyy') : ''
-  );
+  const [inputValue, setInputValue] = React.useState(date ? format(date, 'dd/MM/yyyy') : '');
 
   // Update input when date prop changes externally
   React.useEffect(() => {

@@ -82,9 +82,9 @@ for (const symbol of symbols) {
 const cachedPrices = await prisma.stockPriceHistory.findMany({
   where: { symbol: { in: symbols } },
   orderBy: { timestamp: 'desc' },
-  distinct: ['symbol'],  // Get latest per symbol
+  distinct: ['symbol'], // Get latest per symbol
 });
 
 // Build Map for O(1) lookup
-const cachedMap = new Map(cachedPrices.map(c => [c.symbol, c]));
+const cachedMap = new Map(cachedPrices.map((c) => [c.symbol, c]));
 ```

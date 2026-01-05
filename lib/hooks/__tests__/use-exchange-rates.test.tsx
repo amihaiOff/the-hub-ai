@@ -33,11 +33,7 @@ function createTestQueryClient() {
 function createWrapper() {
   const queryClient = createTestQueryClient();
   return function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        {children}
-      </QueryClientProvider>
-    );
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   };
 }
 
@@ -142,9 +138,7 @@ describe('Exchange Rates Module', () => {
 
       const queryClient = createTestQueryClient();
       const wrapper = ({ children }: { children: ReactNode }) => (
-        <QueryClientProvider client={queryClient}>
-          {children}
-        </QueryClientProvider>
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
       );
 
       const { result } = renderHook(() => useExchangeRates(), { wrapper });

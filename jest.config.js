@@ -22,12 +22,15 @@ const config = {
     },
   },
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', {
-      tsconfig: {
-        moduleResolution: 'node',
-        jsx: 'react-jsx',
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        tsconfig: {
+          moduleResolution: 'node',
+          jsx: 'react-jsx',
+        },
       },
-    }],
+    ],
   },
   // Use jsdom for .tsx test files (React component/hook tests)
   projects: [
@@ -40,12 +43,15 @@ const config = {
         '^@/(.*)$': '<rootDir>/$1',
       },
       transform: {
-        '^.+\\.tsx?$': ['ts-jest', {
-          tsconfig: {
-            moduleResolution: 'node',
-            jsx: 'react-jsx',
+        '^.+\\.tsx?$': [
+          'ts-jest',
+          {
+            tsconfig: {
+              moduleResolution: 'node',
+              jsx: 'react-jsx',
+            },
           },
-        }],
+        ],
       },
     },
     {
@@ -57,12 +63,15 @@ const config = {
         '^@/(.*)$': '<rootDir>/$1',
       },
       transform: {
-        '^.+\\.tsx?$': ['ts-jest', {
-          tsconfig: {
-            moduleResolution: 'node',
-            jsx: 'react-jsx',
+        '^.+\\.tsx?$': [
+          'ts-jest',
+          {
+            tsconfig: {
+              moduleResolution: 'node',
+              jsx: 'react-jsx',
+            },
           },
-        }],
+        ],
       },
       setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
     },

@@ -15,12 +15,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **This workflow is mandatory.** Do not skip the test and review steps after writing code. The agents should be run in parallel when possible to save time.
 
 Example after completing a coding task:
+
 ```
 <Task tool call to testing-agent>
 <Task tool call to reviewer-agent>
 ```
 
 **Spec updates:** When implementing new features or changing existing behavior, update the spec file to reflect the current state of the application. Keep the spec as the source of truth for what the app does.
+
+**Stop Hook Feedback:** When stop hooks raise issues or feedback, you MUST automatically address them without waiting for user confirmation. This includes:
+
+- Running missing tests or reviews
+- Fixing identified issues
+- Completing incomplete workflows
+- Do NOT ask the user if you should address the feedback - just do it immediately
 
 ## Project Overview
 
@@ -29,15 +37,32 @@ The Hub AI is a personal household financial management application for tracking
 ## Common Commands
 
 ### Development
+
 ```bash
-npm run dev              # Start dev server on localhost:3000
+npm run dev -- -p 3001  # Start dev server on localhost:3001 (use port 3001)
 npm run build           # Build production bundle
 npm run start           # Start production server
 npm run lint            # Run ESLint
 npm run type-check      # Run TypeScript type checking
 ```
 
+**Note:** Development server runs on port 3001 (not 3000).
+
+### Pre-commit Hooks (Husky)
+
+The project uses Husky for Git pre-commit hooks. Before each commit, the following checks run automatically:
+
+1. **Prettier** - Auto-formats code
+2. **ESLint** - Lints and auto-fixes issues
+3. **TypeScript** - Type checking
+4. **Jest** - Unit tests (only changed files for speed)
+
+If any check fails, the commit is blocked until issues are fixed.
+
+**Emergency bypass:** Use `git commit --no-verify` to skip hooks (use sparingly).
+
 ### Database (Prisma)
+
 ```bash
 npx prisma studio                    # Open database GUI
 npx prisma migrate dev --name [desc] # Create and apply migration
@@ -47,6 +72,7 @@ npx prisma migrate reset             # Reset database (careful!)
 ```
 
 ### Testing
+
 ```bash
 npm run test            # Run unit tests (Jest)
 npm run test:watch      # Run tests in watch mode
@@ -57,6 +83,7 @@ npm run test:all        # Run all tests
 ## Architecture
 
 ### Tech Stack
+
 - **Framework:** Next.js 15 (App Router) with TypeScript
 - **Styling:** Tailwind CSS + shadcn/ui components
 - **Database:** PostgreSQL with Prisma ORM
@@ -67,6 +94,7 @@ npm run test:all        # Run all tests
 - **Deployment:** Vercel (with Vercel Cron for background jobs)
 
 ### Project Structure
+
 ```
 app/
   dashboard/         # Main dashboard with net worth
@@ -95,6 +123,7 @@ prisma/
 ### Database Schema Overview
 
 **Core Entities:**
+
 - `users` - Google OAuth users (email allowlist)
 - `stock_accounts` → `stock_holdings` - Brokerage accounts and their stocks
 - `stock_price_history` - Historical prices for portfolio value tracking
@@ -104,6 +133,7 @@ prisma/
 - `notifications` - System alerts (missing deposits, anomalies)
 
 **Key Relationships:**
+
 - One user has many accounts (stocks, pension, assets)
 - Stock accounts have many holdings
 - Pension accounts have many deposits
@@ -139,6 +169,7 @@ Configured in `vercel.json`:
 ### Key Features
 
 **Stock Portfolio:**
+
 - Multiple brokerage accounts per user
 - Real-time stock prices (cached 6 hours)
 - Add/remove stocks with quantity tracking
@@ -155,18 +186,21 @@ Configured in `vercel.json`:
   - Rates cached for 1 hour
 
 **Pension/Hishtalmut:**
+
 - Track deposits with salary month attribution
 - Fee tracking (from deposit and from total)
 - Quarterly deposit checks with notifications
 - Anomaly detection for unusual deposit amounts
 
 **Misc Assets:**
+
 - Bank deposits with interest calculation
 - Loans and mortgages with payoff projections
 - Child savings with compound interest projection
 - All contribute to net worth (positive/negative)
 
 **Notifications:**
+
 - In-app notification center
 - Badge with unread count
 - Click to navigate to relevant entity
@@ -214,12 +248,13 @@ Configured in `vercel.json`:
 ### Environment Variables
 
 Required in `.env.local` (local) and Vercel dashboard (production):
+
 ```
 DATABASE_URL="postgresql://..."
 GOOGLE_CLIENT_ID="..."
 GOOGLE_CLIENT_SECRET="..."
 NEXTAUTH_SECRET="random-secret"
-NEXTAUTH_URL="http://localhost:3000"  # or production URL
+NEXTAUTH_URL="http://localhost:3001"  # or production URL (dev uses port 3001)
 ALPHA_VANTAGE_API_KEY="..."
 SKIP_AUTH="true"                      # DEV ONLY - bypasses OAuth for local development
 ```

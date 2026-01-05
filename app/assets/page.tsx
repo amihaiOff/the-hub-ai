@@ -1,99 +1,66 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Plus, Wallet, CreditCard, Landmark } from 'lucide-react';
+'use client';
+
+import { Wallet } from 'lucide-react';
+import { useAssets } from '@/lib/hooks/use-assets';
+import { AssetsSummary, AddAssetDialog, AssetList } from '@/components/assets';
 
 export default function AssetsPage() {
+  const { data, isLoading, error } = useAssets();
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Misc Assets & Debt</h1>
-          <p className="text-muted-foreground">Track bank deposits, loans, and other assets</p>
+          <p className="text-muted-foreground">
+            Track bank deposits, loans, mortgages, and savings
+          </p>
         </div>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Asset
-        </Button>
+        <AddAssetDialog />
       </div>
+
+      {/* Error State */}
+      {error && (
+        <div className="bg-destructive/10 text-destructive rounded-md p-4">
+          Failed to load assets data. Please try again.
+        </div>
+      )}
 
       {/* Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Assets</CardTitle>
-            <Wallet className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-500">$0.00</div>
-            <p className="text-xs text-muted-foreground">Bank deposits, savings</p>
-          </CardContent>
-        </Card>
+      <AssetsSummary
+        totalAssets={data?.totalAssets ?? 0}
+        totalLiabilities={data?.totalLiabilities ?? 0}
+        netValue={data?.netValue ?? 0}
+        isLoading={isLoading}
+      />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Debt</CardTitle>
-            <CreditCard className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-500">$0.00</div>
-            <p className="text-xs text-muted-foreground">Loans, mortgages</p>
-          </CardContent>
-        </Card>
+      {/* Assets & Liabilities List */}
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold">Your Assets & Liabilities</h2>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Net Position</CardTitle>
-            <Landmark className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">$0.00</div>
-            <p className="text-xs text-muted-foreground">Assets minus debt</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Items</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground">Total entries</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Assets and Debts Lists */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Assets</CardTitle>
-            <CardDescription>Bank deposits, child savings, and other assets</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-border">
-              <div className="text-center">
-                <Wallet className="mx-auto h-10 w-10 text-muted-foreground" />
-                <p className="mt-2 text-sm text-muted-foreground">No assets added yet</p>
-              </div>
+        {isLoading ? (
+          // Loading skeleton
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-muted h-32 animate-pulse rounded-lg" />
+            ))}
+          </div>
+        ) : data?.items && data.items.length > 0 ? (
+          // Assets list
+          <AssetList items={data.items} />
+        ) : (
+          // Empty state
+          <div className="border-border flex h-48 items-center justify-center rounded-lg border border-dashed">
+            <div className="text-center">
+              <Wallet className="text-muted-foreground mx-auto h-12 w-12" />
+              <p className="text-muted-foreground mt-2">No assets or liabilities yet</p>
+              <p className="text-muted-foreground text-sm">
+                Add bank deposits, loans, mortgages, or child savings to track
+              </p>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Debts</CardTitle>
-            <CardDescription>Loans, mortgages, and other liabilities</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-border">
-              <div className="text-center">
-                <CreditCard className="mx-auto h-10 w-10 text-muted-foreground" />
-                <p className="mt-2 text-sm text-muted-foreground">No debts added yet</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+        )}
       </div>
     </div>
   );

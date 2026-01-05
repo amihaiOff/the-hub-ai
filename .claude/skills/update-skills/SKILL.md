@@ -11,11 +11,13 @@ Process the learning log and update skill files with new patterns.
 ## How to Use
 
 Periodically run:
+
 ```
 /update-skills
 ```
 
 Or naturally:
+
 ```
 "Update the skills with recent learnings"
 "Incorporate the learning log into skills"
@@ -68,19 +70,24 @@ Or naturally:
 When adding to skills:
 
 ### For error-recovery
+
 Add to the "Common Errors & Solutions" table or create new category.
 
 ### For hub-ai-troubleshooting
+
 Add under the relevant section (Auth, Database, API, UI, etc.)
 
 ### For other skills
+
 Find the most relevant section or add a "Recent Learnings" section.
 
 ## Example Update
 
 **Learning log entry:**
+
 ```markdown
 ### Hydration Mismatch with Date
+
 - **Date**: 2025-01-15
 - **Category**: ui
 - **Problem**: Hydration error when rendering dates
@@ -89,28 +96,36 @@ Find the most relevant section or add a "Recent Learnings" section.
 ```
 
 **Added to mobile-first-ui/SKILL.md:**
-```markdown
+
+````markdown
 ## Common Issues
 
 ### Hydration Mismatch with Dates
+
 ```tsx
 // BAD - causes hydration mismatch
-<span>{new Date().toLocaleDateString()}</span>
+<span>{new Date().toLocaleDateString()}</span>;
 
 // GOOD - client-side only
 const [date, setDate] = useState<string>('');
 useEffect(() => setDate(new Date().toLocaleDateString()), []);
 ```
+````
+
 ```
 
 ## After Updating
 
 Provide a summary:
 ```
+
 Updated skills from learning log:
 
 1. mobile-first-ui - Added hydration fix for dates
 2. hub-ai-troubleshooting - Added P2024 connection pool solution
 
 3 entries processed, 2 skills updated.
+
+```
+
 ```

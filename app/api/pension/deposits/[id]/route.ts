@@ -15,10 +15,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Authentication check
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
@@ -31,18 +28,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!deposit) {
-      return NextResponse.json(
-        { success: false, error: 'Deposit not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Deposit not found' }, { status: 404 });
     }
 
     // Authorization check - verify user owns the account containing this deposit
     if (deposit.account.userId !== user.id) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden' },
-        { status: 403 }
-      );
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     return NextResponse.json({
@@ -58,10 +49,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     console.error('Error fetching deposit:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch deposit' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to fetch deposit' }, { status: 500 });
   }
 }
 
@@ -74,10 +62,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // Authentication check
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
@@ -128,18 +113,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { success: false, error: 'Deposit not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Deposit not found' }, { status: 404 });
     }
 
     // Authorization check - verify user owns the account containing this deposit
     if (existing.account.userId !== user.id) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden' },
-        { status: 403 }
-      );
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     // Update the deposit
@@ -182,10 +161,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // Authentication check
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
@@ -197,18 +173,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!existing) {
-      return NextResponse.json(
-        { success: false, error: 'Deposit not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Deposit not found' }, { status: 404 });
     }
 
     // Authorization check - verify user owns the account containing this deposit
     if (existing.account.userId !== user.id) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden' },
-        { status: 403 }
-      );
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     // Delete the deposit

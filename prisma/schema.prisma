@@ -21,6 +21,7 @@ model User {
   // Relations
   stockAccounts   StockAccount[]
   pensionAccounts PensionAccount[]
+  miscAssets      MiscAsset[]
 
   @@map("users")
 }
@@ -109,4 +110,32 @@ model PensionDeposit {
   @@index([accountId])
   @@index([salaryMonth])
   @@map("pension_deposits")
+}
+
+// Misc. Assets / Debt Models
+enum MiscAssetType {
+  bank_deposit
+  loan
+  mortgage
+  child_savings
+}
+
+model MiscAsset {
+  id             String        @id @default(cuid())
+  type           MiscAssetType
+  name           String                                                   // User-defined name
+  currentValue   Decimal       @map("current_value") @db.Decimal(18, 2)   // Positive for assets, negative for debts
+  interestRate   Decimal       @map("interest_rate") @db.Decimal(5, 4)    // Annual % (0.05 = 5%)
+  monthlyPayment Decimal?      @map("monthly_payment") @db.Decimal(18, 2) // For loans/mortgages
+  monthlyDeposit Decimal?      @map("monthly_deposit") @db.Decimal(18, 2) // For savings plans
+  maturityDate   DateTime?     @map("maturity_date") @db.Date             // When deposit matures or loan ends
+  userId         String        @map("user_id")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("misc_assets")
 }

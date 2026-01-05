@@ -24,7 +24,11 @@ interface AddHoldingDialogProps {
   accountCurrency?: string;
 }
 
-export function AddHoldingDialog({ accountId, accountName, accountCurrency = 'USD' }: AddHoldingDialogProps) {
+export function AddHoldingDialog({
+  accountId,
+  accountName,
+  accountCurrency = 'USD',
+}: AddHoldingDialogProps) {
   // Cost basis is always entered in the account's native currency
   const [open, setOpen] = useState(false);
   const [symbol, setSymbol] = useState('');
@@ -84,13 +88,14 @@ export function AddHoldingDialog({ accountId, accountName, accountCurrency = 'US
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Add Stock Holding</DialogTitle>
-            <DialogDescription>
-              Add a new stock to {accountName}.
-            </DialogDescription>
+            <DialogDescription>Add a new stock to {accountName}.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             {error && (
-              <div role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              <div
+                role="alert"
+                className="bg-destructive/10 text-destructive rounded-md p-3 text-sm"
+              >
                 {error}
               </div>
             )}
@@ -106,7 +111,7 @@ export function AddHoldingDialog({ accountId, accountName, accountCurrency = 'US
                 placeholder="e.g., AAPL, GOOGL, MSFT"
                 required
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 Type to search or enter a symbol manually
               </p>
             </div>
@@ -122,7 +127,7 @@ export function AddHoldingDialog({ accountId, accountName, accountCurrency = 'US
                 placeholder="e.g., 10, 0.5"
                 required
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 Number of shares (supports fractional shares)
               </p>
             </div>
@@ -138,17 +143,13 @@ export function AddHoldingDialog({ accountId, accountName, accountCurrency = 'US
                 placeholder="e.g., 150.00"
                 required
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 Average price per share in {accountCurrency}
               </p>
             </div>
           </div>
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={createHolding.isPending}>

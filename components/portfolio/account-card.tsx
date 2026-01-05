@@ -44,39 +44,42 @@ export function AccountCard({ account }: AccountCardProps) {
 
   // Format value in the selected display currency
   // Note: rates are TO ILS (e.g., rates.USD = 3.18 means 1 USD = 3.18 ILS)
-  const formatDisplayValue = useCallback((value: number): string => {
-    if (showInAlternate && rates) {
-      let convertedValue: number;
-      if (nativeCurrency === 'ILS' && alternateCurrency === 'USD') {
-        // Convert ILS to USD: divide by USD-to-ILS rate
-        convertedValue = value / (rates.USD || 1);
-      } else {
-        // Convert native currency to ILS: multiply by the currency's rate to ILS
-        const rate = rates[nativeCurrency as keyof typeof rates] || rates.USD || 1;
-        convertedValue = value * rate;
+  const formatDisplayValue = useCallback(
+    (value: number): string => {
+      if (showInAlternate && rates) {
+        let convertedValue: number;
+        if (nativeCurrency === 'ILS' && alternateCurrency === 'USD') {
+          // Convert ILS to USD: divide by USD-to-ILS rate
+          convertedValue = value / (rates.USD || 1);
+        } else {
+          // Convert native currency to ILS: multiply by the currency's rate to ILS
+          const rate = rates[nativeCurrency as keyof typeof rates] || rates.USD || 1;
+          convertedValue = value * rate;
+        }
+        return new Intl.NumberFormat(alternateCurrency === 'ILS' ? 'he-IL' : 'en-US', {
+          style: 'currency',
+          currency: alternateCurrency,
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }).format(convertedValue);
       }
-      return new Intl.NumberFormat(alternateCurrency === 'ILS' ? 'he-IL' : 'en-US', {
+
+      return new Intl.NumberFormat(nativeCurrency === 'ILS' ? 'he-IL' : 'en-US', {
         style: 'currency',
-        currency: alternateCurrency,
+        currency: nativeCurrency,
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
-      }).format(convertedValue);
-    }
-
-    return new Intl.NumberFormat(nativeCurrency === 'ILS' ? 'he-IL' : 'en-US', {
-      style: 'currency',
-      currency: nativeCurrency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  }, [showInAlternate, rates, nativeCurrency, alternateCurrency]);
+      }).format(value);
+    },
+    [showInAlternate, rates, nativeCurrency, alternateCurrency]
+  );
 
   const toggleDisabled = isLoadingRates || !!ratesError;
 
   return (
     <Card>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CardHeader className="pb-3 px-3 sm:px-6">
+        <CardHeader className="px-3 pb-3 sm:px-6">
           {/* Row 1: Account info (left) + Amount (right, prominent) */}
           <div className="flex items-start justify-between">
             <CollapsibleTrigger asChild>
@@ -86,14 +89,14 @@ export function AccountCard({ account }: AccountCardProps) {
                 aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${account.name} account details`}
               >
                 {isOpen ? (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  <ChevronDown className="text-muted-foreground h-4 w-4" />
                 ) : (
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <ChevronRight className="text-muted-foreground h-4 w-4" />
                 )}
                 <div>
                   <CardTitle className="text-lg">{account.name}</CardTitle>
                   {account.broker && (
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <div className="text-muted-foreground flex items-center gap-1 text-sm">
                       <Building2 className="h-3 w-3" />
                       {account.broker}
                     </div>
@@ -102,7 +105,7 @@ export function AccountCard({ account }: AccountCardProps) {
               </button>
             </CollapsibleTrigger>
             <div className="text-right">
-              <div className="text-xl sm:text-2xl font-bold tabular-nums">
+              <div className="text-xl font-bold tabular-nums sm:text-2xl">
                 {formatDisplayValue(account.totalValue)}
               </div>
               <Badge
@@ -119,12 +122,12 @@ export function AccountCard({ account }: AccountCardProps) {
           </div>
 
           {/* Row 2: Currency toggle (left) + Action buttons (right) */}
-          <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
+          <div className="border-border/50 mt-3 flex items-center justify-between border-t pt-3">
             {/* Currency toggle */}
             <div
               role="group"
               aria-label="Display currency"
-              className="flex items-center gap-0.5 rounded-md border bg-muted/50 p-0.5"
+              className="bg-muted/50 flex items-center gap-0.5 rounded-md border p-0.5"
             >
               <Button
                 variant="ghost"
@@ -132,10 +135,8 @@ export function AccountCard({ account }: AccountCardProps) {
                 onClick={() => setShowInAlternate(false)}
                 aria-pressed={!showInAlternate}
                 className={cn(
-                  'h-8 sm:h-6 px-3 sm:px-2 text-xs font-medium',
-                  !showInAlternate
-                    ? 'bg-background shadow-sm'
-                    : 'hover:bg-transparent'
+                  'h-8 px-3 text-xs font-medium sm:h-6 sm:px-2',
+                  !showInAlternate ? 'bg-background shadow-sm' : 'hover:bg-transparent'
                 )}
               >
                 {nativeCurrency}
@@ -147,11 +148,9 @@ export function AccountCard({ account }: AccountCardProps) {
                 disabled={toggleDisabled}
                 aria-pressed={showInAlternate}
                 className={cn(
-                  'h-8 sm:h-6 px-3 sm:px-2 text-xs font-medium',
-                  showInAlternate
-                    ? 'bg-background shadow-sm'
-                    : 'hover:bg-transparent',
-                  toggleDisabled && 'opacity-50 cursor-not-allowed'
+                  'h-8 px-3 text-xs font-medium sm:h-6 sm:px-2',
+                  showInAlternate ? 'bg-background shadow-sm' : 'hover:bg-transparent',
+                  toggleDisabled && 'cursor-not-allowed opacity-50'
                 )}
               >
                 {alternateCurrency}
@@ -167,11 +166,7 @@ export function AccountCard({ account }: AccountCardProps) {
               />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-muted-foreground"
-                  >
+                  <Button variant="ghost" size="icon-sm" className="text-muted-foreground">
                     <MoreVertical className="h-4 w-4" />
                     <span className="sr-only">Account options</span>
                   </Button>
@@ -213,7 +208,7 @@ export function AccountCard({ account }: AccountCardProps) {
         <CollapsibleContent>
           <CardContent className="pt-0">
             <div className="mb-4">
-              <div className="text-sm text-muted-foreground">
+              <div className="text-muted-foreground text-sm">
                 {account.holdings.length} holding{account.holdings.length !== 1 ? 's' : ''}
               </div>
             </div>

@@ -18,10 +18,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Require authentication
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const { symbol } = await params;
@@ -44,10 +41,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const result = await getStockPrice(symbol.trim());
 
     if (isStockPriceError(result)) {
-      return NextResponse.json(
-        { success: false, error: result.error },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: result.error }, { status: 404 });
     }
 
     return NextResponse.json({

@@ -14,15 +14,15 @@ export function Sidebar() {
   const { data: session, status } = useSession();
 
   return (
-    <aside className="fixed left-0 top-0 hidden h-screen w-64 border-r border-border bg-sidebar lg:block">
+    <aside className="border-border bg-sidebar fixed top-0 left-0 hidden h-screen w-64 border-r lg:block">
       <div className="flex h-full flex-col">
         {/* Logo */}
-        <div className="flex h-16 items-center border-b border-border px-6">
+        <div className="border-border flex h-16 items-center border-b px-6">
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <span className="text-sm font-bold text-primary-foreground">H</span>
+            <div className="bg-primary flex h-8 w-8 items-center justify-center rounded-lg">
+              <span className="text-primary-foreground text-sm font-bold">H</span>
             </div>
-            <span className="text-lg font-semibold text-sidebar-foreground">The Hub AI</span>
+            <span className="text-sidebar-foreground text-lg font-semibold">The Hub AI</span>
           </Link>
         </div>
 
@@ -52,9 +52,9 @@ export function Sidebar() {
         </nav>
 
         {/* Footer - User Section */}
-        <div className="border-t border-border p-4">
+        <div className="border-border border-t p-4">
           {status === 'loading' ? (
-            <div className="h-10 animate-pulse rounded-lg bg-muted" />
+            <div className="bg-muted h-10 animate-pulse rounded-lg" />
           ) : session?.user ? (
             <div className="space-y-3">
               <div className="flex items-center gap-3">
@@ -67,23 +67,21 @@ export function Sidebar() {
                     className="rounded-full"
                   />
                 ) : (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+                  <div className="bg-primary text-primary-foreground flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium">
                     {session.user.name?.[0] || session.user.email?.[0] || '?'}
                   </div>
                 )}
                 <div className="flex-1 truncate">
-                  <p className="truncate text-sm font-medium text-sidebar-foreground">
+                  <p className="text-sidebar-foreground truncate text-sm font-medium">
                     {session.user.name}
                   </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {session.user.email}
-                  </p>
+                  <p className="text-muted-foreground truncate text-xs">{session.user.email}</p>
                 </div>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full justify-start text-muted-foreground hover:text-sidebar-foreground"
+                className="text-muted-foreground hover:text-sidebar-foreground w-full justify-start"
                 onClick={() => signOut({ callbackUrl: '/auth/signin' })}
               >
                 <LogOut className="mr-2 h-4 w-4" />

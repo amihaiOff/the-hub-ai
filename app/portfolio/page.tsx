@@ -34,10 +34,10 @@ function PortfolioContent() {
       {error && (
         <Card className="border-destructive">
           <CardContent className="flex items-center gap-3 py-4">
-            <AlertCircle className="h-5 w-5 text-destructive" />
+            <AlertCircle className="text-destructive h-5 w-5" />
             <div>
-              <p className="font-medium text-destructive">Failed to load portfolio</p>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-destructive font-medium">Failed to load portfolio</p>
+              <p className="text-muted-foreground text-sm">
                 {error instanceof Error ? error.message : 'An unexpected error occurred'}
               </p>
             </div>
@@ -71,7 +71,7 @@ function PortfolioContent() {
         <div className="space-y-4 lg:col-span-2">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Brokerage Accounts</h2>
-            {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+            {isLoading && <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />}
           </div>
 
           {isLoading ? (
@@ -79,7 +79,7 @@ function PortfolioContent() {
             <Card>
               <CardContent className="py-8">
                 <div className="flex items-center justify-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
                 </div>
               </CardContent>
             </Card>
@@ -98,11 +98,11 @@ function PortfolioContent() {
                 <CardDescription>Your stock brokerage accounts and holdings</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-border">
+                <div className="border-border flex h-48 items-center justify-center rounded-lg border border-dashed">
                   <div className="text-center">
-                    <TrendingUp className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <p className="mt-2 text-muted-foreground">No accounts yet</p>
-                    <p className="text-sm text-muted-foreground">
+                    <TrendingUp className="text-muted-foreground mx-auto h-12 w-12" />
+                    <p className="text-muted-foreground mt-2">No accounts yet</p>
+                    <p className="text-muted-foreground text-sm">
                       Add your first brokerage account to start tracking
                     </p>
                   </div>

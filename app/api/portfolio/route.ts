@@ -13,10 +13,7 @@ export async function GET(_request: NextRequest) {
     // Get current user (dev user in local mode, or authenticated user in production)
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
     const userId = user.id;
 
@@ -48,9 +45,7 @@ export async function GET(_request: NextRequest) {
       currency: account.currency,
       holdings: account.holdings.map((holding) => {
         const priceResult = prices.get(holding.symbol);
-        const currentPrice = priceResult && !isStockPriceError(priceResult)
-          ? priceResult.price
-          : 0;
+        const currentPrice = priceResult && !isStockPriceError(priceResult) ? priceResult.price : 0;
 
         return {
           id: holding.id,

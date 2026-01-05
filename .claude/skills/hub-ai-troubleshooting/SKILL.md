@@ -83,10 +83,7 @@ export async function GET(request: NextRequest) {
   // ALWAYS add auth check first
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json(
-      { success: false, error: 'Unauthorized' },
-      { status: 401 }
-    );
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
   // ... rest of handler
@@ -94,6 +91,7 @@ export async function GET(request: NextRequest) {
 ```
 
 Protected routes include:
+
 - `/api/stocks/search` - Stock symbol search
 - `/api/stocks/price/[symbol]` - Stock price lookup
 - `/api/exchange-rates` - Currency exchange rates

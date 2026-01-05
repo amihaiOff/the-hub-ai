@@ -10,11 +10,11 @@ Guide for implementing alerts and notifications.
 
 ## Notification Types
 
-| Type | Trigger | Severity |
-|------|---------|----------|
-| `missing_pension_deposit` | No deposit for quarter | Warning |
-| `deposit_amount_anomaly` | >20% change from average | Info |
-| `price_update_failed` | Stock API error | Error |
+| Type                      | Trigger                  | Severity |
+| ------------------------- | ------------------------ | -------- |
+| `missing_pension_deposit` | No deposit for quarter   | Warning  |
+| `deposit_amount_anomaly`  | >20% change from average | Info     |
+| `price_update_failed`     | Stock API error          | Error    |
 
 ## Architecture
 
@@ -86,10 +86,7 @@ async function checkMissingDeposits(userId: string) {
 ```typescript
 async function checkDepositAnomaly(deposit: PensionDeposit) {
   const avgDeposit = await getAverageDeposit(deposit.accountId);
-  const percentChange = deposit.amount.minus(avgDeposit)
-    .div(avgDeposit)
-    .times(100)
-    .abs();
+  const percentChange = deposit.amount.minus(avgDeposit).div(avgDeposit).times(100).abs();
 
   if (percentChange.greaterThan(20)) {
     await createNotification({

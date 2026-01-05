@@ -47,7 +47,11 @@ async function fetchPortfolio(): Promise<PortfolioData> {
   return data.data;
 }
 
-async function createAccount(params: { name: string; broker?: string; currency?: string }): Promise<StockAccount> {
+async function createAccount(params: {
+  name: string;
+  broker?: string;
+  currency?: string;
+}): Promise<StockAccount> {
   const response = await fetch('/api/portfolio/accounts', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

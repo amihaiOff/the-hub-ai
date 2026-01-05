@@ -107,10 +107,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<StockSearc
     // Require authentication
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const searchParams = request.nextUrl.searchParams;

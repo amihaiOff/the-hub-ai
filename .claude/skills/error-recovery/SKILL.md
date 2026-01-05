@@ -40,44 +40,45 @@ Is this the first occurrence?
 
 ### Prisma Errors
 
-| Error | Wrong Approach | Right Approach |
-|-------|---------------|----------------|
-| `P2002: Unique constraint` | Retry insert | Check for existing record first |
-| `P2025: Record not found` | Retry query | Verify ID exists, handle null |
-| `P2003: Foreign key constraint` | Force delete | Delete children first or cascade |
-| Migration fails | Re-run same migration | Check schema, fix conflicts |
+| Error                           | Wrong Approach        | Right Approach                   |
+| ------------------------------- | --------------------- | -------------------------------- |
+| `P2002: Unique constraint`      | Retry insert          | Check for existing record first  |
+| `P2025: Record not found`       | Retry query           | Verify ID exists, handle null    |
+| `P2003: Foreign key constraint` | Force delete          | Delete children first or cascade |
+| Migration fails                 | Re-run same migration | Check schema, fix conflicts      |
 
 ### Next.js Errors
 
-| Error | Wrong Approach | Right Approach |
-|-------|---------------|----------------|
-| `Module not found` | Reinstall randomly | Check import path, file exists |
-| Hydration mismatch | Add random keys | Find server/client difference |
-| `NEXT_PUBLIC_` undefined | Restart dev server | Check `.env.local` file |
-| API route 500 | Add more try/catch | Check logs, find root cause |
+| Error                    | Wrong Approach     | Right Approach                 |
+| ------------------------ | ------------------ | ------------------------------ |
+| `Module not found`       | Reinstall randomly | Check import path, file exists |
+| Hydration mismatch       | Add random keys    | Find server/client difference  |
+| `NEXT_PUBLIC_` undefined | Restart dev server | Check `.env.local` file        |
+| API route 500            | Add more try/catch | Check logs, find root cause    |
 
 ### TypeScript Errors
 
-| Error | Wrong Approach | Right Approach |
-|-------|---------------|----------------|
-| Type mismatch | Cast to `any` | Fix the actual type |
-| Property doesn't exist | Add `as any` | Check interface definition |
-| Implicit any | Suppress warning | Add proper type annotation |
+| Error                  | Wrong Approach   | Right Approach             |
+| ---------------------- | ---------------- | -------------------------- |
+| Type mismatch          | Cast to `any`    | Fix the actual type        |
+| Property doesn't exist | Add `as any`     | Check interface definition |
+| Implicit any           | Suppress warning | Add proper type annotation |
 
 ### Test Failures
 
-| Situation | Wrong Approach | Right Approach |
-|-----------|---------------|----------------|
-| Assertion fails | Change expected value | Verify if code or test is wrong |
-| Timeout | Increase timeout | Find what's hanging |
-| Flaky test | Re-run until passes | Fix race condition |
-| Tests pass alone, fail together | Add more isolation | Use `jest.resetAllMocks()` not `clearAllMocks()` |
+| Situation                       | Wrong Approach        | Right Approach                                   |
+| ------------------------------- | --------------------- | ------------------------------------------------ |
+| Assertion fails                 | Change expected value | Verify if code or test is wrong                  |
+| Timeout                         | Increase timeout      | Find what's hanging                              |
+| Flaky test                      | Re-run until passes   | Fix race condition                               |
+| Tests pass alone, fail together | Add more isolation    | Use `jest.resetAllMocks()` not `clearAllMocks()` |
 
 **Important:** `jest.clearAllMocks()` only clears call history but keeps mock implementations. Use `jest.resetAllMocks()` in `beforeEach` to fully reset mock state including implementations, ensuring proper test isolation.
 
 ## Recovery Strategies
 
 ### Strategy 1: Read Error Carefully
+
 ```
 Before retrying, ask:
 - What exactly does the error say?
@@ -86,12 +87,14 @@ Before retrying, ask:
 ```
 
 ### Strategy 2: Check Recent Changes
+
 ```bash
 git diff HEAD~3  # What changed recently?
 git log --oneline -5  # When did it last work?
 ```
 
 ### Strategy 3: Isolate the Problem
+
 ```
 - Comment out code to find which part fails
 - Add console.log to trace execution
@@ -99,12 +102,14 @@ git log --oneline -5  # When did it last work?
 ```
 
 ### Strategy 4: Search Codebase for Similar Patterns
+
 ```
 How is this done elsewhere in the project?
 Look for working examples to follow.
 ```
 
 ### Strategy 5: Escalate
+
 ```
 If 3 different approaches fail:
 1. Document what was tried
@@ -117,11 +122,15 @@ If 3 different approaches fail:
 ```typescript
 // BAD: Retry loop without changes
 while (error) {
-  doSameThingAgain();  // Will fail forever
+  doSameThingAgain(); // Will fail forever
 }
 
 // BAD: Suppressing errors
-try { riskyCode(); } catch { /* ignore */ }
+try {
+  riskyCode();
+} catch {
+  /* ignore */
+}
 
 // BAD: Random changes hoping something works
 // "Maybe if I add await here..."

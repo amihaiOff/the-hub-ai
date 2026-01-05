@@ -13,7 +13,7 @@ export function AppShell({ children }: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="bg-background min-h-screen">
       {/* Desktop Sidebar */}
       <Sidebar />
 

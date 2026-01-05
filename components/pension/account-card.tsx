@@ -38,7 +38,7 @@ export function AccountCard({ account }: AccountCardProps) {
   return (
     <Card>
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CardHeader className="pb-3 px-3 sm:px-6">
+        <CardHeader className="px-3 pb-3 sm:px-6">
           {/* Row 1: Account info (left) + Value (right, prominent) */}
           <div className="flex items-start justify-between">
             <CollapsibleTrigger asChild>
@@ -48,13 +48,13 @@ export function AccountCard({ account }: AccountCardProps) {
                 aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${account.accountName} account details`}
               >
                 {isOpen ? (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  <ChevronDown className="text-muted-foreground h-4 w-4" />
                 ) : (
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <ChevronRight className="text-muted-foreground h-4 w-4" />
                 )}
                 <div>
                   <CardTitle className="text-lg">{account.accountName}</CardTitle>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="text-muted-foreground flex items-center gap-2 text-sm">
                     <Building2 className="h-3 w-3" />
                     {account.providerName}
                   </div>
@@ -62,7 +62,7 @@ export function AccountCard({ account }: AccountCardProps) {
               </button>
             </CollapsibleTrigger>
             <div className="text-right">
-              <div className="text-xl sm:text-2xl font-bold tabular-nums">
+              <div className="text-xl font-bold tabular-nums sm:text-2xl">
                 {formatCurrency(account.currentValue)}
               </div>
               <Badge variant="outline" className="border-primary/50 text-primary">
@@ -72,30 +72,25 @@ export function AccountCard({ account }: AccountCardProps) {
           </div>
 
           {/* Row 2: Stats (left) + Action buttons (right) */}
-          <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
+          <div className="border-border/50 mt-3 flex items-center justify-between border-t pt-3">
             {/* Stats */}
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <div className="text-muted-foreground flex items-center gap-4 text-sm">
               <div>
-                <span className="font-medium text-foreground">{account.depositsCount}</span> deposits
+                <span className="text-foreground font-medium">{account.depositsCount}</span>{' '}
+                deposits
               </div>
               <div className="hidden sm:block">
-                Fees: {formatFeePercent(account.feeFromDeposit)} / {formatFeePercent(account.feeFromTotal)}
+                Fees: {formatFeePercent(account.feeFromDeposit)} /{' '}
+                {formatFeePercent(account.feeFromTotal)}
               </div>
             </div>
 
             {/* Action buttons */}
             <div className="flex items-center gap-1">
-              <AddDepositDialog
-                accountId={account.id}
-                accountName={account.accountName}
-              />
+              <AddDepositDialog accountId={account.id} accountName={account.accountName} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-muted-foreground"
-                  >
+                  <Button variant="ghost" size="icon-sm" className="text-muted-foreground">
                     <MoreVertical className="h-4 w-4" />
                     <span className="sr-only">Account options</span>
                   </Button>
@@ -140,14 +135,14 @@ export function AccountCard({ account }: AccountCardProps) {
         <CollapsibleContent>
           <CardContent className="pt-0">
             <div className="mb-4">
-              <div className="text-sm text-muted-foreground">
-                Total deposited: <span className="font-medium text-foreground">{formatCurrency(account.totalDeposits)}</span>
+              <div className="text-muted-foreground text-sm">
+                Total deposited:{' '}
+                <span className="text-foreground font-medium">
+                  {formatCurrency(account.totalDeposits)}
+                </span>
               </div>
             </div>
-            <DepositsTable
-              deposits={account.deposits}
-              accountId={account.id}
-            />
+            <DepositsTable deposits={account.deposits} accountId={account.id} />
           </CardContent>
         </CollapsibleContent>
       </Collapsible>

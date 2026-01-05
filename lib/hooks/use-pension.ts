@@ -1,7 +1,12 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { PensionSummary, PensionAccountSummary, PensionAccountType, DepositValue } from '@/lib/utils/pension';
+import type {
+  PensionSummary,
+  PensionAccountSummary,
+  PensionAccountType,
+  DepositValue,
+} from '@/lib/utils/pension';
 
 // API Response types
 interface ApiResponse<T> {

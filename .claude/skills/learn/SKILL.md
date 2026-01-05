@@ -17,6 +17,7 @@ When you discover something worth remembering:
 ```
 
 Or invoke naturally:
+
 ```
 "Learn that Prisma P2024 means connection pool exhausted"
 "Remember this fix for the hydration error"
@@ -48,6 +49,7 @@ When invoked, add an entry to `.claude/learning-log.md`:
 
 ```markdown
 ### [Short Title]
+
 - **Date**: YYYY-MM-DD
 - **Category**: [category]
 - **Problem**: [What went wrong or was suboptimal]
@@ -63,6 +65,7 @@ When invoked, add an entry to `.claude/learning-log.md`:
 
 ```markdown
 ### Prisma Connection Pool Exhausted
+
 - **Date**: 2025-01-15
 - **Category**: database
 - **Problem**: P2024 error "Timed out fetching a new connection from the pool"

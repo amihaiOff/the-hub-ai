@@ -68,6 +68,7 @@ Desktop: md: 768px, lg: 1024px, xl: 1280px
 ## shadcn/ui Components
 
 Use shadcn/ui for consistency:
+
 - `Button`, `Card`, `Input`, `Select`
 - `Dialog`, `Sheet` (mobile-friendly modals)
 - `Table` (with horizontal scroll on mobile)
@@ -88,12 +89,15 @@ const formatDisplayValue = (value: number): string => {
 };
 
 // GOOD: Memoized with dependencies
-const formatDisplayValue = useCallback((value: number): string => {
-  if (displayCurrency !== baseCurrency && rates) {
-    // expensive conversion logic
-  }
-  return formatValue(value, baseCurrency);
-}, [displayCurrency, baseCurrency, rates, formatValue]);
+const formatDisplayValue = useCallback(
+  (value: number): string => {
+    if (displayCurrency !== baseCurrency && rates) {
+      // expensive conversion logic
+    }
+    return formatValue(value, baseCurrency);
+  },
+  [displayCurrency, baseCurrency, rates, formatValue]
+);
 ```
 
 ## Checklist

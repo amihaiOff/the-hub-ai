@@ -127,13 +127,14 @@ export function EditDepositDialog({
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Edit Deposit</DialogTitle>
-            <DialogDescription>
-              Update deposit details.
-            </DialogDescription>
+            <DialogDescription>Update deposit details.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             {error && (
-              <div role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              <div
+                role="alert"
+                className="bg-destructive/10 text-destructive rounded-md p-3 text-sm"
+              >
                 {error}
               </div>
             )}
@@ -186,11 +187,7 @@ export function EditDepositDialog({
             </div>
           </div>
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={updateDeposit.isPending}>

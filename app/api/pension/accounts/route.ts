@@ -11,10 +11,7 @@ export async function POST(request: NextRequest) {
     // Authentication check
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -53,14 +50,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate fees (percentage as decimal, e.g., 0.5 for 0.5%)
-    if (feeFromDeposit === undefined || typeof feeFromDeposit !== 'number' || feeFromDeposit < 0 || feeFromDeposit > 100) {
+    if (
+      feeFromDeposit === undefined ||
+      typeof feeFromDeposit !== 'number' ||
+      feeFromDeposit < 0 ||
+      feeFromDeposit > 100
+    ) {
       return NextResponse.json(
         { success: false, error: 'Fee from deposit must be a percentage between 0 and 100' },
         { status: 400 }
       );
     }
 
-    if (feeFromTotal === undefined || typeof feeFromTotal !== 'number' || feeFromTotal < 0 || feeFromTotal > 100) {
+    if (
+      feeFromTotal === undefined ||
+      typeof feeFromTotal !== 'number' ||
+      feeFromTotal < 0 ||
+      feeFromTotal > 100
+    ) {
       return NextResponse.json(
         { success: false, error: 'Fee from total must be a percentage between 0 and 100' },
         { status: 400 }
@@ -114,10 +121,7 @@ export async function GET() {
     // Authentication check
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const accounts = await prisma.pensionAccount.findMany({

@@ -49,7 +49,7 @@ export function AllocationChart({ allocation, isLoading }: AllocationChartProps)
         </CardHeader>
         <CardContent>
           <div className="flex h-64 items-center justify-center">
-            <div className="h-48 w-48 animate-pulse rounded-full bg-muted" />
+            <div className="bg-muted h-48 w-48 animate-pulse rounded-full" />
           </div>
         </CardContent>
       </Card>
@@ -64,10 +64,8 @@ export function AllocationChart({ allocation, isLoading }: AllocationChartProps)
           <CardDescription>Distribution of your holdings</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex h-64 items-center justify-center rounded-lg border border-dashed border-border">
-            <p className="text-muted-foreground">
-              Add holdings to see allocation breakdown
-            </p>
+          <div className="border-border flex h-64 items-center justify-center rounded-lg border border-dashed">
+            <p className="text-muted-foreground">Add holdings to see allocation breakdown</p>
           </div>
         </CardContent>
       </Card>
@@ -117,12 +115,12 @@ export function AllocationChart({ allocation, isLoading }: AllocationChartProps)
                       percentage: number;
                     };
                     return (
-                      <div className="rounded-lg border bg-background p-3 shadow-lg">
+                      <div className="bg-background rounded-lg border p-3 shadow-lg">
                         <p className="font-medium">{data.name}</p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-muted-foreground text-sm">
                           {formatCurrency(data.value)}
                         </p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-muted-foreground text-sm">
                           {data.percentage.toFixed(1)}%
                         </p>
                       </div>
@@ -136,7 +134,9 @@ export function AllocationChart({ allocation, isLoading }: AllocationChartProps)
                 verticalAlign="bottom"
                 align="center"
                 formatter={(value: string) => (
-                  <span className="text-sm" aria-label={`${value} allocation`}>{value}</span>
+                  <span className="text-sm" aria-label={`${value} allocation`}>
+                    {value}
+                  </span>
                 )}
                 iconType="circle"
                 wrapperStyle={{ paddingTop: '8px' }}

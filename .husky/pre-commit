@@ -1,0 +1,39 @@
+#!/bin/sh
+
+echo "Running pre-commit checks..."
+
+# Run Prettier to format code
+echo "Formatting code..."
+npx prettier --write "**/*.{ts,tsx,js,jsx,json,css,md}" --ignore-path .gitignore || echo "Warning: Prettier had issues (continuing anyway)"
+
+# Re-add any files that were modified by prettier
+git add -u
+
+# Run ESLint with auto-fix
+echo "Running linter..."
+npm run lint -- --fix
+if [ $? -ne 0 ]; then
+  echo "Lint failed. Please fix the errors above."
+  echo "Tip: Run 'npm run lint -- --fix' to auto-fix most issues"
+  exit 1
+fi
+
+# Run TypeScript type checking
+echo "Running type check..."
+npm run type-check
+if [ $? -ne 0 ]; then
+  echo "Type check failed. Please fix the errors above."
+  echo "Tip: Check the error locations and fix TypeScript issues"
+  exit 1
+fi
+
+# Run tests (only changed files for speed, bail on first failure)
+echo "Running tests..."
+npm run test -- --onlyChanged --bail
+if [ $? -ne 0 ]; then
+  echo "Tests failed. Please fix the failing tests."
+  echo "Tip: Run 'npm run test' to see all test output"
+  exit 1
+fi
+
+echo "All pre-commit checks passed!"

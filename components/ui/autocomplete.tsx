@@ -107,9 +107,7 @@ export function Autocomplete({
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setHighlightedIndex((prev) =>
-          prev < options.length - 1 ? prev + 1 : prev
-        );
+        setHighlightedIndex((prev) => (prev < options.length - 1 ? prev + 1 : prev));
         break;
       case 'ArrowUp':
         e.preventDefault();
@@ -158,8 +156,8 @@ export function Autocomplete({
           className={cn('uppercase', inputClassName)}
         />
         {isLoading && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <div className="absolute top-1/2 right-3 -translate-y-1/2">
+            <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
           </div>
         )}
       </div>
@@ -170,19 +168,17 @@ export function Autocomplete({
           id={`${id}-listbox`}
           role="listbox"
           className={cn(
-            'absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md',
+            'bg-popover absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border p-1 shadow-md',
             'animate-in fade-in-0 zoom-in-95'
           )}
         >
           {isLoading && options.length === 0 ? (
-            <li className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+            <li className="text-muted-foreground flex items-center justify-center py-4 text-sm">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Searching...
             </li>
           ) : options.length === 0 ? (
-            <li className="py-4 text-center text-sm text-muted-foreground">
-              No results found
-            </li>
+            <li className="text-muted-foreground py-4 text-center text-sm">No results found</li>
           ) : (
             options.map((option, index) => (
               <li
@@ -196,25 +192,23 @@ export function Autocomplete({
                 }}
                 onMouseEnter={() => setHighlightedIndex(index)}
                 className={cn(
-                  'relative flex cursor-pointer select-none items-center justify-between rounded-sm px-2 py-2 text-sm outline-none transition-colors',
+                  'relative flex cursor-pointer items-center justify-between rounded-sm px-2 py-2 text-sm transition-colors outline-none select-none',
                   highlightedIndex === index
                     ? 'bg-accent text-accent-foreground'
                     : 'hover:bg-accent hover:text-accent-foreground'
                 )}
               >
-                <div className="flex flex-col min-w-0 flex-1">
+                <div className="flex min-w-0 flex-1 flex-col">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium truncate">{option.value}</span>
+                    <span className="truncate font-medium">{option.value}</span>
                     {option.currency && (
-                      <span className="text-[10px] text-muted-foreground font-mono">
+                      <span className="text-muted-foreground font-mono text-[10px]">
                         {option.currency}
                       </span>
                     )}
                   </div>
                   {option.label && (
-                    <span className="text-xs text-muted-foreground truncate">
-                      {option.label}
-                    </span>
+                    <span className="text-muted-foreground truncate text-xs">{option.label}</span>
                   )}
                 </div>
                 {option.badge && (
@@ -224,8 +218,8 @@ export function Autocomplete({
                       option.badge === 'NASDAQ'
                         ? 'bg-blue-500/20 text-blue-400'
                         : option.badge === 'NYSE'
-                        ? 'bg-green-500/20 text-green-400'
-                        : 'bg-orange-500/20 text-orange-400'
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-orange-500/20 text-orange-400'
                     )}
                   >
                     {option.badge}

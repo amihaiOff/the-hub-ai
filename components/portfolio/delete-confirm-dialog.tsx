@@ -57,7 +57,8 @@ export function DeleteConfirmDialog({
       await onConfirm();
       setOpen(false);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete. Please try again.';
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to delete. Please try again.';
       setError(errorMessage);
       console.error('Delete failed:', err);
     } finally {
@@ -71,7 +72,11 @@ export function DeleteConfirmDialog({
       {!isControlled && (
         <DialogTrigger asChild>
           {trigger || (
-            <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-destructive hover:text-destructive"
+            >
               <Trash2 className="h-3 w-3" />
             </Button>
           )}
@@ -83,7 +88,7 @@ export function DeleteConfirmDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         {error && (
-          <div role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+          <div role="alert" className="bg-destructive/10 text-destructive rounded-md p-3 text-sm">
             {error}
           </div>
         )}
@@ -96,12 +101,7 @@ export function DeleteConfirmDialog({
           >
             Cancel
           </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={handleConfirm}
-            disabled={isDeleting}
-          >
+          <Button type="button" variant="destructive" onClick={handleConfirm} disabled={isDeleting}>
             {isDeleting ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogFooter>

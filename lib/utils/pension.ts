@@ -71,10 +71,7 @@ export function calculateThisMonthDeposits(accounts: PensionAccountSummary[]): n
   return accounts.reduce((total, account) => {
     const monthDeposits = account.deposits.filter((d) => {
       const salaryMonth = new Date(d.salaryMonth);
-      return (
-        salaryMonth.getFullYear() === currentYear &&
-        salaryMonth.getMonth() === currentMonth
-      );
+      return salaryMonth.getFullYear() === currentYear && salaryMonth.getMonth() === currentMonth;
     });
     return total + calculateTotalDeposits(monthDeposits);
   }, 0);
@@ -104,9 +101,7 @@ export function calculatePensionSummary(
 /**
  * Calculate allocation by provider for pie chart
  */
-export function calculateAllocationByProvider(
-  accounts: PensionAccountSummary[]
-): AllocationItem[] {
+export function calculateAllocationByProvider(accounts: PensionAccountSummary[]): AllocationItem[] {
   const totalValue = accounts.reduce((sum, a) => sum + a.currentValue, 0);
 
   if (totalValue === 0) return [];
@@ -132,9 +127,7 @@ export function calculateAllocationByProvider(
 /**
  * Calculate allocation by type (pension vs hishtalmut) for pie chart
  */
-export function calculateAllocationByType(
-  accounts: PensionAccountSummary[]
-): AllocationItem[] {
+export function calculateAllocationByType(accounts: PensionAccountSummary[]): AllocationItem[] {
   const totalValue = accounts.reduce((sum, a) => sum + a.currentValue, 0);
 
   if (totalValue === 0) return [];

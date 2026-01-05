@@ -11,16 +11,14 @@ export function CurrencyToggle() {
   const ilsDisabled = isLoadingRates || !!ratesError;
 
   return (
-    <div className="flex items-center gap-1 rounded-lg border bg-muted/50 p-1">
+    <div className="bg-muted/50 flex items-center gap-1 rounded-lg border p-1">
       <Button
         variant="ghost"
         size="sm"
         onClick={() => setDisplayCurrency('original')}
         className={cn(
           'h-7 px-3 text-xs font-medium',
-          displayCurrency === 'original'
-            ? 'bg-background shadow-sm'
-            : 'hover:bg-transparent'
+          displayCurrency === 'original' ? 'bg-background shadow-sm' : 'hover:bg-transparent'
         )}
       >
         Original
@@ -33,16 +31,11 @@ export function CurrencyToggle() {
         title={ratesError ? 'Exchange rates unavailable' : undefined}
         className={cn(
           'h-7 px-3 text-xs font-medium',
-          displayCurrency === 'ILS'
-            ? 'bg-background shadow-sm'
-            : 'hover:bg-transparent',
-          ilsDisabled && 'opacity-50 cursor-not-allowed'
+          displayCurrency === 'ILS' ? 'bg-background shadow-sm' : 'hover:bg-transparent',
+          ilsDisabled && 'cursor-not-allowed opacity-50'
         )}
       >
-        {ratesError ? (
-          <AlertCircle className="h-3 w-3 mr-1 text-destructive" />
-        ) : null}
-        ₪ ILS
+        {ratesError ? <AlertCircle className="text-destructive mr-1 h-3 w-3" /> : null}₪ ILS
       </Button>
     </div>
   );

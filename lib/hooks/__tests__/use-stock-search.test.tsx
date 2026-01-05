@@ -31,11 +31,7 @@ function createTestQueryClient() {
 function createWrapper() {
   const queryClient = createTestQueryClient();
   return function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        {children}
-      </QueryClientProvider>
-    );
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   };
 }
 
@@ -73,13 +69,10 @@ describe('useStockSearch', () => {
       }),
     });
 
-    const { result, rerender } = renderHook(
-      ({ query }) => useStockSearch(query, 300),
-      {
-        wrapper: createWrapper(),
-        initialProps: { query: 'A' },
-      }
-    );
+    const { result, rerender } = renderHook(({ query }) => useStockSearch(query, 300), {
+      wrapper: createWrapper(),
+      initialProps: { query: 'A' },
+    });
 
     // Initial query triggers immediate fetch (debouncedQuery initialized to query)
     await waitFor(() => {
@@ -244,9 +237,7 @@ describe('useStockSearch', () => {
   });
 
   it('should use custom debounce time for query changes', async () => {
-    const mockStocks = [
-      { symbol: 'MSFT', name: 'Microsoft', exchange: 'NASDAQ', currency: 'USD' },
-    ];
+    const mockStocks = [{ symbol: 'MSFT', name: 'Microsoft', exchange: 'NASDAQ', currency: 'USD' }];
 
     mockFetch.mockResolvedValue({
       ok: true,
@@ -256,13 +247,10 @@ describe('useStockSearch', () => {
       }),
     });
 
-    const { rerender } = renderHook(
-      ({ query }) => useStockSearch(query, 500),
-      {
-        wrapper: createWrapper(),
-        initialProps: { query: 'M' },
-      }
-    );
+    const { rerender } = renderHook(({ query }) => useStockSearch(query, 500), {
+      wrapper: createWrapper(),
+      initialProps: { query: 'M' },
+    });
 
     // Initial query fetches immediately
     await waitFor(() => {
@@ -318,13 +306,10 @@ describe('useStockSearch', () => {
   });
 
   it('should not fetch when query becomes empty', async () => {
-    const { result, rerender } = renderHook(
-      ({ query }) => useStockSearch(query, 0),
-      {
-        wrapper: createWrapper(),
-        initialProps: { query: '' },
-      }
-    );
+    const { result, rerender } = renderHook(({ query }) => useStockSearch(query, 0), {
+      wrapper: createWrapper(),
+      initialProps: { query: '' },
+    });
 
     // Start with empty query
     expect(result.current.options).toEqual([]);
@@ -347,9 +332,7 @@ describe('useStockSearch', () => {
   });
 
   it('should handle missing currency in response', async () => {
-    const mockStocks = [
-      { symbol: 'UNKNOWN', name: 'Unknown Stock', exchange: 'OTC' },
-    ];
+    const mockStocks = [{ symbol: 'UNKNOWN', name: 'Unknown Stock', exchange: 'OTC' }];
 
     mockFetch.mockResolvedValueOnce({
       ok: true,

@@ -39,16 +39,12 @@ export function DepositsTable({ deposits, accountId }: DepositsTableProps) {
   const deleteDepositMutation = useDeleteDeposit();
 
   if (deposits.length === 0) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        No deposits recorded yet
-      </div>
-    );
+    return <div className="text-muted-foreground py-8 text-center">No deposits recorded yet</div>;
   }
 
   return (
     <>
-      <div className="overflow-x-auto -mx-4 sm:mx-0">
+      <div className="-mx-4 overflow-x-auto sm:mx-0">
         <Table>
           <TableHeader>
             <TableRow>
@@ -65,13 +61,11 @@ export function DepositsTable({ deposits, accountId }: DepositsTableProps) {
                 <TableCell className="font-medium">
                   {formatSalaryMonth(deposit.salaryMonth)}
                 </TableCell>
-                <TableCell className="hidden sm:table-cell text-muted-foreground">
+                <TableCell className="text-muted-foreground hidden sm:table-cell">
                   {formatDepositDate(deposit.depositDate)}
                 </TableCell>
-                <TableCell className="tabular-nums">
-                  {formatCurrency(deposit.amount)}
-                </TableCell>
-                <TableCell className="hidden sm:table-cell text-muted-foreground">
+                <TableCell className="tabular-nums">{formatCurrency(deposit.amount)}</TableCell>
+                <TableCell className="text-muted-foreground hidden sm:table-cell">
                   {deposit.employer}
                 </TableCell>
                 <TableCell>

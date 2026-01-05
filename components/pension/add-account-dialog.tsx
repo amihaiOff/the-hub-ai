@@ -102,13 +102,14 @@ export function AddAccountDialog() {
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Add Pension Account</DialogTitle>
-            <DialogDescription>
-              Add a new pension or hishtalmut account to track.
-            </DialogDescription>
+            <DialogDescription>Add a new pension or hishtalmut account to track.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             {error && (
-              <div role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              <div
+                role="alert"
+                className="bg-destructive/10 text-destructive rounded-md p-3 text-sm"
+              >
                 {error}
               </div>
             )}
@@ -162,7 +163,7 @@ export function AddAccountDialog() {
                 placeholder="e.g., 100000"
                 required
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 Total value as shown in your latest statement
               </p>
             </div>
@@ -198,11 +199,7 @@ export function AddAccountDialog() {
             </div>
           </div>
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={createAccount.isPending}>

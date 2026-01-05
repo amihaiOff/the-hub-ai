@@ -8,6 +8,7 @@ Periodically run `/update-skills` to incorporate these into the appropriate skil
 ## Format
 
 Each entry should include:
+
 - **Date**: When discovered
 - **Category**: error-recovery | troubleshooting | financial | database | api | ui | notifications
 - **Problem**: What went wrong
@@ -19,6 +20,7 @@ Each entry should include:
 ## Entries
 
 ### [INCORPORATED] Exchange Rates Direction Convention
+
 - **Date**: 2026-01-03
 - **Category**: api
 - **Problem**: Currency conversion was wrong - used `rates.ILS` (always 1) instead of `rates.USD` for USD/ILS conversion
@@ -28,6 +30,7 @@ Each entry should include:
 ---
 
 ### [INCORPORATED] Jest resetAllMocks vs clearAllMocks
+
 - **Date**: 2026-01-03
 - **Category**: error-recovery
 - **Problem**: Tests passed individually but failed when run together - mock state was leaking between tests
@@ -37,6 +40,7 @@ Each entry should include:
 ---
 
 ### [INCORPORATED] Public API Routes Need Authentication
+
 - **Date**: 2026-01-03
 - **Category**: troubleshooting
 - **Problem**: Stock search, stock price, and exchange rates APIs were publicly accessible without authentication, creating security vulnerability
@@ -46,6 +50,7 @@ Each entry should include:
 ---
 
 ### [INCORPORATED] Avoid N+1 Queries with Prisma findMany + distinct
+
 - **Date**: 2026-01-03
 - **Category**: database
 - **Problem**: `getStockPrices()` was calling `findFirst` in a loop for each symbol, causing N+1 database queries
@@ -55,6 +60,7 @@ Each entry should include:
 ---
 
 ### [INCORPORATED] Memoize Expensive Formatting Functions
+
 - **Date**: 2026-01-03
 - **Category**: ui
 - **Problem**: `formatDisplayValue` in HoldingsTable was recreated on every render, causing unnecessary recalculations
@@ -64,4 +70,3 @@ Each entry should include:
 ---
 
 <!-- New entries go here -->
-

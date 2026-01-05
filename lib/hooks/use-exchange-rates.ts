@@ -37,11 +37,7 @@ export function useExchangeRates() {
 }
 
 // Convert a value from one currency to ILS
-export function convertToILS(
-  value: number,
-  fromCurrency: string,
-  rates: ExchangeRates
-): number {
+export function convertToILS(value: number, fromCurrency: string, rates: ExchangeRates): number {
   const currency = fromCurrency.toUpperCase() as keyof ExchangeRates;
   const rate = rates[currency] || rates.USD;
   return value * rate;

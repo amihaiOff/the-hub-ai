@@ -99,13 +99,14 @@ export function AddDepositDialog({ accountId, accountName }: AddDepositDialogPro
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Add Deposit</DialogTitle>
-            <DialogDescription>
-              Record a new deposit to {accountName}.
-            </DialogDescription>
+            <DialogDescription>Record a new deposit to {accountName}.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             {error && (
-              <div role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              <div
+                role="alert"
+                className="bg-destructive/10 text-destructive rounded-md p-3 text-sm"
+              >
                 {error}
               </div>
             )}
@@ -123,7 +124,7 @@ export function AddDepositDialog({ accountId, accountName }: AddDepositDialogPro
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 Which month&apos;s salary this deposit is for
               </p>
             </div>
@@ -135,9 +136,7 @@ export function AddDepositDialog({ accountId, accountName }: AddDepositDialogPro
                 onDateChange={setDepositDate}
                 placeholder="Select deposit date"
               />
-              <p className="text-xs text-muted-foreground">
-                When the money was actually deposited
-              </p>
+              <p className="text-muted-foreground text-xs">When the money was actually deposited</p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="amount">Amount (ILS) *</Label>
@@ -164,11 +163,7 @@ export function AddDepositDialog({ accountId, accountName }: AddDepositDialogPro
             </div>
           </div>
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={createDeposit.isPending}>

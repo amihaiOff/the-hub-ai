@@ -50,16 +50,14 @@ function HoldingRow({ holding, formatDisplayValue, onDelete }: HoldingRowProps) 
           <span className="font-medium">{holding.symbol}</span>
         </div>
       </TableCell>
-      <TableCell className="text-right tabular-nums">
-        {formatQuantity(holding.quantity)}
-      </TableCell>
+      <TableCell className="text-right tabular-nums">{formatQuantity(holding.quantity)}</TableCell>
       <TableCell className="hidden text-right tabular-nums sm:table-cell">
         {formatDisplayValue(holding.avgCostBasis)}
       </TableCell>
       <TableCell className="text-right tabular-nums">
         {formatDisplayValue(holding.currentPrice)}
       </TableCell>
-      <TableCell className="text-right tabular-nums font-medium">
+      <TableCell className="text-right font-medium tabular-nums">
         {formatDisplayValue(holding.currentValue)}
       </TableCell>
       <TableCell className="hidden text-right md:table-cell">
@@ -67,19 +65,13 @@ function HoldingRow({ holding, formatDisplayValue, onDelete }: HoldingRowProps) 
           <Badge
             variant="outline"
             className={
-              isPositive
-                ? 'border-green-500/50 text-green-500'
-                : 'border-red-500/50 text-red-500'
+              isPositive ? 'border-green-500/50 text-green-500' : 'border-red-500/50 text-red-500'
             }
           >
             {isPositive ? '+' : ''}
             {formatDisplayValue(holding.gainLoss)}
           </Badge>
-          <span
-            className={`text-xs ${
-              isPositive ? 'text-green-500' : 'text-red-500'
-            }`}
-          >
+          <span className={`text-xs ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
             {formatPercent(holding.gainLossPercent)}
           </span>
         </div>
@@ -127,7 +119,11 @@ function HoldingRow({ holding, formatDisplayValue, onDelete }: HoldingRowProps) 
   );
 }
 
-export function HoldingsTable({ holdings, baseCurrency = 'USD', displayCurrency }: HoldingsTableProps) {
+export function HoldingsTable({
+  holdings,
+  baseCurrency = 'USD',
+  displayCurrency,
+}: HoldingsTableProps) {
   const deleteHolding = useDeleteHolding();
   const { formatValue, rates } = useCurrency();
 
@@ -137,38 +133,41 @@ export function HoldingsTable({ holdings, baseCurrency = 'USD', displayCurrency 
   // Convert and format a value from baseCurrency to displayCurrency
   // Note: rates are TO ILS (e.g., rates.USD = 3.18 means 1 USD = 3.18 ILS)
   // Memoized to prevent unnecessary recalculations on re-renders
-  const formatDisplayValue = useCallback((value: number): string => {
-    if (effectiveDisplayCurrency !== baseCurrency && rates) {
-      let convertedValue: number;
-      if (baseCurrency === 'ILS' && effectiveDisplayCurrency === 'USD') {
-        // Convert ILS to USD: divide by USD-to-ILS rate
-        convertedValue = value / (rates.USD || 1);
-      } else if (baseCurrency === 'USD' && effectiveDisplayCurrency === 'ILS') {
-        // Convert USD to ILS: multiply by USD-to-ILS rate
-        convertedValue = value * (rates.USD || 1);
-      } else {
-        // Default: no conversion
-        convertedValue = value;
+  const formatDisplayValue = useCallback(
+    (value: number): string => {
+      if (effectiveDisplayCurrency !== baseCurrency && rates) {
+        let convertedValue: number;
+        if (baseCurrency === 'ILS' && effectiveDisplayCurrency === 'USD') {
+          // Convert ILS to USD: divide by USD-to-ILS rate
+          convertedValue = value / (rates.USD || 1);
+        } else if (baseCurrency === 'USD' && effectiveDisplayCurrency === 'ILS') {
+          // Convert USD to ILS: multiply by USD-to-ILS rate
+          convertedValue = value * (rates.USD || 1);
+        } else {
+          // Default: no conversion
+          convertedValue = value;
+        }
+        return new Intl.NumberFormat(effectiveDisplayCurrency === 'ILS' ? 'he-IL' : 'en-US', {
+          style: 'currency',
+          currency: effectiveDisplayCurrency,
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }).format(convertedValue);
       }
-      return new Intl.NumberFormat(effectiveDisplayCurrency === 'ILS' ? 'he-IL' : 'en-US', {
-        style: 'currency',
-        currency: effectiveDisplayCurrency,
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(convertedValue);
-    }
 
-    return formatValue(value, baseCurrency);
-  }, [effectiveDisplayCurrency, baseCurrency, rates, formatValue]);
+      return formatValue(value, baseCurrency);
+    },
+    [effectiveDisplayCurrency, baseCurrency, rates, formatValue]
+  );
 
   if (holdings.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-center">
-        <div className="rounded-full bg-muted p-3 mb-3">
-          <TrendingUp className="h-6 w-6 text-muted-foreground" />
+        <div className="bg-muted mb-3 rounded-full p-3">
+          <TrendingUp className="text-muted-foreground h-6 w-6" />
         </div>
-        <p className="text-sm font-medium text-foreground mb-1">No holdings yet</p>
-        <p className="text-sm text-muted-foreground mb-4">
+        <p className="text-foreground mb-1 text-sm font-medium">No holdings yet</p>
+        <p className="text-muted-foreground mb-4 text-sm">
           Add your first stock using the button above to start tracking.
         </p>
       </div>

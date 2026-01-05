@@ -1,15 +1,7 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
-  Tooltip,
-  LabelList,
-} from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, LabelList } from 'recharts';
 import { formatCurrency, formatPercent } from '@/lib/utils/portfolio';
 
 interface PortfolioGainsChartProps {
@@ -57,7 +49,20 @@ function generateMockData(currentValue: number, totalGainLoss: number, timeRange
 
   const data = [];
   const costBasis = currentValue - totalGainLoss;
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthNames = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
 
   // Determine point interval based on range
   const interval = timeRange === '5Y' ? 6 : timeRange === '3Y' ? 3 : 1;
@@ -69,7 +74,7 @@ function generateMockData(currentValue: number, totalGainLoss: number, timeRange
 
     // Add variance for realism
     const variance = (Math.sin(i * 1.2) * 0.03 + Math.cos(i * 0.8) * 0.02) * costBasis;
-    const value = costBasis + (totalGainLoss * progress) + variance;
+    const value = costBasis + totalGainLoss * progress + variance;
 
     // Calculate the actual month/year
     const targetMonth = (currentMonth - monthsBack + 1 + monthsFromStart + 12 * 10) % 12;
@@ -131,8 +136,8 @@ export function PortfolioGainsChart({
   if (isLoading) {
     return (
       <div className="space-y-3">
-        <div className="h-5 w-40 animate-pulse rounded bg-muted" />
-        <div className="h-32 w-full animate-pulse rounded-lg bg-muted" />
+        <div className="bg-muted h-5 w-40 animate-pulse rounded" />
+        <div className="bg-muted h-32 w-full animate-pulse rounded-lg" />
       </div>
     );
   }
@@ -145,14 +150,18 @@ export function PortfolioGainsChart({
     <div className="space-y-3">
       {/* Header with title and controls */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center justify-between sm:justify-start gap-3">
-          <h3 className="text-base font-semibold text-foreground">Portfolio Performance</h3>
+        <div className="flex items-center justify-between gap-3 sm:justify-start">
+          <h3 className="text-foreground text-base font-semibold">Portfolio Performance</h3>
           {/* View mode toggle */}
-          <div className="flex rounded-md border bg-muted/50 p-0.5" role="group" aria-label="View mode">
+          <div
+            className="bg-muted/50 flex rounded-md border p-0.5"
+            role="group"
+            aria-label="View mode"
+          >
             <button
               onClick={() => setViewMode('absolute')}
               aria-pressed={viewMode === 'absolute'}
-              className={`px-2 py-1 text-xs rounded transition-colors ${
+              className={`rounded px-2 py-1 text-xs transition-colors ${
                 viewMode === 'absolute'
                   ? 'bg-background shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -163,7 +172,7 @@ export function PortfolioGainsChart({
             <button
               onClick={() => setViewMode('percentage')}
               aria-pressed={viewMode === 'percentage'}
-              className={`px-2 py-1 text-xs rounded transition-colors ${
+              className={`rounded px-2 py-1 text-xs transition-colors ${
                 viewMode === 'percentage'
                   ? 'bg-background shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -180,7 +189,7 @@ export function PortfolioGainsChart({
               onClick={() => setTimeRange(value)}
               aria-pressed={timeRange === value}
               aria-label={`Show ${label === 'YTD' ? 'year to date' : label} time range`}
-              className={`px-3 py-1.5 sm:px-2 sm:py-0.5 text-xs rounded transition-colors ${
+              className={`rounded px-3 py-1.5 text-xs transition-colors sm:px-2 sm:py-0.5 ${
                 timeRange === value
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -195,10 +204,7 @@ export function PortfolioGainsChart({
       {/* Chart */}
       <div className="h-32 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={data}
-            margin={{ top: 20, right: 10, left: 10, bottom: 5 }}
-          >
+          <AreaChart data={data} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
             <defs>
               <linearGradient id="gainGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={fillColor} stopOpacity={0.3} />
@@ -217,11 +223,16 @@ export function PortfolioGainsChart({
             <Tooltip
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {
-                  const dataPoint = payload[0].payload as { displayValue: string; displayPercent: string };
+                  const dataPoint = payload[0].payload as {
+                    displayValue: string;
+                    displayPercent: string;
+                  };
                   return (
-                    <div className="rounded-md border bg-background px-2 py-1 shadow-sm">
+                    <div className="bg-background rounded-md border px-2 py-1 shadow-sm">
                       <p className="text-xs font-medium tabular-nums">
-                        {viewMode === 'percentage' ? dataPoint.displayPercent : dataPoint.displayValue}
+                        {viewMode === 'percentage'
+                          ? dataPoint.displayPercent
+                          : dataPoint.displayValue}
                       </p>
                     </div>
                   );
