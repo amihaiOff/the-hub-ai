@@ -2,7 +2,12 @@
 
 import { Building2 } from 'lucide-react';
 import { usePension } from '@/lib/hooks/use-pension';
-import { PensionSummary, AddAccountDialog, AccountCard } from '@/components/pension';
+import {
+  PensionSummary,
+  AddAccountDialog,
+  AccountCard,
+  UploadDepositsDialog,
+} from '@/components/pension';
 
 export default function PensionPage() {
   const { data, isLoading, error } = usePension();
@@ -15,7 +20,10 @@ export default function PensionPage() {
           <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Pension & Hishtalmut</h1>
           <p className="text-muted-foreground">Track your retirement and savings accounts</p>
         </div>
-        <AddAccountDialog />
+        <div className="flex gap-2">
+          <UploadDepositsDialog accounts={data?.accounts ?? []} />
+          <AddAccountDialog />
+        </div>
       </div>
 
       {/* Error State */}

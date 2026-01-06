@@ -49,6 +49,32 @@ interface UpdateDepositParams {
   employer?: string;
 }
 
+// PDF Upload types
+export interface ParsedDepositFromPdf {
+  depositDate: string;
+  salaryMonth: string;
+  amount: number;
+  employer: string;
+}
+
+export interface ParsePdfResult {
+  deposits: ParsedDepositFromPdf[];
+  providerName: string | null;
+  reportDate: string | null;
+  memberName: string | null;
+  warnings: string[];
+}
+
+interface BulkCreateDepositsParams {
+  accountId: string;
+  deposits: ParsedDepositFromPdf[];
+}
+
+interface BulkCreateDepositsResult {
+  count: number;
+  deposits: DepositValue[];
+}
+
 // Fetch functions
 async function fetchPension(): Promise<PensionSummary> {
   const response = await fetch('/api/pension');
@@ -157,6 +183,42 @@ async function deleteDeposit(depositId: string): Promise<void> {
   }
 }
 
+async function parsePensionPdf(file: File): Promise<ParsePdfResult> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch('/api/pension/parse-pdf', {
+    method: 'POST',
+    body: formData,
+  });
+
+  const data: ApiResponse<ParsePdfResult> = await response.json();
+
+  if (!data.success || !data.data) {
+    throw new Error(data.error || 'Failed to parse PDF');
+  }
+
+  return data.data;
+}
+
+async function bulkCreateDeposits(
+  params: BulkCreateDepositsParams
+): Promise<BulkCreateDepositsResult> {
+  const response = await fetch('/api/pension/deposits/bulk', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+
+  const data: ApiResponse<BulkCreateDepositsResult> = await response.json();
+
+  if (!data.success || !data.data) {
+    throw new Error(data.error || 'Failed to create deposits');
+  }
+
+  return data.data;
+}
+
 // Hooks
 export function usePension() {
   return useQuery({
@@ -225,6 +287,23 @@ export function useDeleteDeposit() {
 
   return useMutation({
     mutationFn: deleteDeposit,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pension'] });
+    },
+  });
+}
+
+export function useParsePensionPdf() {
+  return useMutation({
+    mutationFn: parsePensionPdf,
+  });
+}
+
+export function useBulkCreateDeposits() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: bulkCreateDeposits,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pension'] });
     },
