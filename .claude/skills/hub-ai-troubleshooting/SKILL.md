@@ -34,6 +34,30 @@ Check: Google Console authorized redirect URIs
 Fix: Add http://localhost:3000/api/auth/callback/google
 ```
 
+### SKIP_AUTH Dev Mode - Context/Hooks Not Loading Data
+
+```
+Symptom: Pages don't load data in dev mode with SKIP_AUTH enabled
+         (e.g., household page shows loading state forever)
+Cause: React context/hook is checking `status !== 'authenticated'` to skip
+       data fetching. SKIP_AUTH bypasses OAuth server-side but doesn't change
+       the NextAuth session status - it stays 'unauthenticated'.
+Fix:
+  // BAD - blocks dev mode
+  if (status !== 'authenticated') {
+    return;
+  }
+
+  // GOOD - only wait during initial load
+  if (status === 'loading') {
+    return;
+  }
+
+  // Then proceed to fetch data - API routes handle auth via SKIP_AUTH
+Note: SKIP_AUTH works server-side (API routes check SKIP_AUTH env var),
+      but client-side session status remains 'unauthenticated'.
+```
+
 ## Database Issues
 
 ### "Database connection failed"

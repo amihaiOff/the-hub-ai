@@ -1,6 +1,8 @@
 /**
  * Unit tests for MobileMenu component
  * Tests menu rendering, navigation items, route highlighting, and close behavior
+ *
+ * Refactored to use test.each for repetitive test cases
  */
 
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -197,7 +199,6 @@ jest.mock('@/lib/utils', () => ({
 }));
 
 // Mock HouseholdSwitcher component which uses HouseholdContext
-// mobile-menu.tsx imports from './household-switcher' (relative path)
 jest.mock('../household-switcher', () => ({
   HouseholdSwitcher: function MockHouseholdSwitcher({ className }: { className?: string }) {
     return (
@@ -209,7 +210,6 @@ jest.mock('../household-switcher', () => ({
 }));
 
 // Mock ProfileSelector component which uses HouseholdContext
-// mobile-menu.tsx imports from './profile-selector' (relative path)
 jest.mock('../profile-selector', () => ({
   ProfileSelector: function MockProfileSelector({ className }: { className?: string }) {
     return (
@@ -231,287 +231,128 @@ describe('MobileMenu', () => {
 
   describe('Open/Close state', () => {
     it('should render content when open=true', () => {
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
-
-      const sheet = screen.getByTestId('sheet');
-      expect(sheet).toBeInTheDocument();
+      render(<MobileMenu open={true} onOpenChange={jest.fn()} />);
+      expect(screen.getByTestId('sheet')).toBeInTheDocument();
     });
 
     it('should not render content when open=false', () => {
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={false} onOpenChange={mockOnOpenChange} />);
-
-      const sheet = screen.queryByTestId('sheet');
-      expect(sheet).not.toBeInTheDocument();
+      render(<MobileMenu open={false} onOpenChange={jest.fn()} />);
+      expect(screen.queryByTestId('sheet')).not.toBeInTheDocument();
     });
 
     it('should render SheetContent with side="left"', () => {
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
-
-      const sheetContent = screen.getByTestId('sheet-content');
-      expect(sheetContent).toHaveAttribute('data-side', 'left');
+      render(<MobileMenu open={true} onOpenChange={jest.fn()} />);
+      expect(screen.getByTestId('sheet-content')).toHaveAttribute('data-side', 'left');
     });
   });
 
-  describe('Logo rendering in menu', () => {
-    it('should render The Hub AI title in menu header', () => {
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
-
-      const title = screen.getByTestId('sheet-title');
-      expect(title).toHaveTextContent('The Hub AI');
-    });
-
-    it('should render logo with "H" letter in menu', () => {
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
-
-      const logoLetter = screen.getByText('H');
-      expect(logoLetter).toBeInTheDocument();
+  describe('Logo and header', () => {
+    it('should render The Hub AI title and logo in menu header', () => {
+      render(<MobileMenu open={true} onOpenChange={jest.fn()} />);
+      expect(screen.getByTestId('sheet-title')).toHaveTextContent('The Hub AI');
+      expect(screen.getByText('H')).toBeInTheDocument();
     });
   });
 
   describe('Navigation items rendering', () => {
-    it('should render all 4 navigation items', () => {
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
+    const navItems = [
+      { label: 'Dashboard', href: '/', iconTestId: 'icon-home' },
+      { label: 'Portfolio', href: '/portfolio', iconTestId: 'icon-trending-up' },
+      { label: 'Pension', href: '/pension', iconTestId: 'icon-building2' },
+      { label: 'Assets', href: '/assets', iconTestId: 'icon-wallet' },
+    ];
 
-      expect(screen.getByText('Dashboard')).toBeInTheDocument();
-      expect(screen.getByText('Portfolio')).toBeInTheDocument();
-      expect(screen.getByText('Pension')).toBeInTheDocument();
-      expect(screen.getByText('Assets')).toBeInTheDocument();
+    it('should render all navigation items with correct hrefs and icons', () => {
+      render(<MobileMenu open={true} onOpenChange={jest.fn()} />);
+
+      navItems.forEach(({ label, href, iconTestId }) => {
+        expect(screen.getByText(label)).toBeInTheDocument();
+        const link = screen.getByText(label).closest('a');
+        expect(link).toHaveAttribute('href', href);
+        expect(screen.getByTestId(iconTestId)).toBeInTheDocument();
+      });
     });
 
-    it('should render Dashboard link with correct href', () => {
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
-
-      const dashboardLink = screen.getByText('Dashboard').closest('a');
-      expect(dashboardLink).toHaveAttribute('href', '/');
-    });
-
-    it('should render Portfolio link with correct href', () => {
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
-
-      const portfolioLink = screen.getByText('Portfolio').closest('a');
-      expect(portfolioLink).toHaveAttribute('href', '/portfolio');
-    });
-
-    it('should render Pension link with correct href', () => {
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
-
-      const pensionLink = screen.getByText('Pension').closest('a');
-      expect(pensionLink).toHaveAttribute('href', '/pension');
-    });
-
-    it('should render Assets link with correct href', () => {
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
-
-      const assetsLink = screen.getByText('Assets').closest('a');
-      expect(assetsLink).toHaveAttribute('href', '/assets');
-    });
-
-    it('should render icons for each navigation item', () => {
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
-
-      expect(screen.getByTestId('icon-home')).toBeInTheDocument();
-      expect(screen.getByTestId('icon-trending-up')).toBeInTheDocument();
-      expect(screen.getByTestId('icon-building2')).toBeInTheDocument();
-      expect(screen.getByTestId('icon-wallet')).toBeInTheDocument();
+    it('should render navigation element', () => {
+      render(<MobileMenu open={true} onOpenChange={jest.fn()} />);
+      expect(screen.getByRole('navigation')).toBeInTheDocument();
     });
   });
 
   describe('Navigation link click behavior', () => {
-    it('should call onOpenChange(false) when Dashboard link is clicked', () => {
-      const mockOnOpenChangeFn = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChangeFn} />);
+    const clickTestCases = [
+      { label: 'Dashboard' },
+      { label: 'Portfolio' },
+      { label: 'Pension' },
+      { label: 'Assets' },
+      { label: 'Settings' },
+    ];
 
-      const dashboardLink = screen.getByText('Dashboard').closest('a');
-      fireEvent.click(dashboardLink!);
+    it.each(clickTestCases)(
+      'should call onOpenChange(false) when $label link is clicked',
+      ({ label }) => {
+        const mockOnOpenChange = jest.fn();
+        render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
 
-      expect(mockOnOpenChangeFn).toHaveBeenCalledWith(false);
-    });
+        const link = screen.getByText(label).closest('a');
+        fireEvent.click(link!);
 
-    it('should call onOpenChange(false) when Portfolio link is clicked', () => {
-      const mockOnOpenChangeFn = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChangeFn} />);
-
-      const portfolioLink = screen.getByText('Portfolio').closest('a');
-      fireEvent.click(portfolioLink!);
-
-      expect(mockOnOpenChangeFn).toHaveBeenCalledWith(false);
-    });
-
-    it('should call onOpenChange(false) when Pension link is clicked', () => {
-      const mockOnOpenChangeFn = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChangeFn} />);
-
-      const pensionLink = screen.getByText('Pension').closest('a');
-      fireEvent.click(pensionLink!);
-
-      expect(mockOnOpenChangeFn).toHaveBeenCalledWith(false);
-    });
-
-    it('should call onOpenChange(false) when Assets link is clicked', () => {
-      const mockOnOpenChangeFn = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChangeFn} />);
-
-      const assetsLink = screen.getByText('Assets').closest('a');
-      fireEvent.click(assetsLink!);
-
-      expect(mockOnOpenChangeFn).toHaveBeenCalledWith(false);
-    });
+        expect(mockOnOpenChange).toHaveBeenCalledWith(false);
+      }
+    );
 
     it('should call onOpenChange(false) when logo in header is clicked', () => {
-      const mockOnOpenChangeFn = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChangeFn} />);
+      const mockOnOpenChange = jest.fn();
+      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
 
-      // The logo link is in the header
       const sheetHeader = screen.getByTestId('sheet-header');
       const headerLink = sheetHeader.querySelector('a');
       fireEvent.click(headerLink!);
 
-      expect(mockOnOpenChangeFn).toHaveBeenCalledWith(false);
+      expect(mockOnOpenChange).toHaveBeenCalledWith(false);
     });
   });
 
-  describe('Active route highlighting with aria-current', () => {
-    it('should set aria-current="page" on Dashboard when pathname is "/"', () => {
-      mockPathname.mockReturnValue('/');
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
+  describe('Active route highlighting', () => {
+    const routeTestCases = [
+      { pathname: '/', activeLabel: 'Dashboard' },
+      { pathname: '/portfolio', activeLabel: 'Portfolio' },
+      { pathname: '/pension', activeLabel: 'Pension' },
+      { pathname: '/assets', activeLabel: 'Assets' },
+      { pathname: '/settings', activeLabel: 'Settings' },
+    ];
 
-      const dashboardLink = screen.getByText('Dashboard').closest('a');
-      expect(dashboardLink).toHaveAttribute('aria-current', 'page');
-    });
+    it.each(routeTestCases)(
+      'should highlight $activeLabel when pathname is "$pathname"',
+      ({ pathname, activeLabel }) => {
+        mockPathname.mockReturnValue(pathname);
+        render(<MobileMenu open={true} onOpenChange={jest.fn()} />);
 
-    it('should not set aria-current on non-active routes', () => {
-      mockPathname.mockReturnValue('/');
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
+        const activeLink = screen.getByText(activeLabel).closest('a');
+        expect(activeLink).toHaveAttribute('aria-current', 'page');
+        expect(activeLink?.className).toContain('bg-accent');
+        expect(activeLink?.className).toContain('text-accent-foreground');
+      }
+    );
 
-      const portfolioLink = screen.getByText('Portfolio').closest('a');
-      expect(portfolioLink).not.toHaveAttribute('aria-current');
-    });
-
-    it('should set aria-current="page" on Portfolio when pathname is "/portfolio"', () => {
+    it('should not highlight non-active routes', () => {
       mockPathname.mockReturnValue('/portfolio');
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
-
-      const portfolioLink = screen.getByText('Portfolio').closest('a');
-      expect(portfolioLink).toHaveAttribute('aria-current', 'page');
+      render(<MobileMenu open={true} onOpenChange={jest.fn()} />);
 
       const dashboardLink = screen.getByText('Dashboard').closest('a');
       expect(dashboardLink).not.toHaveAttribute('aria-current');
-    });
-
-    it('should set aria-current="page" on Pension when pathname is "/pension"', () => {
-      mockPathname.mockReturnValue('/pension');
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
-
-      const pensionLink = screen.getByText('Pension').closest('a');
-      expect(pensionLink).toHaveAttribute('aria-current', 'page');
-    });
-
-    it('should set aria-current="page" on Assets when pathname is "/assets"', () => {
-      mockPathname.mockReturnValue('/assets');
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
-
-      const assetsLink = screen.getByText('Assets').closest('a');
-      expect(assetsLink).toHaveAttribute('aria-current', 'page');
-    });
-  });
-
-  describe('Active route styling', () => {
-    it('should apply active styles to current route', () => {
-      mockPathname.mockReturnValue('/portfolio');
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
-
-      const portfolioLink = screen.getByText('Portfolio').closest('a');
-      expect(portfolioLink?.className).toContain('bg-accent');
-      expect(portfolioLink?.className).toContain('text-accent-foreground');
-    });
-
-    it('should apply inactive styles to non-current routes', () => {
-      mockPathname.mockReturnValue('/portfolio');
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
-
-      const dashboardLink = screen.getByText('Dashboard').closest('a');
       expect(dashboardLink?.className).toContain('text-muted-foreground');
     });
   });
 
-  describe('Navigation structure', () => {
-    it('should render navigation element', () => {
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
-
-      const nav = screen.getByRole('navigation');
-      expect(nav).toBeInTheDocument();
-    });
-  });
-
   describe('Settings navigation item', () => {
-    it('should render Settings link', () => {
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
+    it('should render Settings link with correct href and icon', () => {
+      render(<MobileMenu open={true} onOpenChange={jest.fn()} />);
 
       expect(screen.getByText('Settings')).toBeInTheDocument();
-    });
-
-    it('should render Settings link with correct href', () => {
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
-
       const settingsLink = screen.getByText('Settings').closest('a');
       expect(settingsLink).toHaveAttribute('href', '/settings');
-    });
-
-    it('should render Settings icon', () => {
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
-
       expect(screen.getByTestId('icon-settings')).toBeInTheDocument();
-    });
-
-    it('should call onOpenChange(false) when Settings link is clicked', () => {
-      const mockOnOpenChangeFn = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChangeFn} />);
-
-      const settingsLink = screen.getByText('Settings').closest('a');
-      fireEvent.click(settingsLink!);
-
-      expect(mockOnOpenChangeFn).toHaveBeenCalledWith(false);
-    });
-
-    it('should set aria-current="page" on Settings when pathname is "/settings"', () => {
-      mockPathname.mockReturnValue('/settings');
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
-
-      const settingsLink = screen.getByText('Settings').closest('a');
-      expect(settingsLink).toHaveAttribute('aria-current', 'page');
-    });
-
-    it('should apply active styles to Settings when on settings page', () => {
-      mockPathname.mockReturnValue('/settings');
-      const mockOnOpenChange = jest.fn();
-      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
-
-      const settingsLink = screen.getByText('Settings').closest('a');
-      expect(settingsLink?.className).toContain('bg-accent');
-      expect(settingsLink?.className).toContain('text-accent-foreground');
     });
   });
 });

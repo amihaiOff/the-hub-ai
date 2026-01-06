@@ -69,12 +69,22 @@ Each entry should include:
 
 ---
 
-### Prisma Client Not Regenerated After Schema Changes
+### [INCORPORATED] Prisma Client Not Regenerated After Schema Changes
 
 - **Date**: 2026-01-05
 - **Category**: database
 - **Problem**: API returns 500 error with "Cannot read properties of undefined (reading 'findMany')" when accessing a newly added model (e.g., `prisma.miscAsset.findMany()`)
 - **Solution**: After adding new models to Prisma schema, always run `npx prisma generate` to regenerate the Prisma client. The client doesn't auto-update when schema changes. After regenerating, restart the dev server for changes to take effect.
+- **Skill**: hub-ai-troubleshooting
+
+---
+
+### [INCORPORATED] SKIP_AUTH Dev Mode Session Status
+
+- **Date**: 2026-01-06
+- **Category**: troubleshooting
+- **Problem**: Household page didn't load in dev mode with SKIP_AUTH enabled. The HouseholdProvider was checking `status !== 'authenticated'` to skip data fetching, but SKIP_AUTH bypasses OAuth without setting session status to 'authenticated' - it stays 'unauthenticated'.
+- **Solution**: When checking auth status in React contexts/hooks, use `status === 'loading'` to wait for session resolution, not `status !== 'authenticated'`. This allows both real auth (status becomes 'authenticated') and dev mode bypass (status stays 'unauthenticated' but API calls still work due to SKIP_AUTH server-side bypass) to function correctly.
 - **Skill**: hub-ai-troubleshooting
 
 ---
