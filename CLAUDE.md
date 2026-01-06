@@ -268,6 +268,48 @@ SKIP_AUTH="true"                      # DEV ONLY - bypasses OAuth for local deve
 - **Preview:** Every PR gets preview deployment
 - **CI/CD:** GitHub Actions runs tests, lint, type-check on every push
 
+### Git Workflow & Environments
+
+**Branches:**
+
+- `main` - Production branch (deploys to Vercel production)
+- `develop` - Development branch (for feature work)
+
+**Environments:**
+
+| Environment   | Branch    | Database                      | Purpose             |
+| ------------- | --------- | ----------------------------- | ------------------- |
+| Production    | `main`    | Vercel Postgres               | Real user data      |
+| Development   | `develop` | Local Postgres (`hub_ai_dev`) | Feature development |
+| Local testing | any       | Local Postgres (`hub_ai`)     | General testing     |
+
+**Local Database Setup:**
+
+```bash
+# Switch to dev database (fresh, for new features)
+DATABASE_URL="postgresql://amihaio@localhost:5432/hub_ai_dev"
+
+# Switch to test database (existing local data)
+DATABASE_URL="postgresql://amihaio@localhost:5432/hub_ai"
+```
+
+**Workflow:**
+
+1. Work on `develop` branch locally with local Postgres
+2. Push to `develop` for preview deployments (optional)
+3. Create PR from `develop` → `main` when ready
+4. Merge to `main` deploys to production
+
+**Database Commands:**
+
+```bash
+# Apply schema to dev database
+DATABASE_URL="postgresql://...hub_ai_dev" npx prisma db push
+
+# Reset dev database (careful!)
+DATABASE_URL="postgresql://...hub_ai_dev" npx prisma migrate reset
+```
+
 ### Important Notes
 
 - **Financial accuracy is critical** - use Decimal types, test calculations thoroughly
