@@ -15,6 +15,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useUpdateAsset } from '@/lib/hooks/use-assets';
+import { useUpdateAssetOwners } from '@/lib/hooks/use-profiles';
+import { InlineOwnerPicker } from '@/components/shared';
 import { type MiscAssetType, getAssetTypeConfig, formatAssetType } from '@/lib/utils/assets';
 
 interface EditAssetDialogProps {
@@ -26,6 +28,7 @@ interface EditAssetDialogProps {
   monthlyPayment: number | null;
   monthlyDeposit: number | null;
   maturityDate: Date | string | null;
+  currentOwnerIds?: string[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -45,13 +48,14 @@ export function EditAssetDialog({
   monthlyPayment: initialPayment,
   monthlyDeposit: initialDeposit,
   maturityDate: initialMaturityDate,
+  currentOwnerIds = [],
   open,
   onOpenChange,
 }: EditAssetDialogProps) {
   // Create a key that changes when dialog opens with new values
   const dialogKey = useMemo(
-    () => `${open}-${assetId}-${initialValue}-${initialName}`,
-    [open, assetId, initialValue, initialName]
+    () => `${open}-${assetId}-${initialValue}-${initialName}-${currentOwnerIds.join(',')}`,
+    [open, assetId, initialValue, initialName, currentOwnerIds]
   );
 
   const [name, setName] = useState(initialName);
@@ -66,9 +70,11 @@ export function EditAssetDialog({
   const [maturityDate, setMaturityDate] = useState<Date | undefined>(
     parseDate(initialMaturityDate)
   );
+  const [selectedOwnerIds, setSelectedOwnerIds] = useState<string[]>(currentOwnerIds);
   const [error, setError] = useState('');
   const [lastDialogKey, setLastDialogKey] = useState(dialogKey);
   const updateAsset = useUpdateAsset();
+  const updateOwners = useUpdateAssetOwners('assets');
 
   const typeConfig = getAssetTypeConfig(type);
 
@@ -80,6 +86,7 @@ export function EditAssetDialog({
     setMonthlyPayment(initialPayment ? String(initialPayment) : '');
     setMonthlyDeposit(initialDeposit ? String(initialDeposit) : '');
     setMaturityDate(parseDate(initialMaturityDate));
+    setSelectedOwnerIds(currentOwnerIds);
     setError('');
     setLastDialogKey(dialogKey);
   }
@@ -126,7 +133,13 @@ export function EditAssetDialog({
       }
     }
 
+    if (selectedOwnerIds.length === 0) {
+      setError('At least one owner is required');
+      return;
+    }
+
     try {
+      // Update asset details
       await updateAsset.mutateAsync({
         id: assetId,
         name: name.trim(),
@@ -136,6 +149,19 @@ export function EditAssetDialog({
         monthlyDeposit: deposit,
         maturityDate: maturityDate ? format(maturityDate, 'yyyy-MM-dd') : null,
       });
+
+      // Update owners if changed
+      const ownersChanged =
+        selectedOwnerIds.length !== currentOwnerIds.length ||
+        !selectedOwnerIds.every((id) => currentOwnerIds.includes(id));
+
+      if (ownersChanged) {
+        await updateOwners.mutateAsync({
+          assetId: assetId,
+          profileIds: selectedOwnerIds,
+        });
+      }
+
       onOpenChange(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update asset');
@@ -243,13 +269,29 @@ export function EditAssetDialog({
                 />
               </div>
             )}
+
+            <div className="grid gap-2">
+              <Label>Owners *</Label>
+              <InlineOwnerPicker
+                selectedIds={selectedOwnerIds}
+                onSelectionChange={setSelectedOwnerIds}
+              />
+              <p className="text-muted-foreground text-xs">
+                Select which profiles own this {typeConfig.isLiability ? 'liability' : 'asset'}
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={updateAsset.isPending}>
-              {updateAsset.isPending ? 'Saving...' : 'Save Changes'}
+            <Button
+              type="submit"
+              disabled={
+                selectedOwnerIds.length === 0 || updateAsset.isPending || updateOwners.isPending
+              }
+            >
+              {updateAsset.isPending || updateOwners.isPending ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </form>

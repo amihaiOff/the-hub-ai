@@ -127,6 +127,7 @@ export function AccountCard({ account }: AccountCardProps) {
             currentValue={account.currentValue}
             feeFromDeposit={account.feeFromDeposit}
             feeFromTotal={account.feeFromTotal}
+            currentOwnerIds={account.owners?.map((o) => o.id) ?? []}
             open={showEditDialog}
             onOpenChange={setShowEditDialog}
           />

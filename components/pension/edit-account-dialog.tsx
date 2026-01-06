@@ -13,6 +13,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useUpdatePensionAccount } from '@/lib/hooks/use-pension';
+import { useUpdateAssetOwners } from '@/lib/hooks/use-profiles';
+import { InlineOwnerPicker } from '@/components/shared';
 import { PENSION_PROVIDERS } from '@/lib/utils/pension';
 
 interface EditAccountDialogProps {
@@ -22,6 +24,7 @@ interface EditAccountDialogProps {
   currentValue: number;
   feeFromDeposit: number;
   feeFromTotal: number;
+  currentOwnerIds?: string[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -33,13 +36,14 @@ export function EditAccountDialog({
   currentValue: initialCurrentValue,
   feeFromDeposit: initialFeeFromDeposit,
   feeFromTotal: initialFeeFromTotal,
+  currentOwnerIds = [],
   open,
   onOpenChange,
 }: EditAccountDialogProps) {
   // Create a key that changes when dialog opens with new values
   const dialogKey = useMemo(
     () =>
-      `${open}-${initialProviderName}-${initialAccountName}-${initialCurrentValue}-${initialFeeFromDeposit}-${initialFeeFromTotal}`,
+      `${open}-${initialProviderName}-${initialAccountName}-${initialCurrentValue}-${initialFeeFromDeposit}-${initialFeeFromTotal}-${currentOwnerIds.join(',')}`,
     [
       open,
       initialProviderName,
@@ -47,6 +51,7 @@ export function EditAccountDialog({
       initialCurrentValue,
       initialFeeFromDeposit,
       initialFeeFromTotal,
+      currentOwnerIds,
     ]
   );
 
@@ -55,9 +60,11 @@ export function EditAccountDialog({
   const [currentValue, setCurrentValue] = useState(String(initialCurrentValue));
   const [feeFromDeposit, setFeeFromDeposit] = useState(String(initialFeeFromDeposit));
   const [feeFromTotal, setFeeFromTotal] = useState(String(initialFeeFromTotal));
+  const [selectedOwnerIds, setSelectedOwnerIds] = useState<string[]>(currentOwnerIds);
   const [error, setError] = useState('');
   const [lastDialogKey, setLastDialogKey] = useState(dialogKey);
   const updateAccount = useUpdatePensionAccount();
+  const updateOwners = useUpdateAssetOwners('pension');
 
   // Reset state when dialog key changes (instead of useEffect with setState)
   if (dialogKey !== lastDialogKey) {
@@ -66,6 +73,7 @@ export function EditAccountDialog({
     setCurrentValue(String(initialCurrentValue));
     setFeeFromDeposit(String(initialFeeFromDeposit));
     setFeeFromTotal(String(initialFeeFromTotal));
+    setSelectedOwnerIds(currentOwnerIds);
     setError('');
     setLastDialogKey(dialogKey);
   }
@@ -103,7 +111,13 @@ export function EditAccountDialog({
       return;
     }
 
+    if (selectedOwnerIds.length === 0) {
+      setError('At least one owner is required');
+      return;
+    }
+
     try {
+      // Update account details
       await updateAccount.mutateAsync({
         id: accountId,
         providerName: providerName.trim(),
@@ -112,6 +126,19 @@ export function EditAccountDialog({
         feeFromDeposit: depositFee,
         feeFromTotal: totalFee,
       });
+
+      // Update owners if changed
+      const ownersChanged =
+        selectedOwnerIds.length !== currentOwnerIds.length ||
+        !selectedOwnerIds.every((id) => currentOwnerIds.includes(id));
+
+      if (ownersChanged) {
+        await updateOwners.mutateAsync({
+          assetId: accountId,
+          profileIds: selectedOwnerIds,
+        });
+      }
+
       onOpenChange(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update account');
@@ -207,13 +234,28 @@ export function EditAccountDialog({
                 />
               </div>
             </div>
+            <div className="grid gap-2">
+              <Label>Owners *</Label>
+              <InlineOwnerPicker
+                selectedIds={selectedOwnerIds}
+                onSelectionChange={setSelectedOwnerIds}
+              />
+              <p className="text-muted-foreground text-xs">
+                Select which profiles own this account
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={updateAccount.isPending}>
-              {updateAccount.isPending ? 'Saving...' : 'Save Changes'}
+            <Button
+              type="submit"
+              disabled={
+                selectedOwnerIds.length === 0 || updateAccount.isPending || updateOwners.isPending
+              }
+            >
+              {updateAccount.isPending || updateOwners.isPending ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </form>

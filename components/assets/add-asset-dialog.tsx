@@ -24,6 +24,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useCreateAsset } from '@/lib/hooks/use-assets';
+import { useUpdateAssetOwners } from '@/lib/hooks/use-profiles';
+import { useHouseholdContext } from '@/lib/contexts/household-context';
+import { InlineOwnerPicker } from '@/components/shared';
 import { type MiscAssetType, getAssetTypeOptions, getAssetTypeConfig } from '@/lib/utils/assets';
 
 export function AddAssetDialog() {
@@ -35,8 +38,11 @@ export function AddAssetDialog() {
   const [monthlyPayment, setMonthlyPayment] = useState('');
   const [monthlyDeposit, setMonthlyDeposit] = useState('');
   const [maturityDate, setMaturityDate] = useState<Date | undefined>(undefined);
+  const [selectedOwnerIds, setSelectedOwnerIds] = useState<string[]>([]);
   const [error, setError] = useState('');
   const createAsset = useCreateAsset();
+  const updateOwners = useUpdateAssetOwners('assets');
+  const { profile } = useHouseholdContext();
 
   const typeConfig = getAssetTypeConfig(type);
   const assetTypeOptions = getAssetTypeOptions();
@@ -49,6 +55,7 @@ export function AddAssetDialog() {
     setMonthlyPayment('');
     setMonthlyDeposit('');
     setMaturityDate(undefined);
+    setSelectedOwnerIds([]);
     setError('');
   };
 
@@ -94,8 +101,14 @@ export function AddAssetDialog() {
       }
     }
 
+    if (selectedOwnerIds.length === 0) {
+      setError('At least one owner is required');
+      return;
+    }
+
     try {
-      await createAsset.mutateAsync({
+      // Step 1: Create asset
+      const newAsset = await createAsset.mutateAsync({
         type,
         name: name.trim(),
         currentValue: value,
@@ -104,6 +117,20 @@ export function AddAssetDialog() {
         monthlyDeposit: deposit,
         maturityDate: maturityDate ? format(maturityDate, 'yyyy-MM-dd') : null,
       });
+
+      // Step 2: Set owners
+      try {
+        await updateOwners.mutateAsync({
+          assetId: newAsset.id,
+          profileIds: selectedOwnerIds,
+        });
+      } catch (ownerError) {
+        console.error('Asset created but failed to set owners:', ownerError);
+        // Asset was created - show warning, user can close dialog manually
+        setError('Asset created but failed to assign owners. Please edit the asset to set owners.');
+        return;
+      }
+
       resetForm();
       setOpen(false);
     } catch (err) {
@@ -116,6 +143,9 @@ export function AddAssetDialog() {
       open={open}
       onOpenChange={(isOpen) => {
         setOpen(isOpen);
+        if (isOpen && profile && selectedOwnerIds.length === 0) {
+          setSelectedOwnerIds([profile.id]);
+        }
         if (!isOpen) resetForm();
       }}
     >
@@ -262,13 +292,29 @@ export function AddAssetDialog() {
                 </p>
               </div>
             )}
+
+            <div className="grid gap-2">
+              <Label>Owners *</Label>
+              <InlineOwnerPicker
+                selectedIds={selectedOwnerIds}
+                onSelectionChange={setSelectedOwnerIds}
+              />
+              <p className="text-muted-foreground text-xs">
+                Select which profiles own this {typeConfig.isLiability ? 'liability' : 'asset'}
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={createAsset.isPending}>
-              {createAsset.isPending ? 'Adding...' : 'Add'}
+            <Button
+              type="submit"
+              disabled={
+                selectedOwnerIds.length === 0 || createAsset.isPending || updateOwners.isPending
+              }
+            >
+              {createAsset.isPending || updateOwners.isPending ? 'Adding...' : 'Add'}
             </Button>
           </DialogFooter>
         </form>

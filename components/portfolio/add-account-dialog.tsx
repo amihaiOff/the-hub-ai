@@ -22,6 +22,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useCreateAccount } from '@/lib/hooks/use-portfolio';
+import { useUpdateAssetOwners } from '@/lib/hooks/use-profiles';
+import { useHouseholdContext } from '@/lib/contexts/household-context';
+import { InlineOwnerPicker } from '@/components/shared';
 
 const CURRENCIES = [
   { value: 'USD', label: 'USD - US Dollar' },
@@ -35,30 +38,75 @@ export function AddAccountDialog() {
   const [name, setName] = useState('');
   const [broker, setBroker] = useState('');
   const [currency, setCurrency] = useState('USD');
+  const [selectedOwnerIds, setSelectedOwnerIds] = useState<string[]>([]);
+  const [error, setError] = useState('');
   const createAccount = useCreateAccount();
+  const updateOwners = useUpdateAssetOwners('portfolio');
+  const { profile } = useHouseholdContext();
+
+  const resetForm = () => {
+    setName('');
+    setBroker('');
+    setCurrency('USD');
+    setSelectedOwnerIds([]);
+    setError('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
 
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      setError('Account name is required');
+      return;
+    }
+
+    if (selectedOwnerIds.length === 0) {
+      setError('At least one owner is required');
+      return;
+    }
 
     try {
-      await createAccount.mutateAsync({
+      // Step 1: Create account
+      const newAccount = await createAccount.mutateAsync({
         name: name.trim(),
         broker: broker.trim() || undefined,
         currency,
       });
-      setName('');
-      setBroker('');
-      setCurrency('USD');
+
+      // Step 2: Set owners
+      try {
+        await updateOwners.mutateAsync({
+          assetId: newAccount.id,
+          profileIds: selectedOwnerIds,
+        });
+      } catch (ownerError) {
+        console.error('Account created but failed to set owners:', ownerError);
+        // Account was created - show warning, user can close dialog manually
+        setError(
+          'Account created but failed to assign owners. Please edit the account to set owners.'
+        );
+        return;
+      }
+
+      resetForm();
       setOpen(false);
-    } catch (error) {
-      console.error('Failed to create account:', error);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create account');
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        setOpen(isOpen);
+        if (isOpen && profile && selectedOwnerIds.length === 0) {
+          setSelectedOwnerIds([profile.id]);
+        }
+        if (!isOpen) resetForm();
+      }}
+    >
       <DialogTrigger asChild>
         <Button>
           <Plus className="mr-2 h-4 w-4" />
@@ -74,6 +122,14 @@ export function AddAccountDialog() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            {error && (
+              <div
+                role="alert"
+                className="bg-destructive/10 text-destructive rounded-md p-3 text-sm"
+              >
+                {error}
+              </div>
+            )}
             <div className="grid gap-2">
               <Label htmlFor="name">Account Name *</Label>
               <Input
@@ -111,13 +167,31 @@ export function AddAccountDialog() {
                 Currency for cost basis and valuations in this account
               </p>
             </div>
+            <div className="grid gap-2">
+              <Label>Owners *</Label>
+              <InlineOwnerPicker
+                selectedIds={selectedOwnerIds}
+                onSelectionChange={setSelectedOwnerIds}
+              />
+              <p className="text-muted-foreground text-xs">
+                Select which profiles own this account
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={!name.trim() || createAccount.isPending}>
-              {createAccount.isPending ? 'Creating...' : 'Create Account'}
+            <Button
+              type="submit"
+              disabled={
+                !name.trim() ||
+                selectedOwnerIds.length === 0 ||
+                createAccount.isPending ||
+                updateOwners.isPending
+              }
+            >
+              {createAccount.isPending || updateOwners.isPending ? 'Creating...' : 'Create Account'}
             </Button>
           </DialogFooter>
         </form>

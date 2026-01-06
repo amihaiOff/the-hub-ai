@@ -256,6 +256,7 @@ export function AssetCard({ asset }: AssetCardProps) {
         monthlyPayment={asset.monthlyPayment}
         monthlyDeposit={asset.monthlyDeposit}
         maturityDate={asset.maturityDate}
+        currentOwnerIds={asset.owners?.map((o) => o.id) ?? []}
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
       />

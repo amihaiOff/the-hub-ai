@@ -22,6 +22,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useCreatePensionAccount } from '@/lib/hooks/use-pension';
+import { useUpdateAssetOwners } from '@/lib/hooks/use-profiles';
+import { useHouseholdContext } from '@/lib/contexts/household-context';
+import { InlineOwnerPicker } from '@/components/shared';
 import { PENSION_PROVIDERS, type PensionAccountType } from '@/lib/utils/pension';
 
 export function AddAccountDialog() {
@@ -32,8 +35,22 @@ export function AddAccountDialog() {
   const [currentValue, setCurrentValue] = useState('');
   const [feeFromDeposit, setFeeFromDeposit] = useState('');
   const [feeFromTotal, setFeeFromTotal] = useState('');
+  const [selectedOwnerIds, setSelectedOwnerIds] = useState<string[]>([]);
   const [error, setError] = useState('');
   const createAccount = useCreatePensionAccount();
+  const updateOwners = useUpdateAssetOwners('pension');
+  const { profile } = useHouseholdContext();
+
+  const resetForm = () => {
+    setType('pension');
+    setProviderName('');
+    setAccountName('');
+    setCurrentValue('');
+    setFeeFromDeposit('');
+    setFeeFromTotal('');
+    setSelectedOwnerIds([]);
+    setError('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,8 +85,14 @@ export function AddAccountDialog() {
       return;
     }
 
+    if (selectedOwnerIds.length === 0) {
+      setError('At least one owner is required');
+      return;
+    }
+
     try {
-      await createAccount.mutateAsync({
+      // Step 1: Create account
+      const newAccount = await createAccount.mutateAsync({
         type,
         providerName: providerName.trim(),
         accountName: accountName.trim(),
@@ -77,13 +100,23 @@ export function AddAccountDialog() {
         feeFromDeposit: depositFee,
         feeFromTotal: totalFee,
       });
-      // Reset form
-      setType('pension');
-      setProviderName('');
-      setAccountName('');
-      setCurrentValue('');
-      setFeeFromDeposit('');
-      setFeeFromTotal('');
+
+      // Step 2: Set owners
+      try {
+        await updateOwners.mutateAsync({
+          assetId: newAccount.id,
+          profileIds: selectedOwnerIds,
+        });
+      } catch (ownerError) {
+        console.error('Account created but failed to set owners:', ownerError);
+        // Account was created - show warning, user can close dialog manually
+        setError(
+          'Account created but failed to assign owners. Please edit the account to set owners.'
+        );
+        return;
+      }
+
+      resetForm();
       setOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create account');
@@ -91,7 +124,16 @@ export function AddAccountDialog() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        setOpen(isOpen);
+        if (isOpen && profile && selectedOwnerIds.length === 0) {
+          setSelectedOwnerIds([profile.id]);
+        }
+        if (!isOpen) resetForm();
+      }}
+    >
       <DialogTrigger asChild>
         <Button>
           <Plus className="mr-2 h-4 w-4" />
@@ -197,13 +239,28 @@ export function AddAccountDialog() {
                 />
               </div>
             </div>
+            <div className="grid gap-2">
+              <Label>Owners *</Label>
+              <InlineOwnerPicker
+                selectedIds={selectedOwnerIds}
+                onSelectionChange={setSelectedOwnerIds}
+              />
+              <p className="text-muted-foreground text-xs">
+                Select which profiles own this account
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={createAccount.isPending}>
-              {createAccount.isPending ? 'Adding...' : 'Add Account'}
+            <Button
+              type="submit"
+              disabled={
+                selectedOwnerIds.length === 0 || createAccount.isPending || updateOwners.isPending
+              }
+            >
+              {createAccount.isPending || updateOwners.isPending ? 'Adding...' : 'Add Account'}
             </Button>
           </DialogFooter>
         </form>

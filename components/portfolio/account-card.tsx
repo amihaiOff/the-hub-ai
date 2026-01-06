@@ -200,6 +200,7 @@ export function AccountCard({ account }: AccountCardProps) {
             accountId={account.id}
             accountName={account.name}
             accountBroker={account.broker}
+            currentOwnerIds={account.owners?.map((o) => o.id) ?? []}
             open={showEditDialog}
             onOpenChange={setShowEditDialog}
           />
