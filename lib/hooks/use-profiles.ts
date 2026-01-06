@@ -68,7 +68,11 @@ export function useCreateProfile() {
   const { activeHousehold } = useHouseholdContext();
 
   return useMutation({
-    mutationFn: async (params: { name: string; color?: string }): Promise<Profile> => {
+    mutationFn: async (params: {
+      name: string;
+      image?: string | null;
+      color?: string;
+    }): Promise<Profile> => {
       const url = activeHousehold
         ? `/api/profiles?householdId=${activeHousehold.id}`
         : '/api/profiles';
@@ -97,7 +101,12 @@ export function useUpdateProfile() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (params: { id: string; name?: string; color?: string }): Promise<Profile> => {
+    mutationFn: async (params: {
+      id: string;
+      name?: string;
+      image?: string | null;
+      color?: string;
+    }): Promise<Profile> => {
       const { id, ...data } = params;
       const response = await fetch(`/api/profiles/${id}`, {
         method: 'PUT',

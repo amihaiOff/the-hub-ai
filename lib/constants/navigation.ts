@@ -11,5 +11,6 @@ export const navItems: NavItem[] = [
   { href: '/portfolio', label: 'Portfolio', icon: TrendingUp },
   { href: '/pension', label: 'Pension', icon: Building2 },
   { href: '/assets', label: 'Assets', icon: Wallet },
-  { href: '/settings', label: 'Settings', icon: Settings },
 ];
+
+export const settingsItem: NavItem = { href: '/settings', label: 'Settings', icon: Settings };

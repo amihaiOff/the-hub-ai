@@ -5,6 +5,13 @@ import { z } from 'zod';
 
 const createProfileSchema = z.object({
   name: z.string().min(1).max(100),
+  image: z
+    .string()
+    .url()
+    .max(500)
+    .refine((url) => url.startsWith('https://'), { message: 'Image URL must use HTTPS' })
+    .optional()
+    .nullable(),
   color: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/)
@@ -68,13 +75,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, color } = validation.data;
+    const { name, image, color } = validation.data;
 
     const result = await prisma.$transaction(async (tx) => {
       // Create non-user profile (no userId)
       const profile = await tx.profile.create({
         data: {
           name,
+          image: image || null,
           color,
           // No userId - this is a non-login profile
         },

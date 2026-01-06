@@ -63,8 +63,9 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
 
   // Fetch household context from API
   const fetchContext = useCallback(async () => {
-    if (status !== 'authenticated') {
-      setIsLoading(false);
+    // In dev mode with SKIP_AUTH, session status may be 'unauthenticated' but API still works
+    // Only skip if we're still loading the session status
+    if (status === 'loading') {
       return;
     }
 
@@ -85,6 +86,16 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
       if (!response.ok) {
         if (response.status === 404) {
           // User needs onboarding
+          setData({
+            profile: null,
+            households: [],
+            activeHousehold: null,
+            householdProfiles: [],
+          });
+          return;
+        }
+        if (response.status === 401) {
+          // Not authenticated (production mode without login)
           setData({
             profile: null,
             households: [],

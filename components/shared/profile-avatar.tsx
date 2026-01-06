@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
@@ -25,6 +26,20 @@ const sizePixels = {
   lg: 48,
 };
 
+// Domains configured in next.config.ts remotePatterns
+const OPTIMIZED_DOMAINS = ['lh3.googleusercontent.com', 'googleusercontent.com'];
+
+function isOptimizedDomain(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname;
+    return OPTIMIZED_DOMAINS.some(
+      (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Profile avatar component that shows image or initials with background color
  */
@@ -35,6 +50,8 @@ export function ProfileAvatar({
   size = 'md',
   className,
 }: ProfileAvatarProps) {
+  const [imageError, setImageError] = useState(false);
+
   const initials = name
     .split(' ')
     .map((n) => n[0])
@@ -42,19 +59,8 @@ export function ProfileAvatar({
     .toUpperCase()
     .slice(0, 2);
 
-  if (image) {
-    return (
-      <Image
-        src={image}
-        alt={name}
-        width={sizePixels[size]}
-        height={sizePixels[size]}
-        className={cn('rounded-full object-cover', sizeClasses[size], className)}
-      />
-    );
-  }
-
-  return (
+  // Show initials fallback
+  const renderInitials = () => (
     <div
       className={cn(
         'flex items-center justify-center rounded-full font-medium text-white',
@@ -66,5 +72,24 @@ export function ProfileAvatar({
     >
       {initials}
     </div>
+  );
+
+  if (!image || imageError) {
+    return renderInitials();
+  }
+
+  // Use optimized Next.js Image for known domains, unoptimized for user-provided URLs
+  const useOptimized = isOptimizedDomain(image);
+
+  return (
+    <Image
+      src={image}
+      alt={name}
+      width={sizePixels[size]}
+      height={sizePixels[size]}
+      className={cn('rounded-full object-cover', sizeClasses[size], className)}
+      unoptimized={!useOptimized}
+      onError={() => setImageError(true)}
+    />
   );
 }

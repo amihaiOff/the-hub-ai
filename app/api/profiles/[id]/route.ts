@@ -6,6 +6,13 @@ import { validateCuid } from '@/lib/api/validation';
 
 const updateProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
+  image: z
+    .string()
+    .url()
+    .max(500)
+    .refine((url) => url.startsWith('https://'), { message: 'Image URL must use HTTPS' })
+    .optional()
+    .nullable(),
   color: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/)

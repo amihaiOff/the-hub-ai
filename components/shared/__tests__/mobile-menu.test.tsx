@@ -188,6 +188,7 @@ jest.mock('@/lib/constants/navigation', () => ({
     { href: '/pension', label: 'Pension', icon: createMockIcon('icon-building2') },
     { href: '/assets', label: 'Assets', icon: createMockIcon('icon-wallet') },
   ],
+  settingsItem: { href: '/settings', label: 'Settings', icon: createMockIcon('icon-settings') },
 }));
 
 // Mock @/lib/utils
@@ -458,6 +459,59 @@ describe('MobileMenu', () => {
 
       const nav = screen.getByRole('navigation');
       expect(nav).toBeInTheDocument();
+    });
+  });
+
+  describe('Settings navigation item', () => {
+    it('should render Settings link', () => {
+      const mockOnOpenChange = jest.fn();
+      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
+
+      expect(screen.getByText('Settings')).toBeInTheDocument();
+    });
+
+    it('should render Settings link with correct href', () => {
+      const mockOnOpenChange = jest.fn();
+      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
+
+      const settingsLink = screen.getByText('Settings').closest('a');
+      expect(settingsLink).toHaveAttribute('href', '/settings');
+    });
+
+    it('should render Settings icon', () => {
+      const mockOnOpenChange = jest.fn();
+      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
+
+      expect(screen.getByTestId('icon-settings')).toBeInTheDocument();
+    });
+
+    it('should call onOpenChange(false) when Settings link is clicked', () => {
+      const mockOnOpenChangeFn = jest.fn();
+      render(<MobileMenu open={true} onOpenChange={mockOnOpenChangeFn} />);
+
+      const settingsLink = screen.getByText('Settings').closest('a');
+      fireEvent.click(settingsLink!);
+
+      expect(mockOnOpenChangeFn).toHaveBeenCalledWith(false);
+    });
+
+    it('should set aria-current="page" on Settings when pathname is "/settings"', () => {
+      mockPathname.mockReturnValue('/settings');
+      const mockOnOpenChange = jest.fn();
+      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
+
+      const settingsLink = screen.getByText('Settings').closest('a');
+      expect(settingsLink).toHaveAttribute('aria-current', 'page');
+    });
+
+    it('should apply active styles to Settings when on settings page', () => {
+      mockPathname.mockReturnValue('/settings');
+      const mockOnOpenChange = jest.fn();
+      render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
+
+      const settingsLink = screen.getByText('Settings').closest('a');
+      expect(settingsLink?.className).toContain('bg-accent');
+      expect(settingsLink?.className).toContain('text-accent-foreground');
     });
   });
 });

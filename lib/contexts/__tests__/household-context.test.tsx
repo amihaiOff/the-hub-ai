@@ -151,8 +151,12 @@ describe('HouseholdContext', () => {
       expect(result.current.householdProfiles).toHaveLength(2);
     });
 
-    it('should not fetch when not authenticated', async () => {
+    it('should fetch and handle 401 when unauthenticated (supports dev mode)', async () => {
       mockUseSession.mockReturnValue({ status: 'unauthenticated' });
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+      });
 
       const { result } = renderHook(() => useHouseholdContext(), {
         wrapper: createWrapper(),
@@ -162,8 +166,23 @@ describe('HouseholdContext', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      expect(mockFetch).not.toHaveBeenCalled();
+      // In dev mode with SKIP_AUTH, we still fetch even when 'unauthenticated'
+      // This allows the API to handle auth via SKIP_AUTH env var
+      expect(mockFetch).toHaveBeenCalledWith('/api/context');
       expect(result.current.profile).toBeNull();
+      expect(result.current.error).toBeNull();
+    });
+
+    it('should skip fetch when session status is loading', async () => {
+      mockUseSession.mockReturnValue({ status: 'loading' });
+
+      const { result } = renderHook(() => useHouseholdContext(), {
+        wrapper: createWrapper(),
+      });
+
+      // Should remain in loading state and not call fetch
+      expect(result.current.isLoading).toBe(true);
+      expect(mockFetch).not.toHaveBeenCalled();
     });
 
     it('should set error on fetch failure', async () => {

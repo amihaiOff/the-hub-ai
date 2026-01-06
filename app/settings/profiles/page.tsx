@@ -22,14 +22,14 @@ import { useIsHouseholdAdmin } from '@/lib/contexts/household-context';
 import { useCreateProfile, useUpdateProfile, useDeleteProfile } from '@/lib/hooks/use-profiles';
 
 const PROFILE_COLORS = [
-  '#3b82f6', // blue
-  '#10b981', // green
-  '#f59e0b', // amber
-  '#ef4444', // red
-  '#8b5cf6', // purple
-  '#ec4899', // pink
-  '#06b6d4', // cyan
-  '#f97316', // orange
+  { hex: '#3b82f6', name: 'Blue' },
+  { hex: '#10b981', name: 'Green' },
+  { hex: '#f59e0b', name: 'Amber' },
+  { hex: '#ef4444', name: 'Red' },
+  { hex: '#8b5cf6', name: 'Purple' },
+  { hex: '#ec4899', name: 'Pink' },
+  { hex: '#06b6d4', name: 'Cyan' },
+  { hex: '#f97316', name: 'Orange' },
 ];
 
 export default function ProfilesSettingsPage() {
@@ -43,12 +43,14 @@ export default function ProfilesSettingsPage() {
   const [editProfile, setEditProfile] = useState<{
     id: string;
     name: string;
+    image: string;
     color: string;
   } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const [newName, setNewName] = useState('');
-  const [newColor, setNewColor] = useState(PROFILE_COLORS[0]);
+  const [newImage, setNewImage] = useState('');
+  const [newColor, setNewColor] = useState(PROFILE_COLORS[0].hex);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -56,11 +58,13 @@ export default function ProfilesSettingsPage() {
     try {
       await createProfile.mutateAsync({
         name: newName.trim(),
+        image: newImage.trim() || null,
         color: newColor,
       });
       setShowAddDialog(false);
       setNewName('');
-      setNewColor(PROFILE_COLORS[0]);
+      setNewImage('');
+      setNewColor(PROFILE_COLORS[0].hex);
       refetch();
     } catch (error) {
       console.error('Error creating profile:', error);
@@ -74,6 +78,7 @@ export default function ProfilesSettingsPage() {
       await updateProfile.mutateAsync({
         id: editProfile.id,
         name: editProfile.name.trim(),
+        image: editProfile.image.trim() || null,
         color: editProfile.color,
       });
       setEditProfile(null);
@@ -168,7 +173,8 @@ export default function ProfilesSettingsPage() {
                         setEditProfile({
                           id: p.id,
                           name: p.name,
-                          color: p.color || PROFILE_COLORS[0],
+                          image: p.image || '',
+                          color: p.color || PROFILE_COLORS[0].hex,
                         })
                       }
                     >
@@ -212,19 +218,34 @@ export default function ProfilesSettingsPage() {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="image">Image URL (optional)</Label>
+              <Input
+                id="image"
+                value={newImage}
+                onChange={(e) => setNewImage(e.target.value)}
+                placeholder="https://example.com/photo.jpg"
+                type="url"
+              />
+              <p className="text-muted-foreground text-xs">
+                Enter a secure (HTTPS) URL to a profile photo
+              </p>
+            </div>
+            <div className="space-y-2">
               <Label>Color</Label>
               <div className="flex flex-wrap gap-2">
                 {PROFILE_COLORS.map((color) => (
                   <button
-                    key={color}
+                    key={color.hex}
                     type="button"
+                    aria-label={`Select ${color.name} color`}
+                    aria-pressed={newColor === color.hex}
                     className={`h-8 w-8 rounded-full transition-transform ${
-                      newColor === color
+                      newColor === color.hex
                         ? 'ring-offset-background scale-110 ring-2 ring-offset-2'
                         : ''
                     }`}
-                    style={{ backgroundColor: color }}
-                    onClick={() => setNewColor(color)}
+                    style={{ backgroundColor: color.hex }}
+                    onClick={() => setNewColor(color.hex)}
                   />
                 ))}
               </div>
@@ -261,19 +282,34 @@ export default function ProfilesSettingsPage() {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="edit-image">Image URL (optional)</Label>
+                <Input
+                  id="edit-image"
+                  value={editProfile.image}
+                  onChange={(e) => setEditProfile({ ...editProfile, image: e.target.value })}
+                  placeholder="https://example.com/photo.jpg"
+                  type="url"
+                />
+                <p className="text-muted-foreground text-xs">
+                  Enter a secure (HTTPS) URL to a profile photo
+                </p>
+              </div>
+              <div className="space-y-2">
                 <Label>Color</Label>
                 <div className="flex flex-wrap gap-2">
                   {PROFILE_COLORS.map((color) => (
                     <button
-                      key={color}
+                      key={color.hex}
                       type="button"
+                      aria-label={`Select ${color.name} color`}
+                      aria-pressed={editProfile.color === color.hex}
                       className={`h-8 w-8 rounded-full transition-transform ${
-                        editProfile.color === color
+                        editProfile.color === color.hex
                           ? 'ring-offset-background scale-110 ring-2 ring-offset-2'
                           : ''
                       }`}
-                      style={{ backgroundColor: color }}
-                      onClick={() => setEditProfile({ ...editProfile, color })}
+                      style={{ backgroundColor: color.hex }}
+                      onClick={() => setEditProfile({ ...editProfile, color: color.hex })}
                     />
                   ))}
                 </div>

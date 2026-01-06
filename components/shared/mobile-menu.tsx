@@ -14,7 +14,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { navItems } from '@/lib/constants/navigation';
+import { navItems, settingsItem } from '@/lib/constants/navigation';
 import { HouseholdSwitcher } from './household-switcher';
 import { ProfileSelector } from './profile-selector';
 
@@ -79,6 +79,30 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
               );
             })}
           </nav>
+
+          {/* Settings - Bottom of navigation */}
+          <div className="p-4 pt-0">
+            {(() => {
+              const isActive = pathname === settingsItem.href;
+              const Icon = settingsItem.icon;
+              return (
+                <Link
+                  href={settingsItem.href}
+                  onClick={handleNavClick}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-3 text-base font-medium transition-colors',
+                    isActive
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                  {settingsItem.label}
+                </Link>
+              );
+            })()}
+          </div>
 
           {/* Footer - User Section */}
           <div className="border-border border-t p-4">

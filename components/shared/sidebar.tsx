@@ -7,7 +7,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { LogOut, LogIn } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { navItems } from '@/lib/constants/navigation';
+import { navItems, settingsItem } from '@/lib/constants/navigation';
 import { HouseholdSwitcher } from './household-switcher';
 import { ProfileSelector } from './profile-selector';
 
@@ -60,6 +60,29 @@ export function Sidebar() {
             );
           })}
         </nav>
+
+        {/* Settings - Bottom of navigation */}
+        <div className="p-4 pt-0">
+          {(() => {
+            const isActive = pathname === settingsItem.href;
+            const Icon = settingsItem.icon;
+            return (
+              <Link
+                href={settingsItem.href}
+                aria-current={isActive ? 'page' : undefined}
+                className={cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+                )}
+              >
+                <Icon className="h-5 w-5" />
+                {settingsItem.label}
+              </Link>
+            );
+          })()}
+        </div>
 
         {/* Footer - User Section */}
         <div className="border-border border-t p-4">
