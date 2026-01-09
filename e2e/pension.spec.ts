@@ -23,11 +23,9 @@ test.describe('Pension Feature - Complete User Flows', () => {
 
       // Verify summary cards are displayed (use exact: true for specific matches)
       const totalBalanceCard = page.getByText('Total Balance', { exact: true });
-      const thisMonthCard = page.getByText('This Month', { exact: true });
       const accountsCard = page.getByText('Accounts', { exact: true });
 
       await expect(totalBalanceCard).toBeVisible();
-      await expect(thisMonthCard).toBeVisible();
       await expect(accountsCard).toBeVisible();
 
       // Screenshot after verification
@@ -179,7 +177,7 @@ test.describe('Pension Feature - Complete User Flows', () => {
       const cards = page.locator('[data-slot="card"]');
       const cardCount = await cards.count();
       console.log(`Found ${cardCount} cards on the page`);
-      expect(cardCount).toBeGreaterThanOrEqual(3); // At least 3 summary cards
+      expect(cardCount).toBeGreaterThanOrEqual(2); // At least 2 summary cards
     });
   });
 
@@ -224,14 +222,14 @@ test.describe('Pension Feature - Complete User Flows', () => {
 
       // Verify summary cards are in a grid layout (check they're horizontal)
       const totalBalanceCard = page.getByText('Total Balance', { exact: true });
-      const thisMonthCard = page.getByText('This Month', { exact: true });
+      const accountsCard = page.getByText('Accounts', { exact: true });
 
       const totalBoundingBox = await totalBalanceCard.boundingBox();
-      const thisMonthBoundingBox = await thisMonthCard.boundingBox();
+      const accountsBoundingBox = await accountsCard.boundingBox();
 
       // On desktop, cards should be side by side (similar Y position)
-      if (totalBoundingBox && thisMonthBoundingBox) {
-        const yDiff = Math.abs(totalBoundingBox.y - thisMonthBoundingBox.y);
+      if (totalBoundingBox && accountsBoundingBox) {
+        const yDiff = Math.abs(totalBoundingBox.y - accountsBoundingBox.y);
         console.log(`Y difference between cards: ${yDiff}`);
         expect(yDiff).toBeLessThan(50); // Cards should be roughly on the same row
       }

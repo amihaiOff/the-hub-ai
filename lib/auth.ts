@@ -1,5 +1,6 @@
 import NextAuth from 'next-auth';
-import Google from 'next-auth/providers/google';
+import Resend from 'next-auth/providers/resend';
+import { PrismaAdapter } from '@auth/prisma-adapter';
 import { prisma } from '@/lib/db';
 import type { NextAuthConfig, Session, User } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
@@ -9,12 +10,17 @@ const ALLOWED_EMAILS =
   process.env.ALLOWED_EMAILS?.split(',').map((e) => e.trim().toLowerCase()) || [];
 
 const config: NextAuthConfig = {
+  adapter: PrismaAdapter(prisma),
   providers: [
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    Resend({
+      apiKey: process.env.RESEND_API_KEY,
+      from: process.env.EMAIL_FROM || 'The Hub AI <noreply@resend.dev>',
     }),
   ],
+  session: {
+    strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
   callbacks: {
     async signIn({ user }: { user: User }) {
       // Check if user's email is in the allowlist
@@ -71,6 +77,7 @@ const config: NextAuthConfig = {
   },
   pages: {
     signIn: '/auth/signin',
+    verifyRequest: '/auth/verify-request',
     error: '/auth/error',
   },
 };

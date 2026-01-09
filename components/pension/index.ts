@@ -5,3 +5,5 @@ export { AccountCard } from './account-card';
 export { DepositsTable } from './deposits-table';
 export { AddDepositDialog } from './add-deposit-dialog';
 export { EditDepositDialog } from './edit-deposit-dialog';
+export { UploadDepositsDialog } from './upload-deposits-dialog';
+export { UploadDepositsPreview } from './upload-deposits-preview';

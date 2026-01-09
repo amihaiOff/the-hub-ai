@@ -12,6 +12,8 @@ const config = {
     'app/api/**/*.{ts,tsx}',
     '!**/*.d.ts',
     '!**/node_modules/**',
+    '!**/__tests__/**',
+    '!**/*.test.{ts,tsx}',
   ],
   coverageThreshold: {
     global: {
