@@ -36,8 +36,8 @@ export default function PensionPage() {
       {/* Summary Cards */}
       <PensionSummary
         totalValue={data?.totalValue ?? 0}
-        thisMonthDeposits={data?.thisMonthDeposits ?? 0}
         accountsCount={data?.accountsCount ?? 0}
+        accounts={data?.accounts}
         isLoading={isLoading}
       />
 
