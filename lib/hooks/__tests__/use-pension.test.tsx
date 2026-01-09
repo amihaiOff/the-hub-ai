@@ -14,6 +14,8 @@ import {
   useCreateDeposit,
   useUpdateDeposit,
   useDeleteDeposit,
+  useParsePensionPdf,
+  useBulkCreateDeposits,
 } from '../use-pension';
 
 // Mock global fetch
@@ -237,6 +239,29 @@ describe('Pension Hooks', () => {
         }),
       });
     });
+
+    it('should handle update error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: false,
+          error: 'Account not found',
+        }),
+      });
+
+      const { result } = renderHook(() => useUpdatePensionAccount(), {
+        wrapper: createWrapper(),
+      });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync({
+            id: 'invalid-id',
+            currentValue: 75000,
+          });
+        })
+      ).rejects.toThrow('Account not found');
+    });
   });
 
   describe('useDeletePensionAccount', () => {
@@ -326,6 +351,32 @@ describe('Pension Hooks', () => {
         }),
       });
     });
+
+    it('should handle creation error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: false,
+          error: 'Invalid deposit data',
+        }),
+      });
+
+      const { result } = renderHook(() => useCreateDeposit(), {
+        wrapper: createWrapper(),
+      });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync({
+            accountId: 'acc-1',
+            depositDate: '2024-01-15',
+            salaryMonth: '2024-01-01',
+            amount: -100,
+            employer: 'Company A',
+          });
+        })
+      ).rejects.toThrow('Invalid deposit data');
+    });
   });
 
   describe('useUpdateDeposit', () => {
@@ -367,6 +418,29 @@ describe('Pension Hooks', () => {
         }),
       });
     });
+
+    it('should handle update error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: false,
+          error: 'Deposit not found',
+        }),
+      });
+
+      const { result } = renderHook(() => useUpdateDeposit(), {
+        wrapper: createWrapper(),
+      });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync({
+            id: 'invalid-id',
+            amount: 6000,
+          });
+        })
+      ).rejects.toThrow('Deposit not found');
+    });
   });
 
   describe('useDeleteDeposit', () => {
@@ -389,6 +463,26 @@ describe('Pension Hooks', () => {
       expect(mockFetch).toHaveBeenCalledWith('/api/pension/deposits/d1', {
         method: 'DELETE',
       });
+    });
+
+    it('should handle delete error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: false,
+          error: 'Deposit not found',
+        }),
+      });
+
+      const { result } = renderHook(() => useDeleteDeposit(), {
+        wrapper: createWrapper(),
+      });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync('invalid-id');
+        })
+      ).rejects.toThrow('Deposit not found');
     });
   });
 
@@ -523,6 +617,208 @@ describe('Pension Hooks', () => {
       });
 
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['pension'] });
+    });
+
+    it('should invalidate pension cache after bulk creating deposits', async () => {
+      const queryClient = createTestQueryClient();
+      const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      );
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: { count: 2, deposits: [] },
+        }),
+      });
+
+      const { result } = renderHook(() => useBulkCreateDeposits(), { wrapper });
+
+      await act(async () => {
+        await result.current.mutateAsync({
+          accountId: 'acc-1',
+          deposits: [
+            {
+              depositDate: '2024-01-15',
+              salaryMonth: '2024-01',
+              amount: 5000,
+              employer: 'Company A',
+            },
+          ],
+        });
+      });
+
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['pension'] });
+    });
+  });
+
+  describe('useParsePensionPdf', () => {
+    it('should parse PDF successfully', async () => {
+      const mockResult = {
+        deposits: [
+          {
+            depositDate: '2024-01-15',
+            salaryMonth: '2024-01',
+            amount: 5000,
+            employer: 'Company A',
+          },
+        ],
+        providerName: 'Meitav',
+        reportDate: '2024-01-20',
+        memberName: 'John Doe',
+        warnings: [],
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: mockResult,
+        }),
+      });
+
+      const { result } = renderHook(() => useParsePensionPdf(), {
+        wrapper: createWrapper(),
+      });
+
+      const mockFile = new File(['pdf content'], 'test.pdf', { type: 'application/pdf' });
+
+      await act(async () => {
+        const data = await result.current.mutateAsync(mockFile);
+        expect(data).toEqual(mockResult);
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith('/api/pension/parse-pdf', {
+        method: 'POST',
+        body: expect.any(FormData),
+      });
+    });
+
+    it('should handle parse error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: false,
+          error: 'Invalid PDF format',
+        }),
+      });
+
+      const { result } = renderHook(() => useParsePensionPdf(), {
+        wrapper: createWrapper(),
+      });
+
+      const mockFile = new File(['invalid'], 'test.pdf', { type: 'application/pdf' });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync(mockFile);
+        })
+      ).rejects.toThrow('Invalid PDF format');
+    });
+  });
+
+  describe('useBulkCreateDeposits', () => {
+    it('should bulk create deposits successfully', async () => {
+      const mockResult = {
+        count: 2,
+        deposits: [
+          {
+            id: 'd1',
+            depositDate: '2024-01-15',
+            salaryMonth: '2024-01',
+            amount: 5000,
+            employer: 'Company A',
+          },
+          {
+            id: 'd2',
+            depositDate: '2024-02-15',
+            salaryMonth: '2024-02',
+            amount: 5000,
+            employer: 'Company A',
+          },
+        ],
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: mockResult,
+        }),
+      });
+
+      const { result } = renderHook(() => useBulkCreateDeposits(), {
+        wrapper: createWrapper(),
+      });
+
+      await act(async () => {
+        const data = await result.current.mutateAsync({
+          accountId: 'acc-1',
+          deposits: [
+            {
+              depositDate: '2024-01-15',
+              salaryMonth: '2024-01',
+              amount: 5000,
+              employer: 'Company A',
+            },
+            {
+              depositDate: '2024-02-15',
+              salaryMonth: '2024-02',
+              amount: 5000,
+              employer: 'Company A',
+            },
+          ],
+        });
+        expect(data).toEqual(mockResult);
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith('/api/pension/deposits/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accountId: 'acc-1',
+          deposits: [
+            {
+              depositDate: '2024-01-15',
+              salaryMonth: '2024-01',
+              amount: 5000,
+              employer: 'Company A',
+            },
+            {
+              depositDate: '2024-02-15',
+              salaryMonth: '2024-02',
+              amount: 5000,
+              employer: 'Company A',
+            },
+          ],
+        }),
+      });
+    });
+
+    it('should handle bulk create error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: false,
+          error: 'Invalid deposits data',
+        }),
+      });
+
+      const { result } = renderHook(() => useBulkCreateDeposits(), {
+        wrapper: createWrapper(),
+      });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync({
+            accountId: 'acc-1',
+            deposits: [],
+          });
+        })
+      ).rejects.toThrow('Invalid deposits data');
     });
   });
 });

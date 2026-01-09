@@ -158,6 +158,23 @@ describe('Profiles Hooks', () => {
       expect(result.current.isFetching).toBe(false);
       expect(mockFetch).not.toHaveBeenCalled();
     });
+
+    it('should handle API error when fetching profile', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          success: false,
+          error: 'Profile not found',
+        }),
+      });
+
+      const { result } = renderHook(() => useProfile('invalid-id'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      expect(result.current.error?.message).toBe('Profile not found');
+    });
   });
 
   describe('useCreateProfile', () => {
@@ -297,6 +314,29 @@ describe('Profiles Hooks', () => {
         }),
       });
     });
+
+    it('should handle update error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          success: false,
+          error: 'Profile not found',
+        }),
+      });
+
+      const { result } = renderHook(() => useUpdateProfile(), {
+        wrapper: createWrapper(),
+      });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync({
+            id: 'invalid-id',
+            name: 'Updated Name',
+          });
+        })
+      ).rejects.toThrow('Profile not found');
+    });
   });
 
   describe('useDeleteProfile', () => {
@@ -402,6 +442,23 @@ describe('Profiles Hooks', () => {
 
       expect(mockFetch).toHaveBeenCalledWith('/api/assets/items/asset-1/owners');
     });
+
+    it('should handle API error when fetching owners', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          success: false,
+          error: 'Asset not found',
+        }),
+      });
+
+      const { result } = renderHook(() => useAssetOwners('portfolio', 'invalid-id'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      expect(result.current.error?.message).toBe('Asset not found');
+    });
   });
 
   describe('useUpdateAssetOwners', () => {
@@ -459,6 +516,56 @@ describe('Profiles Hooks', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ profileIds: ['p1', 'p2'] }),
       });
+    });
+
+    it('should update misc asset owners', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: [],
+        }),
+      });
+
+      const { result } = renderHook(() => useUpdateAssetOwners('assets'), {
+        wrapper: createWrapper(),
+      });
+
+      await act(async () => {
+        await result.current.mutateAsync({
+          assetId: 'asset-1',
+          profileIds: ['p1'],
+        });
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith('/api/assets/items/asset-1/owners', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profileIds: ['p1'] }),
+      });
+    });
+
+    it('should handle update owners error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          success: false,
+          error: 'Asset not found',
+        }),
+      });
+
+      const { result } = renderHook(() => useUpdateAssetOwners('portfolio'), {
+        wrapper: createWrapper(),
+      });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync({
+            assetId: 'invalid-id',
+            profileIds: ['p1'],
+          });
+        })
+      ).rejects.toThrow('Asset not found');
     });
   });
 
