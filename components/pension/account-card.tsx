@@ -54,16 +54,14 @@ export function AccountCard({ account }: AccountCardProps) {
                   <ChevronRight className="text-muted-foreground h-4 w-4" />
                 )}
                 <div>
-                  <div className="flex items-center gap-2">
-                    <CardTitle className="text-lg">{account.accountName}</CardTitle>
-                    {account.owners && account.owners.length > 0 && (
-                      <OwnerBadges owners={account.owners} size="xs" />
-                    )}
-                  </div>
+                  <CardTitle className="text-lg">{account.accountName}</CardTitle>
                   <div className="text-muted-foreground flex items-center gap-2 text-sm">
                     <Building2 className="h-3 w-3" />
                     {account.providerName}
                   </div>
+                  {account.owners && account.owners.length > 0 && (
+                    <OwnerBadges owners={account.owners} size="xs" className="mt-1" />
+                  )}
                 </div>
               </button>
             </CollapsibleTrigger>
