@@ -273,41 +273,80 @@ SKIP_AUTH="true"                      # DEV ONLY - bypasses OAuth for local deve
 **Branches:**
 
 - `main` - Production branch (deploys to Vercel production)
-- `develop` - Development branch (for feature work)
+- `develop` - Development/preview branch (deploys to Vercel preview)
 
 **Environments:**
 
-| Environment   | Branch    | Database                      | Purpose             |
-| ------------- | --------- | ----------------------------- | ------------------- |
-| Production    | `main`    | Vercel Postgres               | Real user data      |
-| Development   | `develop` | Local Postgres (`hub_ai_dev`) | Feature development |
-| Local testing | any       | Local Postgres (`hub_ai`)     | General testing     |
+| Environment | Branch    | Database                | Purpose             |
+| ----------- | --------- | ----------------------- | ------------------- |
+| Production  | `main`    | Neon (`main` branch)    | Real user data      |
+| Preview     | `develop` | Neon (`develop` branch) | Preview deployments |
+| Local       | any       | Local Postgres          | Development         |
+
+**Database Branches (Neon):**
+
+The project uses Neon PostgreSQL with database branches that mirror Git branches:
+
+- `main` Neon branch → Production data (connected to Vercel Production)
+- `develop` Neon branch → Preview data (connected to Vercel Preview)
+
+**Schema Change Workflow:**
+
+When you need to modify the database schema:
+
+```bash
+# 1. Make changes to prisma/schema.prisma
+
+# 2. Create a migration (locally)
+npx prisma migrate dev --name descriptive_name
+
+# 3. Apply to local database (automatic with migrate dev)
+
+# 4. Commit the migration files
+git add prisma/migrations
+git commit -m "feat: add new_field to table"
+
+# 5. Push to develop
+git push origin develop
+# → CI automatically runs `prisma migrate deploy` against Neon develop branch
+
+# 6. After merging to main
+# → CI automatically runs `prisma migrate deploy` against Neon main branch
+```
 
 **Local Database Setup:**
 
 ```bash
-# Switch to dev database (fresh, for new features)
+# Local development database
 DATABASE_URL="postgresql://amihaio@localhost:5432/hub_ai_dev"
-
-# Switch to test database (existing local data)
-DATABASE_URL="postgresql://amihaio@localhost:5432/hub_ai"
 ```
 
 **Workflow:**
 
 1. Work on `develop` branch locally with local Postgres
-2. Push to `develop` for preview deployments (optional)
-3. Create PR from `develop` → `main` when ready
-4. Merge to `main` deploys to production
+2. Create migrations with `prisma migrate dev`
+3. Push to `develop` → triggers preview deployment + auto-migration
+4. Create PR from `develop` → `main` when ready
+5. Merge to `main` → triggers production deployment + auto-migration
+6. Pull main into develop to sync branches:
+   ```bash
+   git checkout develop && git pull origin main && git push origin develop
+   ```
 
-**Database Commands:**
+**Local Database Commands:**
 
 ```bash
-# Apply schema to dev database
-DATABASE_URL="postgresql://...hub_ai_dev" npx prisma db push
+# Create new migration (use this for schema changes)
+npx prisma migrate dev --name [description]
 
-# Reset dev database (careful!)
-DATABASE_URL="postgresql://...hub_ai_dev" npx prisma migrate reset
+# Apply pending migrations
+npx prisma migrate deploy
+
+# Reset database (careful - deletes all data!)
+npx prisma migrate reset
+
+# Push schema without migration (dev only, not recommended)
+npx prisma db push
 ```
 
 ### Important Notes
