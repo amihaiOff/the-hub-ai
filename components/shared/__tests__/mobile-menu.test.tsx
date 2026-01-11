@@ -14,21 +14,15 @@ jest.mock('next/navigation', () => ({
   usePathname: () => mockPathname(),
 }));
 
-// Mock next-auth/react
-const mockSession = {
-  user: {
-    name: 'Test User',
-    email: 'test@example.com',
-    image: null,
-  },
-};
-const mockStatus = 'authenticated';
-jest.mock('next-auth/react', () => ({
-  useSession: () => ({
-    data: mockStatus === 'authenticated' ? mockSession : null,
-    status: mockStatus,
-  }),
+// Mock @stackframe/stack
+const mockUser = {
+  displayName: 'Test User',
+  primaryEmail: 'test@example.com',
+  profileImageUrl: null,
   signOut: jest.fn(),
+};
+jest.mock('@stackframe/stack', () => ({
+  useUser: () => mockUser,
 }));
 
 // Mock next/link

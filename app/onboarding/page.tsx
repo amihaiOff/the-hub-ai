@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useUser } from '@stackframe/stack';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,7 +28,7 @@ const PROFILE_COLORS = [
 ];
 
 export default function OnboardingPage() {
-  const { data: session, status } = useSession();
+  const user = useUser();
   const router = useRouter();
   const [step, setStep] = useState<Step>('welcome');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,13 +41,13 @@ export default function OnboardingPage() {
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [newMemberName, setNewMemberName] = useState('');
 
-  // Update default values when session loads
+  // Update default values when user loads
   useEffect(() => {
-    if (session?.user?.name && !profileName) {
-      setProfileName(session.user.name);
-      setHouseholdName(`${session.user.name}'s Household`);
+    if (user?.displayName && !profileName) {
+      setProfileName(user.displayName);
+      setHouseholdName(`${user.displayName}'s Household`);
     }
-  }, [session?.user?.name, profileName]);
+  }, [user?.displayName, profileName]);
 
   const handleAddMember = () => {
     if (newMemberName.trim()) {
@@ -103,18 +103,8 @@ export default function OnboardingPage() {
     }
   };
 
-  if (status === 'loading') {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-muted-foreground animate-pulse">Loading...</div>
-      </div>
-    );
-  }
-
-  if (status === 'unauthenticated') {
-    router.push('/auth/signin');
-    return null;
-  }
+  // In dev mode with SKIP_AUTH, user may be null but onboarding still works
+  // The API uses SKIP_AUTH to provide a dev user
 
   return (
     <div className="bg-background flex min-h-screen items-center justify-center p-4">

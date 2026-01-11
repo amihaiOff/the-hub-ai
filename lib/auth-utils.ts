@@ -1,4 +1,4 @@
-import { auth } from '@/lib/auth';
+import { stackServerApp } from '@/stack/server';
 import { prisma } from '@/lib/db';
 import type { HouseholdRole } from '@prisma/client';
 
@@ -44,6 +44,10 @@ const DEV_USER_ID = 'dev-user-local';
 const DEV_USER_EMAIL = 'dev@localhost';
 const DEV_USER_NAME = 'Dev User';
 
+// Email allowlist - only these emails can access the app
+const ALLOWED_EMAILS =
+  process.env.ALLOWED_EMAILS?.split(',').map((e) => e.trim().toLowerCase()) || [];
+
 // Cache flag to avoid repeated database upserts in dev mode
 let devUserCreated = false;
 
@@ -58,7 +62,7 @@ function isAuthBypassed(): boolean {
  * Get the current user for API routes.
  * In development mode (when SKIP_AUTH=true and NODE_ENV !== 'production'),
  * returns a dev user without requiring OAuth.
- * In production, requires proper authentication.
+ * In production, requires proper authentication via Stack Auth.
  * @returns The current user with guaranteed id, or null if not authenticated
  */
 export async function getCurrentUser(): Promise<CurrentUser | null> {
@@ -85,16 +89,39 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     };
   }
 
-  // Production: require proper authentication
-  const session = await auth();
-  if (!session?.user?.id) {
+  // Production: require proper authentication via Stack Auth
+  const stackUser = await stackServerApp.getUser();
+  if (!stackUser) {
     return null;
   }
 
+  // Upsert user in our database to ensure they exist
+  const email = stackUser.primaryEmail;
+  if (!email) {
+    return null;
+  }
+
+  // Check email allowlist (if configured)
+  if (ALLOWED_EMAILS.length > 0 && !ALLOWED_EMAILS.includes(email.toLowerCase())) {
+    console.warn(`Sign-in denied for email: ${email} - not in allowlist`);
+    return null;
+  }
+
+  const dbUser = await prisma.user.upsert({
+    where: { email },
+    update: {
+      name: stackUser.displayName,
+    },
+    create: {
+      email,
+      name: stackUser.displayName,
+    },
+  });
+
   return {
-    id: session.user.id,
-    email: session.user.email ?? null,
-    name: session.user.name ?? null,
+    id: dbUser.id,
+    email: dbUser.email,
+    name: dbUser.name,
   };
 }
 

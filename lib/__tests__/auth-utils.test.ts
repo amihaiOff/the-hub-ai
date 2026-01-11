@@ -13,15 +13,17 @@
 const originalNodeEnv = process.env.NODE_ENV;
 const originalSkipAuth = process.env.SKIP_AUTH;
 
-// Mock auth module factory - will be used by dynamic imports
-const mockAuth = jest.fn();
+// Mock Stack Auth server app - will be used by dynamic imports
+const mockGetUser = jest.fn();
 const mockUpsert = jest.fn();
 const mockProfileFindUnique = jest.fn();
 const mockHouseholdMemberFindMany = jest.fn();
 
 // Setup mocks that will be used by all dynamic imports
-jest.mock('@/lib/auth', () => ({
-  auth: mockAuth,
+jest.mock('@/stack/server', () => ({
+  stackServerApp: {
+    getUser: mockGetUser,
+  },
 }));
 
 jest.mock('@/lib/db', () => ({
@@ -50,7 +52,7 @@ function setNodeEnv(value: string) {
 describe('Auth Utils', () => {
   beforeEach(() => {
     // Reset mocks
-    mockAuth.mockReset();
+    mockGetUser.mockReset();
     mockUpsert.mockReset();
     mockProfileFindUnique.mockReset();
     mockHouseholdMemberFindMany.mockReset();
@@ -213,7 +215,7 @@ describe('Auth Utils', () => {
         expect(mockUpsert).toHaveBeenCalledTimes(1);
       });
 
-      it('should NOT call auth() when bypass is enabled', async () => {
+      it('should NOT call stackServerApp.getUser() when bypass is enabled', async () => {
         setNodeEnv('development');
         process.env.SKIP_AUTH = 'true';
 
@@ -222,21 +224,26 @@ describe('Auth Utils', () => {
         const { getCurrentUser } = await import('../auth-utils');
         await getCurrentUser();
 
-        expect(mockAuth).not.toHaveBeenCalled();
+        expect(mockGetUser).not.toHaveBeenCalled();
       });
     });
 
     describe('Without auth bypass (production mode)', () => {
-      it('should return authenticated user from session', async () => {
+      it('should return authenticated user from Stack Auth', async () => {
         setNodeEnv('production');
         delete process.env.SKIP_AUTH;
 
-        mockAuth.mockResolvedValueOnce({
-          user: {
-            id: 'user-123',
-            email: 'test@example.com',
-            name: 'Test User',
-          },
+        // Stack Auth returns user object directly
+        mockGetUser.mockResolvedValueOnce({
+          primaryEmail: 'test@example.com',
+          displayName: 'Test User',
+        });
+
+        // Mock the database upsert (Stack Auth flow upserts user)
+        mockUpsert.mockResolvedValueOnce({
+          id: 'user-123',
+          email: 'test@example.com',
+          name: 'Test User',
         });
 
         const { getCurrentUser } = await import('../auth-utils');
@@ -247,14 +254,14 @@ describe('Auth Utils', () => {
           email: 'test@example.com',
           name: 'Test User',
         });
-        expect(mockAuth).toHaveBeenCalled();
+        expect(mockGetUser).toHaveBeenCalled();
       });
 
-      it('should return null when no session exists', async () => {
+      it('should return null when no user from Stack Auth', async () => {
         setNodeEnv('production');
         delete process.env.SKIP_AUTH;
 
-        mockAuth.mockResolvedValueOnce(null);
+        mockGetUser.mockResolvedValueOnce(null);
 
         const { getCurrentUser } = await import('../auth-utils');
         const user = await getCurrentUser();
@@ -262,28 +269,13 @@ describe('Auth Utils', () => {
         expect(user).toBeNull();
       });
 
-      it('should return null when session has no user', async () => {
+      it('should return null when user has no email', async () => {
         setNodeEnv('production');
         delete process.env.SKIP_AUTH;
 
-        mockAuth.mockResolvedValueOnce({});
-
-        const { getCurrentUser } = await import('../auth-utils');
-        const user = await getCurrentUser();
-
-        expect(user).toBeNull();
-      });
-
-      it('should return null when user has no id', async () => {
-        setNodeEnv('production');
-        delete process.env.SKIP_AUTH;
-
-        mockAuth.mockResolvedValueOnce({
-          user: {
-            email: 'test@example.com',
-            name: 'Test User',
-            // no id
-          },
+        mockGetUser.mockResolvedValueOnce({
+          primaryEmail: null,
+          displayName: 'Test User',
         });
 
         const { getCurrentUser } = await import('../auth-utils');
@@ -292,66 +284,29 @@ describe('Auth Utils', () => {
         expect(user).toBeNull();
       });
 
-      it('should handle null email gracefully', async () => {
+      it('should upsert user in database when authenticated', async () => {
         setNodeEnv('production');
         delete process.env.SKIP_AUTH;
 
-        mockAuth.mockResolvedValueOnce({
-          user: {
-            id: 'user-456',
-            email: null,
-            name: 'Anonymous User',
-          },
+        mockGetUser.mockResolvedValueOnce({
+          primaryEmail: 'test@example.com',
+          displayName: 'Test User',
         });
 
-        const { getCurrentUser } = await import('../auth-utils');
-        const user = await getCurrentUser();
-
-        expect(user).toEqual({
-          id: 'user-456',
-          email: null,
-          name: 'Anonymous User',
-        });
-      });
-
-      it('should handle undefined name gracefully', async () => {
-        setNodeEnv('production');
-        delete process.env.SKIP_AUTH;
-
-        mockAuth.mockResolvedValueOnce({
-          user: {
-            id: 'user-789',
-            email: 'test@example.com',
-            name: undefined,
-          },
-        });
-
-        const { getCurrentUser } = await import('../auth-utils');
-        const user = await getCurrentUser();
-
-        expect(user).toEqual({
-          id: 'user-789',
+        mockUpsert.mockResolvedValueOnce({
+          id: 'user-123',
           email: 'test@example.com',
-          name: null,
-        });
-      });
-
-      it('should NOT call prisma.user.upsert in production', async () => {
-        setNodeEnv('production');
-        delete process.env.SKIP_AUTH;
-
-        mockAuth.mockResolvedValueOnce({
-          user: {
-            id: 'user-123',
-            email: 'test@example.com',
-            name: 'Test User',
-          },
+          name: 'Test User',
         });
 
         const { getCurrentUser } = await import('../auth-utils');
         await getCurrentUser();
 
-        expect(mockUpsert).not.toHaveBeenCalled();
+        expect(mockUpsert).toHaveBeenCalledWith({
+          where: { email: 'test@example.com' },
+          update: { name: 'Test User' },
+          create: { email: 'test@example.com', name: 'Test User' },
+        });
       });
     });
 
@@ -360,20 +315,22 @@ describe('Auth Utils', () => {
         setNodeEnv('production');
         process.env.SKIP_AUTH = 'true';
 
-        mockAuth.mockResolvedValueOnce({
-          user: {
-            id: 'real-user-123',
-            email: 'real@example.com',
-            name: 'Real User',
-          },
+        mockGetUser.mockResolvedValueOnce({
+          primaryEmail: 'real@example.com',
+          displayName: 'Real User',
+        });
+
+        mockUpsert.mockResolvedValueOnce({
+          id: 'real-user-123',
+          email: 'real@example.com',
+          name: 'Real User',
         });
 
         const { getCurrentUser } = await import('../auth-utils');
         const user = await getCurrentUser();
 
         // Should use real auth, not bypass
-        expect(mockAuth).toHaveBeenCalled();
-        expect(mockUpsert).not.toHaveBeenCalled();
+        expect(mockGetUser).toHaveBeenCalled();
         expect(user).toEqual({
           id: 'real-user-123',
           email: 'real@example.com',
@@ -385,13 +342,13 @@ describe('Auth Utils', () => {
         setNodeEnv('production');
         process.env.SKIP_AUTH = 'true';
 
-        mockAuth.mockResolvedValueOnce(null);
+        mockGetUser.mockResolvedValueOnce(null);
 
         const { getCurrentUser } = await import('../auth-utils');
         const user = await getCurrentUser();
 
         expect(user).toBeNull();
-        expect(mockAuth).toHaveBeenCalled();
+        expect(mockGetUser).toHaveBeenCalled();
       });
     });
   });
@@ -401,13 +358,16 @@ describe('Auth Utils', () => {
       setNodeEnv('production');
       delete process.env.SKIP_AUTH;
 
-      mockAuth.mockResolvedValueOnce({
-        user: {
-          id: 'interface-test-user',
-          email: 'interface@test.com',
-          name: 'Interface Test',
-          image: 'https://example.com/image.png', // extra field should not be included
-        },
+      mockGetUser.mockResolvedValueOnce({
+        primaryEmail: 'interface@test.com',
+        displayName: 'Interface Test',
+        profileImageUrl: 'https://example.com/image.png', // extra field should not be included
+      });
+
+      mockUpsert.mockResolvedValueOnce({
+        id: 'interface-test-user',
+        email: 'interface@test.com',
+        name: 'Interface Test',
       });
 
       const { getCurrentUser } = await import('../auth-utils');
@@ -418,13 +378,14 @@ describe('Auth Utils', () => {
       expect(user).toHaveProperty('name');
       // image should NOT be in the returned object
       expect(user).not.toHaveProperty('image');
+      expect(user).not.toHaveProperty('profileImageUrl');
     });
   });
 });
 
 describe('Security Verification Summary', () => {
   beforeEach(() => {
-    mockAuth.mockReset();
+    mockGetUser.mockReset();
     mockUpsert.mockReset();
     jest.resetModules();
     setNodeEnv(originalNodeEnv || 'test');
@@ -451,12 +412,11 @@ describe('Security Verification Summary', () => {
     expect(isDevAuthMode()).toBe(false);
 
     // Verify real auth is called
-    mockAuth.mockResolvedValueOnce(null);
+    mockGetUser.mockResolvedValueOnce(null);
     const user = await getCurrentUser();
 
-    expect(mockAuth).toHaveBeenCalled();
+    expect(mockGetUser).toHaveBeenCalled();
     expect(user).toBeNull(); // No bypass, no user
-    expect(mockUpsert).not.toHaveBeenCalled();
   });
 
   it('CRITICAL: Auth bypass only works in non-production environments', async () => {
@@ -516,7 +476,7 @@ describe('Security Verification Summary', () => {
 
 describe('Profile/Household Context', () => {
   beforeEach(() => {
-    mockAuth.mockReset();
+    mockGetUser.mockReset();
     mockUpsert.mockReset();
     mockProfileFindUnique.mockReset();
     mockHouseholdMemberFindMany.mockReset();
@@ -588,7 +548,7 @@ describe('Profile/Household Context', () => {
   describe('getCurrentContext', () => {
     it('should return null when user is not authenticated', async () => {
       setNodeEnv('production');
-      mockAuth.mockResolvedValueOnce(null);
+      mockGetUser.mockResolvedValueOnce(null);
 
       const { getCurrentContext } = await import('../auth-utils');
       const context = await getCurrentContext();
@@ -598,8 +558,14 @@ describe('Profile/Household Context', () => {
 
     it('should return null when user has no profile (needs onboarding)', async () => {
       setNodeEnv('production');
-      mockAuth.mockResolvedValueOnce({
-        user: { id: 'user-123', email: 'test@example.com', name: 'Test' },
+      mockGetUser.mockResolvedValueOnce({
+        primaryEmail: 'test@example.com',
+        displayName: 'Test',
+      });
+      mockUpsert.mockResolvedValueOnce({
+        id: 'user-123',
+        email: 'test@example.com',
+        name: 'Test',
       });
       mockProfileFindUnique.mockResolvedValueOnce(null);
 
@@ -611,8 +577,14 @@ describe('Profile/Household Context', () => {
 
     it('should return null when user has profile but no households', async () => {
       setNodeEnv('production');
-      mockAuth.mockResolvedValueOnce({
-        user: { id: 'user-123', email: 'test@example.com', name: 'Test' },
+      mockGetUser.mockResolvedValueOnce({
+        primaryEmail: 'test@example.com',
+        displayName: 'Test',
+      });
+      mockUpsert.mockResolvedValueOnce({
+        id: 'user-123',
+        email: 'test@example.com',
+        name: 'Test',
       });
       mockProfileFindUnique.mockResolvedValueOnce({
         ...mockProfile,
@@ -627,8 +599,14 @@ describe('Profile/Household Context', () => {
 
     it('should return full context with profile, households, and household profiles', async () => {
       setNodeEnv('production');
-      mockAuth.mockResolvedValueOnce({
-        user: { id: 'user-123', email: 'test@example.com', name: 'Test User' },
+      mockGetUser.mockResolvedValueOnce({
+        primaryEmail: 'test@example.com',
+        displayName: 'Test User',
+      });
+      mockUpsert.mockResolvedValueOnce({
+        id: 'user-123',
+        email: 'test@example.com',
+        name: 'Test User',
       });
       mockProfileFindUnique.mockResolvedValueOnce(mockProfile);
       mockHouseholdMemberFindMany.mockResolvedValueOnce(mockHouseholdMembers);
@@ -648,8 +626,14 @@ describe('Profile/Household Context', () => {
 
     it('should use specified householdId as active household', async () => {
       setNodeEnv('production');
-      mockAuth.mockResolvedValueOnce({
-        user: { id: 'user-123', email: 'test@example.com', name: 'Test' },
+      mockGetUser.mockResolvedValueOnce({
+        primaryEmail: 'test@example.com',
+        displayName: 'Test',
+      });
+      mockUpsert.mockResolvedValueOnce({
+        id: 'user-123',
+        email: 'test@example.com',
+        name: 'Test',
       });
 
       const multiHouseholdProfile = {
@@ -696,8 +680,14 @@ describe('Profile/Household Context', () => {
 
     it('should default to first household if specified householdId not found', async () => {
       setNodeEnv('production');
-      mockAuth.mockResolvedValueOnce({
-        user: { id: 'user-123', email: 'test@example.com', name: 'Test' },
+      mockGetUser.mockResolvedValueOnce({
+        primaryEmail: 'test@example.com',
+        displayName: 'Test',
+      });
+      mockUpsert.mockResolvedValueOnce({
+        id: 'user-123',
+        email: 'test@example.com',
+        name: 'Test',
       });
       mockProfileFindUnique.mockResolvedValueOnce(mockProfile);
       mockHouseholdMemberFindMany.mockResolvedValueOnce(mockHouseholdMembers);
@@ -711,8 +701,14 @@ describe('Profile/Household Context', () => {
 
     it('should correctly identify profiles with and without linked users', async () => {
       setNodeEnv('production');
-      mockAuth.mockResolvedValueOnce({
-        user: { id: 'user-123', email: 'test@example.com', name: 'Test' },
+      mockGetUser.mockResolvedValueOnce({
+        primaryEmail: 'test@example.com',
+        displayName: 'Test',
+      });
+      mockUpsert.mockResolvedValueOnce({
+        id: 'user-123',
+        email: 'test@example.com',
+        name: 'Test',
       });
       mockProfileFindUnique.mockResolvedValueOnce(mockProfile);
       mockHouseholdMemberFindMany.mockResolvedValueOnce(mockHouseholdMembers);
@@ -731,8 +727,14 @@ describe('Profile/Household Context', () => {
   describe('getAccessibleProfileIds', () => {
     it('should return all profile IDs in the household', async () => {
       setNodeEnv('production');
-      mockAuth.mockResolvedValueOnce({
-        user: { id: 'user-123', email: 'test@example.com', name: 'Test' },
+      mockGetUser.mockResolvedValueOnce({
+        primaryEmail: 'test@example.com',
+        displayName: 'Test',
+      });
+      mockUpsert.mockResolvedValueOnce({
+        id: 'user-123',
+        email: 'test@example.com',
+        name: 'Test',
       });
       mockProfileFindUnique.mockResolvedValueOnce(mockProfile);
       mockHouseholdMemberFindMany.mockResolvedValueOnce(mockHouseholdMembers);

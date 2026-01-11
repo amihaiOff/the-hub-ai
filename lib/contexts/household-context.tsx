@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { useSession } from 'next-auth/react';
+import { useUser } from '@stackframe/stack';
 
 export interface HouseholdProfile {
   id: string;
@@ -50,7 +50,7 @@ const ACTIVE_HOUSEHOLD_KEY = 'hub-ai-active-household';
 const SELECTED_PROFILES_KEY = 'hub-ai-selected-profiles';
 
 export function HouseholdProvider({ children }: { children: React.ReactNode }) {
-  const { status } = useSession();
+  const user = useUser();
   const [data, setData] = useState<HouseholdContextData>({
     profile: null,
     households: [],
@@ -63,11 +63,8 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
 
   // Fetch household context from API
   const fetchContext = useCallback(async () => {
-    // In dev mode with SKIP_AUTH, session status may be 'unauthenticated' but API still works
-    // Only skip if we're still loading the session status
-    if (status === 'loading') {
-      return;
-    }
+    // Note: With Stack Auth, user will be null if not authenticated
+    // In dev mode with SKIP_AUTH, API still works without auth
 
     try {
       setIsLoading(true);
@@ -150,7 +147,7 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [status]);
+  }, [user]);
 
   // Fetch on mount and auth status change
   useEffect(() => {

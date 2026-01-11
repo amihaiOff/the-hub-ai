@@ -6,10 +6,10 @@
 import React from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react';
 
-// Mock next-auth
-const mockUseSession = jest.fn();
-jest.mock('next-auth/react', () => ({
-  useSession: () => mockUseSession(),
+// Mock @stackframe/stack
+const mockUseUser = jest.fn();
+jest.mock('@stackframe/stack', () => ({
+  useUser: () => mockUseUser(),
 }));
 
 // Mock localStorage
@@ -44,7 +44,7 @@ import {
 describe('HouseholdContext', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseSession.mockReset();
+    mockUseUser.mockReset();
     mockFetch.mockReset();
     (window.localStorage.clear as jest.Mock)();
     Object.keys(mockLocalStorage).forEach((key) => delete mockLocalStorage[key]);
@@ -111,8 +111,8 @@ describe('HouseholdContext', () => {
       consoleError.mockRestore();
     });
 
-    it('should return loading state initially when authenticated', async () => {
-      mockUseSession.mockReturnValue({ status: 'authenticated' });
+    it('should return loading state initially', async () => {
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockContextResponse),
@@ -130,8 +130,8 @@ describe('HouseholdContext', () => {
       });
     });
 
-    it('should fetch context when authenticated', async () => {
-      mockUseSession.mockReturnValue({ status: 'authenticated' });
+    it('should fetch context when user exists', async () => {
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockContextResponse),
@@ -151,8 +151,8 @@ describe('HouseholdContext', () => {
       expect(result.current.householdProfiles).toHaveLength(2);
     });
 
-    it('should fetch and handle 401 when unauthenticated (supports dev mode)', async () => {
-      mockUseSession.mockReturnValue({ status: 'unauthenticated' });
+    it('should fetch and handle 401 when user is null (supports dev mode)', async () => {
+      mockUseUser.mockReturnValue(null);
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
@@ -166,27 +166,15 @@ describe('HouseholdContext', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      // In dev mode with SKIP_AUTH, we still fetch even when 'unauthenticated'
+      // In dev mode with SKIP_AUTH, we still fetch even when user is null
       // This allows the API to handle auth via SKIP_AUTH env var
       expect(mockFetch).toHaveBeenCalledWith('/api/context');
       expect(result.current.profile).toBeNull();
       expect(result.current.error).toBeNull();
     });
 
-    it('should skip fetch when session status is loading', async () => {
-      mockUseSession.mockReturnValue({ status: 'loading' });
-
-      const { result } = renderHook(() => useHouseholdContext(), {
-        wrapper: createWrapper(),
-      });
-
-      // Should remain in loading state and not call fetch
-      expect(result.current.isLoading).toBe(true);
-      expect(mockFetch).not.toHaveBeenCalled();
-    });
-
     it('should set error on fetch failure', async () => {
-      mockUseSession.mockReturnValue({ status: 'authenticated' });
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
@@ -204,7 +192,7 @@ describe('HouseholdContext', () => {
     });
 
     it('should handle 404 response (needs onboarding)', async () => {
-      mockUseSession.mockReturnValue({ status: 'authenticated' });
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
@@ -223,7 +211,7 @@ describe('HouseholdContext', () => {
     });
 
     it('should store active household ID in localStorage', async () => {
-      mockUseSession.mockReturnValue({ status: 'authenticated' });
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockContextResponse),
@@ -242,7 +230,7 @@ describe('HouseholdContext', () => {
     });
 
     it('should initialize selectedProfileIds with all profiles', async () => {
-      mockUseSession.mockReturnValue({ status: 'authenticated' });
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockContextResponse),
@@ -261,7 +249,7 @@ describe('HouseholdContext', () => {
     });
 
     it('should allow setting selected profile IDs', async () => {
-      mockUseSession.mockReturnValue({ status: 'authenticated' });
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockContextResponse),
@@ -283,7 +271,7 @@ describe('HouseholdContext', () => {
     });
 
     it('should check if profile is selected', async () => {
-      mockUseSession.mockReturnValue({ status: 'authenticated' });
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockContextResponse),
@@ -302,7 +290,7 @@ describe('HouseholdContext', () => {
     });
 
     it('should select all profiles', async () => {
-      mockUseSession.mockReturnValue({ status: 'authenticated' });
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockContextResponse),
@@ -334,7 +322,7 @@ describe('HouseholdContext', () => {
 
   describe('useNeedsOnboarding', () => {
     it('should return needsOnboarding=true when profile is null and not loading', async () => {
-      mockUseSession.mockReturnValue({ status: 'authenticated' });
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
@@ -352,7 +340,7 @@ describe('HouseholdContext', () => {
     });
 
     it('should return needsOnboarding=false when profile exists', async () => {
-      mockUseSession.mockReturnValue({ status: 'authenticated' });
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockContextResponse),
@@ -372,7 +360,7 @@ describe('HouseholdContext', () => {
 
   describe('useIsHouseholdAdmin', () => {
     it('should return true for owner role', async () => {
-      mockUseSession.mockReturnValue({ status: 'authenticated' });
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockContextResponse),
@@ -388,7 +376,7 @@ describe('HouseholdContext', () => {
     });
 
     it('should return true for admin role', async () => {
-      mockUseSession.mockReturnValue({ status: 'authenticated' });
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () =>
@@ -414,7 +402,7 @@ describe('HouseholdContext', () => {
     });
 
     it('should return false for member role', async () => {
-      mockUseSession.mockReturnValue({ status: 'authenticated' });
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () =>

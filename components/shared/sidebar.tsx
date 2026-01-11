@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react';
+import { useUser } from '@stackframe/stack';
 import { LogOut, LogIn } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import { ProfileSelector } from './profile-selector';
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { data: session, status } = useSession();
+  const user = useUser();
 
   return (
     <aside className="border-border bg-sidebar fixed top-0 left-0 hidden h-screen w-64 border-r lg:block">
@@ -29,7 +29,7 @@ export function Sidebar() {
         </div>
 
         {/* Household & Profile Selection */}
-        {session?.user && (
+        {user && (
           <div className="border-border space-y-2 border-b p-4">
             <HouseholdSwitcher className="w-full" />
             <ProfileSelector className="w-full justify-between" />
@@ -86,36 +86,34 @@ export function Sidebar() {
 
         {/* Footer - User Section */}
         <div className="border-border border-t p-4">
-          {status === 'loading' ? (
-            <div className="bg-muted h-10 animate-pulse rounded-lg" />
-          ) : session?.user ? (
+          {user ? (
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                {session.user.image ? (
+                {user.profileImageUrl ? (
                   <Image
-                    src={session.user.image}
-                    alt={session.user.name || 'User'}
+                    src={user.profileImageUrl}
+                    alt={user.displayName || 'User'}
                     width={32}
                     height={32}
                     className="rounded-full"
                   />
                 ) : (
                   <div className="bg-primary text-primary-foreground flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium">
-                    {session.user.name?.[0] || session.user.email?.[0] || '?'}
+                    {user.displayName?.[0] || user.primaryEmail?.[0] || '?'}
                   </div>
                 )}
                 <div className="flex-1 truncate">
                   <p className="text-sidebar-foreground truncate text-sm font-medium">
-                    {session.user.name}
+                    {user.displayName}
                   </p>
-                  <p className="text-muted-foreground truncate text-xs">{session.user.email}</p>
+                  <p className="text-muted-foreground truncate text-xs">{user.primaryEmail}</p>
                 </div>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
                 className="text-muted-foreground hover:text-sidebar-foreground w-full justify-start"
-                onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+                onClick={() => user.signOut()}
               >
                 <LogOut className="mr-2 h-4 w-4" />
                 Sign out
@@ -123,7 +121,7 @@ export function Sidebar() {
             </div>
           ) : (
             <Button asChild variant="default" size="sm" className="w-full">
-              <Link href="/auth/signin">
+              <Link href="/handler/sign-in">
                 <LogIn className="mr-2 h-4 w-4" />
                 Sign in
               </Link>

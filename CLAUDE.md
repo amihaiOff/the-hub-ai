@@ -87,7 +87,7 @@ npm run test:all        # Run all tests
 - **Framework:** Next.js 15 (App Router) with TypeScript
 - **Styling:** Tailwind CSS + shadcn/ui components
 - **Database:** PostgreSQL with Prisma ORM
-- **Authentication:** Auth.js (NextAuth.js) with Google OAuth
+- **Authentication:** Stack Auth (via Neon Auth) with Google OAuth
 - **Data Fetching:** TanStack Query (React Query)
 - **State:** Zustand for client state
 - **Charts:** Recharts
@@ -102,11 +102,11 @@ app/
   pension/           # Pension/Hishtalmut tracking
   assets/            # Misc assets and debt
   api/               # API routes (backend)
-    auth/            # Auth.js endpoints
     cron/            # Background jobs
     portfolio/       # Portfolio APIs
     pension/         # Pension APIs
     assets/          # Assets APIs
+  handler/           # Stack Auth handler routes
 lib/
   db/                # Prisma client and utilities
   api/               # External API integrations (stock prices)
@@ -141,11 +141,12 @@ prisma/
 
 ### Authentication Flow
 
-- Google SSO via Auth.js
-- Email allowlist enforced in sign-in callback
+- Google SSO via Stack Auth (Neon Auth integration)
+- Email allowlist enforced via `ALLOWED_EMAILS` environment variable
 - Only specified emails can access the app
-- Session-based authentication
-- Environment variables: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET`
+- Cookie-based session management
+- Stack Auth configured in `stack/server.ts` and `stack/client.ts`
+- Auth handler at `/handler/[...stack]`
 
 ### Background Jobs (Vercel Cron)
 
@@ -251,12 +252,12 @@ Required in `.env.local` (local) and Vercel dashboard (production):
 
 ```
 DATABASE_URL="postgresql://..."
-GOOGLE_CLIENT_ID="..."
-GOOGLE_CLIENT_SECRET="..."
-NEXTAUTH_SECRET="random-secret"
-NEXTAUTH_URL="http://localhost:3001"  # or production URL (dev uses port 3001)
+NEXT_PUBLIC_STACK_PROJECT_ID="..."       # Stack Auth project ID (from Neon/Stack dashboard)
+NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY="..."  # Stack Auth client key
+STACK_SECRET_SERVER_KEY="..."            # Stack Auth server key
+ALLOWED_EMAILS="email1@example.com,email2@example.com"  # Comma-separated allowlist
 ALPHA_VANTAGE_API_KEY="..."
-SKIP_AUTH="true"                      # DEV ONLY - bypasses OAuth for local development
+SKIP_AUTH="true"                         # DEV ONLY - bypasses OAuth for local development
 ```
 
 **Note:** `SKIP_AUTH` only works when `NODE_ENV !== 'production'`. It's safe to have in `.env.local` but will be ignored in production even if accidentally set.
