@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stackServerApp } from '@/stack/server';
 import { cookies } from 'next/headers';
+import { prisma } from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth-utils';
 
 /**
  * GET /api/debug-auth
@@ -15,6 +17,8 @@ export async function GET(request: NextRequest) {
       hasClientKey: !!process.env.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY,
       hasServerKey: !!process.env.STACK_SECRET_SERVER_KEY,
       allowedEmails: process.env.ALLOWED_EMAILS || '(not set)',
+      hasDatabaseUrl: !!process.env.DATABASE_URL,
+      databaseUrlPrefix: process.env.DATABASE_URL?.substring(0, 30) + '...',
     };
 
     // Check cookies
@@ -40,6 +44,27 @@ export async function GET(request: NextRequest) {
       stackError = err instanceof Error ? err.message : String(err);
     }
 
+    // Test database connectivity
+    let dbStatus = null;
+    let dbError = null;
+    try {
+      const userCount = await prisma.user.count();
+      const profileCount = await prisma.profile.count();
+      dbStatus = { connected: true, userCount, profileCount };
+    } catch (err) {
+      dbError = err instanceof Error ? err.message : String(err);
+    }
+
+    // Test getCurrentUser
+    let currentUserResult = null;
+    let currentUserError = null;
+    try {
+      const currentUser = await getCurrentUser();
+      currentUserResult = currentUser;
+    } catch (err) {
+      currentUserError = err instanceof Error ? err.message : String(err);
+    }
+
     return NextResponse.json({
       envCheck,
       cookies: {
@@ -53,6 +78,10 @@ export async function GET(request: NextRequest) {
       stackUser: stackUserInfo,
       stackError,
       isAuthenticated: !!stackUserInfo,
+      database: dbStatus,
+      dbError,
+      currentUser: currentUserResult,
+      currentUserError,
     });
   } catch (error) {
     return NextResponse.json(
