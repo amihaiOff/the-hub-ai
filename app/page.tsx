@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { TrendingUp, TrendingDown, DollarSign, PiggyBank, Wallet } from 'lucide-react';
 import { useDashboard } from '@/lib/hooks/use-dashboard';
 import { formatCurrency, formatPercent } from '@/lib/utils/portfolio';
+import { NetWorthChart } from '@/components/dashboard/net-worth-chart';
 import Link from 'next/link';
 
 export default function DashboardPage() {
@@ -144,20 +145,20 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* Net Worth Chart Placeholder */}
+      {/* Net Worth Chart */}
       <Card>
         <CardHeader>
           <CardTitle>Net Worth Over Time</CardTitle>
-          <CardDescription>Track your financial progress</CardDescription>
+          <CardDescription>Track your financial progress across all accounts</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="border-border flex h-64 items-center justify-center rounded-lg border border-dashed">
-            <p className="text-muted-foreground">
-              {hasData
-                ? 'Net worth history chart coming soon'
-                : 'Chart will appear here once you add data'}
-            </p>
-          </div>
+          {hasData ? (
+            <NetWorthChart />
+          ) : (
+            <div className="border-border flex h-64 items-center justify-center rounded-lg border border-dashed">
+              <p className="text-muted-foreground">Chart will appear here once you add data</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
