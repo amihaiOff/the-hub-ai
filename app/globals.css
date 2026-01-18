@@ -47,7 +47,7 @@
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 1rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -82,15 +82,15 @@
 }
 
 .dark {
-  /* Raycast-inspired deep backgrounds - near black with blue tint */
-  --background: oklch(0.11 0.015 265);
+  /* Dark navy background - dashboard style */
+  --background: oklch(0.14 0.02 265);
   --foreground: oklch(0.98 0 0);
-  --card: oklch(0.14 0.02 265);
+  --card: oklch(0.2 0.025 265);
   --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.14 0.02 265);
+  --popover: oklch(0.2 0.025 265);
   --popover-foreground: oklch(0.98 0 0);
-  /* Teal primary - financial app accent */
-  --primary: oklch(0.65 0.18 195);
+  /* Blue primary - dashboard accent */
+  --primary: oklch(0.6 0.2 250);
   --primary-foreground: oklch(0.1 0 0);
   /* Secondary/muted - subtle elevation */
   --secondary: oklch(0.16 0.02 265);
@@ -105,22 +105,22 @@
   /* Very subtle borders */
   --border: oklch(0.22 0.02 265);
   --input: oklch(0.16 0.02 265);
-  --ring: oklch(0.65 0.18 195);
+  --ring: oklch(0.6 0.2 250);
   /* Vibrant chart colors */
-  --chart-1: oklch(0.65 0.18 195);
+  --chart-1: oklch(0.6 0.2 250);
   --chart-2: oklch(0.72 0.18 155);
   --chart-3: oklch(0.78 0.16 85);
   --chart-4: oklch(0.68 0.22 310);
   --chart-5: oklch(0.7 0.2 30);
-  /* Sidebar - slightly deeper */
-  --sidebar: oklch(0.09 0.015 265);
+  /* Sidebar - slightly deeper than background */
+  --sidebar: oklch(0.12 0.02 265);
   --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.65 0.18 195);
+  --sidebar-primary: oklch(0.6 0.2 250);
   --sidebar-primary-foreground: oklch(0.1 0 0);
   --sidebar-accent: oklch(0.16 0.025 265);
   --sidebar-accent-foreground: oklch(0.98 0 0);
   --sidebar-border: oklch(0.18 0.02 265);
-  --sidebar-ring: oklch(0.65 0.18 195);
+  --sidebar-ring: oklch(0.6 0.2 250);
 }
 
 @layer base {
@@ -171,6 +171,6 @@
     box-shadow:
       0 0 0 1px oklch(1 0 0 / 0.05),
       0 4px 16px oklch(0 0 0 / 0.4),
-      0 8px 32px oklch(0.65 0.18 195 / 0.1);
+      0 8px 32px oklch(0.6 0.2 250 / 0.1);
   }
 }
