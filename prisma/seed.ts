@@ -22,6 +22,7 @@ async function main() {
 
   // Clean existing data (in reverse order of dependencies)
   console.log('🧹 Cleaning existing data...');
+  await prisma.netWorthSnapshot.deleteMany();
   await prisma.stockPriceHistory.deleteMany();
   await prisma.stockHolding.deleteMany();
   await prisma.stockAccountOwner.deleteMany();
@@ -309,6 +310,78 @@ async function main() {
     ],
   });
 
+  // Create net worth snapshots (historical data for chart)
+  // Based on current values: portfolio ~87k, pension ~630k, assets net ~-690k
+  console.log('📈 Creating net worth snapshots...');
+  const currentPortfolio = 87400; // Approximate based on seed holdings
+  const currentPension = 630000; // devUser's pension accounts
+  const currentAssets = -690000; // Net of assets and debts
+  const currentNetWorth = currentPortfolio + currentPension + currentAssets;
+
+  // Generate snapshots for both dev and real users
+  const userIds = [devUser.id, realUser.id];
+  const allSnapshots = [];
+
+  for (const userId of userIds) {
+    const seenDates = new Set<string>();
+
+    // Generate 24 bi-weekly snapshots going back 12 months
+    for (let i = 23; i >= 0; i--) {
+      // Calculate date: go back i * 2 weeks from today
+      const snapshotDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      snapshotDate.setDate(snapshotDate.getDate() - i * 14);
+      // Normalize time to midnight UTC
+      snapshotDate.setHours(0, 0, 0, 0);
+
+      const dateKey = snapshotDate.toISOString().split('T')[0];
+
+      // Skip duplicate dates (shouldn't happen, but just in case)
+      if (seenDates.has(dateKey)) continue;
+      seenDates.add(dateKey);
+
+      // Calculate historical values with realistic growth patterns
+      // Portfolio: ~8% annual growth with some volatility
+      // Pension: ~6% annual growth
+      // Assets: Mortgage slowly decreases, savings slowly increase
+      const monthsAgo = i * 0.5;
+      const portfolioGrowthFactor = Math.pow(1.08, -monthsAgo / 12);
+      const pensionGrowthFactor = Math.pow(1.06, -monthsAgo / 12);
+      const assetsChangeRate = monthsAgo * 2000; // Slow improvement (~2k/month)
+
+      // Add some random variation for realism (use deterministic seed based on i)
+      const portfolioNoise = 1 + Math.sin(i * 1.5) * 0.05;
+      const pensionNoise = 1 + Math.sin(i * 2.3) * 0.02;
+      const assetsNoise = Math.sin(i * 3.7) * 2500;
+
+      const portfolio = Math.round(currentPortfolio * portfolioGrowthFactor * portfolioNoise);
+      const pension = Math.round(currentPension * pensionGrowthFactor * pensionNoise);
+      const assets = Math.round(currentAssets + assetsChangeRate + assetsNoise);
+      const netWorth = portfolio + pension + assets;
+
+      allSnapshots.push({
+        userId,
+        date: snapshotDate,
+        netWorth,
+        portfolio,
+        pension,
+        assets,
+      });
+    }
+
+    // Ensure the most recent snapshot matches current calculated values
+    // Find the last snapshot for this user and update it
+    const userSnapshots = allSnapshots.filter((s) => s.userId === userId);
+    if (userSnapshots.length > 0) {
+      const lastSnapshot = userSnapshots[userSnapshots.length - 1];
+      lastSnapshot.netWorth = Math.round(currentNetWorth);
+      lastSnapshot.portfolio = Math.round(currentPortfolio);
+      lastSnapshot.pension = Math.round(currentPension);
+      lastSnapshot.assets = Math.round(currentAssets);
+    }
+  }
+
+  await prisma.netWorthSnapshot.createMany({ data: allSnapshots });
+
   console.log('✅ Seed completed!');
   console.log('');
   console.log('📊 Summary:');
@@ -320,6 +393,7 @@ async function main() {
   console.log(`   Stock Accounts: 2 with 7 holdings`);
   console.log(`   Pension Accounts: 3 with ${deposits.length} deposits`);
   console.log(`   Misc Assets: 4 (deposit, mortgage, child savings, car loan)`);
+  console.log(`   Net Worth Snapshots: ${allSnapshots.length} (24 per user, 12 months of history)`);
 }
 
 main()

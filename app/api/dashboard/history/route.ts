@@ -15,7 +15,7 @@ export interface NetWorthDataPoint {
 /**
  * GET /api/dashboard/history
  * Get net worth history data for the chart
- * Currently generates mock historical data based on current values
+ * Uses database snapshots when available, falls back to generated mock data
  */
 export async function GET() {
   try {
@@ -25,7 +25,32 @@ export async function GET() {
     }
     const userId = user.id;
 
-    // Fetch current data to base mock history on
+    // Try to fetch real snapshots from database first
+    // Get latest 24 snapshots (order desc to get most recent, then reverse for chronological display)
+    const snapshots = await prisma.netWorthSnapshot.findMany({
+      where: { userId },
+      orderBy: { date: 'desc' },
+      take: 24,
+    });
+
+    // If we have snapshots, use them
+    if (snapshots.length > 0) {
+      // Reverse to get chronological order (oldest to newest) for the chart
+      const history: NetWorthDataPoint[] = snapshots.reverse().map((snapshot) => ({
+        date: snapshot.date.toISOString().split('T')[0],
+        netWorth: Number(snapshot.netWorth),
+        portfolio: Number(snapshot.portfolio),
+        pension: Number(snapshot.pension),
+        assets: Number(snapshot.assets),
+      }));
+
+      return NextResponse.json({
+        success: true,
+        data: history,
+      });
+    }
+
+    // Fall back to generated mock data if no snapshots exist
     const [stockAccounts, pensionAccounts, miscAssets] = await Promise.all([
       prisma.stockAccount.findMany({
         where: { userId },

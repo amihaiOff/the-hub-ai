@@ -32,9 +32,10 @@ model User {
   profile Profile?
 
   // Legacy relations (kept during migration, will be removed later)
-  stockAccounts   StockAccount[]
-  pensionAccounts PensionAccount[]
-  miscAssets      MiscAsset[]
+  stockAccounts     StockAccount[]
+  pensionAccounts   PensionAccount[]
+  miscAssets        MiscAsset[]
+  netWorthSnapshots NetWorthSnapshot[]
 
   @@map("users")
 }
@@ -258,4 +259,24 @@ model MiscAsset {
 
   @@index([userId])
   @@map("misc_assets")
+}
+
+// Net Worth Snapshots - bi-weekly historical records for graph
+model NetWorthSnapshot {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  date      DateTime @db.Date // Snapshot date (1st or 15th of month)
+  netWorth  Decimal  @map("net_worth") @db.Decimal(18, 2)
+  portfolio Decimal  @db.Decimal(18, 2) // Stock portfolio value
+  pension   Decimal  @db.Decimal(18, 2) // Total pension/hishtalmut value
+  assets    Decimal  @db.Decimal(18, 2) // Net misc assets value (assets - debts)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relation to User for referential integrity
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date]) // One snapshot per user per date
+  @@index([userId])
+  @@index([date])
+  @@map("net_worth_snapshots")
 }
