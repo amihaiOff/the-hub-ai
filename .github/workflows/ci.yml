@@ -137,8 +137,15 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_PREVIEW }}
 
+      - name: Seed Preview database (develop)
+        if: github.ref == 'refs/heads/develop'
+        run: npx prisma db seed
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_PREVIEW }}
+
       - name: Deploy migrations to Production (main)
         if: github.ref == 'refs/heads/main'
         run: npx prisma migrate deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_PRODUCTION }}
+        # NOTE: No seed for production - real data accumulates via cron jobs
