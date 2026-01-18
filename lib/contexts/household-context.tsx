@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { useUser } from '@stackframe/stack';
+import { useUser } from '@/lib/hooks/use-auth';
 
 export interface HouseholdProfile {
   id: string;

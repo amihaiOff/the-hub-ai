@@ -1,11 +1,16 @@
 'use client';
 
-import { StackProvider, StackTheme } from '@stackframe/stack';
+import { StackProvider, StackTheme, StackClientApp } from '@stackframe/stack';
 import { stackClientApp } from '@/stack/client';
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
+  // Skip Stack Auth in dev mode when stackClientApp is null
+  if (!stackClientApp) {
+    return <>{children}</>;
+  }
+
   return (
-    <StackProvider app={stackClientApp}>
+    <StackProvider app={stackClientApp as StackClientApp<true, string>}>
       <StackTheme>{children}</StackTheme>
     </StackProvider>
   );

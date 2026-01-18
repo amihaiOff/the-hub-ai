@@ -10,10 +10,10 @@ interface MobileHeaderProps {
 
 export function MobileHeader({ onMenuClick }: MobileHeaderProps) {
   return (
-    <header className="flex items-center justify-between p-4 lg:hidden">
+    <header className="border-border/20 bg-background/80 flex items-center justify-between border-b p-4 backdrop-blur-lg lg:hidden">
       {/* Logo */}
       <Link href="/" className="flex items-center gap-2">
-        <div className="bg-primary flex h-8 w-8 items-center justify-center rounded-lg">
+        <div className="bg-primary shadow-glow-sm flex h-8 w-8 items-center justify-center rounded-xl">
           <span className="text-primary-foreground text-sm font-bold">H</span>
         </div>
         <span className="text-lg font-semibold">The Hub AI</span>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useUser } from '@stackframe/stack';
+import { useUser } from '@/lib/hooks/use-auth';
 import { Sidebar } from './sidebar';
 import { MobileHeader } from './mobile-header';
 import { MobileMenu } from './mobile-menu';
