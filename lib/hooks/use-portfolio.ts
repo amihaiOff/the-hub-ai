@@ -171,6 +171,7 @@ export function useCreateAccount() {
     mutationFn: createAccount,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -182,6 +183,7 @@ export function useUpdateAccount() {
     mutationFn: updateAccount,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -193,6 +195,7 @@ export function useDeleteAccount() {
     mutationFn: deleteAccount,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -204,6 +207,7 @@ export function useCreateHolding() {
     mutationFn: createHolding,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -215,6 +219,7 @@ export function useUpdateHolding() {
     mutationFn: updateHolding,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -226,6 +231,7 @@ export function useDeleteHolding() {
     mutationFn: deleteHolding,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }

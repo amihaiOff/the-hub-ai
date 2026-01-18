@@ -234,6 +234,7 @@ export function useCreatePensionAccount() {
     mutationFn: createPensionAccount,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pension'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -245,6 +246,7 @@ export function useUpdatePensionAccount() {
     mutationFn: updatePensionAccount,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pension'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -256,6 +258,7 @@ export function useDeletePensionAccount() {
     mutationFn: deletePensionAccount,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pension'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -267,6 +270,7 @@ export function useCreateDeposit() {
     mutationFn: createDeposit,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pension'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -278,6 +282,7 @@ export function useUpdateDeposit() {
     mutationFn: updateDeposit,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pension'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -289,6 +294,7 @@ export function useDeleteDeposit() {
     mutationFn: deleteDeposit,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pension'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -306,6 +312,7 @@ export function useBulkCreateDeposits() {
     mutationFn: bulkCreateDeposits,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pension'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }

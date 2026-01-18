@@ -44,5 +44,6 @@ export function useDashboard() {
   return useQuery({
     queryKey: ['dashboard'],
     queryFn: fetchDashboard,
+    staleTime: 5 * 60 * 1000, // 5 minutes - stock prices are cached for 6 hours anyway
   });
 }
