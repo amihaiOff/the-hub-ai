@@ -12,14 +12,17 @@ function createPrismaClient(): PrismaClient {
   }
 
   // Use Neon serverless adapter for Neon databases (production on Vercel)
-  // Neon URLs contain 'neon.tech' - use WebSocket connections for serverless
+  // Neon URLs contain 'neon.tech' - use HTTP fetch instead of WebSockets for serverless
   const isNeonDatabase = connectionString.includes('neon.tech');
 
   if (isNeonDatabase) {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { PrismaNeon } = require('@prisma/adapter-neon');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { Pool } = require('@neondatabase/serverless');
+    const { Pool, neonConfig } = require('@neondatabase/serverless');
+
+    // Use HTTP fetch instead of WebSockets - more reliable in serverless environments
+    neonConfig.poolQueryViaFetch = true;
 
     const pool = new Pool({ connectionString: connectionString });
     const adapter = new PrismaNeon(pool);
