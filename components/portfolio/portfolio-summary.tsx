@@ -26,28 +26,31 @@ export function PortfolioSummary({
   const isPositive = totalGainLoss >= 0;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+    <div className="grid grid-cols-3 gap-2 sm:gap-4">
+      <Card className="p-2 sm:p-0">
+        <CardHeader className="hidden flex-row items-center justify-between space-y-0 pb-2 sm:flex">
           <CardTitle className="text-sm font-medium">Total Value</CardTitle>
           <DollarSign className="text-muted-foreground h-4 w-4" />
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-6 sm:pt-0">
           {isLoading ? (
-            <div className="bg-muted h-8 w-32 animate-pulse rounded" />
+            <div className="bg-muted h-6 w-16 animate-pulse rounded sm:h-8 sm:w-32" />
           ) : (
             <>
-              <div className="text-2xl font-bold tabular-nums">
+              <p className="text-muted-foreground mb-0.5 text-[10px] sm:hidden">Total Value</p>
+              <div className="text-sm font-bold tabular-nums sm:text-2xl">
                 {formatValue(totalValue, baseCurrency)}
               </div>
-              <p className="text-muted-foreground text-xs">Across all accounts</p>
+              <p className="text-muted-foreground hidden text-[10px] sm:block sm:text-xs">
+                Across all accounts
+              </p>
             </>
           )}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <Card className="p-2 sm:p-0">
+        <CardHeader className="hidden flex-row items-center justify-between space-y-0 pb-2 sm:flex">
           <CardTitle className="text-sm font-medium">Total Gain/Loss</CardTitle>
           {isPositive ? (
             <TrendingUp className="h-4 w-4 text-green-500" />
@@ -55,20 +58,23 @@ export function PortfolioSummary({
             <TrendingDown className="h-4 w-4 text-red-500" />
           )}
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-6 sm:pt-0">
           {isLoading ? (
-            <div className="bg-muted h-8 w-32 animate-pulse rounded" />
+            <div className="bg-muted h-6 w-16 animate-pulse rounded sm:h-8 sm:w-32" />
           ) : (
             <>
+              <p className="text-muted-foreground mb-0.5 text-[10px] sm:hidden">Gain/Loss</p>
               <div
-                className={`text-2xl font-bold tabular-nums ${
+                className={`text-sm font-bold tabular-nums sm:text-2xl ${
                   isPositive ? 'text-green-500' : 'text-red-500'
                 }`}
               >
                 {isPositive ? '+' : ''}
                 {formatValue(totalGainLoss, baseCurrency)}
               </div>
-              <p className={`text-xs ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
+              <p
+                className={`text-[10px] sm:text-xs ${isPositive ? 'text-green-500' : 'text-red-500'}`}
+              >
                 {formatPercent(totalGainLossPercent)}
               </p>
             </>
@@ -76,18 +82,21 @@ export function PortfolioSummary({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <Card className="p-2 sm:p-0">
+        <CardHeader className="hidden flex-row items-center justify-between space-y-0 pb-2 sm:flex">
           <CardTitle className="text-sm font-medium">Holdings</CardTitle>
           <PieChart className="text-muted-foreground h-4 w-4" />
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-6 sm:pt-0">
           {isLoading ? (
-            <div className="bg-muted h-8 w-16 animate-pulse rounded" />
+            <div className="bg-muted h-6 w-10 animate-pulse rounded sm:h-8 sm:w-16" />
           ) : (
             <>
-              <div className="text-2xl font-bold tabular-nums">{totalHoldings}</div>
-              <p className="text-muted-foreground text-xs">Unique stocks</p>
+              <p className="text-muted-foreground mb-0.5 text-[10px] sm:hidden">Holdings</p>
+              <div className="text-sm font-bold tabular-nums sm:text-2xl">{totalHoldings}</div>
+              <p className="text-muted-foreground hidden text-[10px] sm:block sm:text-xs">
+                Unique stocks
+              </p>
             </>
           )}
         </CardContent>

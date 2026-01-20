@@ -87,7 +87,7 @@ npm run test:all        # Run all tests
 - **Framework:** Next.js 15 (App Router) with TypeScript
 - **Styling:** Tailwind CSS + shadcn/ui components
 - **Database:** PostgreSQL with Prisma ORM
-- **Authentication:** Auth.js (NextAuth.js) with Google OAuth
+- **Authentication:** Stack Auth (via Neon Auth) with Google OAuth
 - **Data Fetching:** TanStack Query (React Query)
 - **State:** Zustand for client state
 - **Charts:** Recharts
@@ -102,11 +102,11 @@ app/
   pension/           # Pension/Hishtalmut tracking
   assets/            # Misc assets and debt
   api/               # API routes (backend)
-    auth/            # Auth.js endpoints
     cron/            # Background jobs
     portfolio/       # Portfolio APIs
     pension/         # Pension APIs
     assets/          # Assets APIs
+  handler/           # Stack Auth handler routes
 lib/
   db/                # Prisma client and utilities
   api/               # External API integrations (stock prices)
@@ -141,11 +141,12 @@ prisma/
 
 ### Authentication Flow
 
-- Google SSO via Auth.js
-- Email allowlist enforced in sign-in callback
+- Google SSO via Stack Auth (Neon Auth integration)
+- Email allowlist enforced via `ALLOWED_EMAILS` environment variable
 - Only specified emails can access the app
-- Session-based authentication
-- Environment variables: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET`
+- Cookie-based session management
+- Stack Auth configured in `stack/server.ts` and `stack/client.ts`
+- Auth handler at `/handler/[...stack]`
 
 ### Background Jobs (Vercel Cron)
 
@@ -251,12 +252,12 @@ Required in `.env.local` (local) and Vercel dashboard (production):
 
 ```
 DATABASE_URL="postgresql://..."
-GOOGLE_CLIENT_ID="..."
-GOOGLE_CLIENT_SECRET="..."
-NEXTAUTH_SECRET="random-secret"
-NEXTAUTH_URL="http://localhost:3001"  # or production URL (dev uses port 3001)
+NEXT_PUBLIC_STACK_PROJECT_ID="..."       # Stack Auth project ID (from Neon/Stack dashboard)
+NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY="..."  # Stack Auth client key
+STACK_SECRET_SERVER_KEY="..."            # Stack Auth server key
+ALLOWED_EMAILS="email1@example.com,email2@example.com"  # Comma-separated allowlist
 ALPHA_VANTAGE_API_KEY="..."
-SKIP_AUTH="true"                      # DEV ONLY - bypasses OAuth for local development
+SKIP_AUTH="true"                         # DEV ONLY - bypasses OAuth for local development
 ```
 
 **Note:** `SKIP_AUTH` only works when `NODE_ENV !== 'production'`. It's safe to have in `.env.local` but will be ignored in production even if accidentally set.
@@ -273,41 +274,80 @@ SKIP_AUTH="true"                      # DEV ONLY - bypasses OAuth for local deve
 **Branches:**
 
 - `main` - Production branch (deploys to Vercel production)
-- `develop` - Development branch (for feature work)
+- `develop` - Development/preview branch (deploys to Vercel preview)
 
 **Environments:**
 
-| Environment   | Branch    | Database                      | Purpose             |
-| ------------- | --------- | ----------------------------- | ------------------- |
-| Production    | `main`    | Vercel Postgres               | Real user data      |
-| Development   | `develop` | Local Postgres (`hub_ai_dev`) | Feature development |
-| Local testing | any       | Local Postgres (`hub_ai`)     | General testing     |
+| Environment | Branch    | Database                | Purpose             |
+| ----------- | --------- | ----------------------- | ------------------- |
+| Production  | `main`    | Neon (`main` branch)    | Real user data      |
+| Preview     | `develop` | Neon (`develop` branch) | Preview deployments |
+| Local       | any       | Local Postgres          | Development         |
+
+**Database Branches (Neon):**
+
+The project uses Neon PostgreSQL with database branches that mirror Git branches:
+
+- `main` Neon branch → Production data (connected to Vercel Production)
+- `develop` Neon branch → Preview data (connected to Vercel Preview)
+
+**Schema Change Workflow:**
+
+When you need to modify the database schema:
+
+```bash
+# 1. Make changes to prisma/schema.prisma
+
+# 2. Create a migration (locally)
+npx prisma migrate dev --name descriptive_name
+
+# 3. Apply to local database (automatic with migrate dev)
+
+# 4. Commit the migration files
+git add prisma/migrations
+git commit -m "feat: add new_field to table"
+
+# 5. Push to develop
+git push origin develop
+# → CI automatically runs `prisma migrate deploy` against Neon develop branch
+
+# 6. After merging to main
+# → CI automatically runs `prisma migrate deploy` against Neon main branch
+```
 
 **Local Database Setup:**
 
 ```bash
-# Switch to dev database (fresh, for new features)
+# Local development database
 DATABASE_URL="postgresql://amihaio@localhost:5432/hub_ai_dev"
-
-# Switch to test database (existing local data)
-DATABASE_URL="postgresql://amihaio@localhost:5432/hub_ai"
 ```
 
 **Workflow:**
 
 1. Work on `develop` branch locally with local Postgres
-2. Push to `develop` for preview deployments (optional)
-3. Create PR from `develop` → `main` when ready
-4. Merge to `main` deploys to production
+2. Create migrations with `prisma migrate dev`
+3. Push to `develop` → triggers preview deployment + auto-migration
+4. Create PR from `develop` → `main` when ready
+5. Merge to `main` → triggers production deployment + auto-migration
+6. Pull main into develop to sync branches:
+   ```bash
+   git checkout develop && git pull origin main && git push origin develop
+   ```
 
-**Database Commands:**
+**Local Database Commands:**
 
 ```bash
-# Apply schema to dev database
-DATABASE_URL="postgresql://...hub_ai_dev" npx prisma db push
+# Create new migration (use this for schema changes)
+npx prisma migrate dev --name [description]
 
-# Reset dev database (careful!)
-DATABASE_URL="postgresql://...hub_ai_dev" npx prisma migrate reset
+# Apply pending migrations
+npx prisma migrate deploy
+
+# Reset database (careful - deletes all data!)
+npx prisma migrate reset
+
+# Push schema without migration (dev only, not recommended)
+npx prisma db push
 ```
 
 ### Important Notes
@@ -317,3 +357,14 @@ DATABASE_URL="postgresql://...hub_ai_dev" npx prisma migrate reset
 - **Email allowlist** - only specified emails can access (configured in auth callback)
 - **Stock prices cached 6 hours** - don't over-fetch external APIs
 - **Net worth snapshots bi-weekly** - not daily (to reduce database growth)
+
+  ## Browser Automation
+
+Use `agent-browser` for web automation. Run `agent-browser --help` for all commands.
+
+Core workflow:
+
+1. `agent-browser open <url>` - Navigate to page
+2. `agent-browser snapshot -i` - Get interactive elements with refs (@e1, @e2)
+3. `agent-browser click @e1` / `fill @e2 "text"` - Interact using refs
+4. Re-snapshot after page changes

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import { Suspense } from 'react';
 import './globals.css';
 import { AppShell } from '@/components/shared';
 import { QueryProvider } from '@/lib/providers/query-provider';
@@ -16,6 +17,14 @@ export const metadata: Metadata = {
   description: 'Personal household financial management application',
 };
 
+function LoadingFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="text-muted-foreground animate-pulse">Loading...</div>
+    </div>
+  );
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -26,9 +35,11 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans antialiased`}>
         <SessionProvider>
           <QueryProvider>
-            <HouseholdProvider>
-              <AppShell>{children}</AppShell>
-            </HouseholdProvider>
+            <Suspense fallback={<LoadingFallback />}>
+              <HouseholdProvider>
+                <AppShell>{children}</AppShell>
+              </HouseholdProvider>
+            </Suspense>
           </QueryProvider>
         </SessionProvider>
       </body>

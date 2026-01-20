@@ -1,7 +1,17 @@
 'use client';
 
-import { SessionProvider as NextAuthSessionProvider } from 'next-auth/react';
+import { StackProvider, StackTheme, StackClientApp } from '@stackframe/stack';
+import { stackClientApp } from '@/stack/client';
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
-  return <NextAuthSessionProvider>{children}</NextAuthSessionProvider>;
+  // Skip Stack Auth in dev mode when stackClientApp is null
+  if (!stackClientApp) {
+    return <>{children}</>;
+  }
+
+  return (
+    <StackProvider app={stackClientApp as StackClientApp<true, string>}>
+      <StackTheme>{children}</StackTheme>
+    </StackProvider>
+  );
 }

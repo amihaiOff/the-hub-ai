@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,6 +10,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -38,65 +45,114 @@ export function DepositsTable({ deposits, accountId }: DepositsTableProps) {
   const [deleteDeposit, setDeleteDeposit] = useState<DepositValue | null>(null);
   const deleteDepositMutation = useDeleteDeposit();
 
+  // Get unique years from deposits (sorted descending)
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    deposits.forEach((d) => {
+      const date = new Date(d.salaryMonth);
+      years.add(date.getFullYear());
+    });
+    return Array.from(years).sort((a, b) => b - a);
+  }, [deposits]);
+
+  // Default to most recent year
+  const [selectedYear, setSelectedYear] = useState<string>(() => {
+    if (availableYears.length > 0) {
+      return availableYears[0].toString();
+    }
+    return 'all';
+  });
+
+  // Filter deposits by selected year
+  const filteredDeposits = useMemo(() => {
+    if (selectedYear === 'all') return deposits;
+    const year = parseInt(selectedYear, 10);
+    return deposits.filter((d) => {
+      const date = new Date(d.salaryMonth);
+      return date.getFullYear() === year;
+    });
+  }, [deposits, selectedYear]);
+
   if (deposits.length === 0) {
     return <div className="text-muted-foreground py-8 text-center">No deposits recorded yet</div>;
   }
 
   return (
     <>
-      <div className="-mx-4 overflow-x-auto sm:mx-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Salary Month</TableHead>
-              <TableHead className="hidden sm:table-cell">Deposit Date</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead className="hidden sm:table-cell">Employer</TableHead>
-              <TableHead className="w-[50px]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {deposits.map((deposit) => (
-              <TableRow key={deposit.id}>
-                <TableCell className="font-medium">
-                  {formatSalaryMonth(deposit.salaryMonth)}
-                </TableCell>
-                <TableCell className="text-muted-foreground hidden sm:table-cell">
-                  {formatDepositDate(deposit.depositDate)}
-                </TableCell>
-                <TableCell className="tabular-nums">{formatCurrency(deposit.amount)}</TableCell>
-                <TableCell className="text-muted-foreground hidden sm:table-cell">
-                  {deposit.employer}
-                </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon-sm">
-                        <MoreVertical className="h-4 w-4" />
-                        <span className="sr-only">Deposit options</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setEditDeposit(deposit)}>
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Edit deposit
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => setDeleteDeposit(deposit)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete deposit
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
+      {/* Year filter dropdown */}
+      <div className="mb-4 flex justify-end">
+        <Select value={selectedYear} onValueChange={setSelectedYear}>
+          <SelectTrigger className="w-[120px]" size="sm" aria-label="Filter deposits by year">
+            <SelectValue placeholder="Select year" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Years</SelectItem>
+            {availableYears.map((year) => (
+              <SelectItem key={year} value={year.toString()}>
+                {year}
+              </SelectItem>
             ))}
-          </TableBody>
-        </Table>
+          </SelectContent>
+        </Select>
       </div>
+
+      {filteredDeposits.length === 0 ? (
+        <div className="text-muted-foreground py-8 text-center">No deposits for {selectedYear}</div>
+      ) : (
+        <div className="-mx-4 overflow-x-auto sm:mx-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Salary Month</TableHead>
+                <TableHead className="hidden sm:table-cell">Deposit Date</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead className="hidden sm:table-cell">Employer</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredDeposits.map((deposit) => (
+                <TableRow key={deposit.id}>
+                  <TableCell className="font-medium">
+                    {formatSalaryMonth(deposit.salaryMonth)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground hidden sm:table-cell">
+                    {formatDepositDate(deposit.depositDate)}
+                  </TableCell>
+                  <TableCell className="tabular-nums">{formatCurrency(deposit.amount)}</TableCell>
+                  <TableCell className="text-muted-foreground hidden sm:table-cell">
+                    {deposit.employer}
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon-sm">
+                          <MoreVertical className="h-4 w-4" />
+                          <span className="sr-only">Deposit options</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setEditDeposit(deposit)}>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Edit deposit
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => setDeleteDeposit(deposit)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete deposit
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {/* Edit Dialog */}
       {editDeposit && (

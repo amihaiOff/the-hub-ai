@@ -44,7 +44,7 @@ function ErrorContent() {
         </CardHeader>
         <CardContent>
           <Button asChild className="w-full">
-            <Link href="/auth/signin">Try Again</Link>
+            <Link href="/handler/sign-in">Try Again</Link>
           </Button>
         </CardContent>
       </Card>

@@ -131,6 +131,7 @@ export function useCreateAsset() {
     mutationFn: createAsset,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -145,6 +146,7 @@ export function useUpdateAsset() {
     mutationFn: updateAsset,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -159,6 +161,7 @@ export function useDeleteAsset() {
     mutationFn: deleteAsset,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }

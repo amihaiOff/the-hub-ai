@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import { useUser } from '@/lib/hooks/use-auth';
 import { Sidebar } from './sidebar';
 import { MobileHeader } from './mobile-header';
 import { MobileMenu } from './mobile-menu';
@@ -13,13 +13,13 @@ interface AppShellProps {
 }
 
 // Paths that don't require authentication or profile
-const PUBLIC_PATHS = ['/auth', '/onboarding'];
+const PUBLIC_PATHS = ['/auth', '/onboarding', '/handler'];
 
 export function AppShell({ children }: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const { status } = useSession();
+  const user = useUser();
   const { needsOnboarding, isLoading } = useNeedsOnboarding();
 
   // Check if current path is public (no auth/profile required)
@@ -27,18 +27,18 @@ export function AppShell({ children }: AppShellProps) {
 
   // Redirect to onboarding if authenticated user has no profile
   useEffect(() => {
-    if (status === 'authenticated' && !isLoading && needsOnboarding && !isPublicPath) {
+    if (user && !isLoading && needsOnboarding && !isPublicPath) {
       router.push('/onboarding');
     }
-  }, [status, isLoading, needsOnboarding, isPublicPath, router]);
+  }, [user, isLoading, needsOnboarding, isPublicPath, router]);
 
-  // Don't render shell UI for public paths (auth, onboarding)
+  // Don't render shell UI for public paths (auth, onboarding, handler)
   if (isPublicPath) {
     return <div className="bg-background min-h-screen">{children}</div>;
   }
 
-  // Show loading state while checking auth/profile
-  if (status === 'loading' || isLoading) {
+  // Show loading state while checking profile
+  if (isLoading) {
     return (
       <div className="bg-background flex min-h-screen items-center justify-center">
         <div className="text-muted-foreground animate-pulse">Loading...</div>
