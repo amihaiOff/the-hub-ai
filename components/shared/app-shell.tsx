@@ -25,6 +25,13 @@ export function AppShell({ children }: AppShellProps) {
   // Check if current path is public (no auth/profile required)
   const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
 
+  // Redirect to login if no user (not authenticated)
+  useEffect(() => {
+    if (!user && !isPublicPath) {
+      router.push('/handler/sign-in');
+    }
+  }, [user, isPublicPath, router]);
+
   // Redirect to onboarding if authenticated user has no profile
   useEffect(() => {
     if (user && !isLoading && needsOnboarding && !isPublicPath) {
