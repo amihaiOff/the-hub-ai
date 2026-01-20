@@ -1,6 +1,7 @@
 'use client';
 
 import { useUser as useStackUser, CurrentUser } from '@stackframe/stack';
+import { useState, useEffect } from 'react';
 
 const isDevAuthMode =
   process.env.NEXT_PUBLIC_SKIP_AUTH === 'true' && process.env.NODE_ENV !== 'production';
@@ -33,6 +34,34 @@ export function useUser() {
   }
   // eslint-disable-next-line react-hooks/rules-of-hooks
   return useStackUser();
+}
+
+/**
+ * Hook that returns user and loading state.
+ * Used by AppShell to avoid redirecting while auth is still being checked.
+ */
+export function useAuthState(): { user: CurrentUser | null; isLoading: boolean } {
+  const [isLoading, setIsLoading] = useState(!isDevAuthMode && hasStackConfig);
+
+  // In dev mode or when Stack isn't configured, never loading
+  if (isDevAuthMode || !hasStackConfig) {
+    return { user: DEV_USER, isLoading: false };
+  }
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const user = useStackUser();
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    // After first render, we have auth state (user or null)
+    // Give Stack Auth a moment to initialize
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return { user, isLoading };
 }
 
 /**
