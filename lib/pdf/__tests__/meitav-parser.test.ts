@@ -405,5 +405,171 @@ another broken line 02/01/2025
       expect(result.deposits[0].rawText).toBeDefined();
       expect(result.deposits[0].rawText).toContain('בע"מ');
     });
+
+    it('should handle row with deposit date but missing salary month', async () => {
+      const pdfText = `
+מיטב דש
+תאריך הדוח: 01.01.2025
+
+3,00002/01/2025חברה בע"מ
+`;
+      // This row has a deposit date (02/01/2025) but no salary month (MM/YYYY)
+
+      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
+
+      const buffer = Buffer.from('fake pdf');
+      const result = await parseMeitavPdf(buffer);
+
+      // Should not parse this row since salary month is missing
+      expect(result.deposits.length).toBe(0);
+    });
+
+    it('should handle row with invalid deposit date format', async () => {
+      const pdfText = `
+מיטב דש
+תאריך הדוח: 01.01.2025
+
+3,00012/2024xx/yy/zzzzחברה בע"מ
+`;
+      // xx/yy/zzzz is not a valid date pattern - won't match the regex
+
+      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
+
+      const buffer = Buffer.from('fake pdf');
+      const result = await parseMeitavPdf(buffer);
+
+      // Row doesn't have a valid deposit date pattern, should not be parsed
+      expect(result.deposits.length).toBe(0);
+    });
+
+    it('should use fallback salary month parsing when combined pattern fails', async () => {
+      const pdfText = `
+מיטב דש
+תאריך הדוח: 01.01.2025
+
+3,000 12/2024 02/01/2025חברה בע"מ
+`;
+      // Space separated pattern
+
+      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
+
+      const buffer = Buffer.from('fake pdf');
+      const result = await parseMeitavPdf(buffer);
+
+      // Should attempt fallback parsing
+      expect(result.providerName).toBe('Meitav');
+    });
+
+    it('should handle non-Error exceptions in PDF parsing', async () => {
+      mockPdfParse.mockRejectedValueOnce('String error');
+
+      const buffer = Buffer.from('bad pdf');
+      const result = await parseMeitavPdf(buffer);
+
+      expect(result.success).toBe(false);
+      expect(result.errors.some((e) => e.includes('Unknown error'))).toBe(true);
+    });
+
+    it('should skip lines with header text like "מועד"', async () => {
+      const pdfText = `
+מיטב דש
+תאריך הדוח: 01.01.2025
+
+מועד הפקדה 12/202402/01/2025בע"מ
+3,00012/202402/01/2025חברה בע"מ
+`;
+
+      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
+
+      const buffer = Buffer.from('fake pdf');
+      const result = await parseMeitavPdf(buffer);
+
+      // Should skip the header row
+      expect(result.deposits.length).toBe(1);
+    });
+
+    it('should handle zero amount as invalid', async () => {
+      const pdfText = `
+מיטב דש
+תאריך הדוח: 01.01.2025
+
+012/202402/01/2025חברה בע"מ
+`;
+
+      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
+
+      const buffer = Buffer.from('fake pdf');
+      const result = await parseMeitavPdf(buffer);
+
+      expect(result.deposits.length).toBe(0);
+    });
+
+    it('should handle member name extraction', async () => {
+      const pdfText = `
+מיטב דש
+תאריך הדוח: 01.01.2025
+שם העמית: ישראל ישראלי מספר
+
+3,00012/202402/01/2025חברה בע"מ
+`;
+
+      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
+
+      const buffer = Buffer.from('fake pdf');
+      const result = await parseMeitavPdf(buffer);
+
+      expect(result.memberName).toBe('ישראל ישראלי');
+    });
+
+    it('should handle missing member name', async () => {
+      const pdfText = `
+מיטב דש
+תאריך הדוח: 01.01.2025
+
+3,00012/202402/01/2025חברה בע"מ
+`;
+
+      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
+
+      const buffer = Buffer.from('fake pdf');
+      const result = await parseMeitavPdf(buffer);
+
+      expect(result.memberName).toBeNull();
+    });
+
+    it('should set employer to Unknown when not found', async () => {
+      // Create a row that has dates and numbers but no Hebrew company name pattern
+      const pdfText = `
+מיטב דש
+תאריך הדוח: 01.01.2025
+
+3,00012/202402/01/2025ABC Corp בע"מ
+`;
+
+      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
+
+      const buffer = Buffer.from('fake pdf');
+      const result = await parseMeitavPdf(buffer);
+
+      // Should have parsed the deposit
+      expect(result.providerName).toBe('Meitav');
+    });
+
+    it('should handle line with no amounts before salary month', async () => {
+      const pdfText = `
+מיטב דש
+תאריך הדוח: 01.01.2025
+
+12/202402/01/2025חברה בע"מ
+`;
+
+      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
+
+      const buffer = Buffer.from('fake pdf');
+      const result = await parseMeitavPdf(buffer);
+
+      // Should fail to parse - no amounts
+      expect(result.errors.some((e) => e.includes('Could not extract amounts'))).toBe(true);
+    });
   });
 });

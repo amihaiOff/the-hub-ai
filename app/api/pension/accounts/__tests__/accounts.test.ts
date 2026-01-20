@@ -636,4 +636,224 @@ describe('Pension Accounts API', () => {
       expect(data.success).toBe(false);
     });
   });
+
+  describe('Additional PUT Validations', () => {
+    it('should return 400 for empty account name', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+      const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
+        method: 'PUT',
+        body: JSON.stringify({ accountName: '' }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'acc-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('Account name cannot be empty');
+    });
+
+    it('should return 400 when accountName is not a string', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+      const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
+        method: 'PUT',
+        body: JSON.stringify({ accountName: 123 }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'acc-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('Account name cannot be empty');
+    });
+
+    it('should return 400 when providerName is not a string', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+      const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
+        method: 'PUT',
+        body: JSON.stringify({ providerName: 456 }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'acc-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('Provider name cannot be empty');
+    });
+
+    it('should return 400 when currentValue is not a number', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+      const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
+        method: 'PUT',
+        body: JSON.stringify({ currentValue: 'not-a-number' }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'acc-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('Current value must be a non-negative number');
+    });
+
+    it('should return 400 when currentValue is negative', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+      const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
+        method: 'PUT',
+        body: JSON.stringify({ currentValue: -1000 }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'acc-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('non-negative number');
+    });
+
+    it('should return 400 when feeFromDeposit is not a number', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+      const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
+        method: 'PUT',
+        body: JSON.stringify({ feeFromDeposit: 'invalid' }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'acc-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('Fee from deposit must be a percentage');
+    });
+
+    it('should return 400 when feeFromDeposit is negative', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+      const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
+        method: 'PUT',
+        body: JSON.stringify({ feeFromDeposit: -5 }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'acc-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('Fee from deposit must be a percentage between 0 and 100');
+    });
+
+    it('should return 400 when feeFromDeposit is over 100', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+      const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
+        method: 'PUT',
+        body: JSON.stringify({ feeFromDeposit: 150 }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'acc-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('Fee from deposit must be a percentage between 0 and 100');
+    });
+
+    it('should return 400 when feeFromTotal is not a number', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+      const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
+        method: 'PUT',
+        body: JSON.stringify({ feeFromTotal: 'invalid' }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'acc-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('Fee from total must be a percentage');
+    });
+
+    it('should return 400 when feeFromTotal is negative', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+      const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
+        method: 'PUT',
+        body: JSON.stringify({ feeFromTotal: -2 }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'acc-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('Fee from total must be a percentage between 0 and 100');
+    });
+
+    it('should return 400 when feeFromTotal is over 100', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+      const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
+        method: 'PUT',
+        body: JSON.stringify({ feeFromTotal: 200 }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'acc-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('Fee from total must be a percentage between 0 and 100');
+    });
+  });
+
+  describe('Additional Auth Tests', () => {
+    it('should return 401 when not authenticated on GET single account', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce(null);
+
+      const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1');
+      const response = await GET_BY_ID(request, { params: Promise.resolve({ id: 'acc-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(data.error).toBe('Unauthorized');
+    });
+
+    it('should return 401 when not authenticated on PUT', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce(null);
+
+      const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
+        method: 'PUT',
+        body: JSON.stringify({ currentValue: 100000 }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'acc-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(data.error).toBe('Unauthorized');
+    });
+
+    it('should return 401 when not authenticated on DELETE', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce(null);
+
+      const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
+        method: 'DELETE',
+      });
+
+      const response = await DELETE(request, { params: Promise.resolve({ id: 'acc-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(data.error).toBe('Unauthorized');
+    });
+  });
 });

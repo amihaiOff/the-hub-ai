@@ -338,5 +338,81 @@ describe('Create Snapshot Cron', () => {
       expect(response.status).toBe(200);
       expect(data.snapshots[0].netWorth).toBe(0);
     });
+
+    it('should allow access with correct auth in production', async () => {
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: 'production',
+        writable: true,
+      });
+      process.env.CRON_SECRET = 'test-cron-secret';
+
+      (mockPrisma.household.findMany as jest.Mock).mockResolvedValue([]);
+      (mockPrisma.user.findMany as jest.Mock).mockResolvedValue([]);
+
+      const request = new NextRequest('http://localhost/api/cron/create-snapshot', {
+        headers: { authorization: 'Bearer test-cron-secret' },
+      });
+      const response = await createSnapshotGET(request);
+
+      expect(response.status).toBe(200);
+    });
+
+    it('should skip users without profile', async () => {
+      (mockPrisma.household.findMany as jest.Mock).mockResolvedValue([]);
+
+      (mockPrisma.user.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 'user-no-profile',
+          name: 'No Profile User',
+          email: 'no-profile@test.com',
+          profile: null, // User has no profile
+        },
+        {
+          id: 'user-with-profile',
+          name: 'Has Profile',
+          email: 'has-profile@test.com',
+          profile: { id: 'profile-with' },
+        },
+      ]);
+
+      (mockPrisma.stockAccount.findMany as jest.Mock).mockResolvedValue([]);
+      (mockPrisma.pensionAccount.findMany as jest.Mock).mockResolvedValue([]);
+      (mockPrisma.miscAsset.findMany as jest.Mock).mockResolvedValue([]);
+      mockGetStockPrices.mockResolvedValue(new Map());
+
+      const request = new NextRequest('http://localhost/api/cron/create-snapshot');
+      const response = await createSnapshotGET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      // Should only have 1 snapshot (for user with profile)
+      expect(data.snapshots).toHaveLength(1);
+      expect(data.snapshots[0].userName).toBe('Has Profile');
+    });
+
+    it('should use email when user has no name', async () => {
+      (mockPrisma.household.findMany as jest.Mock).mockResolvedValue([]);
+
+      (mockPrisma.user.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 'user-1',
+          name: null, // No name
+          email: 'email-only@test.com',
+          profile: { id: 'profile-1' },
+        },
+      ]);
+
+      (mockPrisma.stockAccount.findMany as jest.Mock).mockResolvedValue([]);
+      (mockPrisma.pensionAccount.findMany as jest.Mock).mockResolvedValue([]);
+      (mockPrisma.miscAsset.findMany as jest.Mock).mockResolvedValue([]);
+      mockGetStockPrices.mockResolvedValue(new Map());
+
+      const request = new NextRequest('http://localhost/api/cron/create-snapshot');
+      const response = await createSnapshotGET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.snapshots[0].userName).toBe('email-only@test.com');
+    });
   });
 });

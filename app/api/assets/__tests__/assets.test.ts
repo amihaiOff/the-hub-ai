@@ -737,4 +737,446 @@ describe('Assets API', () => {
       expect(data.error).toBe('Unauthorized');
     });
   });
+
+  describe('PUT /api/assets/items/[id] - Additional validations', () => {
+    it('should return 400 when name is defined but not a string', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'test@example.com',
+        name: 'Test User',
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
+        method: 'PUT',
+        body: JSON.stringify({ name: 123 }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'asset-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toBe('Name cannot be empty');
+    });
+
+    it('should return 400 when name exceeds max length', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'test@example.com',
+        name: 'Test User',
+      });
+
+      const longName = 'a'.repeat(300);
+      const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
+        method: 'PUT',
+        body: JSON.stringify({ name: longName }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'asset-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('at most');
+    });
+
+    it('should return 400 when currentValue is not a number', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'test@example.com',
+        name: 'Test User',
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
+        method: 'PUT',
+        body: JSON.stringify({ currentValue: 'not-a-number' }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'asset-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toBe('Current value must be a number');
+    });
+
+    it('should return 400 when interestRate is not a number', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'test@example.com',
+        name: 'Test User',
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
+        method: 'PUT',
+        body: JSON.stringify({ interestRate: 'invalid' }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'asset-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('Interest rate');
+    });
+
+    it('should return 400 when interestRate is negative', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'test@example.com',
+        name: 'Test User',
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
+        method: 'PUT',
+        body: JSON.stringify({ interestRate: -5 }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'asset-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('Interest rate');
+    });
+
+    it('should return 400 when interestRate is over 100', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'test@example.com',
+        name: 'Test User',
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
+        method: 'PUT',
+        body: JSON.stringify({ interestRate: 150 }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'asset-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('Interest rate');
+    });
+
+    it('should return 400 when monthlyPayment is not a number', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'test@example.com',
+        name: 'Test User',
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
+        method: 'PUT',
+        body: JSON.stringify({ monthlyPayment: 'invalid' }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'asset-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('Monthly payment');
+    });
+
+    it('should return 400 when monthlyPayment is negative', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'test@example.com',
+        name: 'Test User',
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
+        method: 'PUT',
+        body: JSON.stringify({ monthlyPayment: -100 }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'asset-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('Monthly payment');
+    });
+
+    it('should return 400 when monthlyDeposit is not a number', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'test@example.com',
+        name: 'Test User',
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
+        method: 'PUT',
+        body: JSON.stringify({ monthlyDeposit: 'invalid' }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'asset-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('Monthly deposit');
+    });
+
+    it('should return 400 when monthlyDeposit is negative', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'test@example.com',
+        name: 'Test User',
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
+        method: 'PUT',
+        body: JSON.stringify({ monthlyDeposit: -50 }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'asset-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('Monthly deposit');
+    });
+
+    it('should accept null maturityDate to clear the date', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'asset-1',
+        type: 'bank_deposit',
+        userId: 'user-1',
+      });
+      (mockPrisma.miscAsset.update as jest.Mock).mockResolvedValueOnce({
+        id: 'asset-1',
+        type: 'bank_deposit',
+        name: 'Savings',
+        currentValue: createDecimal(5000),
+        interestRate: createDecimal(3),
+        monthlyPayment: null,
+        monthlyDeposit: null,
+        maturityDate: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
+        method: 'PUT',
+        body: JSON.stringify({ maturityDate: null }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'asset-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(mockPrisma.miscAsset.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ maturityDate: null }),
+        })
+      );
+    });
+
+    it('should return 400 for invalid maturity date format in update', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'test@example.com',
+        name: 'Test User',
+      });
+      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'asset-1',
+        type: 'bank_deposit',
+        userId: 'user-1',
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
+        method: 'PUT',
+        body: JSON.stringify({ maturityDate: 'not-a-date' }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'asset-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain('Invalid maturity date');
+    });
+
+    it('should normalize mortgage value to negative', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'asset-1',
+        type: 'mortgage',
+        userId: 'user-1',
+      });
+      (mockPrisma.miscAsset.update as jest.Mock).mockResolvedValueOnce({
+        id: 'asset-1',
+        type: 'mortgage',
+        name: 'Home Mortgage',
+        currentValue: createDecimal(-250000),
+        interestRate: createDecimal(4.5),
+        monthlyPayment: createDecimal(1500),
+        monthlyDeposit: null,
+        maturityDate: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
+        method: 'PUT',
+        body: JSON.stringify({ currentValue: 250000 }),
+      });
+
+      await PUT(request, { params: Promise.resolve({ id: 'asset-1' }) });
+
+      expect(mockPrisma.miscAsset.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ currentValue: -250000 }),
+        })
+      );
+    });
+
+    it('should allow null monthlyPayment', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'asset-1',
+        type: 'bank_deposit',
+        userId: 'user-1',
+      });
+      (mockPrisma.miscAsset.update as jest.Mock).mockResolvedValueOnce({
+        id: 'asset-1',
+        type: 'bank_deposit',
+        name: 'Savings',
+        currentValue: createDecimal(5000),
+        interestRate: createDecimal(3),
+        monthlyPayment: null,
+        monthlyDeposit: null,
+        maturityDate: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
+        method: 'PUT',
+        body: JSON.stringify({ monthlyPayment: null }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'asset-1' }) });
+
+      expect(response.status).toBe(200);
+    });
+
+    it('should allow null monthlyDeposit', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'asset-1',
+        type: 'bank_deposit',
+        userId: 'user-1',
+      });
+      (mockPrisma.miscAsset.update as jest.Mock).mockResolvedValueOnce({
+        id: 'asset-1',
+        type: 'bank_deposit',
+        name: 'Savings',
+        currentValue: createDecimal(5000),
+        interestRate: createDecimal(3),
+        monthlyPayment: null,
+        monthlyDeposit: null,
+        maturityDate: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
+        method: 'PUT',
+        body: JSON.stringify({ monthlyDeposit: null }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'asset-1' }) });
+
+      expect(response.status).toBe(200);
+    });
+
+    it('should return 401 when not authenticated on PUT', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce(null);
+
+      const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
+        method: 'PUT',
+        body: JSON.stringify({ name: 'Test' }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'asset-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(data.error).toBe('Unauthorized');
+    });
+  });
+
+  describe('GET /api/assets/items/[id] - Additional tests', () => {
+    it('should return 401 when not authenticated', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce(null);
+
+      const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1');
+      const response = await GET_BY_ID(request, { params: Promise.resolve({ id: 'asset-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(data.error).toBe('Unauthorized');
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should return 500 when database fails on GET single asset', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      (mockPrisma.miscAsset.findUnique as jest.Mock).mockRejectedValueOnce(
+        new Error('Database error')
+      );
+
+      const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1');
+      const response = await GET_BY_ID(request, { params: Promise.resolve({ id: 'asset-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data.success).toBe(false);
+      expect(data.error).toBe('Failed to fetch asset');
+    });
+
+    it('should return 500 when database fails on PUT', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'asset-1',
+        type: 'bank_deposit',
+        userId: 'user-1',
+      });
+      (mockPrisma.miscAsset.update as jest.Mock).mockRejectedValueOnce(new Error('Database error'));
+
+      const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
+        method: 'PUT',
+        body: JSON.stringify({ name: 'Updated' }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'asset-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data.success).toBe(false);
+      expect(data.error).toBe('Failed to update asset');
+    });
+
+    it('should return 500 when database fails on DELETE', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: 'asset-1',
+        userId: 'user-1',
+      });
+      (mockPrisma.miscAsset.delete as jest.Mock).mockRejectedValueOnce(new Error('Database error'));
+
+      const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
+        method: 'DELETE',
+      });
+
+      const response = await DELETE(request, { params: Promise.resolve({ id: 'asset-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data.success).toBe(false);
+      expect(data.error).toBe('Failed to delete asset');
+    });
+  });
 });
