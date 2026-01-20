@@ -3,6 +3,25 @@ import { getCurrentUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { z } from 'zod';
 
+// Helper to serialize errors including nested causes
+function serializeError(err: unknown): string {
+  if (err instanceof Error) {
+    const parts = [err.message];
+    if (err.cause) {
+      parts.push(`Cause: ${serializeError(err.cause)}`);
+    }
+    return parts.join(' | ');
+  }
+  if (typeof err === 'object' && err !== null) {
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return String(err);
+    }
+  }
+  return String(err);
+}
+
 // Validation schema for onboarding data
 const onboardingSchema = z.object({
   profileName: z.string().min(1).max(100),
@@ -57,10 +76,14 @@ export async function POST(request: NextRequest) {
 
     const { profileName, profileColor, householdName, familyMembers } = validation.data;
 
+    // Track progress for better error messages
+    let step = 'init';
+
     // Create records sequentially (avoiding interactive transactions for serverless compatibility)
     // Note: If any step fails after profile creation, we attempt cleanup
 
     // 1. Create the user's profile
+    step = 'create_profile';
     const profile = await prisma.profile.create({
       data: {
         name: profileName,
@@ -73,6 +96,7 @@ export async function POST(request: NextRequest) {
     let household;
     try {
       // 2. Create the household
+      step = 'create_household';
       household = await prisma.household.create({
         data: {
           name: householdName,
@@ -80,6 +104,7 @@ export async function POST(request: NextRequest) {
       });
 
       // 3. Add user's profile to household as owner
+      step = 'add_owner_to_household';
       await prisma.householdMember.create({
         data: {
           householdId: household.id,
@@ -89,6 +114,7 @@ export async function POST(request: NextRequest) {
       });
 
       // 4. Create family member profiles and add them to household
+      step = 'create_family_members';
       const familyProfiles = [];
       for (const member of familyMembers) {
         const familyProfile = await prisma.profile.create({
@@ -112,6 +138,7 @@ export async function POST(request: NextRequest) {
 
       // 5. Migrate any existing assets from the user to the new profile
       // This handles the case where a user was created before the profile system
+      step = 'find_existing_assets';
       const [stockAccounts, pensionAccounts, miscAssets] = await Promise.all([
         prisma.stockAccount.findMany({ where: { userId: user.id } }),
         prisma.pensionAccount.findMany({ where: { userId: user.id } }),
@@ -119,6 +146,7 @@ export async function POST(request: NextRequest) {
       ]);
 
       // Create ownership records for existing assets
+      step = 'migrate_assets';
       if (stockAccounts.length > 0) {
         await prisma.stockAccountOwner.createMany({
           data: stockAccounts.map((account) => ({
@@ -161,17 +189,17 @@ export async function POST(request: NextRequest) {
       });
     } catch (innerError) {
       // Cleanup: delete the profile we created if subsequent steps failed
-      console.error('Onboarding failed after profile creation, cleaning up:', innerError);
+      console.error(`Onboarding failed at step "${step}", cleaning up:`, innerError);
       try {
         await prisma.profile.delete({ where: { id: profile.id } });
       } catch (cleanupError) {
         console.error('Failed to cleanup profile:', cleanupError);
       }
-      throw innerError;
+      throw new Error(`Onboarding failed at step "${step}": ${serializeError(innerError)}`);
     }
   } catch (error) {
     console.error('Error completing onboarding:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = serializeError(error);
     return NextResponse.json(
       {
         success: false,
