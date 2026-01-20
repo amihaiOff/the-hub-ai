@@ -1,6 +1,4 @@
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -12,6 +10,34 @@ function createPrismaClient(): PrismaClient {
   if (!connectionString) {
     throw new Error('DATABASE_URL environment variable is not set');
   }
+
+  // Use Neon serverless adapter for Neon databases (production on Vercel)
+  // Neon URLs contain 'neon.tech' - use WebSocket connections for serverless
+  const isNeonDatabase = connectionString.includes('neon.tech');
+
+  if (isNeonDatabase) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { PrismaNeon } = require('@prisma/adapter-neon');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { Pool, neonConfig } = require('@neondatabase/serverless');
+
+    // Enable connection caching for better performance in serverless
+    neonConfig.fetchConnectionCache = true;
+
+    const pool = new Pool({ connectionString });
+    const adapter = new PrismaNeon(pool);
+
+    return new PrismaClient({
+      adapter,
+      log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    });
+  }
+
+  // Use standard pg adapter for local development (localhost PostgreSQL)
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { PrismaPg } = require('@prisma/adapter-pg');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { Pool } = require('pg');
 
   const pool = new Pool({ connectionString });
   const adapter = new PrismaPg(pool);

@@ -1,6 +1,4 @@
 import { PrismaClient, HouseholdRole, PensionAccountType, MiscAssetType } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
 import { config } from 'dotenv';
 
 // Load environment variables
@@ -12,10 +10,37 @@ if (!connectionString) {
   throw new Error('DATABASE_URL environment variable is not set');
 }
 
-const pool = new Pool({ connectionString });
-const adapter = new PrismaPg(pool);
+// Use Neon serverless adapter for Neon databases (production/preview on Vercel)
+// Use standard pg adapter for local development (localhost PostgreSQL)
+const isNeonDatabase = connectionString.includes('neon.tech');
 
-const prisma = new PrismaClient({ adapter });
+function createPrismaClient(): PrismaClient {
+  if (isNeonDatabase) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { PrismaNeon } = require('@prisma/adapter-neon');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { Pool, neonConfig } = require('@neondatabase/serverless');
+
+    neonConfig.fetchConnectionCache = true;
+
+    const pool = new Pool({ connectionString });
+    const adapter = new PrismaNeon(pool);
+
+    return new PrismaClient({ adapter });
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { PrismaPg } = require('@prisma/adapter-pg');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { Pool } = require('pg');
+
+  const pool = new Pool({ connectionString });
+  const adapter = new PrismaPg(pool);
+
+  return new PrismaClient({ adapter });
+}
+
+const prisma = createPrismaClient();
 
 async function main() {
   console.log('🌱 Starting seed...');
