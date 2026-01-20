@@ -20,24 +20,13 @@ function createPrismaClient(): PrismaClient {
     const { PrismaNeon } = require('@prisma/adapter-neon');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { Pool, neonConfig } = require('@neondatabase/serverless');
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const ws = require('ws');
 
-    // Configure WebSocket for Node.js serverless environment
-    // This enables transactions to work properly
-    neonConfig.webSocketConstructor = ws;
-    // Fetch connection cache helps with serverless cold starts
+    // Use HTTP fetch instead of WebSocket for better serverless compatibility
+    // Note: This doesn't support interactive transactions, but we've removed those
+    neonConfig.poolQueryViaFetch = true;
     neonConfig.fetchConnectionCache = true;
 
-    // For transactions, we need the direct connection (not pooled)
-    // Replace -pooler with direct connection if present
-    let directConnectionString = connectionString;
-    if (connectionString.includes('-pooler.')) {
-      directConnectionString = connectionString.replace('-pooler.', '.');
-      console.log('Using direct connection for Neon (transactions require non-pooled connection)');
-    }
-
-    const pool = new Pool({ connectionString: directConnectionString });
+    const pool = new Pool({ connectionString });
     const adapter = new PrismaNeon(pool);
 
     return new PrismaClient({
