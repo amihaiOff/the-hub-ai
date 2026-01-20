@@ -10,20 +10,16 @@ if (!connectionString) {
   throw new Error('DATABASE_URL environment variable is not set');
 }
 
-// Use Neon serverless adapter for Neon databases (production/preview on Vercel)
-// Use standard pg adapter for local development (localhost PostgreSQL)
-const isNeonDatabase = connectionString.includes('neon.tech');
+function createPrismaClient(connString: string): PrismaClient {
+  const isNeon = connString.includes('neon.tech');
 
-function createPrismaClient(): PrismaClient {
-  if (isNeonDatabase) {
+  if (isNeon) {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { PrismaNeon } = require('@prisma/adapter-neon');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { Pool, neonConfig } = require('@neondatabase/serverless');
+    const { Pool } = require('@neondatabase/serverless');
 
-    neonConfig.fetchConnectionCache = true;
-
-    const pool = new Pool({ connectionString });
+    const pool = new Pool({ connectionString: connString });
     const adapter = new PrismaNeon(pool);
 
     return new PrismaClient({ adapter });
@@ -34,13 +30,13 @@ function createPrismaClient(): PrismaClient {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { Pool } = require('pg');
 
-  const pool = new Pool({ connectionString });
+  const pool = new Pool({ connectionString: connString });
   const adapter = new PrismaPg(pool);
 
   return new PrismaClient({ adapter });
 }
 
-const prisma = createPrismaClient();
+const prisma = createPrismaClient(connectionString);
 
 async function main() {
   console.log('🌱 Starting seed...');

@@ -19,12 +19,9 @@ function createPrismaClient(): PrismaClient {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { PrismaNeon } = require('@prisma/adapter-neon');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { Pool, neonConfig } = require('@neondatabase/serverless');
+    const { Pool } = require('@neondatabase/serverless');
 
-    // Enable connection caching for better performance in serverless
-    neonConfig.fetchConnectionCache = true;
-
-    const pool = new Pool({ connectionString });
+    const pool = new Pool({ connectionString: connectionString });
     const adapter = new PrismaNeon(pool);
 
     return new PrismaClient({
@@ -39,7 +36,7 @@ function createPrismaClient(): PrismaClient {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { Pool } = require('pg');
 
-  const pool = new Pool({ connectionString });
+  const pool = new Pool({ connectionString: connectionString });
   const adapter = new PrismaPg(pool);
 
   return new PrismaClient({
