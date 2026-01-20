@@ -166,8 +166,13 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error completing onboarding:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { success: false, error: 'Failed to complete onboarding' },
+      {
+        success: false,
+        error: 'Failed to complete onboarding',
+        details: errorMessage,
+      },
       { status: 500 }
     );
   }

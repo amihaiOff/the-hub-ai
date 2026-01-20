@@ -86,7 +86,8 @@ export default function OnboardingPage() {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Failed to complete setup');
+        const errorMsg = data.details ? `${data.error}: ${data.details}` : data.error;
+        throw new Error(errorMsg || 'Failed to complete setup');
       }
 
       setStep('complete');
