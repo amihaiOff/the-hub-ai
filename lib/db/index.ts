@@ -24,7 +24,7 @@ function createPrismaClient(): PrismaClient {
     // Use HTTP fetch instead of WebSocket for better serverless compatibility
     // Note: This doesn't support interactive transactions, but we've removed those
     neonConfig.poolQueryViaFetch = true;
-    neonConfig.fetchConnectionCache = true;
+    // fetchConnectionCache is now always true by default, no need to set it
 
     const pool = new Pool({ connectionString });
     const adapter = new PrismaNeon(pool);
