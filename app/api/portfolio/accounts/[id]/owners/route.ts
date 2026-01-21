@@ -160,12 +160,26 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     });
   } catch (error) {
     console.error('Error updating owners:', error);
-    const errorDetails = {
-      name: error instanceof Error ? error.name : 'Unknown',
-      message: error instanceof Error ? error.message : String(error),
-    };
+    // Extract error info - handle ErrorEvent from Neon websocket
+    let errorName = 'Unknown';
+    let errorMessage = 'Unknown error';
+    if (error instanceof Error) {
+      errorName = error.name;
+      errorMessage = error.message;
+    } else if (error && typeof error === 'object') {
+      // Handle ErrorEvent or other event-like objects
+      const errObj = error as { message?: string; error?: Error; type?: string };
+      errorName = errObj.type || 'ErrorEvent';
+      errorMessage = errObj.message || errObj.error?.message || JSON.stringify(error);
+    } else {
+      errorMessage = String(error);
+    }
     return NextResponse.json(
-      { success: false, error: 'Failed to update owners', debug: errorDetails },
+      {
+        success: false,
+        error: 'Failed to update owners',
+        debug: { name: errorName, message: errorMessage },
+      },
       { status: 500 }
     );
   }
