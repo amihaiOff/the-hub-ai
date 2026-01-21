@@ -199,6 +199,11 @@ export function useUpdateAssetOwners(assetType: 'portfolio' | 'pension' | 'asset
       });
       const result = await response.json();
       if (!response.ok || !result.success) {
+        console.error('Update owners API error:', {
+          status: response.status,
+          error: result.error,
+          debug: result.debug,
+        });
         throw new Error(result.error || 'Failed to update owners');
       }
       return result.data;
