@@ -48,13 +48,13 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error creating account:', error);
-    console.error('Error details:', {
+    const errorDetails = {
       name: error instanceof Error ? error.name : 'Unknown',
       message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
+    };
+    console.error('Error details:', errorDetails);
     return NextResponse.json(
-      { success: false, error: 'Failed to create account' },
+      { success: false, error: 'Failed to create account', debug: errorDetails },
       { status: 500 }
     );
   }
