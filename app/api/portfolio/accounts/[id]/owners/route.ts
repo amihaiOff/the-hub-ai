@@ -84,17 +84,20 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     // Verify account exists and user has access
     const account = await prisma.stockAccount.findUnique({
       where: { id },
-      include: {
-        owners: true,
-      },
     });
 
     if (!account) {
       return NextResponse.json({ success: false, error: 'Account not found' }, { status: 404 });
     }
 
+    // Fetch current owners separately (for Neon serverless compatibility)
+    const currentOwners = await prisma.stockAccountOwner.findMany({
+      where: { accountId: id },
+      select: { profileId: true },
+    });
+
     // Check current ownership
-    const currentOwnerIds = account.owners.map((o) => o.profileId);
+    const currentOwnerIds = currentOwners.map((o) => o.profileId);
     const hasAccess =
       currentOwnerIds.length === 0 ||
       currentOwnerIds.some((pid) => context.householdProfiles.some((hp) => hp.id === pid));

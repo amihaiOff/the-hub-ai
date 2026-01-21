@@ -284,12 +284,13 @@ describe('Stock Account Owners API', () => {
       const account = {
         id: 'cm1234567890accountabc',
         name: 'Test Account',
-        owners: [
-          { profileId: 'cm1234567890otherprofi' }, // Not in household
-        ],
       };
+      const currentOwners = [
+        { profileId: 'cm1234567890otherprofi' }, // Not in household
+      ];
 
       (prisma.stockAccount.findUnique as jest.Mock).mockResolvedValueOnce(account);
+      (prisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       const request = new NextRequest(
         'http://localhost:3000/api/portfolio/accounts/cm1234567890accountabc/owners',
@@ -314,10 +315,11 @@ describe('Stock Account Owners API', () => {
       const account = {
         id: 'cm1234567890accountabc',
         name: 'Test Account',
-        owners: [{ profileId: 'cm1234567890abcdefghij' }],
       };
+      const currentOwners = [{ profileId: 'cm1234567890abcdefghij' }];
 
       (prisma.stockAccount.findUnique as jest.Mock).mockResolvedValueOnce(account);
+      (prisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       const request = new NextRequest(
         'http://localhost:3000/api/portfolio/accounts/cm1234567890accountabc/owners',
@@ -342,10 +344,11 @@ describe('Stock Account Owners API', () => {
       const account = {
         id: 'cm1234567890accountabc',
         name: 'Test Account',
-        owners: [{ profileId: 'cm1234567890abcdefghij' }],
       };
+      const currentOwners = [{ profileId: 'cm1234567890abcdefghij' }];
 
       (prisma.stockAccount.findUnique as jest.Mock).mockResolvedValueOnce(account);
+      (prisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       const request = new NextRequest(
         'http://localhost:3000/api/portfolio/accounts/cm1234567890accountabc/owners',
@@ -370,10 +373,11 @@ describe('Stock Account Owners API', () => {
       const account = {
         id: 'cm1234567890accountabc',
         name: 'Test Account',
-        owners: [{ profileId: 'cm1234567890abcdefghij' }],
       };
+      const currentOwners = [{ profileId: 'cm1234567890abcdefghij' }];
 
       (prisma.stockAccount.findUnique as jest.Mock).mockResolvedValueOnce(account);
+      (prisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       const request = new NextRequest(
         'http://localhost:3000/api/portfolio/accounts/cm1234567890accountabc/owners',
@@ -400,10 +404,12 @@ describe('Stock Account Owners API', () => {
       const account = {
         id: 'cm1234567890accountabc',
         name: 'Test Account',
-        owners: [{ profileId: 'cm1234567890abcdefghij' }],
       };
+      const currentOwners = [{ profileId: 'cm1234567890abcdefghij' }];
 
       (prisma.stockAccount.findUnique as jest.Mock).mockResolvedValueOnce(account);
+      // First findMany call: for ownership check
+      (prisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       (prisma.stockAccountOwner.deleteMany as jest.Mock).mockResolvedValueOnce({});
       (prisma.stockAccountOwner.createMany as jest.Mock).mockResolvedValueOnce({});
@@ -458,10 +464,12 @@ describe('Stock Account Owners API', () => {
       const account = {
         id: 'cm1234567890accountabc',
         name: 'Test Account',
-        owners: [], // No current owners
       };
+      const currentOwners: { profileId: string }[] = []; // No current owners
 
       (prisma.stockAccount.findUnique as jest.Mock).mockResolvedValueOnce(account);
+      // First findMany call: for ownership check (returns empty)
+      (prisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       (prisma.stockAccountOwner.deleteMany as jest.Mock).mockResolvedValueOnce({});
       (prisma.stockAccountOwner.createMany as jest.Mock).mockResolvedValueOnce({});
