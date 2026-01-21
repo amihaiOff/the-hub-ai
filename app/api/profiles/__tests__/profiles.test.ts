@@ -26,7 +26,6 @@ jest.mock('@/lib/db', () => ({
     householdMember: {
       create: jest.fn(),
     },
-    $transaction: jest.fn(),
   },
 }));
 
@@ -260,17 +259,8 @@ describe('Profiles API', () => {
         color: '#3b82f6',
       };
 
-      (prisma.$transaction as jest.Mock).mockImplementationOnce(async (callback) => {
-        const tx = {
-          profile: {
-            create: jest.fn().mockResolvedValueOnce(newProfile),
-          },
-          householdMember: {
-            create: jest.fn().mockResolvedValueOnce({}),
-          },
-        };
-        return callback(tx);
-      });
+      (prisma.profile.create as jest.Mock).mockResolvedValueOnce(newProfile);
+      (prisma.householdMember.create as jest.Mock).mockResolvedValueOnce({});
 
       const request = new NextRequest('http://localhost:3000/api/profiles', {
         method: 'POST',
@@ -298,17 +288,8 @@ describe('Profiles API', () => {
         color: '#ef4444',
       };
 
-      (prisma.$transaction as jest.Mock).mockImplementationOnce(async (callback) => {
-        const tx = {
-          profile: {
-            create: jest.fn().mockResolvedValueOnce(newProfile),
-          },
-          householdMember: {
-            create: jest.fn().mockResolvedValueOnce({}),
-          },
-        };
-        return callback(tx);
-      });
+      (prisma.profile.create as jest.Mock).mockResolvedValueOnce(newProfile);
+      (prisma.householdMember.create as jest.Mock).mockResolvedValueOnce({});
 
       const request = new NextRequest('http://localhost:3000/api/profiles', {
         method: 'POST',
@@ -323,10 +304,10 @@ describe('Profiles API', () => {
       expect(data.data.color).toBe('#ef4444');
     });
 
-    it('should return 500 on transaction failure', async () => {
+    it('should return 500 on database failure', async () => {
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       mockIsHouseholdAdmin.mockReturnValueOnce(true);
-      (prisma.$transaction as jest.Mock).mockRejectedValueOnce(new Error('Transaction failed'));
+      (prisma.profile.create as jest.Mock).mockRejectedValueOnce(new Error('Database failed'));
 
       const request = new NextRequest('http://localhost:3000/api/profiles', {
         method: 'POST',

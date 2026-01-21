@@ -77,28 +77,27 @@ export async function POST(request: NextRequest) {
 
     const { name, image, color } = validation.data;
 
-    const result = await prisma.$transaction(async (tx) => {
-      // Create non-user profile (no userId)
-      const profile = await tx.profile.create({
-        data: {
-          name,
-          image: image || null,
-          color,
-          // No userId - this is a non-login profile
-        },
-      });
-
-      // Add to current household as member
-      await tx.householdMember.create({
-        data: {
-          householdId: context.activeHousehold.id,
-          profileId: profile.id,
-          role: 'member',
-        },
-      });
-
-      return profile;
+    // Create non-user profile (no userId)
+    // Note: Sequential operations instead of transaction for Neon serverless compatibility
+    const profile = await prisma.profile.create({
+      data: {
+        name,
+        image: image || null,
+        color,
+        // No userId - this is a non-login profile
+      },
     });
+
+    // Add to current household as member
+    await prisma.householdMember.create({
+      data: {
+        householdId: context.activeHousehold.id,
+        profileId: profile.id,
+        role: 'member',
+      },
+    });
+
+    const result = profile;
 
     return NextResponse.json({
       success: true,
