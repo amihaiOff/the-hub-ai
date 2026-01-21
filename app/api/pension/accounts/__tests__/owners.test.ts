@@ -274,10 +274,11 @@ describe('Pension Account Owners API', () => {
       const account = {
         id: 'cm1234567890pensionacc',
         name: 'Pension Account',
-        owners: [{ profileId: 'cm1234567890otherprofi' }],
       };
+      const currentOwners = [{ profileId: 'cm1234567890otherprofi' }];
 
       (prisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(account);
+      (prisma.pensionAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       const request = new NextRequest(
         'http://localhost:3000/api/pension/accounts/cm1234567890pensionacc/owners',
@@ -302,10 +303,11 @@ describe('Pension Account Owners API', () => {
       const account = {
         id: 'cm1234567890pensionacc',
         name: 'Pension Account',
-        owners: [{ profileId: 'cm1234567890abcdefghij' }],
       };
+      const currentOwners = [{ profileId: 'cm1234567890abcdefghij' }];
 
       (prisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(account);
+      (prisma.pensionAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       const request = new NextRequest(
         'http://localhost:3000/api/pension/accounts/cm1234567890pensionacc/owners',
@@ -330,10 +332,11 @@ describe('Pension Account Owners API', () => {
       const account = {
         id: 'cm1234567890pensionacc',
         name: 'Pension Account',
-        owners: [{ profileId: 'cm1234567890abcdefghij' }],
       };
+      const currentOwners = [{ profileId: 'cm1234567890abcdefghij' }];
 
       (prisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(account);
+      (prisma.pensionAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       const request = new NextRequest(
         'http://localhost:3000/api/pension/accounts/cm1234567890pensionacc/owners',
@@ -360,28 +363,15 @@ describe('Pension Account Owners API', () => {
       const account = {
         id: 'cm1234567890pensionacc',
         name: 'Pension Account',
-        owners: [{ profileId: 'cm1234567890abcdefghij' }],
       };
+      const currentOwners = [{ profileId: 'cm1234567890abcdefghij' }];
 
       (prisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(account);
+      // First findMany call: for ownership check
+      (prisma.pensionAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       (prisma.pensionAccountOwner.deleteMany as jest.Mock).mockResolvedValueOnce({});
       (prisma.pensionAccountOwner.createMany as jest.Mock).mockResolvedValueOnce({});
-
-      const updatedOwners = [
-        {
-          accountId: 'cm1234567890pensionacc',
-          profileId: 'cm1234567890profile2abc',
-          profile: {
-            id: 'cm1234567890profile2abc',
-            name: 'Spouse',
-            image: null,
-            color: '#10b981',
-          },
-        },
-      ];
-
-      (prisma.pensionAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(updatedOwners);
 
       const request = new NextRequest(
         'http://localhost:3000/api/pension/accounts/cm1234567890pensionacc/owners',
@@ -407,28 +397,15 @@ describe('Pension Account Owners API', () => {
       const account = {
         id: 'cm1234567890pensionacc',
         name: 'Pension Account',
-        owners: [],
       };
+      const currentOwners: { profileId: string }[] = []; // No current owners
 
       (prisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(account);
+      // First findMany call: for ownership check (returns empty)
+      (prisma.pensionAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       (prisma.pensionAccountOwner.deleteMany as jest.Mock).mockResolvedValueOnce({});
       (prisma.pensionAccountOwner.createMany as jest.Mock).mockResolvedValueOnce({});
-
-      const updatedOwners = [
-        {
-          accountId: 'cm1234567890pensionacc',
-          profileId: 'cm1234567890abcdefghij',
-          profile: {
-            id: 'cm1234567890abcdefghij',
-            name: 'Test User',
-            image: 'https://example.com/avatar.png',
-            color: '#3b82f6',
-          },
-        },
-      ];
-
-      (prisma.pensionAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(updatedOwners);
 
       const request = new NextRequest(
         'http://localhost:3000/api/pension/accounts/cm1234567890pensionacc/owners',

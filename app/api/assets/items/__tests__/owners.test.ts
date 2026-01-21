@@ -310,10 +310,11 @@ describe('Misc Asset Owners API', () => {
       const asset = {
         id: 'cm1234567890assetidabc',
         name: 'Child Savings',
-        owners: [{ profileId: 'cm1234567890otherprofi' }],
       };
+      const currentOwners = [{ profileId: 'cm1234567890otherprofi' }];
 
       (prisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(asset);
+      (prisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       const request = new NextRequest(
         'http://localhost:3000/api/assets/items/cm1234567890assetidabc/owners',
@@ -338,10 +339,11 @@ describe('Misc Asset Owners API', () => {
       const asset = {
         id: 'cm1234567890assetidabc',
         name: 'Child Savings',
-        owners: [{ profileId: 'cm1234567890abcdefghij' }],
       };
+      const currentOwners = [{ profileId: 'cm1234567890abcdefghij' }];
 
       (prisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(asset);
+      (prisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       const request = new NextRequest(
         'http://localhost:3000/api/assets/items/cm1234567890assetidabc/owners',
@@ -366,10 +368,11 @@ describe('Misc Asset Owners API', () => {
       const asset = {
         id: 'cm1234567890assetidabc',
         name: 'Child Savings',
-        owners: [{ profileId: 'cm1234567890abcdefghij' }],
       };
+      const currentOwners = [{ profileId: 'cm1234567890abcdefghij' }];
 
       (prisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(asset);
+      (prisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       const request = new NextRequest(
         'http://localhost:3000/api/assets/items/cm1234567890assetidabc/owners',
@@ -394,10 +397,11 @@ describe('Misc Asset Owners API', () => {
       const asset = {
         id: 'cm1234567890assetidabc',
         name: 'Child Savings',
-        owners: [{ profileId: 'cm1234567890abcdefghij' }],
       };
+      const currentOwners = [{ profileId: 'cm1234567890abcdefghij' }];
 
       (prisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(asset);
+      (prisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       const request = new NextRequest(
         'http://localhost:3000/api/assets/items/cm1234567890assetidabc/owners',
@@ -424,28 +428,15 @@ describe('Misc Asset Owners API', () => {
       const asset = {
         id: 'cm1234567890assetidabc',
         name: 'Child Savings',
-        owners: [{ profileId: 'cm1234567890abcdefghij' }],
       };
+      const currentOwners = [{ profileId: 'cm1234567890abcdefghij' }];
 
       (prisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(asset);
+      // First findMany call: for ownership check
+      (prisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       (prisma.miscAssetOwner.deleteMany as jest.Mock).mockResolvedValueOnce({});
       (prisma.miscAssetOwner.createMany as jest.Mock).mockResolvedValueOnce({});
-
-      const updatedOwners = [
-        {
-          assetId: 'cm1234567890assetidabc',
-          profileId: 'cm1234567890profile2abc',
-          profile: {
-            id: 'cm1234567890profile2abc',
-            name: 'Child',
-            image: null,
-            color: '#f59e0b',
-          },
-        },
-      ];
-
-      (prisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce(updatedOwners);
 
       const request = new NextRequest(
         'http://localhost:3000/api/assets/items/cm1234567890assetidabc/owners',
@@ -471,38 +462,15 @@ describe('Misc Asset Owners API', () => {
       const asset = {
         id: 'cm1234567890assetidabc',
         name: 'Child Savings',
-        owners: [],
       };
+      const currentOwners: { profileId: string }[] = []; // No current owners
 
       (prisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(asset);
+      // First findMany call: for ownership check (returns empty)
+      (prisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       (prisma.miscAssetOwner.deleteMany as jest.Mock).mockResolvedValueOnce({});
       (prisma.miscAssetOwner.createMany as jest.Mock).mockResolvedValueOnce({});
-
-      const updatedOwners = [
-        {
-          assetId: 'cm1234567890assetidabc',
-          profileId: 'cm1234567890abcdefghij',
-          profile: {
-            id: 'cm1234567890abcdefghij',
-            name: 'Test User',
-            image: 'https://example.com/avatar.png',
-            color: '#3b82f6',
-          },
-        },
-        {
-          assetId: 'cm1234567890assetidabc',
-          profileId: 'cm1234567890profile2abc',
-          profile: {
-            id: 'cm1234567890profile2abc',
-            name: 'Child',
-            image: null,
-            color: '#f59e0b',
-          },
-        },
-      ];
-
-      (prisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce(updatedOwners);
 
       const request = new NextRequest(
         'http://localhost:3000/api/assets/items/cm1234567890assetidabc/owners',
@@ -529,28 +497,18 @@ describe('Misc Asset Owners API', () => {
       const asset = {
         id: 'cm1234567890assetidabc',
         name: 'Joint Asset',
-        owners: [{ profileId: 'cm1234567890abcdefghij' }, { profileId: 'cm1234567890profile2abc' }],
       };
+      const currentOwners = [
+        { profileId: 'cm1234567890abcdefghij' },
+        { profileId: 'cm1234567890profile2abc' },
+      ];
 
       (prisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(asset);
+      // First findMany call: for ownership check
+      (prisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       (prisma.miscAssetOwner.deleteMany as jest.Mock).mockResolvedValueOnce({});
       (prisma.miscAssetOwner.createMany as jest.Mock).mockResolvedValueOnce({});
-
-      const updatedOwners = [
-        {
-          assetId: 'cm1234567890assetidabc',
-          profileId: 'cm1234567890abcdefghij',
-          profile: {
-            id: 'cm1234567890abcdefghij',
-            name: 'Test User',
-            image: 'https://example.com/avatar.png',
-            color: '#3b82f6',
-          },
-        },
-      ];
-
-      (prisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce(updatedOwners);
 
       const request = new NextRequest(
         'http://localhost:3000/api/assets/items/cm1234567890assetidabc/owners',

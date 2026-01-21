@@ -25,18 +25,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Fetch owner IDs only (for Neon serverless compatibility)
     const owners = await prisma.stockAccountOwner.findMany({
       where: { accountId: id },
-      include: {
-        profile: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-            color: true,
-          },
-        },
-      },
+      select: { profileId: true },
     });
 
     // Verify user has access (at least one owner must be in user's household)
@@ -49,14 +41,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
+    // Get profile details from context (avoids additional DB query with include)
+    const profileData = profileIds
+      .map((pid) => context.householdProfiles.find((hp) => hp.id === pid))
+      .filter((p) => p !== undefined)
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        image: p.image,
+        color: p.color,
+      }));
+
     return NextResponse.json({
       success: true,
-      data: owners.map((o) => ({
-        id: o.profile.id,
-        name: o.profile.name,
-        image: o.profile.image,
-        color: o.profile.color,
-      })),
+      data: profileData,
     });
   } catch (error) {
     console.error('Error fetching owners:', error);
@@ -144,29 +142,21 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       })),
     });
 
-    // Fetch updated owners
-    const updatedOwners = await prisma.stockAccountOwner.findMany({
-      where: { accountId: id },
-      include: {
-        profile: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-            color: true,
-          },
-        },
-      },
-    });
+    // Return profile details from context (avoids additional DB query with include)
+    // Since we just created owners from validProfileIds, use those directly
+    const profileData = validProfileIds
+      .map((pid) => context.householdProfiles.find((hp) => hp.id === pid))
+      .filter((p) => p !== undefined)
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        image: p.image,
+        color: p.color,
+      }));
 
     return NextResponse.json({
       success: true,
-      data: updatedOwners.map((o) => ({
-        id: o.profile.id,
-        name: o.profile.name,
-        image: o.profile.image,
-        color: o.profile.color,
-      })),
+      data: profileData,
     });
   } catch (error) {
     console.error('Error updating owners:', error);
