@@ -82,10 +82,9 @@ export function AddAccountDialog() {
         });
       } catch (ownerError) {
         console.error('Account created but failed to set owners:', ownerError);
-        // Account was created - show warning, user can close dialog manually
-        setError(
-          'Account created but failed to assign owners. Please edit the account to set owners.'
-        );
+        // Account was created - show warning with debug info
+        const errorMsg = ownerError instanceof Error ? ownerError.message : 'Unknown error';
+        setError(`Account created but failed to assign owners: ${errorMsg}`);
         return;
       }
 
