@@ -6,26 +6,35 @@
 import { NextRequest } from 'next/server';
 import JSZip from 'jszip';
 
-// Mock Prisma client with transaction support
-const mockTransaction = jest.fn();
+// Track operation order for testing
+const operationOrder: string[] = [];
+
+// Helper to create mock functions that track operations
+const createMockFns = (name: string) => ({
+  deleteMany: jest.fn().mockImplementation(() => operationOrder.push(`delete:${name}`)),
+  createMany: jest.fn().mockImplementation(() => operationOrder.push(`create:${name}`)),
+});
+
+// Mock Prisma client - no transaction (Neon serverless compatible)
+const mockPrisma = {
+  user: createMockFns('user'),
+  profile: createMockFns('profile'),
+  household: createMockFns('household'),
+  householdMember: createMockFns('householdMember'),
+  stockAccount: createMockFns('stockAccount'),
+  stockAccountOwner: createMockFns('stockAccountOwner'),
+  stockHolding: createMockFns('stockHolding'),
+  stockPriceHistory: createMockFns('stockPriceHistory'),
+  pensionAccount: createMockFns('pensionAccount'),
+  pensionAccountOwner: createMockFns('pensionAccountOwner'),
+  pensionDeposit: createMockFns('pensionDeposit'),
+  miscAsset: createMockFns('miscAsset'),
+  miscAssetOwner: createMockFns('miscAssetOwner'),
+  netWorthSnapshot: createMockFns('netWorthSnapshot'),
+};
+
 jest.mock('@/lib/db', () => ({
-  prisma: {
-    $transaction: mockTransaction,
-    user: { deleteMany: jest.fn(), createMany: jest.fn() },
-    profile: { deleteMany: jest.fn(), createMany: jest.fn() },
-    household: { deleteMany: jest.fn(), createMany: jest.fn() },
-    householdMember: { deleteMany: jest.fn(), createMany: jest.fn() },
-    stockAccount: { deleteMany: jest.fn(), createMany: jest.fn() },
-    stockAccountOwner: { deleteMany: jest.fn(), createMany: jest.fn() },
-    stockHolding: { deleteMany: jest.fn(), createMany: jest.fn() },
-    stockPriceHistory: { deleteMany: jest.fn(), createMany: jest.fn() },
-    pensionAccount: { deleteMany: jest.fn(), createMany: jest.fn() },
-    pensionAccountOwner: { deleteMany: jest.fn(), createMany: jest.fn() },
-    pensionDeposit: { deleteMany: jest.fn(), createMany: jest.fn() },
-    miscAsset: { deleteMany: jest.fn(), createMany: jest.fn() },
-    miscAssetOwner: { deleteMany: jest.fn(), createMany: jest.fn() },
-    netWorthSnapshot: { deleteMany: jest.fn(), createMany: jest.fn() },
-  },
+  prisma: mockPrisma,
 }));
 
 // Mock auth utilities
@@ -86,27 +95,9 @@ function createFormData(blob: Blob, filename: string = 'backup.zip'): FormData {
 
 describe('Restore API', () => {
   beforeEach(() => {
-    jest.resetAllMocks();
-    // Default: transaction executes callback successfully
-    mockTransaction.mockImplementation(async (callback: (tx: unknown) => Promise<void>) => {
-      const mockTx = {
-        user: { deleteMany: jest.fn(), createMany: jest.fn() },
-        profile: { deleteMany: jest.fn(), createMany: jest.fn() },
-        household: { deleteMany: jest.fn(), createMany: jest.fn() },
-        householdMember: { deleteMany: jest.fn(), createMany: jest.fn() },
-        stockAccount: { deleteMany: jest.fn(), createMany: jest.fn() },
-        stockAccountOwner: { deleteMany: jest.fn(), createMany: jest.fn() },
-        stockHolding: { deleteMany: jest.fn(), createMany: jest.fn() },
-        stockPriceHistory: { deleteMany: jest.fn(), createMany: jest.fn() },
-        pensionAccount: { deleteMany: jest.fn(), createMany: jest.fn() },
-        pensionAccountOwner: { deleteMany: jest.fn(), createMany: jest.fn() },
-        pensionDeposit: { deleteMany: jest.fn(), createMany: jest.fn() },
-        miscAsset: { deleteMany: jest.fn(), createMany: jest.fn() },
-        miscAssetOwner: { deleteMany: jest.fn(), createMany: jest.fn() },
-        netWorthSnapshot: { deleteMany: jest.fn(), createMany: jest.fn() },
-      };
-      await callback(mockTx);
-    });
+    jest.clearAllMocks();
+    // Clear operation order tracking
+    operationOrder.length = 0;
   });
 
   describe('POST /api/restore', () => {
@@ -391,15 +382,20 @@ describe('Restore API', () => {
 
       expect(response.status).toBe(200);
       expect(responseData.success).toBe(true);
-      expect(mockTransaction).toHaveBeenCalled();
+      // Verify data was created
+      expect(mockPrisma.user.createMany).toHaveBeenCalled();
+      expect(mockPrisma.profile.createMany).toHaveBeenCalled();
+      expect(mockPrisma.stockAccount.createMany).toHaveBeenCalled();
     });
 
-    it('should handle transaction errors and rollback', async () => {
+    it('should handle database errors gracefully', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
 
-      // Simulate transaction failure
-      mockTransaction.mockRejectedValueOnce(new Error('Database constraint violation'));
+      // Simulate database error during delete
+      mockPrisma.netWorthSnapshot.deleteMany.mockRejectedValueOnce(
+        new Error('Database constraint violation')
+      );
 
       const metadata = {
         schemaVersion: '1.0',
@@ -496,70 +492,6 @@ describe('Restore API', () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
 
-      const deleteOrder: string[] = [];
-
-      mockTransaction.mockImplementation(async (callback: (tx: unknown) => Promise<void>) => {
-        const mockTx = {
-          user: {
-            deleteMany: jest.fn(() => deleteOrder.push('user')),
-            createMany: jest.fn(),
-          },
-          profile: {
-            deleteMany: jest.fn(() => deleteOrder.push('profile')),
-            createMany: jest.fn(),
-          },
-          household: {
-            deleteMany: jest.fn(() => deleteOrder.push('household')),
-            createMany: jest.fn(),
-          },
-          householdMember: {
-            deleteMany: jest.fn(() => deleteOrder.push('householdMember')),
-            createMany: jest.fn(),
-          },
-          stockAccount: {
-            deleteMany: jest.fn(() => deleteOrder.push('stockAccount')),
-            createMany: jest.fn(),
-          },
-          stockAccountOwner: {
-            deleteMany: jest.fn(() => deleteOrder.push('stockAccountOwner')),
-            createMany: jest.fn(),
-          },
-          stockHolding: {
-            deleteMany: jest.fn(() => deleteOrder.push('stockHolding')),
-            createMany: jest.fn(),
-          },
-          stockPriceHistory: {
-            deleteMany: jest.fn(() => deleteOrder.push('stockPriceHistory')),
-            createMany: jest.fn(),
-          },
-          pensionAccount: {
-            deleteMany: jest.fn(() => deleteOrder.push('pensionAccount')),
-            createMany: jest.fn(),
-          },
-          pensionAccountOwner: {
-            deleteMany: jest.fn(() => deleteOrder.push('pensionAccountOwner')),
-            createMany: jest.fn(),
-          },
-          pensionDeposit: {
-            deleteMany: jest.fn(() => deleteOrder.push('pensionDeposit')),
-            createMany: jest.fn(),
-          },
-          miscAsset: {
-            deleteMany: jest.fn(() => deleteOrder.push('miscAsset')),
-            createMany: jest.fn(),
-          },
-          miscAssetOwner: {
-            deleteMany: jest.fn(() => deleteOrder.push('miscAssetOwner')),
-            createMany: jest.fn(),
-          },
-          netWorthSnapshot: {
-            deleteMany: jest.fn(() => deleteOrder.push('netWorthSnapshot')),
-            createMany: jest.fn(),
-          },
-        };
-        await callback(mockTx);
-      });
-
       const metadata = {
         schemaVersion: '1.0',
         backupDate: '2024-01-01T00:00:00.000Z',
@@ -577,13 +509,15 @@ describe('Restore API', () => {
 
       await POST(request);
 
+      // Extract delete operations from operationOrder
+      const deleteOps = operationOrder.filter((op) => op.startsWith('delete:'));
+
       // Verify children are deleted before parents
-      // Net worth snapshots, price history, holdings -> accounts -> users
-      const netWorthIndex = deleteOrder.indexOf('netWorthSnapshot');
-      const stockHoldingIndex = deleteOrder.indexOf('stockHolding');
-      const stockAccountOwnerIndex = deleteOrder.indexOf('stockAccountOwner');
-      const stockAccountIndex = deleteOrder.indexOf('stockAccount');
-      const userIndex = deleteOrder.indexOf('user');
+      const netWorthIndex = deleteOps.indexOf('delete:netWorthSnapshot');
+      const stockHoldingIndex = deleteOps.indexOf('delete:stockHolding');
+      const stockAccountOwnerIndex = deleteOps.indexOf('delete:stockAccountOwner');
+      const stockAccountIndex = deleteOps.indexOf('delete:stockAccount');
+      const userIndex = deleteOps.indexOf('delete:user');
 
       expect(netWorthIndex).toBeLessThan(userIndex);
       expect(stockHoldingIndex).toBeLessThan(stockAccountIndex);
@@ -593,70 +527,6 @@ describe('Restore API', () => {
     it('should insert data in correct order to respect foreign keys', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-
-      const insertOrder: string[] = [];
-
-      mockTransaction.mockImplementation(async (callback: (tx: unknown) => Promise<void>) => {
-        const mockTx = {
-          user: {
-            deleteMany: jest.fn(),
-            createMany: jest.fn(() => insertOrder.push('user')),
-          },
-          profile: {
-            deleteMany: jest.fn(),
-            createMany: jest.fn(() => insertOrder.push('profile')),
-          },
-          household: {
-            deleteMany: jest.fn(),
-            createMany: jest.fn(() => insertOrder.push('household')),
-          },
-          householdMember: {
-            deleteMany: jest.fn(),
-            createMany: jest.fn(() => insertOrder.push('householdMember')),
-          },
-          stockAccount: {
-            deleteMany: jest.fn(),
-            createMany: jest.fn(() => insertOrder.push('stockAccount')),
-          },
-          stockAccountOwner: {
-            deleteMany: jest.fn(),
-            createMany: jest.fn(() => insertOrder.push('stockAccountOwner')),
-          },
-          stockHolding: {
-            deleteMany: jest.fn(),
-            createMany: jest.fn(() => insertOrder.push('stockHolding')),
-          },
-          stockPriceHistory: {
-            deleteMany: jest.fn(),
-            createMany: jest.fn(() => insertOrder.push('stockPriceHistory')),
-          },
-          pensionAccount: {
-            deleteMany: jest.fn(),
-            createMany: jest.fn(() => insertOrder.push('pensionAccount')),
-          },
-          pensionAccountOwner: {
-            deleteMany: jest.fn(),
-            createMany: jest.fn(() => insertOrder.push('pensionAccountOwner')),
-          },
-          pensionDeposit: {
-            deleteMany: jest.fn(),
-            createMany: jest.fn(() => insertOrder.push('pensionDeposit')),
-          },
-          miscAsset: {
-            deleteMany: jest.fn(),
-            createMany: jest.fn(() => insertOrder.push('miscAsset')),
-          },
-          miscAssetOwner: {
-            deleteMany: jest.fn(),
-            createMany: jest.fn(() => insertOrder.push('miscAssetOwner')),
-          },
-          netWorthSnapshot: {
-            deleteMany: jest.fn(),
-            createMany: jest.fn(() => insertOrder.push('netWorthSnapshot')),
-          },
-        };
-        await callback(mockTx);
-      });
 
       const metadata = {
         schemaVersion: '1.0',
@@ -740,14 +610,17 @@ describe('Restore API', () => {
 
       await POST(request);
 
+      // Extract create operations from operationOrder
+      const createOps = operationOrder.filter((op) => op.startsWith('create:'));
+
       // Verify parents are inserted before children
-      const userIndex = insertOrder.indexOf('user');
-      const profileIndex = insertOrder.indexOf('profile');
-      const householdIndex = insertOrder.indexOf('household');
-      const householdMemberIndex = insertOrder.indexOf('householdMember');
-      const stockAccountIndex = insertOrder.indexOf('stockAccount');
-      const stockAccountOwnerIndex = insertOrder.indexOf('stockAccountOwner');
-      const stockHoldingIndex = insertOrder.indexOf('stockHolding');
+      const userIndex = createOps.indexOf('create:user');
+      const profileIndex = createOps.indexOf('create:profile');
+      const householdIndex = createOps.indexOf('create:household');
+      const householdMemberIndex = createOps.indexOf('create:householdMember');
+      const stockAccountIndex = createOps.indexOf('create:stockAccount');
+      const stockAccountOwnerIndex = createOps.indexOf('create:stockAccountOwner');
+      const stockHoldingIndex = createOps.indexOf('create:stockHolding');
 
       expect(userIndex).toBeLessThan(profileIndex);
       expect(profileIndex).toBeLessThan(householdMemberIndex);

@@ -140,11 +140,8 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_PREVIEW }}
 
-      - name: Seed Preview database (develop)
-        if: github.ref == 'refs/heads/develop'
-        run: npx prisma db seed
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL_PREVIEW }}
+      # NOTE: Seeding removed - it wipes all data and replaces with demo data
+      # Only run seed manually when needed: npx prisma db seed
 
       - name: Deploy migrations to Production (main)
         if: github.ref == 'refs/heads/main'

@@ -7,7 +7,9 @@ config({ path: '.env' });
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
-  throw new Error('DATABASE_URL environment variable is not set');
+  console.log('⏭️  Skipping seed: DATABASE_URL environment variable is not set');
+  console.log('   This is normal during CI builds. Run seed manually when needed.');
+  process.exit(0);
 }
 
 function createPrismaClient(connString: string): PrismaClient {

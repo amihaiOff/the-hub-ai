@@ -82,230 +82,229 @@ export async function POST(request: NextRequest) {
     const miscAssetOwners = await parseFile<Record<string, unknown>>('misc_asset_owners.json');
     const netWorthSnapshots = await parseFile<Record<string, unknown>>('net_worth_snapshots.json');
 
-    // Use a transaction to ensure atomicity
-    // Extended timeout for large backups (2 minutes)
-    await prisma.$transaction(
-      async (tx) => {
-        // Delete all existing data in reverse order of dependencies
-        await tx.netWorthSnapshot.deleteMany();
-        await tx.stockPriceHistory.deleteMany();
-        await tx.stockHolding.deleteMany();
-        await tx.stockAccountOwner.deleteMany();
-        await tx.stockAccount.deleteMany();
-        await tx.pensionDeposit.deleteMany();
-        await tx.pensionAccountOwner.deleteMany();
-        await tx.pensionAccount.deleteMany();
-        await tx.miscAssetOwner.deleteMany();
-        await tx.miscAsset.deleteMany();
-        await tx.householdMember.deleteMany();
-        await tx.household.deleteMany();
-        await tx.profile.deleteMany();
-        await tx.user.deleteMany();
+    // Execute operations sequentially without transaction
+    // Neon serverless doesn't support long-running transactions well
+    // If restore fails midway, database may be in partial state - user should retry
 
-        // Insert data in order of dependencies (parents before children)
+    // Delete all existing data in reverse order of dependencies
+    console.log('Deleting existing data...');
+    await prisma.netWorthSnapshot.deleteMany();
+    await prisma.stockPriceHistory.deleteMany();
+    await prisma.stockHolding.deleteMany();
+    await prisma.stockAccountOwner.deleteMany();
+    await prisma.stockAccount.deleteMany();
+    await prisma.pensionDeposit.deleteMany();
+    await prisma.pensionAccountOwner.deleteMany();
+    await prisma.pensionAccount.deleteMany();
+    await prisma.miscAssetOwner.deleteMany();
+    await prisma.miscAsset.deleteMany();
+    await prisma.householdMember.deleteMany();
+    await prisma.household.deleteMany();
+    await prisma.profile.deleteMany();
+    await prisma.user.deleteMany();
 
-        // 1. Users
-        if (users.length > 0) {
-          await tx.user.createMany({
-            data: users.map((u) => ({
-              id: u.id as string,
-              email: u.email as string,
-              name: u.name as string | null,
-              image: u.image as string | null,
-              createdAt: new Date(u.createdAt as string),
-              updatedAt: new Date(u.updatedAt as string),
-            })),
-          });
-        }
+    // Insert data in order of dependencies (parents before children)
+    console.log('Restoring data...');
 
-        // 2. Profiles
-        if (profiles.length > 0) {
-          await tx.profile.createMany({
-            data: profiles.map((p) => ({
-              id: p.id as string,
-              name: p.name as string,
-              image: p.image as string | null,
-              color: p.color as string | null,
-              userId: p.userId as string | null,
-              createdAt: new Date(p.createdAt as string),
-              updatedAt: new Date(p.updatedAt as string),
-            })),
-          });
-        }
+    // 1. Users
+    if (users.length > 0) {
+      await prisma.user.createMany({
+        data: users.map((u) => ({
+          id: u.id as string,
+          email: u.email as string,
+          name: u.name as string | null,
+          image: u.image as string | null,
+          createdAt: new Date(u.createdAt as string),
+          updatedAt: new Date(u.updatedAt as string),
+        })),
+      });
+    }
 
-        // 3. Households
-        if (households.length > 0) {
-          await tx.household.createMany({
-            data: households.map((h) => ({
-              id: h.id as string,
-              name: h.name as string,
-              description: h.description as string | null,
-              createdAt: new Date(h.createdAt as string),
-              updatedAt: new Date(h.updatedAt as string),
-            })),
-          });
-        }
+    // 2. Profiles
+    if (profiles.length > 0) {
+      await prisma.profile.createMany({
+        data: profiles.map((p) => ({
+          id: p.id as string,
+          name: p.name as string,
+          image: p.image as string | null,
+          color: p.color as string | null,
+          userId: p.userId as string | null,
+          createdAt: new Date(p.createdAt as string),
+          updatedAt: new Date(p.updatedAt as string),
+        })),
+      });
+    }
 
-        // 4. Household Members
-        if (householdMembers.length > 0) {
-          await tx.householdMember.createMany({
-            data: householdMembers.map((hm) => ({
-              id: hm.id as string,
-              householdId: hm.householdId as string,
-              profileId: hm.profileId as string,
-              role: hm.role as HouseholdRole,
-              joinedAt: new Date(hm.joinedAt as string),
-            })),
-          });
-        }
+    // 3. Households
+    if (households.length > 0) {
+      await prisma.household.createMany({
+        data: households.map((h) => ({
+          id: h.id as string,
+          name: h.name as string,
+          description: h.description as string | null,
+          createdAt: new Date(h.createdAt as string),
+          updatedAt: new Date(h.updatedAt as string),
+        })),
+      });
+    }
 
-        // 5. Stock Accounts
-        if (stockAccounts.length > 0) {
-          await tx.stockAccount.createMany({
-            data: stockAccounts.map((sa) => ({
-              id: sa.id as string,
-              name: sa.name as string,
-              broker: sa.broker as string | null,
-              currency: sa.currency as string,
-              userId: sa.userId as string | null,
-              createdAt: new Date(sa.createdAt as string),
-              updatedAt: new Date(sa.updatedAt as string),
-            })),
-          });
-        }
+    // 4. Household Members
+    if (householdMembers.length > 0) {
+      await prisma.householdMember.createMany({
+        data: householdMembers.map((hm) => ({
+          id: hm.id as string,
+          householdId: hm.householdId as string,
+          profileId: hm.profileId as string,
+          role: hm.role as HouseholdRole,
+          joinedAt: new Date(hm.joinedAt as string),
+        })),
+      });
+    }
 
-        // 6. Stock Account Owners
-        if (stockAccountOwners.length > 0) {
-          await tx.stockAccountOwner.createMany({
-            data: stockAccountOwners.map((sao) => ({
-              id: sao.id as string,
-              accountId: sao.accountId as string,
-              profileId: sao.profileId as string,
-            })),
-          });
-        }
+    // 5. Stock Accounts
+    if (stockAccounts.length > 0) {
+      await prisma.stockAccount.createMany({
+        data: stockAccounts.map((sa) => ({
+          id: sa.id as string,
+          name: sa.name as string,
+          broker: sa.broker as string | null,
+          currency: sa.currency as string,
+          userId: sa.userId as string | null,
+          createdAt: new Date(sa.createdAt as string),
+          updatedAt: new Date(sa.updatedAt as string),
+        })),
+      });
+    }
 
-        // 7. Stock Holdings
-        if (stockHoldings.length > 0) {
-          await tx.stockHolding.createMany({
-            data: stockHoldings.map((sh) => ({
-              id: sh.id as string,
-              symbol: sh.symbol as string,
-              quantity: sh.quantity as number,
-              avgCostBasis: sh.avgCostBasis as number,
-              accountId: sh.accountId as string,
-              createdAt: new Date(sh.createdAt as string),
-              updatedAt: new Date(sh.updatedAt as string),
-            })),
-          });
-        }
+    // 6. Stock Account Owners
+    if (stockAccountOwners.length > 0) {
+      await prisma.stockAccountOwner.createMany({
+        data: stockAccountOwners.map((sao) => ({
+          id: sao.id as string,
+          accountId: sao.accountId as string,
+          profileId: sao.profileId as string,
+        })),
+      });
+    }
 
-        // 8. Stock Price History
-        if (stockPriceHistory.length > 0) {
-          await tx.stockPriceHistory.createMany({
-            data: stockPriceHistory.map((sph) => ({
-              id: sph.id as string,
-              symbol: sph.symbol as string,
-              price: sph.price as number,
-              timestamp: new Date(sph.timestamp as string),
-            })),
-          });
-        }
+    // 7. Stock Holdings
+    if (stockHoldings.length > 0) {
+      await prisma.stockHolding.createMany({
+        data: stockHoldings.map((sh) => ({
+          id: sh.id as string,
+          symbol: sh.symbol as string,
+          quantity: sh.quantity as number,
+          avgCostBasis: sh.avgCostBasis as number,
+          accountId: sh.accountId as string,
+          createdAt: new Date(sh.createdAt as string),
+          updatedAt: new Date(sh.updatedAt as string),
+        })),
+      });
+    }
 
-        // 9. Pension Accounts
-        if (pensionAccounts.length > 0) {
-          await tx.pensionAccount.createMany({
-            data: pensionAccounts.map((pa) => ({
-              id: pa.id as string,
-              type: pa.type as PensionAccountType,
-              providerName: pa.providerName as string,
-              accountName: pa.accountName as string,
-              currentValue: pa.currentValue as number,
-              feeFromDeposit: pa.feeFromDeposit as number,
-              feeFromTotal: pa.feeFromTotal as number,
-              userId: pa.userId as string | null,
-              createdAt: new Date(pa.createdAt as string),
-              updatedAt: new Date(pa.updatedAt as string),
-            })),
-          });
-        }
+    // 8. Stock Price History
+    if (stockPriceHistory.length > 0) {
+      await prisma.stockPriceHistory.createMany({
+        data: stockPriceHistory.map((sph) => ({
+          id: sph.id as string,
+          symbol: sph.symbol as string,
+          price: sph.price as number,
+          timestamp: new Date(sph.timestamp as string),
+        })),
+      });
+    }
 
-        // 10. Pension Account Owners
-        if (pensionAccountOwners.length > 0) {
-          await tx.pensionAccountOwner.createMany({
-            data: pensionAccountOwners.map((pao) => ({
-              id: pao.id as string,
-              accountId: pao.accountId as string,
-              profileId: pao.profileId as string,
-            })),
-          });
-        }
+    // 9. Pension Accounts
+    if (pensionAccounts.length > 0) {
+      await prisma.pensionAccount.createMany({
+        data: pensionAccounts.map((pa) => ({
+          id: pa.id as string,
+          type: pa.type as PensionAccountType,
+          providerName: pa.providerName as string,
+          accountName: pa.accountName as string,
+          currentValue: pa.currentValue as number,
+          feeFromDeposit: pa.feeFromDeposit as number,
+          feeFromTotal: pa.feeFromTotal as number,
+          userId: pa.userId as string | null,
+          createdAt: new Date(pa.createdAt as string),
+          updatedAt: new Date(pa.updatedAt as string),
+        })),
+      });
+    }
 
-        // 11. Pension Deposits
-        if (pensionDeposits.length > 0) {
-          await tx.pensionDeposit.createMany({
-            data: pensionDeposits.map((pd) => ({
-              id: pd.id as string,
-              depositDate: new Date(pd.depositDate as string),
-              salaryMonth: new Date(pd.salaryMonth as string),
-              amount: pd.amount as number,
-              employer: pd.employer as string,
-              accountId: pd.accountId as string,
-              createdAt: new Date(pd.createdAt as string),
-            })),
-          });
-        }
+    // 10. Pension Account Owners
+    if (pensionAccountOwners.length > 0) {
+      await prisma.pensionAccountOwner.createMany({
+        data: pensionAccountOwners.map((pao) => ({
+          id: pao.id as string,
+          accountId: pao.accountId as string,
+          profileId: pao.profileId as string,
+        })),
+      });
+    }
 
-        // 12. Misc Assets
-        if (miscAssets.length > 0) {
-          await tx.miscAsset.createMany({
-            data: miscAssets.map((ma) => ({
-              id: ma.id as string,
-              type: ma.type as MiscAssetType,
-              name: ma.name as string,
-              currentValue: ma.currentValue as number,
-              interestRate: ma.interestRate as number,
-              monthlyPayment: ma.monthlyPayment as number | null,
-              monthlyDeposit: ma.monthlyDeposit as number | null,
-              maturityDate: ma.maturityDate ? new Date(ma.maturityDate as string) : null,
-              userId: ma.userId as string | null,
-              createdAt: new Date(ma.createdAt as string),
-              updatedAt: new Date(ma.updatedAt as string),
-            })),
-          });
-        }
+    // 11. Pension Deposits
+    if (pensionDeposits.length > 0) {
+      await prisma.pensionDeposit.createMany({
+        data: pensionDeposits.map((pd) => ({
+          id: pd.id as string,
+          depositDate: new Date(pd.depositDate as string),
+          salaryMonth: new Date(pd.salaryMonth as string),
+          amount: pd.amount as number,
+          employer: pd.employer as string,
+          accountId: pd.accountId as string,
+          createdAt: new Date(pd.createdAt as string),
+        })),
+      });
+    }
 
-        // 13. Misc Asset Owners
-        if (miscAssetOwners.length > 0) {
-          await tx.miscAssetOwner.createMany({
-            data: miscAssetOwners.map((mao) => ({
-              id: mao.id as string,
-              assetId: mao.assetId as string,
-              profileId: mao.profileId as string,
-            })),
-          });
-        }
+    // 12. Misc Assets
+    if (miscAssets.length > 0) {
+      await prisma.miscAsset.createMany({
+        data: miscAssets.map((ma) => ({
+          id: ma.id as string,
+          type: ma.type as MiscAssetType,
+          name: ma.name as string,
+          currentValue: ma.currentValue as number,
+          interestRate: ma.interestRate as number,
+          monthlyPayment: ma.monthlyPayment as number | null,
+          monthlyDeposit: ma.monthlyDeposit as number | null,
+          maturityDate: ma.maturityDate ? new Date(ma.maturityDate as string) : null,
+          userId: ma.userId as string | null,
+          createdAt: new Date(ma.createdAt as string),
+          updatedAt: new Date(ma.updatedAt as string),
+        })),
+      });
+    }
 
-        // 14. Net Worth Snapshots
-        if (netWorthSnapshots.length > 0) {
-          await tx.netWorthSnapshot.createMany({
-            data: netWorthSnapshots.map((nws) => ({
-              id: nws.id as string,
-              userId: nws.userId as string,
-              date: new Date(nws.date as string),
-              netWorth: nws.netWorth as number,
-              portfolio: nws.portfolio as number,
-              pension: nws.pension as number,
-              assets: nws.assets as number,
-              createdAt: new Date(nws.createdAt as string),
-            })),
-          });
-        }
-      },
-      {
-        timeout: 120000, // 2 minutes for large backups
-      }
-    );
+    // 13. Misc Asset Owners
+    if (miscAssetOwners.length > 0) {
+      await prisma.miscAssetOwner.createMany({
+        data: miscAssetOwners.map((mao) => ({
+          id: mao.id as string,
+          assetId: mao.assetId as string,
+          profileId: mao.profileId as string,
+        })),
+      });
+    }
+
+    // 14. Net Worth Snapshots
+    if (netWorthSnapshots.length > 0) {
+      await prisma.netWorthSnapshot.createMany({
+        data: netWorthSnapshots.map((nws) => ({
+          id: nws.id as string,
+          userId: nws.userId as string,
+          date: new Date(nws.date as string),
+          netWorth: nws.netWorth as number,
+          portfolio: nws.portfolio as number,
+          pension: nws.pension as number,
+          assets: nws.assets as number,
+          createdAt: new Date(nws.createdAt as string),
+        })),
+      });
+    }
+
+    console.log('Restore complete');
 
     return NextResponse.json({
       success: true,
