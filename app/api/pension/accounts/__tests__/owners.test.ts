@@ -23,7 +23,6 @@ jest.mock('@/lib/db', () => ({
       deleteMany: jest.fn(),
       createMany: jest.fn(),
     },
-    $transaction: jest.fn(),
   },
 }));
 
@@ -366,15 +365,8 @@ describe('Pension Account Owners API', () => {
 
       (prisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(account);
 
-      (prisma.$transaction as jest.Mock).mockImplementationOnce(async (callback) => {
-        const tx = {
-          pensionAccountOwner: {
-            deleteMany: jest.fn().mockResolvedValueOnce({}),
-            createMany: jest.fn().mockResolvedValueOnce({}),
-          },
-        };
-        return callback(tx);
-      });
+      (prisma.pensionAccountOwner.deleteMany as jest.Mock).mockResolvedValueOnce({});
+      (prisma.pensionAccountOwner.createMany as jest.Mock).mockResolvedValueOnce({});
 
       const updatedOwners = [
         {
@@ -420,15 +412,8 @@ describe('Pension Account Owners API', () => {
 
       (prisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(account);
 
-      (prisma.$transaction as jest.Mock).mockImplementationOnce(async (callback) => {
-        const tx = {
-          pensionAccountOwner: {
-            deleteMany: jest.fn().mockResolvedValueOnce({}),
-            createMany: jest.fn().mockResolvedValueOnce({}),
-          },
-        };
-        return callback(tx);
-      });
+      (prisma.pensionAccountOwner.deleteMany as jest.Mock).mockResolvedValueOnce({});
+      (prisma.pensionAccountOwner.createMany as jest.Mock).mockResolvedValueOnce({});
 
       const updatedOwners = [
         {

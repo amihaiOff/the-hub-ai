@@ -23,7 +23,6 @@ jest.mock('@/lib/db', () => ({
       deleteMany: jest.fn(),
       createMany: jest.fn(),
     },
-    $transaction: jest.fn(),
   },
 }));
 
@@ -430,15 +429,8 @@ describe('Misc Asset Owners API', () => {
 
       (prisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(asset);
 
-      (prisma.$transaction as jest.Mock).mockImplementationOnce(async (callback) => {
-        const tx = {
-          miscAssetOwner: {
-            deleteMany: jest.fn().mockResolvedValueOnce({}),
-            createMany: jest.fn().mockResolvedValueOnce({}),
-          },
-        };
-        return callback(tx);
-      });
+      (prisma.miscAssetOwner.deleteMany as jest.Mock).mockResolvedValueOnce({});
+      (prisma.miscAssetOwner.createMany as jest.Mock).mockResolvedValueOnce({});
 
       const updatedOwners = [
         {
@@ -484,15 +476,8 @@ describe('Misc Asset Owners API', () => {
 
       (prisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(asset);
 
-      (prisma.$transaction as jest.Mock).mockImplementationOnce(async (callback) => {
-        const tx = {
-          miscAssetOwner: {
-            deleteMany: jest.fn().mockResolvedValueOnce({}),
-            createMany: jest.fn().mockResolvedValueOnce({}),
-          },
-        };
-        return callback(tx);
-      });
+      (prisma.miscAssetOwner.deleteMany as jest.Mock).mockResolvedValueOnce({});
+      (prisma.miscAssetOwner.createMany as jest.Mock).mockResolvedValueOnce({});
 
       const updatedOwners = [
         {
@@ -549,15 +534,8 @@ describe('Misc Asset Owners API', () => {
 
       (prisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(asset);
 
-      (prisma.$transaction as jest.Mock).mockImplementationOnce(async (callback) => {
-        const tx = {
-          miscAssetOwner: {
-            deleteMany: jest.fn().mockResolvedValueOnce({}),
-            createMany: jest.fn().mockResolvedValueOnce({}),
-          },
-        };
-        return callback(tx);
-      });
+      (prisma.miscAssetOwner.deleteMany as jest.Mock).mockResolvedValueOnce({});
+      (prisma.miscAssetOwner.createMany as jest.Mock).mockResolvedValueOnce({});
 
       const updatedOwners = [
         {

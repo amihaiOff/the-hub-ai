@@ -127,20 +127,18 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       );
     }
 
-    // Replace owners in transaction
-    await prisma.$transaction(async (tx) => {
-      // Delete existing owners
-      await tx.stockAccountOwner.deleteMany({
-        where: { accountId: id },
-      });
+    // Replace owners (sequential operations for Neon serverless compatibility)
+    // Delete existing owners
+    await prisma.stockAccountOwner.deleteMany({
+      where: { accountId: id },
+    });
 
-      // Create new owners
-      await tx.stockAccountOwner.createMany({
-        data: validProfileIds.map((profileId) => ({
-          accountId: id,
-          profileId,
-        })),
-      });
+    // Create new owners
+    await prisma.stockAccountOwner.createMany({
+      data: validProfileIds.map((profileId) => ({
+        accountId: id,
+        profileId,
+      })),
     });
 
     // Fetch updated owners
