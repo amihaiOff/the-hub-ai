@@ -39,6 +39,9 @@ export function useUser() {
 /**
  * Hook that returns user and loading state.
  * Used by AppShell to avoid redirecting while auth is still being checked.
+ *
+ * Stack Auth needs time to hydrate from cookies on the client.
+ * We wait longer if auth cookies are present (user might be logged in).
  */
 export function useAuthState(): { user: CurrentUser | null; isLoading: boolean } {
   const [isLoading, setIsLoading] = useState(!isDevAuthMode && hasStackConfig);
@@ -53,15 +56,33 @@ export function useAuthState(): { user: CurrentUser | null; isLoading: boolean }
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
-    // After first render, we have auth state (user or null)
-    // Give Stack Auth a moment to initialize
+    // If we have a user, we're done loading
+    if (user) {
+      setIsLoading(false);
+      return;
+    }
+
+    // Check for auth cookies to determine wait time
+    // If auth cookies exist, user might be logged in - wait for Stack Auth to hydrate
+    // If no auth cookies, user is definitely not logged in
+    const hasAuthCookies =
+      typeof document !== 'undefined' &&
+      (document.cookie.includes('stack-') || document.cookie.includes('__stack'));
+
+    // Longer timeout if cookies exist (Stack Auth might be refreshing tokens)
+    const timeout = hasAuthCookies ? 2000 : 300;
+
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
+    }, timeout);
 
-  return { user, isLoading };
+    return () => clearTimeout(timer);
+    // Empty dependency - only run once on mount
+    // We handle user becoming non-null in the if (user) check above
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // If user is present, we're definitely not loading
+  return { user, isLoading: isLoading && !user };
 }
 
 /**
