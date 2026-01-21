@@ -134,13 +134,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       where: { accountId: id },
     });
 
-    // Create new owners
-    await prisma.pensionAccountOwner.createMany({
-      data: validProfileIds.map((profileId) => ({
-        accountId: id,
-        profileId,
-      })),
-    });
+    // Create new owners one by one (createMany has issues with Neon HTTP fetch mode)
+    for (const profileId of validProfileIds) {
+      await prisma.pensionAccountOwner.create({
+        data: {
+          accountId: id,
+          profileId,
+        },
+      });
+    }
 
     // Return profile details from context (avoids additional DB query with include)
     // Since we just created owners from validProfileIds, use those directly

@@ -145,32 +145,32 @@ export async function POST(request: NextRequest) {
         prisma.miscAsset.findMany({ where: { userId: user.id } }),
       ]);
 
-      // Create ownership records for existing assets
+      // Create ownership records for existing assets (using individual creates for Neon compatibility)
       step = 'migrate_assets';
-      if (stockAccounts.length > 0) {
-        await prisma.stockAccountOwner.createMany({
-          data: stockAccounts.map((account) => ({
+      for (const account of stockAccounts) {
+        await prisma.stockAccountOwner.create({
+          data: {
             accountId: account.id,
             profileId: profile.id,
-          })),
+          },
         });
       }
 
-      if (pensionAccounts.length > 0) {
-        await prisma.pensionAccountOwner.createMany({
-          data: pensionAccounts.map((account) => ({
+      for (const account of pensionAccounts) {
+        await prisma.pensionAccountOwner.create({
+          data: {
             accountId: account.id,
             profileId: profile.id,
-          })),
+          },
         });
       }
 
-      if (miscAssets.length > 0) {
-        await prisma.miscAssetOwner.createMany({
-          data: miscAssets.map((asset) => ({
+      for (const asset of miscAssets) {
+        await prisma.miscAssetOwner.create({
+          data: {
             assetId: asset.id,
             profileId: profile.id,
-          })),
+          },
         });
       }
 

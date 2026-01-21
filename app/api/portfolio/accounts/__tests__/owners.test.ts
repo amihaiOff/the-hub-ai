@@ -21,7 +21,7 @@ jest.mock('@/lib/db', () => ({
     stockAccountOwner: {
       findMany: jest.fn(),
       deleteMany: jest.fn(),
-      createMany: jest.fn(),
+      create: jest.fn(),
     },
   },
 }));
@@ -412,32 +412,10 @@ describe('Stock Account Owners API', () => {
       (prisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       (prisma.stockAccountOwner.deleteMany as jest.Mock).mockResolvedValueOnce({});
-      (prisma.stockAccountOwner.createMany as jest.Mock).mockResolvedValueOnce({});
-
-      const updatedOwners = [
-        {
-          accountId: 'cm1234567890accountabc',
-          profileId: 'cm1234567890abcdefghij',
-          profile: {
-            id: 'cm1234567890abcdefghij',
-            name: 'Test User',
-            image: 'https://example.com/avatar.png',
-            color: '#3b82f6',
-          },
-        },
-        {
-          accountId: 'cm1234567890accountabc',
-          profileId: 'cm1234567890profile2abc',
-          profile: {
-            id: 'cm1234567890profile2abc',
-            name: 'Family Member',
-            image: null,
-            color: '#10b981',
-          },
-        },
-      ];
-
-      (prisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(updatedOwners);
+      // Mock individual create calls (2 owners)
+      (prisma.stockAccountOwner.create as jest.Mock)
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({});
 
       const request = new NextRequest(
         'http://localhost:3000/api/portfolio/accounts/cm1234567890accountabc/owners',
@@ -472,22 +450,8 @@ describe('Stock Account Owners API', () => {
       (prisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       (prisma.stockAccountOwner.deleteMany as jest.Mock).mockResolvedValueOnce({});
-      (prisma.stockAccountOwner.createMany as jest.Mock).mockResolvedValueOnce({});
-
-      const updatedOwners = [
-        {
-          accountId: 'cm1234567890accountabc',
-          profileId: 'cm1234567890abcdefghij',
-          profile: {
-            id: 'cm1234567890abcdefghij',
-            name: 'Test User',
-            image: 'https://example.com/avatar.png',
-            color: '#3b82f6',
-          },
-        },
-      ];
-
-      (prisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(updatedOwners);
+      // Mock individual create call (1 owner)
+      (prisma.stockAccountOwner.create as jest.Mock).mockResolvedValueOnce({});
 
       const request = new NextRequest(
         'http://localhost:3000/api/portfolio/accounts/cm1234567890accountabc/owners',

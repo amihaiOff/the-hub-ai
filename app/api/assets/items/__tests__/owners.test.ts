@@ -21,7 +21,7 @@ jest.mock('@/lib/db', () => ({
     miscAssetOwner: {
       findMany: jest.fn(),
       deleteMany: jest.fn(),
-      createMany: jest.fn(),
+      create: jest.fn(),
     },
   },
 }));
@@ -436,7 +436,8 @@ describe('Misc Asset Owners API', () => {
       (prisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       (prisma.miscAssetOwner.deleteMany as jest.Mock).mockResolvedValueOnce({});
-      (prisma.miscAssetOwner.createMany as jest.Mock).mockResolvedValueOnce({});
+      // Mock individual create call (1 owner)
+      (prisma.miscAssetOwner.create as jest.Mock).mockResolvedValueOnce({});
 
       const request = new NextRequest(
         'http://localhost:3000/api/assets/items/cm1234567890assetidabc/owners',
@@ -470,7 +471,10 @@ describe('Misc Asset Owners API', () => {
       (prisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       (prisma.miscAssetOwner.deleteMany as jest.Mock).mockResolvedValueOnce({});
-      (prisma.miscAssetOwner.createMany as jest.Mock).mockResolvedValueOnce({});
+      // Mock individual create calls (2 owners)
+      (prisma.miscAssetOwner.create as jest.Mock)
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({});
 
       const request = new NextRequest(
         'http://localhost:3000/api/assets/items/cm1234567890assetidabc/owners',
@@ -508,7 +512,8 @@ describe('Misc Asset Owners API', () => {
       (prisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       (prisma.miscAssetOwner.deleteMany as jest.Mock).mockResolvedValueOnce({});
-      (prisma.miscAssetOwner.createMany as jest.Mock).mockResolvedValueOnce({});
+      // Mock individual create call (1 owner)
+      (prisma.miscAssetOwner.create as jest.Mock).mockResolvedValueOnce({});
 
       const request = new NextRequest(
         'http://localhost:3000/api/assets/items/cm1234567890assetidabc/owners',

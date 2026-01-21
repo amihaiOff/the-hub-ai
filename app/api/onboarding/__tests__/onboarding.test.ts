@@ -35,13 +35,13 @@ const mockPrisma = {
     findMany: jest.fn(),
   },
   stockAccountOwner: {
-    createMany: jest.fn(),
+    create: jest.fn(),
   },
   pensionAccountOwner: {
-    createMany: jest.fn(),
+    create: jest.fn(),
   },
   miscAssetOwner: {
-    createMany: jest.fn(),
+    create: jest.fn(),
   },
 };
 
@@ -291,9 +291,10 @@ describe('Onboarding API', () => {
       mockPrisma.stockAccount.findMany.mockResolvedValue([{ id: 'stock-1' }, { id: 'stock-2' }]);
       mockPrisma.pensionAccount.findMany.mockResolvedValue([{ id: 'pension-1' }]);
       mockPrisma.miscAsset.findMany.mockResolvedValue([{ id: 'asset-1' }]);
-      mockPrisma.stockAccountOwner.createMany.mockResolvedValue({ count: 2 });
-      mockPrisma.pensionAccountOwner.createMany.mockResolvedValue({ count: 1 });
-      mockPrisma.miscAssetOwner.createMany.mockResolvedValue({ count: 1 });
+      // Mock individual create calls (2 stock + 1 pension + 1 asset = 4 calls)
+      mockPrisma.stockAccountOwner.create.mockResolvedValue({});
+      mockPrisma.pensionAccountOwner.create.mockResolvedValue({});
+      mockPrisma.miscAssetOwner.create.mockResolvedValue({});
 
       const request = new NextRequest('http://localhost:3001/api/onboarding', {
         method: 'POST',
@@ -311,9 +312,10 @@ describe('Onboarding API', () => {
         pensionAccounts: 1,
         miscAssets: 1,
       });
-      expect(mockPrisma.stockAccountOwner.createMany).toHaveBeenCalled();
-      expect(mockPrisma.pensionAccountOwner.createMany).toHaveBeenCalled();
-      expect(mockPrisma.miscAssetOwner.createMany).toHaveBeenCalled();
+      // Each account gets one individual create call
+      expect(mockPrisma.stockAccountOwner.create).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.pensionAccountOwner.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.miscAssetOwner.create).toHaveBeenCalledTimes(1);
     });
 
     it('cleans up profile on household creation failure', async () => {

@@ -21,7 +21,7 @@ jest.mock('@/lib/db', () => ({
     pensionAccountOwner: {
       findMany: jest.fn(),
       deleteMany: jest.fn(),
-      createMany: jest.fn(),
+      create: jest.fn(),
     },
   },
 }));
@@ -371,7 +371,8 @@ describe('Pension Account Owners API', () => {
       (prisma.pensionAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       (prisma.pensionAccountOwner.deleteMany as jest.Mock).mockResolvedValueOnce({});
-      (prisma.pensionAccountOwner.createMany as jest.Mock).mockResolvedValueOnce({});
+      // Mock individual create call (1 owner)
+      (prisma.pensionAccountOwner.create as jest.Mock).mockResolvedValueOnce({});
 
       const request = new NextRequest(
         'http://localhost:3000/api/pension/accounts/cm1234567890pensionacc/owners',
@@ -405,7 +406,8 @@ describe('Pension Account Owners API', () => {
       (prisma.pensionAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
 
       (prisma.pensionAccountOwner.deleteMany as jest.Mock).mockResolvedValueOnce({});
-      (prisma.pensionAccountOwner.createMany as jest.Mock).mockResolvedValueOnce({});
+      // Mock individual create call (1 owner)
+      (prisma.pensionAccountOwner.create as jest.Mock).mockResolvedValueOnce({});
 
       const request = new NextRequest(
         'http://localhost:3000/api/pension/accounts/cm1234567890pensionacc/owners',

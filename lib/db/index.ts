@@ -21,8 +21,9 @@ function createPrismaClient(): PrismaClient {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { Pool, neonConfig } = require('@neondatabase/serverless');
 
-    // Use WebSockets (Vercel supports them) - HTTP fetch was causing issues with createMany
-    // neonConfig.poolQueryViaFetch = true; // Disabled - caused [object ErrorEvent] errors
+    // Use HTTP fetch for serverless compatibility
+    // Note: createMany may have issues - use individual create calls in a loop instead
+    neonConfig.poolQueryViaFetch = true;
 
     const pool = new Pool({ connectionString });
     const adapter = new PrismaNeon(pool);
