@@ -30,15 +30,13 @@ export async function POST(request: NextRequest) {
     const accountCurrency = currency && validCurrencies.includes(currency) ? currency : 'USD';
 
     // Create the account for the authenticated user
+    // Note: Removed include clause for debugging Neon ErrorEvent issue
     const account = await prisma.stockAccount.create({
       data: {
         name: name.trim(),
         broker: broker?.trim() || null,
         currency: accountCurrency,
         userId: user.id,
-      },
-      include: {
-        holdings: true,
       },
     });
 

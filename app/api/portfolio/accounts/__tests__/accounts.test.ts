@@ -81,7 +81,6 @@ describe('Portfolio Accounts API', () => {
           currency: 'USD',
           userId: 'user-1',
         },
-        include: { holdings: true },
       });
     });
 
