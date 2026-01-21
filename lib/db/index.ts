@@ -21,10 +21,8 @@ function createPrismaClient(): PrismaClient {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { Pool, neonConfig } = require('@neondatabase/serverless');
 
-    // Use HTTP fetch instead of WebSocket for better serverless compatibility
-    // Note: This doesn't support interactive transactions, but we've removed those
-    neonConfig.poolQueryViaFetch = true;
-    // fetchConnectionCache is now always true by default, no need to set it
+    // Use WebSockets (Vercel supports them) - HTTP fetch was causing issues with createMany
+    // neonConfig.poolQueryViaFetch = true; // Disabled - caused [object ErrorEvent] errors
 
     const pool = new Pool({ connectionString });
     const adapter = new PrismaNeon(pool);
