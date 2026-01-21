@@ -265,6 +265,7 @@ SKIP_AUTH="true"                         # DEV ONLY - bypasses OAuth for local d
 ### Deployment
 
 - **Platform:** Vercel (automatic from GitHub)
+- **Production URL:** https://the-hub-ai-ten.vercel.app/
 - **Production:** Deploys from `main` branch
 - **Preview:** Every PR gets preview deployment
 - **CI/CD:** GitHub Actions runs tests, lint, type-check on every push
