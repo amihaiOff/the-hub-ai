@@ -160,6 +160,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     });
   } catch (error) {
     console.error('Error updating owners:', error);
-    return NextResponse.json({ success: false, error: 'Failed to update owners' }, { status: 500 });
+    const errorDetails = {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+    };
+    return NextResponse.json(
+      { success: false, error: 'Failed to update owners', debug: errorDetails },
+      { status: 500 }
+    );
   }
 }
