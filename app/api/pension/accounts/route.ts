@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create the account
+    // Create the account (avoid include for Neon serverless compatibility)
     const account = await prisma.pensionAccount.create({
       data: {
         type,
@@ -84,9 +84,6 @@ export async function POST(request: NextRequest) {
         feeFromDeposit,
         feeFromTotal,
         userId: user.id,
-      },
-      include: {
-        deposits: true,
       },
     });
 
