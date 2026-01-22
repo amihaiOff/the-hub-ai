@@ -4,6 +4,9 @@ import { prisma } from '@/lib/db';
 import { bulkDepositSchema, validateBulkDeposit } from '@/lib/validations/pension';
 import { getFirstZodError } from '@/lib/validations/common';
 
+// Extend timeout for bulk operations with many deposits
+export const maxDuration = 30;
+
 /**
  * POST /api/pension/deposits/bulk
  * Create multiple pension deposits at once
@@ -50,12 +53,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    // Create all deposits in a transaction
+    // Create deposits sequentially without transaction (Neon serverless compatibility)
     // Note: At this point, all deposits have been validated by validateBulkDeposit,
     // so we can safely use non-null assertions for the required fields
-    const createdDeposits = await prisma.$transaction(
-      deposits.map((deposit) =>
-        prisma.pensionDeposit.create({
+    const createdDeposits: Awaited<ReturnType<typeof prisma.pensionDeposit.create>>[] = [];
+    try {
+      for (const deposit of deposits) {
+        const created = await prisma.pensionDeposit.create({
           data: {
             accountId,
             depositDate: new Date(deposit.depositDate!),
@@ -63,9 +67,18 @@ export async function POST(request: NextRequest) {
             amount: deposit.amount!,
             employer: deposit.employer!.trim(),
           },
-        })
-      )
-    );
+        });
+        createdDeposits.push(created);
+      }
+    } catch (createError) {
+      // Rollback: delete any created deposits on failure
+      if (createdDeposits.length > 0) {
+        await prisma.pensionDeposit.deleteMany({
+          where: { id: { in: createdDeposits.map((d) => d.id) } },
+        });
+      }
+      throw createError;
+    }
 
     return NextResponse.json({
       success: true,

@@ -13,8 +13,8 @@ jest.mock('@/lib/db', () => ({
     },
     pensionDeposit: {
       create: jest.fn(),
+      deleteMany: jest.fn(),
     },
-    $transaction: jest.fn(),
   },
 }));
 
@@ -72,7 +72,10 @@ describe('Bulk Deposits API', () => {
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
       (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(mockAccount);
-      (mockPrisma.$transaction as jest.Mock).mockResolvedValueOnce(createdDeposits);
+      // Mock sequential create calls
+      createdDeposits.forEach((deposit) => {
+        (mockPrisma.pensionDeposit.create as jest.Mock).mockResolvedValueOnce(deposit);
+      });
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -528,7 +531,7 @@ describe('Bulk Deposits API', () => {
       expect(response.status).toBe(400);
       expect(data.error).toContain('Deposit 2');
       // Should not have attempted to create any deposits
-      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockPrisma.pensionDeposit.create).not.toHaveBeenCalled();
     });
 
     it('should indicate which deposit has validation error', async () => {
@@ -577,16 +580,14 @@ describe('Bulk Deposits API', () => {
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
       (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(mockAccount);
-      (mockPrisma.$transaction as jest.Mock).mockResolvedValueOnce([
-        {
-          id: 'dep-1',
-          accountId: 'acc-1',
-          depositDate: new Date('2025-01-02'),
-          salaryMonth: new Date('2024-12-01'),
-          amount: 3000,
-          employer: 'Company Name', // Trimmed
-        },
-      ]);
+      (mockPrisma.pensionDeposit.create as jest.Mock).mockResolvedValueOnce({
+        id: 'dep-1',
+        accountId: 'acc-1',
+        depositDate: new Date('2025-01-02'),
+        salaryMonth: new Date('2024-12-01'),
+        amount: 3000,
+        employer: 'Company Name', // Trimmed
+      });
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -606,11 +607,15 @@ describe('Bulk Deposits API', () => {
       const response = await POST(request);
       expect(response.status).toBe(200);
 
-      // Verify transaction was called with trimmed employer
-      expect(mockPrisma.$transaction).toHaveBeenCalled();
+      // Verify create was called with trimmed employer
+      expect(mockPrisma.pensionDeposit.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          employer: 'Company Name',
+        }),
+      });
     });
 
-    it('should handle database transaction errors', async () => {
+    it('should handle database errors and rollback created deposits', async () => {
       const mockAccount = {
         id: 'acc-1',
         userId: 'user-1',
@@ -619,9 +624,18 @@ describe('Bulk Deposits API', () => {
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
       (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(mockAccount);
-      (mockPrisma.$transaction as jest.Mock).mockRejectedValueOnce(
-        new Error('Database transaction failed')
-      );
+      // First create succeeds, second fails
+      (mockPrisma.pensionDeposit.create as jest.Mock)
+        .mockResolvedValueOnce({
+          id: 'dep-1',
+          accountId: 'acc-1',
+          depositDate: new Date('2025-01-02'),
+          salaryMonth: new Date('2024-12-01'),
+          amount: 3000,
+          employer: 'Company',
+        })
+        .mockRejectedValueOnce(new Error('Database error'));
+      (mockPrisma.pensionDeposit.deleteMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -634,6 +648,12 @@ describe('Bulk Deposits API', () => {
               amount: 3000,
               employer: 'Company',
             },
+            {
+              depositDate: '2024-12-02',
+              salaryMonth: '2024-11-01',
+              amount: 2500,
+              employer: 'Company',
+            },
           ],
         }),
       });
@@ -644,6 +664,10 @@ describe('Bulk Deposits API', () => {
       expect(response.status).toBe(500);
       expect(data.success).toBe(false);
       expect(data.error).toBe('Failed to create deposits');
+      // Verify rollback was called with the created deposit id
+      expect(mockPrisma.pensionDeposit.deleteMany).toHaveBeenCalledWith({
+        where: { id: { in: ['dep-1'] } },
+      });
     });
 
     it('should handle numeric amounts in response', async () => {
@@ -653,21 +677,16 @@ describe('Bulk Deposits API', () => {
         type: 'pension',
       };
 
-      // Prisma returns amounts that can be converted via Number()
-      const createdDeposits = [
-        {
-          id: 'dep-1',
-          accountId: 'acc-1',
-          depositDate: new Date('2025-01-02'),
-          salaryMonth: new Date('2024-12-01'),
-          amount: 3000.5, // Numeric value
-          employer: 'Company',
-        },
-      ];
-
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
       (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(mockAccount);
-      (mockPrisma.$transaction as jest.Mock).mockResolvedValueOnce(createdDeposits);
+      (mockPrisma.pensionDeposit.create as jest.Mock).mockResolvedValueOnce({
+        id: 'dep-1',
+        accountId: 'acc-1',
+        depositDate: new Date('2025-01-02'),
+        salaryMonth: new Date('2024-12-01'),
+        amount: 3000.5, // Numeric value
+        employer: 'Company',
+      });
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -700,20 +719,16 @@ describe('Bulk Deposits API', () => {
         type: 'pension',
       };
 
-      const createdDeposits = [
-        {
-          id: 'dep-1',
-          accountId: 'acc-1',
-          depositDate: new Date('2025-01-02'),
-          salaryMonth: new Date('2024-12-01'),
-          amount: 50000,
-          employer: 'High Value Company',
-        },
-      ];
-
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
       (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(mockAccount);
-      (mockPrisma.$transaction as jest.Mock).mockResolvedValueOnce(createdDeposits);
+      (mockPrisma.pensionDeposit.create as jest.Mock).mockResolvedValueOnce({
+        id: 'dep-1',
+        accountId: 'acc-1',
+        depositDate: new Date('2025-01-02'),
+        salaryMonth: new Date('2024-12-01'),
+        amount: 50000,
+        employer: 'High Value Company',
+      });
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -744,20 +759,16 @@ describe('Bulk Deposits API', () => {
         type: 'pension',
       };
 
-      const createdDeposits = [
-        {
-          id: 'dep-1',
-          accountId: 'acc-1',
-          depositDate: new Date('2025-01-02'),
-          salaryMonth: new Date('2024-12-01'),
-          amount: 3155.5,
-          employer: 'Company',
-        },
-      ];
-
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
       (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(mockAccount);
-      (mockPrisma.$transaction as jest.Mock).mockResolvedValueOnce(createdDeposits);
+      (mockPrisma.pensionDeposit.create as jest.Mock).mockResolvedValueOnce({
+        id: 'dep-1',
+        accountId: 'acc-1',
+        depositDate: new Date('2025-01-02'),
+        salaryMonth: new Date('2024-12-01'),
+        amount: 3155.5,
+        employer: 'Company',
+      });
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
