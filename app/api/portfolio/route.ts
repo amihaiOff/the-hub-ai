@@ -58,6 +58,9 @@ export async function GET() {
       holdings: account.holdings.map((holding) => {
         const priceResult = prices.get(holding.symbol);
         const currentPrice = priceResult && !isStockPriceError(priceResult) ? priceResult.price : 0;
+        // Get the currency the price is quoted in (for dual-listed stocks like EIMI.L in GBP)
+        const priceCurrency =
+          priceResult && !isStockPriceError(priceResult) ? priceResult.currency : account.currency;
 
         return {
           id: holding.id,
@@ -65,6 +68,7 @@ export async function GET() {
           quantity: holding.quantity,
           avgCostBasis: holding.avgCostBasis,
           currentPrice,
+          priceCurrency,
         } as HoldingWithPrice;
       }),
       owners: account.owners.map((o) => ({

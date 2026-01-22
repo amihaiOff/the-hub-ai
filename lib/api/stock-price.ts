@@ -43,6 +43,7 @@ interface YahooChartResponse {
 interface StockPrice {
   symbol: string;
   price: number;
+  currency: string; // Currency the price is quoted in (e.g., "USD", "GBP", "EUR", "ILS")
   timestamp: Date;
   fromCache: boolean;
 }
@@ -63,6 +64,32 @@ function isCacheValid(timestamp: Date): boolean {
 }
 
 /**
+ * Infer currency from Yahoo Finance symbol suffix
+ * Used as fallback when currency is not stored in cache
+ */
+function inferCurrencyFromSymbol(symbol: string): string {
+  const upperSymbol = symbol.toUpperCase();
+
+  // London Stock Exchange (GBP) - most common for dual-listed stocks in Israel
+  if (upperSymbol.endsWith('.L')) return 'GBP';
+
+  // Tel Aviv Stock Exchange (ILS)
+  if (upperSymbol.endsWith('.TA')) return 'ILS';
+
+  // European exchanges (EUR)
+  if (
+    upperSymbol.endsWith('.PA') || // Paris
+    upperSymbol.endsWith('.DE') || // XETRA/Germany
+    upperSymbol.endsWith('.AS') || // Amsterdam
+    upperSymbol.endsWith('.MI') // Milan
+  )
+    return 'EUR';
+
+  // Default to USD for US exchanges (no suffix) and unknown
+  return 'USD';
+}
+
+/**
  * Get cached price for a symbol if valid
  */
 async function getCachedPrice(symbol: string): Promise<StockPrice | null> {
@@ -75,6 +102,7 @@ async function getCachedPrice(symbol: string): Promise<StockPrice | null> {
     return {
       symbol: cached.symbol,
       price: cached.price.toNumber(),
+      currency: inferCurrencyFromSymbol(cached.symbol), // Infer from symbol suffix
       timestamp: cached.timestamp,
       fromCache: true,
     };
@@ -96,10 +124,15 @@ async function cachePrice(symbol: string, price: number): Promise<void> {
   });
 }
 
+interface YahooFetchResult {
+  price: number;
+  currency: string;
+}
+
 /**
  * Fetch stock price from Yahoo Finance API (primary source - no API key needed)
  */
-async function fetchFromYahooFinance(symbol: string): Promise<number | null> {
+async function fetchFromYahooFinance(symbol: string): Promise<YahooFetchResult | null> {
   try {
     const url = `${YAHOO_FINANCE_BASE_URL}/${encodeURIComponent(symbol.toUpperCase())}?interval=1d&range=1d`;
 
@@ -122,13 +155,17 @@ async function fetchFromYahooFinance(symbol: string): Promise<number | null> {
       return null;
     }
 
-    const price = data.chart?.result?.[0]?.meta?.regularMarketPrice;
+    const meta = data.chart?.result?.[0]?.meta;
+    const price = meta?.regularMarketPrice;
     if (price === undefined || price === null) {
       console.warn(`No price data from Yahoo Finance for symbol: ${symbol}`);
       return null;
     }
 
-    return price;
+    // Extract currency from meta, default to USD if not provided
+    const currency = meta?.currency || 'USD';
+
+    return { price, currency };
   } catch (error) {
     console.error(`Error fetching price from Yahoo Finance for ${symbol}:`, error);
     return null;
@@ -196,21 +233,26 @@ export async function getStockPrice(symbol: string): Promise<StockPriceResult> {
   }
 
   // Try Yahoo Finance first (no API key required)
-  let apiPrice = await fetchFromYahooFinance(upperSymbol);
+  let yahooResult = await fetchFromYahooFinance(upperSymbol);
 
   // If Yahoo fails, try Alpha Vantage as fallback
-  if (apiPrice === null) {
+  if (yahooResult === null) {
     console.log(`Yahoo Finance failed for ${upperSymbol}, trying Alpha Vantage...`);
-    apiPrice = await fetchFromAlphaVantage(upperSymbol);
+    const alphaPrice = await fetchFromAlphaVantage(upperSymbol);
+    if (alphaPrice !== null) {
+      // Alpha Vantage doesn't return currency, assume USD
+      yahooResult = { price: alphaPrice, currency: 'USD' };
+    }
   }
 
-  if (apiPrice !== null) {
+  if (yahooResult !== null) {
     // Cache the new price
-    await cachePrice(upperSymbol, apiPrice);
+    await cachePrice(upperSymbol, yahooResult.price);
 
     return {
       symbol: upperSymbol,
-      price: apiPrice,
+      price: yahooResult.price,
+      currency: yahooResult.currency,
       timestamp: new Date(),
       fromCache: false,
     };
@@ -226,6 +268,7 @@ export async function getStockPrice(symbol: string): Promise<StockPriceResult> {
     return {
       symbol: fallbackCached.symbol,
       price: fallbackCached.price.toNumber(),
+      currency: inferCurrencyFromSymbol(fallbackCached.symbol), // Infer from symbol suffix
       timestamp: fallbackCached.timestamp,
       fromCache: true,
     };
@@ -264,6 +307,7 @@ export async function getStockPrices(symbols: string[]): Promise<Map<string, Sto
       results.set(upperSymbol, {
         symbol: cached.symbol,
         price: cached.price.toNumber(),
+        currency: inferCurrencyFromSymbol(cached.symbol), // Infer from symbol suffix
         timestamp: cached.timestamp,
         fromCache: true,
       });
@@ -309,6 +353,7 @@ export async function getLatestCachedPrice(symbol: string): Promise<StockPrice |
   return {
     symbol: cached.symbol,
     price: cached.price.toNumber(),
+    currency: inferCurrencyFromSymbol(cached.symbol), // Infer from symbol suffix
     timestamp: cached.timestamp,
     fromCache: true,
   };
@@ -323,18 +368,22 @@ export async function updateStockPriceCache(symbol: string): Promise<StockPriceR
   const upperSymbol = symbol.toUpperCase();
 
   // Try Yahoo Finance first
-  let apiPrice = await fetchFromYahooFinance(upperSymbol);
+  let yahooResult = await fetchFromYahooFinance(upperSymbol);
 
   // Fallback to Alpha Vantage if Yahoo fails
-  if (apiPrice === null) {
-    apiPrice = await fetchFromAlphaVantage(upperSymbol);
+  if (yahooResult === null) {
+    const alphaPrice = await fetchFromAlphaVantage(upperSymbol);
+    if (alphaPrice !== null) {
+      yahooResult = { price: alphaPrice, currency: 'USD' };
+    }
   }
 
-  if (apiPrice !== null) {
-    await cachePrice(upperSymbol, apiPrice);
+  if (yahooResult !== null) {
+    await cachePrice(upperSymbol, yahooResult.price);
     return {
       symbol: upperSymbol,
-      price: apiPrice,
+      price: yahooResult.price,
+      currency: yahooResult.currency,
       timestamp: new Date(),
       fromCache: false,
     };

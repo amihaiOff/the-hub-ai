@@ -76,6 +76,7 @@ describe('Daily Tasks Cron', () => {
       mockUpdateStockPriceCache.mockResolvedValue({
         symbol: 'AAPL',
         price: 150,
+        currency: 'USD',
         timestamp: new Date(),
         fromCache: false,
       });
@@ -242,7 +243,12 @@ describe('Create Snapshot Cron', () => {
       ]);
 
       mockGetStockPrices.mockResolvedValue(
-        new Map([['AAPL', { symbol: 'AAPL', price: 150, timestamp: new Date(), fromCache: true }]])
+        new Map([
+          [
+            'AAPL',
+            { symbol: 'AAPL', price: 150, currency: 'USD', timestamp: new Date(), fromCache: true },
+          ],
+        ])
       );
 
       const request = new NextRequest('http://localhost/api/cron/create-snapshot');

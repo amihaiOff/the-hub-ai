@@ -47,6 +47,7 @@ describe('Portfolio Holdings API', () => {
     mockGetStockPrice.mockResolvedValue({
       symbol: 'AAPL',
       price: 175.5,
+      currency: 'USD',
       timestamp: new Date(),
       fromCache: false,
     });

@@ -45,6 +45,7 @@ describe('Stock Price Module', () => {
       const priceResult = {
         symbol: 'AAPL',
         price: 150.25,
+        currency: 'USD',
         timestamp: new Date(),
         fromCache: false,
       };
@@ -69,6 +70,7 @@ describe('Stock Price Module', () => {
         expect(result).toEqual({
           symbol: 'AAPL',
           price: 150.5,
+          currency: 'USD',
           timestamp: cachedTime,
           fromCache: true,
         });

@@ -10,6 +10,7 @@ export interface HoldingWithPrice {
   quantity: DecimalLike | number | string;
   avgCostBasis: DecimalLike | number | string;
   currentPrice: DecimalLike | number | string;
+  priceCurrency?: string; // Currency the price is quoted in (e.g., "GBP" for EIMI.L)
 }
 
 export interface HoldingValue {
@@ -18,6 +19,7 @@ export interface HoldingValue {
   quantity: number;
   avgCostBasis: number;
   currentPrice: number;
+  priceCurrency?: string; // Currency the price is quoted in (e.g., "GBP" for EIMI.L)
   currentValue: number;
   costBasis: number;
   gainLoss: number;
@@ -133,6 +135,7 @@ export function calculateHoldingDetails(holding: HoldingWithPrice): HoldingValue
     quantity,
     avgCostBasis,
     currentPrice,
+    priceCurrency: holding.priceCurrency,
     currentValue,
     costBasis,
     gainLoss,

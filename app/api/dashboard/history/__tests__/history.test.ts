@@ -176,7 +176,10 @@ describe('Dashboard History API', () => {
       ];
 
       const stockPrices = new Map([
-        ['AAPL', { symbol: 'AAPL', price: 175, timestamp: new Date(), fromCache: true }],
+        [
+          'AAPL',
+          { symbol: 'AAPL', price: 175, currency: 'USD', timestamp: new Date(), fromCache: true },
+        ],
       ]);
 
       (mockPrisma.stockAccount.findMany as jest.Mock).mockResolvedValueOnce(mockStockAccounts);

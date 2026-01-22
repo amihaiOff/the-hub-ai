@@ -35,13 +35,44 @@ interface HoldingsTableProps {
 interface HoldingRowProps {
   holding: HoldingValue;
   formatDisplayValue: (value: number) => string;
+  formatOriginalCurrency: (value: number, currency: string) => string;
+  convertToILS: (value: number, currency: string) => number;
+  showDualCurrency: boolean;
   onDelete: () => Promise<void>;
 }
 
-function HoldingRow({ holding, formatDisplayValue, onDelete }: HoldingRowProps) {
+function HoldingRow({
+  holding,
+  formatDisplayValue,
+  formatOriginalCurrency,
+  convertToILS,
+  showDualCurrency,
+  onDelete,
+}: HoldingRowProps) {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const isPositive = holding.gainLoss >= 0;
+
+  // Check if this holding has a foreign price currency (e.g., GBP for EIMI.L)
+  const priceCurrency = holding.priceCurrency || 'USD';
+  const hasForeignPrice = priceCurrency !== 'ILS' && showDualCurrency;
+
+  // Calculate ILS values for foreign-priced holdings
+  const priceInILS = hasForeignPrice
+    ? convertToILS(holding.currentPrice, priceCurrency)
+    : holding.currentPrice;
+  const valueInILS = hasForeignPrice
+    ? convertToILS(holding.currentValue, priceCurrency)
+    : holding.currentValue;
+  // Gain/loss is already in ILS since avgCostBasis is in ILS
+  // Recalculate: gainLoss = valueInILS - costBasis (costBasis is quantity * avgCostBasis in ILS)
+  const gainLossInILS = hasForeignPrice ? valueInILS - holding.costBasis : holding.gainLoss;
+  const gainLossPercentInILS = hasForeignPrice
+    ? holding.costBasis > 0
+      ? ((valueInILS - holding.costBasis) / holding.costBasis) * 100
+      : 0
+    : holding.gainLossPercent;
+  const isPositiveILS = hasForeignPrice ? gainLossInILS >= 0 : isPositive;
 
   return (
     <TableRow>
@@ -55,24 +86,44 @@ function HoldingRow({ holding, formatDisplayValue, onDelete }: HoldingRowProps) 
         {formatDisplayValue(holding.avgCostBasis)}
       </TableCell>
       <TableCell className="text-right tabular-nums">
-        {formatDisplayValue(holding.currentPrice)}
+        {hasForeignPrice ? (
+          <span>
+            {formatDisplayValue(priceInILS)}
+            <span className="text-muted-foreground/60 ml-1 text-xs">
+              ({formatOriginalCurrency(holding.currentPrice, priceCurrency)})
+            </span>
+          </span>
+        ) : (
+          formatDisplayValue(holding.currentPrice)
+        )}
       </TableCell>
       <TableCell className="text-right font-medium tabular-nums">
-        {formatDisplayValue(holding.currentValue)}
+        {hasForeignPrice ? (
+          <span>
+            {formatDisplayValue(valueInILS)}
+            <span className="text-muted-foreground/60 ml-1 text-xs">
+              ({formatOriginalCurrency(holding.currentValue, priceCurrency)})
+            </span>
+          </span>
+        ) : (
+          formatDisplayValue(holding.currentValue)
+        )}
       </TableCell>
       <TableCell className="hidden text-right md:table-cell">
         <div className="flex flex-col items-end">
           <Badge
             variant="outline"
             className={
-              isPositive ? 'border-green-500/50 text-green-500' : 'border-red-500/50 text-red-500'
+              isPositiveILS
+                ? 'border-green-500/50 text-green-500'
+                : 'border-red-500/50 text-red-500'
             }
           >
-            {isPositive ? '+' : ''}
-            {formatDisplayValue(holding.gainLoss)}
+            {isPositiveILS ? '+' : ''}
+            {formatDisplayValue(hasForeignPrice ? gainLossInILS : holding.gainLoss)}
           </Badge>
-          <span className={`text-xs ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-            {formatPercent(holding.gainLossPercent)}
+          <span className={`text-xs ${isPositiveILS ? 'text-green-500' : 'text-red-500'}`}>
+            {formatPercent(hasForeignPrice ? gainLossPercentInILS : holding.gainLossPercent)}
           </span>
         </div>
       </TableCell>
@@ -129,6 +180,32 @@ export function HoldingsTable({
 
   // Use displayCurrency if provided, otherwise use baseCurrency
   const effectiveDisplayCurrency = displayCurrency || baseCurrency;
+
+  // Check if we should show dual currency (when account is ILS-based for dual-listed stocks)
+  const showDualCurrency = baseCurrency === 'ILS' && !!rates;
+
+  // Convert a value from a given currency to ILS
+  const convertToILS = useCallback(
+    (value: number, currency: string): number => {
+      if (!rates || currency === 'ILS') return value;
+      const upperCurrency = currency.toUpperCase();
+      // rates are TO ILS (e.g., rates.USD = 3.18 means 1 USD = 3.18 ILS)
+      const rate = rates[upperCurrency as keyof typeof rates] || rates.USD || 1;
+      return value * rate;
+    },
+    [rates]
+  );
+
+  // Format a value in its original currency (for the parenthetical display)
+  const formatOriginalCurrency = useCallback((value: number, currency: string): string => {
+    const locale = currency === 'ILS' ? 'he-IL' : 'en-US';
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  }, []);
 
   // Convert and format a value from baseCurrency to displayCurrency
   // Note: rates are TO ILS (e.g., rates.USD = 3.18 means 1 USD = 3.18 ILS)
@@ -194,6 +271,9 @@ export function HoldingsTable({
               key={holding.id}
               holding={holding}
               formatDisplayValue={formatDisplayValue}
+              formatOriginalCurrency={formatOriginalCurrency}
+              convertToILS={convertToILS}
+              showDualCurrency={showDualCurrency}
               onDelete={() => deleteHolding.mutateAsync(holding.id)}
             />
           ))}
