@@ -4,7 +4,7 @@ import { useState, Fragment } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, AlertCircle, Loader2, ChevronDown, ChevronRight, Star } from 'lucide-react';
+import { Plus, AlertCircle, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import {
   useBudgetMonthSummary,
   usePayees,
@@ -32,9 +32,16 @@ interface CategoryRowProps {
   payees: BudgetPayee[];
   isExpanded: boolean;
   onToggleExpand: () => void;
+  selectedMonth: string;
 }
 
-function CategoryTableRow({ category, payees, isExpanded, onToggleExpand }: CategoryRowProps) {
+function CategoryTableRow({
+  category,
+  payees,
+  isExpanded,
+  onToggleExpand,
+  selectedMonth,
+}: CategoryRowProps) {
   const status = getBudgetStatus(category.budgeted, category.spent);
   const availableColor =
     status === 'overspent'
@@ -45,11 +52,22 @@ function CategoryTableRow({ category, payees, isExpanded, onToggleExpand }: Cate
           ? 'text-yellow-500'
           : 'text-muted-foreground';
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onToggleExpand();
+    }
+  };
+
   return (
     <>
       <tr
-        className="hover:bg-muted/30 cursor-pointer border-b transition-colors"
+        className="hover:bg-muted/30 focus:ring-ring cursor-pointer border-b transition-colors focus:ring-2 focus:outline-none focus:ring-inset"
         onClick={onToggleExpand}
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+        role="button"
+        aria-expanded={isExpanded}
       >
         {/* Category Name with expand icon */}
         <td className="px-4 py-3 pl-8">
@@ -62,12 +80,15 @@ function CategoryTableRow({ category, payees, isExpanded, onToggleExpand }: Cate
               )}
             </span>
             <span className="font-medium">{category.categoryName}</span>
-            {category.isMust && <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />}
           </div>
         </td>
         {/* Progress Bar - Hidden on mobile */}
         <td className="hidden px-4 py-3 sm:table-cell">
-          <CategoryProgressBar budgeted={category.budgeted} spent={category.spent} />
+          <CategoryProgressBar
+            budgeted={category.budgeted}
+            spent={category.spent}
+            selectedMonth={selectedMonth}
+          />
         </td>
         {/* Budget */}
         <td className="hidden px-4 py-3 text-right lg:table-cell">
@@ -95,7 +116,11 @@ function CategoryTableRow({ category, payees, isExpanded, onToggleExpand }: Cate
       {/* Mobile Progress Bar */}
       <tr className="border-b sm:hidden">
         <td colSpan={2} className="px-4 pb-2 pl-14">
-          <CategoryProgressBar budgeted={category.budgeted} spent={category.spent} />
+          <CategoryProgressBar
+            budgeted={category.budgeted}
+            spent={category.spent}
+            selectedMonth={selectedMonth}
+          />
         </td>
       </tr>
       {/* Expanded Transactions */}
@@ -226,12 +251,23 @@ export default function BudgetDashboardPage() {
                             ? 'text-yellow-500'
                             : 'text-muted-foreground';
 
+                    const handleGroupKeyDown = (e: React.KeyboardEvent) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleGroup(group.id);
+                      }
+                    };
+
                     return (
                       <Fragment key={group.id}>
                         {/* Group Row - Highlighted */}
                         <tr
-                          className="bg-muted/30 hover:bg-muted/50 cursor-pointer border-b"
+                          className="bg-muted/30 hover:bg-muted/50 focus:ring-ring cursor-pointer border-b focus:ring-2 focus:outline-none focus:ring-inset"
                           onClick={() => toggleGroup(group.id)}
+                          onKeyDown={handleGroupKeyDown}
+                          tabIndex={0}
+                          role="button"
+                          aria-expanded={isGroupExpanded}
                         >
                           <td className="px-4 py-4">
                             <div className="flex items-center gap-2">
@@ -253,6 +289,7 @@ export default function BudgetDashboardPage() {
                             <CategoryProgressBar
                               budgeted={group.totalBudgeted}
                               spent={group.totalSpent}
+                              selectedMonth={selectedMonth}
                             />
                           </td>
                           {/* Budget */}
@@ -290,6 +327,7 @@ export default function BudgetDashboardPage() {
                             <CategoryProgressBar
                               budgeted={group.totalBudgeted}
                               spent={group.totalSpent}
+                              selectedMonth={selectedMonth}
                             />
                           </td>
                         </tr>
@@ -303,6 +341,7 @@ export default function BudgetDashboardPage() {
                               payees={payees}
                               isExpanded={expandedCategories.has(category.categoryId)}
                               onToggleExpand={() => toggleCategory(category.categoryId)}
+                              selectedMonth={selectedMonth}
                             />
                           ))}
                       </Fragment>
