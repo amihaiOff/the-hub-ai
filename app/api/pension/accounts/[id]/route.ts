@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
+import { updatePensionAccountSchema } from '@/lib/validations/pension';
+import { getFirstZodError } from '@/lib/validations/common';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -84,55 +86,17 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
     const body = await request.json();
-    const { providerName, accountName, currentValue, feeFromDeposit, feeFromTotal } = body;
+    const validation = updatePensionAccountSchema.safeParse(body);
 
-    // Validate inputs if provided
-    if (
-      providerName !== undefined &&
-      (typeof providerName !== 'string' || providerName.trim() === '')
-    ) {
+    if (!validation.success) {
       return NextResponse.json(
-        { success: false, error: 'Provider name cannot be empty' },
+        { success: false, error: getFirstZodError(validation.error) },
         { status: 400 }
       );
     }
 
-    if (
-      accountName !== undefined &&
-      (typeof accountName !== 'string' || accountName.trim() === '')
-    ) {
-      return NextResponse.json(
-        { success: false, error: 'Account name cannot be empty' },
-        { status: 400 }
-      );
-    }
-
-    if (currentValue !== undefined && (typeof currentValue !== 'number' || currentValue < 0)) {
-      return NextResponse.json(
-        { success: false, error: 'Current value must be a non-negative number' },
-        { status: 400 }
-      );
-    }
-
-    if (
-      feeFromDeposit !== undefined &&
-      (typeof feeFromDeposit !== 'number' || feeFromDeposit < 0 || feeFromDeposit > 100)
-    ) {
-      return NextResponse.json(
-        { success: false, error: 'Fee from deposit must be a percentage between 0 and 100' },
-        { status: 400 }
-      );
-    }
-
-    if (
-      feeFromTotal !== undefined &&
-      (typeof feeFromTotal !== 'number' || feeFromTotal < 0 || feeFromTotal > 100)
-    ) {
-      return NextResponse.json(
-        { success: false, error: 'Fee from total must be a percentage between 0 and 100' },
-        { status: 400 }
-      );
-    }
+    const { providerName, accountName, currentValue, feeFromDeposit, feeFromTotal } =
+      validation.data;
 
     // Check if account exists
     const existing = await prisma.pensionAccount.findUnique({
@@ -152,8 +116,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const account = await prisma.pensionAccount.update({
       where: { id },
       data: {
-        ...(providerName !== undefined && { providerName: providerName.trim() }),
-        ...(accountName !== undefined && { accountName: accountName.trim() }),
+        ...(providerName !== undefined && { providerName }),
+        ...(accountName !== undefined && { accountName }),
         ...(currentValue !== undefined && { currentValue }),
         ...(feeFromDeposit !== undefined && { feeFromDeposit }),
         ...(feeFromTotal !== undefined && { feeFromTotal }),

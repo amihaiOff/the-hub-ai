@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
+import { updateHoldingSchema } from '@/lib/validations/portfolio';
+import { getFirstZodError } from '@/lib/validations/common';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -60,22 +62,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
     const body = await request.json();
-    const { quantity, avgCostBasis } = body;
+    const validation = updateHoldingSchema.safeParse(body);
 
-    // Validate inputs if provided
-    if (quantity !== undefined && (typeof quantity !== 'number' || quantity <= 0)) {
+    if (!validation.success) {
       return NextResponse.json(
-        { success: false, error: 'Quantity must be a positive number' },
+        { success: false, error: getFirstZodError(validation.error) },
         { status: 400 }
       );
     }
 
-    if (avgCostBasis !== undefined && (typeof avgCostBasis !== 'number' || avgCostBasis < 0)) {
-      return NextResponse.json(
-        { success: false, error: 'Average cost basis must be a non-negative number' },
-        { status: 400 }
-      );
-    }
+    const { quantity, avgCostBasis } = validation.data;
 
     // Check if holding exists and include account for authorization
     const existing = await prisma.stockHolding.findUnique({

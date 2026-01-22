@@ -210,7 +210,55 @@ describe('Portfolio Holdings API', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('Average cost basis must be a non-negative number');
+      expect(data.error).toBe('Average cost basis must be a positive number');
+    });
+
+    it('should return 400 when avgCostBasis is zero', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'test@example.com',
+        name: 'Test User',
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/portfolio/holdings', {
+        method: 'POST',
+        body: JSON.stringify({
+          accountId: 'acc-1',
+          symbol: 'AAPL',
+          quantity: 10,
+          avgCostBasis: 0,
+        }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toBe('Average cost basis must be a positive number');
+    });
+
+    it('should return 400 when quantity is negative', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'test@example.com',
+        name: 'Test User',
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/portfolio/holdings', {
+        method: 'POST',
+        body: JSON.stringify({
+          accountId: 'acc-1',
+          symbol: 'AAPL',
+          quantity: -5,
+          avgCostBasis: 150,
+        }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toBe('Quantity must be a positive number');
     });
 
     it('should return 404 when account not found', async () => {
@@ -550,19 +598,14 @@ describe('Portfolio Holdings API', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('Average cost basis must be a non-negative number');
+      expect(data.error).toBe('Average cost basis must be a positive number');
     });
 
-    it('should allow avgCostBasis of zero', async () => {
-      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.stockHolding.findUnique as jest.Mock).mockResolvedValueOnce({
-        id: 'hold-1',
-        account: { id: 'acc-1', userId: 'user-1' },
-      });
-      (mockPrisma.stockHolding.update as jest.Mock).mockResolvedValueOnce({
-        id: 'hold-1',
-        avgCostBasis: 0,
+    it('should return 400 when avgCostBasis is zero', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'test@example.com',
+        name: 'Test User',
       });
 
       const request = new NextRequest('http://localhost:3000/api/portfolio/holdings/hold-1', {
@@ -571,8 +614,29 @@ describe('Portfolio Holdings API', () => {
       });
 
       const response = await PUT(request, { params: Promise.resolve({ id: 'hold-1' }) });
+      const data = await response.json();
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(400);
+      expect(data.error).toBe('Average cost basis must be a positive number');
+    });
+
+    it('should return 400 when quantity is zero', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'test@example.com',
+        name: 'Test User',
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/portfolio/holdings/hold-1', {
+        method: 'PUT',
+        body: JSON.stringify({ quantity: 0 }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'hold-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toBe('Quantity must be a positive number');
     });
 
     it('should return 404 when holding not found', async () => {

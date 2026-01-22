@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
+import { createAccountSchema } from '@/lib/validations/portfolio';
+import { getFirstZodError } from '@/lib/validations/common';
 
 /**
  * POST /api/portfolio/accounts
@@ -15,27 +17,24 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, broker, currency } = body;
+    const validation = createAccountSchema.safeParse(body);
 
-    // Validate required fields
-    if (!name || typeof name !== 'string' || name.trim() === '') {
+    if (!validation.success) {
       return NextResponse.json(
-        { success: false, error: 'Account name is required' },
+        { success: false, error: getFirstZodError(validation.error) },
         { status: 400 }
       );
     }
 
-    // Validate currency if provided
-    const validCurrencies = ['USD', 'ILS', 'EUR', 'GBP'];
-    const accountCurrency = currency && validCurrencies.includes(currency) ? currency : 'USD';
+    const { name, broker, currency } = validation.data;
 
     // Create the account for the authenticated user
     // Note: Removed include clause for debugging Neon ErrorEvent issue
     const account = await prisma.stockAccount.create({
       data: {
-        name: name.trim(),
-        broker: broker?.trim() || null,
-        currency: accountCurrency,
+        name,
+        broker: broker || null,
+        currency,
         userId: user.id,
       },
     });

@@ -407,5 +407,126 @@ describe('Pension Account Owners API', () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
     });
+
+    it('should rollback to original owners when create fails', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+
+      const account = {
+        id: 'cm1234567890pensionacc',
+        name: 'Pension Account',
+      };
+      const currentOwners = [{ profileId: 'cm1234567890abcdefghij' }];
+
+      (prisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(account);
+      (prisma.pensionAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
+
+      // Initial deleteMany succeeds
+      (prisma.pensionAccountOwner.deleteMany as jest.Mock)
+        .mockResolvedValueOnce({}) // Initial delete
+        .mockResolvedValueOnce({}); // Rollback delete
+
+      // First create succeeds, second fails
+      (prisma.pensionAccountOwner.create as jest.Mock)
+        .mockResolvedValueOnce({}) // First owner created
+        .mockRejectedValueOnce(new Error('Database error')) // Second owner fails
+        .mockResolvedValueOnce({}); // Rollback create original owner
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/pension/accounts/cm1234567890pensionacc/owners',
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            profileIds: ['cm1234567890abcdefghij', 'cm1234567890profile2abc'],
+          }),
+        }
+      );
+      const response = await PUT(request, {
+        params: Promise.resolve({ id: 'cm1234567890pensionacc' }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data.success).toBe(false);
+      expect(data.error).toBe('Failed to update owners');
+
+      // Verify rollback was attempted
+      expect(prisma.pensionAccountOwner.deleteMany).toHaveBeenCalledTimes(2);
+      // Original owner should be restored
+      expect(prisma.pensionAccountOwner.create).toHaveBeenCalledTimes(3);
+    });
+
+    it('should handle rollback failure gracefully', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+
+      const account = {
+        id: 'cm1234567890pensionacc',
+        name: 'Pension Account',
+      };
+      const currentOwners = [{ profileId: 'cm1234567890abcdefghij' }];
+
+      (prisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(account);
+      (prisma.pensionAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
+
+      // Initial deleteMany succeeds
+      (prisma.pensionAccountOwner.deleteMany as jest.Mock)
+        .mockResolvedValueOnce({}) // Initial delete
+        .mockRejectedValueOnce(new Error('Rollback delete failed')); // Rollback delete fails
+
+      // Create fails
+      (prisma.pensionAccountOwner.create as jest.Mock).mockRejectedValueOnce(
+        new Error('Database error')
+      );
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/pension/accounts/cm1234567890pensionacc/owners',
+        {
+          method: 'PUT',
+          body: JSON.stringify({ profileIds: ['cm1234567890abcdefghij'] }),
+        }
+      );
+      const response = await PUT(request, {
+        params: Promise.resolve({ id: 'cm1234567890pensionacc' }),
+      });
+      const data = await response.json();
+
+      // Should still return 500 even when rollback fails
+      expect(response.status).toBe(500);
+      expect(data.success).toBe(false);
+      expect(data.error).toBe('Failed to update owners');
+    });
+
+    it('should return 500 when deleteMany fails', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+
+      const account = {
+        id: 'cm1234567890pensionacc',
+        name: 'Pension Account',
+      };
+      const currentOwners = [{ profileId: 'cm1234567890abcdefghij' }];
+
+      (prisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(account);
+      (prisma.pensionAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
+
+      // Initial deleteMany fails
+      (prisma.pensionAccountOwner.deleteMany as jest.Mock).mockRejectedValueOnce(
+        new Error('Delete failed')
+      );
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/pension/accounts/cm1234567890pensionacc/owners',
+        {
+          method: 'PUT',
+          body: JSON.stringify({ profileIds: ['cm1234567890profile2abc'] }),
+        }
+      );
+      const response = await PUT(request, {
+        params: Promise.resolve({ id: 'cm1234567890pensionacc' }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data.success).toBe(false);
+      expect(data.error).toBe('Failed to update owners');
+    });
   });
 });

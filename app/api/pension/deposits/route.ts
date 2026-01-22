@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
+import { createDepositSchema } from '@/lib/validations/pension';
+import { getFirstZodError } from '@/lib/validations/common';
 
 /**
  * POST /api/pension/deposits
@@ -15,63 +17,16 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { accountId, depositDate, salaryMonth, amount, employer } = body;
+    const validation = createDepositSchema.safeParse(body);
 
-    // Validate account ID
-    if (!accountId || typeof accountId !== 'string') {
+    if (!validation.success) {
       return NextResponse.json(
-        { success: false, error: 'Account ID is required' },
+        { success: false, error: getFirstZodError(validation.error) },
         { status: 400 }
       );
     }
 
-    // Validate deposit date
-    if (!depositDate) {
-      return NextResponse.json(
-        { success: false, error: 'Deposit date is required' },
-        { status: 400 }
-      );
-    }
-
-    const parsedDepositDate = new Date(depositDate);
-    if (isNaN(parsedDepositDate.getTime())) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid deposit date format' },
-        { status: 400 }
-      );
-    }
-
-    // Validate salary month
-    if (!salaryMonth) {
-      return NextResponse.json(
-        { success: false, error: 'Salary month is required' },
-        { status: 400 }
-      );
-    }
-
-    const parsedSalaryMonth = new Date(salaryMonth);
-    if (isNaN(parsedSalaryMonth.getTime())) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid salary month format' },
-        { status: 400 }
-      );
-    }
-
-    // Validate amount
-    if (amount === undefined || typeof amount !== 'number' || amount <= 0) {
-      return NextResponse.json(
-        { success: false, error: 'Amount must be a positive number' },
-        { status: 400 }
-      );
-    }
-
-    // Validate employer
-    if (!employer || typeof employer !== 'string' || employer.trim() === '') {
-      return NextResponse.json(
-        { success: false, error: 'Employer name is required' },
-        { status: 400 }
-      );
-    }
+    const { accountId, depositDate, salaryMonth, amount, employer } = validation.data;
 
     // Verify account exists and belongs to the authenticated user
     const account = await prisma.pensionAccount.findUnique({
@@ -91,10 +46,10 @@ export async function POST(request: NextRequest) {
     const deposit = await prisma.pensionDeposit.create({
       data: {
         accountId,
-        depositDate: parsedDepositDate,
-        salaryMonth: parsedSalaryMonth,
+        depositDate,
+        salaryMonth,
         amount,
-        employer: employer.trim(),
+        employer,
       },
     });
 

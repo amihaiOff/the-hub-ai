@@ -499,5 +499,126 @@ describe('Misc Asset Owners API', () => {
       expect(data.data).toHaveLength(1);
       expect(data.data[0].id).toBe('cm1234567890abcdefghij');
     });
+
+    it('should rollback to original owners when create fails', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+
+      const asset = {
+        id: 'cm1234567890assetidabc',
+        name: 'Test Asset',
+      };
+      const currentOwners = [{ profileId: 'cm1234567890abcdefghij' }];
+
+      (prisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(asset);
+      (prisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
+
+      // Initial deleteMany succeeds
+      (prisma.miscAssetOwner.deleteMany as jest.Mock)
+        .mockResolvedValueOnce({}) // Initial delete
+        .mockResolvedValueOnce({}); // Rollback delete
+
+      // First create succeeds, second fails
+      (prisma.miscAssetOwner.create as jest.Mock)
+        .mockResolvedValueOnce({}) // First owner created
+        .mockRejectedValueOnce(new Error('Database error')) // Second owner fails
+        .mockResolvedValueOnce({}); // Rollback create original owner
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/assets/items/cm1234567890assetidabc/owners',
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            profileIds: ['cm1234567890abcdefghij', 'cm1234567890profile2abc'],
+          }),
+        }
+      );
+      const response = await PUT(request, {
+        params: Promise.resolve({ id: 'cm1234567890assetidabc' }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data.success).toBe(false);
+      expect(data.error).toBe('Failed to update owners');
+
+      // Verify rollback was attempted
+      expect(prisma.miscAssetOwner.deleteMany).toHaveBeenCalledTimes(2);
+      // Original owner should be restored
+      expect(prisma.miscAssetOwner.create).toHaveBeenCalledTimes(3);
+    });
+
+    it('should handle rollback failure gracefully', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+
+      const asset = {
+        id: 'cm1234567890assetidabc',
+        name: 'Test Asset',
+      };
+      const currentOwners = [{ profileId: 'cm1234567890abcdefghij' }];
+
+      (prisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(asset);
+      (prisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
+
+      // Initial deleteMany succeeds
+      (prisma.miscAssetOwner.deleteMany as jest.Mock)
+        .mockResolvedValueOnce({}) // Initial delete
+        .mockRejectedValueOnce(new Error('Rollback delete failed')); // Rollback delete fails
+
+      // Create fails
+      (prisma.miscAssetOwner.create as jest.Mock).mockRejectedValueOnce(
+        new Error('Database error')
+      );
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/assets/items/cm1234567890assetidabc/owners',
+        {
+          method: 'PUT',
+          body: JSON.stringify({ profileIds: ['cm1234567890abcdefghij'] }),
+        }
+      );
+      const response = await PUT(request, {
+        params: Promise.resolve({ id: 'cm1234567890assetidabc' }),
+      });
+      const data = await response.json();
+
+      // Should still return 500 even when rollback fails
+      expect(response.status).toBe(500);
+      expect(data.success).toBe(false);
+      expect(data.error).toBe('Failed to update owners');
+    });
+
+    it('should return 500 when deleteMany fails', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+
+      const asset = {
+        id: 'cm1234567890assetidabc',
+        name: 'Test Asset',
+      };
+      const currentOwners = [{ profileId: 'cm1234567890abcdefghij' }];
+
+      (prisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(asset);
+      (prisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce(currentOwners);
+
+      // Initial deleteMany fails
+      (prisma.miscAssetOwner.deleteMany as jest.Mock).mockRejectedValueOnce(
+        new Error('Delete failed')
+      );
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/assets/items/cm1234567890assetidabc/owners',
+        {
+          method: 'PUT',
+          body: JSON.stringify({ profileIds: ['cm1234567890profile2abc'] }),
+        }
+      );
+      const response = await PUT(request, {
+        params: Promise.resolve({ id: 'cm1234567890assetidabc' }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data.success).toBe(false);
+      expect(data.error).toBe('Failed to update owners');
+    });
   });
 });

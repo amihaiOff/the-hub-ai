@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
-import { BulkCreateDepositsRequest } from '@/lib/pdf/types';
+import { bulkDepositSchema, validateBulkDeposit } from '@/lib/validations/pension';
+import { getFirstZodError } from '@/lib/validations/common';
 
 /**
  * POST /api/pension/deposits/bulk
@@ -15,88 +16,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = (await request.json()) as BulkCreateDepositsRequest;
-    const { accountId, deposits } = body;
+    const body = await request.json();
+    const validation = bulkDepositSchema.safeParse(body);
 
-    // Validate account ID
-    if (!accountId || typeof accountId !== 'string') {
+    if (!validation.success) {
       return NextResponse.json(
-        { success: false, error: 'Account ID is required' },
+        { success: false, error: getFirstZodError(validation.error) },
         { status: 400 }
       );
     }
 
-    // Validate deposits array
-    if (!Array.isArray(deposits) || deposits.length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'At least one deposit is required' },
-        { status: 400 }
-      );
-    }
+    const { accountId, deposits } = validation.data;
 
-    // Limit bulk deposit count to prevent abuse
-    const MAX_BULK_DEPOSITS = 100;
-    if (deposits.length > MAX_BULK_DEPOSITS) {
-      return NextResponse.json(
-        { success: false, error: `Maximum ${MAX_BULK_DEPOSITS} deposits allowed per request` },
-        { status: 400 }
-      );
-    }
-
-    // Validate each deposit
+    // Validate each deposit individually with index for error messages
     for (let i = 0; i < deposits.length; i++) {
-      const deposit = deposits[i];
-
-      if (!deposit.depositDate) {
-        return NextResponse.json(
-          { success: false, error: `Deposit ${i + 1}: Deposit date is required` },
-          { status: 400 }
-        );
-      }
-
-      const parsedDepositDate = new Date(deposit.depositDate);
-      if (isNaN(parsedDepositDate.getTime())) {
-        return NextResponse.json(
-          { success: false, error: `Deposit ${i + 1}: Invalid deposit date format` },
-          { status: 400 }
-        );
-      }
-
-      if (!deposit.salaryMonth) {
-        return NextResponse.json(
-          { success: false, error: `Deposit ${i + 1}: Salary month is required` },
-          { status: 400 }
-        );
-      }
-
-      const parsedSalaryMonth = new Date(deposit.salaryMonth);
-      if (isNaN(parsedSalaryMonth.getTime())) {
-        return NextResponse.json(
-          { success: false, error: `Deposit ${i + 1}: Invalid salary month format` },
-          { status: 400 }
-        );
-      }
-
-      if (
-        deposit.amount === undefined ||
-        typeof deposit.amount !== 'number' ||
-        deposit.amount <= 0
-      ) {
-        return NextResponse.json(
-          { success: false, error: `Deposit ${i + 1}: Amount must be a positive number` },
-          { status: 400 }
-        );
-      }
-
-      if (
-        !deposit.employer ||
-        typeof deposit.employer !== 'string' ||
-        deposit.employer.trim() === ''
-      ) {
-        return NextResponse.json(
-          { success: false, error: `Deposit ${i + 1}: Employer name is required` },
-          { status: 400 }
-        );
+      const errors = validateBulkDeposit(deposits[i], i);
+      if (errors.length > 0) {
+        return NextResponse.json({ success: false, error: errors[0] }, { status: 400 });
       }
     }
 
@@ -115,15 +51,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Create all deposits in a transaction
+    // Note: At this point, all deposits have been validated by validateBulkDeposit,
+    // so we can safely use non-null assertions for the required fields
     const createdDeposits = await prisma.$transaction(
       deposits.map((deposit) =>
         prisma.pensionDeposit.create({
           data: {
             accountId,
-            depositDate: new Date(deposit.depositDate),
-            salaryMonth: new Date(deposit.salaryMonth),
-            amount: deposit.amount,
-            employer: deposit.employer.trim(),
+            depositDate: new Date(deposit.depositDate!),
+            salaryMonth: new Date(deposit.salaryMonth!),
+            amount: deposit.amount!,
+            employer: deposit.employer!.trim(),
           },
         })
       )

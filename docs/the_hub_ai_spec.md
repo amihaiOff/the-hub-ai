@@ -288,7 +288,14 @@ Const vs. non const expenses
    - Check: Is amount >20% different from average of last 3 deposits?
    - Alert showing: new amount vs. average
 
-3. **General Info** (future)
+3. **Inconsistent Owner State** (future implementation)
+   - Triggers: When owner update operation partially fails (rollback attempted)
+   - Check: If an account has no owners or owners in unexpected state
+   - Alert showing: "Owner assignment for [account name] may be incomplete. Please verify and update owners."
+   - Links to the affected account for user to manually fix
+   - Note: Currently logged server-side only; UI notification to be implemented
+
+4. **General Info** (future)
    - App updates
    - Upcoming maturity dates for bank deposits
    - Loan payoff milestones
@@ -723,7 +730,7 @@ Configured in `vercel.json`:
 
 - `id` (UUID, primary key)
 - `user_id` (UUID, foreign key → users)
-- `type` (enum: 'missing_pension_deposit' | 'deposit_amount_anomaly' | 'info')
+- `type` (enum: 'missing_pension_deposit' | 'deposit_amount_anomaly' | 'inconsistent_owner_state' | 'info')
 - `title` (string)
 - `message` (text)
 - `is_read` (boolean, default: false)

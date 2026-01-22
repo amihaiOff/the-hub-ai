@@ -250,6 +250,46 @@ describe('Portfolio Accounts API', () => {
         })
       );
     });
+
+    it('should return 400 when broker is whitespace-only', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'test@example.com',
+        name: 'Test User',
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/portfolio/accounts', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Test Account', broker: '   ' }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.success).toBe(false);
+      expect(data.error).toBe('Broker name cannot be empty or whitespace only');
+    });
+
+    it('should return 400 when broker is empty string', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'test@example.com',
+        name: 'Test User',
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/portfolio/accounts', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Test Account', broker: '' }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.success).toBe(false);
+      expect(data.error).toBe('Broker name cannot be empty or whitespace only');
+    });
   });
 
   describe('GET /api/portfolio/accounts', () => {

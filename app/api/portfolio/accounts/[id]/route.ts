@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
+import { updateAccountSchema } from '@/lib/validations/portfolio';
+import { getFirstZodError } from '@/lib/validations/common';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -62,15 +64,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
     const body = await request.json();
-    const { name, broker } = body;
+    const validation = updateAccountSchema.safeParse(body);
 
-    // Validate name if provided
-    if (name !== undefined && (typeof name !== 'string' || name.trim() === '')) {
+    if (!validation.success) {
       return NextResponse.json(
-        { success: false, error: 'Account name cannot be empty' },
+        { success: false, error: getFirstZodError(validation.error) },
         { status: 400 }
       );
     }
+
+    const { name, broker } = validation.data;
 
     // Check if account exists
     const existing = await prisma.stockAccount.findUnique({
@@ -90,8 +93,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const account = await prisma.stockAccount.update({
       where: { id },
       data: {
-        ...(name !== undefined && { name: name.trim() }),
-        ...(broker !== undefined && { broker: broker?.trim() || null }),
+        ...(name !== undefined && { name }),
+        ...(broker !== undefined && { broker: broker || null }),
       },
       include: {
         holdings: true,

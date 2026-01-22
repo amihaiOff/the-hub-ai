@@ -318,6 +318,202 @@ describe('HouseholdContext', () => {
 
       expect(result.current.selectedProfileIds).toHaveLength(2);
     });
+
+    it('should handle corrupted localStorage for selected profiles', async () => {
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
+      // Set corrupted JSON in localStorage
+      mockLocalStorage['hub-ai-selected-profiles'] = 'not-valid-json{{{';
+      (window.localStorage.getItem as jest.Mock).mockImplementation(
+        (key: string) => mockLocalStorage[key] || null
+      );
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockContextResponse),
+      });
+
+      const { result } = renderHook(() => useHouseholdContext(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      // Should default to all profiles when localStorage is corrupted
+      expect(result.current.selectedProfileIds).toHaveLength(2);
+      expect(result.current.selectedProfileIds).toContain('profile-1');
+      expect(result.current.selectedProfileIds).toContain('profile-2');
+    });
+
+    it('should filter out invalid profile IDs from localStorage', async () => {
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
+      // Set stored profile IDs that include non-existent profiles
+      mockLocalStorage['hub-ai-selected-profiles'] = JSON.stringify([
+        'profile-1',
+        'invalid-profile-id',
+      ]);
+      (window.localStorage.getItem as jest.Mock).mockImplementation(
+        (key: string) => mockLocalStorage[key] || null
+      );
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockContextResponse),
+      });
+
+      const { result } = renderHook(() => useHouseholdContext(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      // Should only include valid profile ID
+      expect(result.current.selectedProfileIds).toHaveLength(1);
+      expect(result.current.selectedProfileIds).toContain('profile-1');
+    });
+
+    it('should default to all profiles when all stored IDs are invalid', async () => {
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
+      // Set stored profile IDs that are all invalid
+      mockLocalStorage['hub-ai-selected-profiles'] = JSON.stringify(['invalid-1', 'invalid-2']);
+      (window.localStorage.getItem as jest.Mock).mockImplementation(
+        (key: string) => mockLocalStorage[key] || null
+      );
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockContextResponse),
+      });
+
+      const { result } = renderHook(() => useHouseholdContext(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      // Should default to all profiles when filtered list is empty
+      expect(result.current.selectedProfileIds).toHaveLength(2);
+      expect(result.current.selectedProfileIds).toContain('profile-1');
+      expect(result.current.selectedProfileIds).toContain('profile-2');
+    });
+
+    it('should use stored household ID from localStorage on load', async () => {
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
+      mockLocalStorage['hub-ai-active-household'] = 'stored-household-id';
+      (window.localStorage.getItem as jest.Mock).mockImplementation(
+        (key: string) => mockLocalStorage[key] || null
+      );
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockContextResponse),
+      });
+
+      renderHook(() => useHouseholdContext(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalled();
+      });
+
+      // Should fetch with stored household ID
+      expect(mockFetch).toHaveBeenCalledWith('/api/context?householdId=stored-household-id');
+    });
+
+    it('should silently ignore setActiveHouseholdId with invalid household ID', async () => {
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockContextResponse),
+      });
+
+      const { result } = renderHook(() => useHouseholdContext(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      const initialCallCount = mockFetch.mock.calls.length;
+
+      // Try to set invalid household ID
+      act(() => {
+        result.current.setActiveHouseholdId('non-existent-household');
+      });
+
+      // Should not refetch or update localStorage
+      expect(mockFetch.mock.calls.length).toBe(initialCallCount);
+      // Active household should remain unchanged
+      expect(result.current.activeHousehold?.id).toBe('household-1');
+    });
+
+    it('should refetch context when setting valid active household ID', async () => {
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
+
+      const multiHouseholdResponse = {
+        success: true,
+        data: {
+          ...mockContextResponse.data,
+          households: [
+            mockContextResponse.data.households[0],
+            {
+              id: 'household-2',
+              name: 'Second Household',
+              description: null,
+              role: 'member',
+            },
+          ],
+        },
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(multiHouseholdResponse),
+      });
+
+      const { result } = renderHook(() => useHouseholdContext(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      // Set up second fetch response
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            ...multiHouseholdResponse,
+            data: {
+              ...multiHouseholdResponse.data,
+              activeHousehold: multiHouseholdResponse.data.households[1],
+            },
+          }),
+      });
+
+      // Set valid household ID
+      act(() => {
+        result.current.setActiveHouseholdId('household-2');
+      });
+
+      await waitFor(() => {
+        expect(mockFetch.mock.calls.length).toBe(2);
+      });
+
+      // Should have stored new household ID
+      expect(window.localStorage.setItem).toHaveBeenCalledWith(
+        'hub-ai-active-household',
+        'household-2'
+      );
+    });
   });
 
   describe('useNeedsOnboarding', () => {

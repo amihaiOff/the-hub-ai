@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
+import { updateDepositSchema } from '@/lib/validations/pension';
+import { getFirstZodError } from '@/lib/validations/common';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -67,44 +69,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
     const body = await request.json();
-    const { depositDate, salaryMonth, amount, employer } = body;
+    const validation = updateDepositSchema.safeParse(body);
 
-    // Validate inputs if provided
-    let parsedDepositDate: Date | undefined;
-    if (depositDate !== undefined) {
-      parsedDepositDate = new Date(depositDate);
-      if (isNaN(parsedDepositDate.getTime())) {
-        return NextResponse.json(
-          { success: false, error: 'Invalid deposit date format' },
-          { status: 400 }
-        );
-      }
-    }
-
-    let parsedSalaryMonth: Date | undefined;
-    if (salaryMonth !== undefined) {
-      parsedSalaryMonth = new Date(salaryMonth);
-      if (isNaN(parsedSalaryMonth.getTime())) {
-        return NextResponse.json(
-          { success: false, error: 'Invalid salary month format' },
-          { status: 400 }
-        );
-      }
-    }
-
-    if (amount !== undefined && (typeof amount !== 'number' || amount <= 0)) {
+    if (!validation.success) {
       return NextResponse.json(
-        { success: false, error: 'Amount must be a positive number' },
+        { success: false, error: getFirstZodError(validation.error) },
         { status: 400 }
       );
     }
 
-    if (employer !== undefined && (typeof employer !== 'string' || employer.trim() === '')) {
-      return NextResponse.json(
-        { success: false, error: 'Employer name cannot be empty' },
-        { status: 400 }
-      );
-    }
+    const { depositDate, salaryMonth, amount, employer } = validation.data;
 
     // Check if deposit exists and include account for authorization
     const existing = await prisma.pensionDeposit.findUnique({
@@ -125,10 +99,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const deposit = await prisma.pensionDeposit.update({
       where: { id },
       data: {
-        ...(parsedDepositDate !== undefined && { depositDate: parsedDepositDate }),
-        ...(parsedSalaryMonth !== undefined && { salaryMonth: parsedSalaryMonth }),
+        ...(depositDate !== undefined && { depositDate }),
+        ...(salaryMonth !== undefined && { salaryMonth }),
         ...(amount !== undefined && { amount }),
-        ...(employer !== undefined && { employer: employer.trim() }),
+        ...(employer !== undefined && { employer }),
       },
     });
 

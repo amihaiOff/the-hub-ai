@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
+import { updateAssetSchema } from '@/lib/validations/assets';
+import { getFirstZodError } from '@/lib/validations/common';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
-
-const MAX_NAME_LENGTH = 255;
 
 /**
  * GET /api/assets/items/[id]
@@ -70,58 +70,17 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
     const body = await request.json();
-    const { name, currentValue, interestRate, monthlyPayment, monthlyDeposit, maturityDate } = body;
+    const validation = updateAssetSchema.safeParse(body);
 
-    // Validate inputs if provided
-    if (name !== undefined && (typeof name !== 'string' || name.trim() === '')) {
-      return NextResponse.json({ success: false, error: 'Name cannot be empty' }, { status: 400 });
-    }
-
-    if (name !== undefined && name.trim().length > MAX_NAME_LENGTH) {
+    if (!validation.success) {
       return NextResponse.json(
-        { success: false, error: `Name must be at most ${MAX_NAME_LENGTH} characters` },
+        { success: false, error: getFirstZodError(validation.error) },
         { status: 400 }
       );
     }
 
-    if (currentValue !== undefined && typeof currentValue !== 'number') {
-      return NextResponse.json(
-        { success: false, error: 'Current value must be a number' },
-        { status: 400 }
-      );
-    }
-
-    if (
-      interestRate !== undefined &&
-      (typeof interestRate !== 'number' || interestRate < 0 || interestRate > 100)
-    ) {
-      return NextResponse.json(
-        { success: false, error: 'Interest rate must be a percentage between 0 and 100' },
-        { status: 400 }
-      );
-    }
-
-    if (
-      monthlyPayment !== undefined &&
-      monthlyPayment !== null &&
-      (typeof monthlyPayment !== 'number' || monthlyPayment < 0)
-    ) {
-      return NextResponse.json(
-        { success: false, error: 'Monthly payment must be a non-negative number' },
-        { status: 400 }
-      );
-    }
-
-    if (
-      monthlyDeposit !== undefined &&
-      monthlyDeposit !== null &&
-      (typeof monthlyDeposit !== 'number' || monthlyDeposit < 0)
-    ) {
-      return NextResponse.json(
-        { success: false, error: 'Monthly deposit must be a non-negative number' },
-        { status: 400 }
-      );
-    }
+    const { name, currentValue, interestRate, monthlyPayment, monthlyDeposit, maturityDate } =
+      validation.data;
 
     // Check if asset exists
     const existing = await prisma.miscAsset.findUnique({
@@ -144,33 +103,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       normalizedValue = -currentValue;
     }
 
-    // Parse maturity date if provided
-    let parsedMaturityDate = undefined;
-    if (maturityDate !== undefined) {
-      if (maturityDate === null) {
-        parsedMaturityDate = null;
-      } else {
-        const date = new Date(maturityDate);
-        if (isNaN(date.getTime())) {
-          return NextResponse.json(
-            { success: false, error: 'Invalid maturity date format' },
-            { status: 400 }
-          );
-        }
-        parsedMaturityDate = date;
-      }
-    }
-
     // Update the asset
     const asset = await prisma.miscAsset.update({
       where: { id },
       data: {
-        ...(name !== undefined && { name: name.trim() }),
+        ...(name !== undefined && { name }),
         ...(normalizedValue !== undefined && { currentValue: normalizedValue }),
         ...(interestRate !== undefined && { interestRate }),
         ...(monthlyPayment !== undefined && { monthlyPayment }),
         ...(monthlyDeposit !== undefined && { monthlyDeposit }),
-        ...(parsedMaturityDate !== undefined && { maturityDate: parsedMaturityDate }),
+        ...(maturityDate !== undefined && { maturityDate }),
       },
     });
 
