@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
+import { z } from 'zod';
+
+const createPensionAccountSchema = z.object({
+  type: z.enum(['pension', 'hishtalmut']),
+  providerName: z.string().trim().min(1).max(200),
+  accountName: z.string().trim().min(1).max(200),
+  currentValue: z.number().nonnegative(),
+  feeFromDeposit: z.number().min(0).max(100),
+  feeFromTotal: z.number().min(0).max(100),
+});
 
 /**
  * POST /api/pension/accounts
@@ -15,71 +25,24 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { type, providerName, accountName, currentValue, feeFromDeposit, feeFromTotal } = body;
+    const validation = createPensionAccountSchema.safeParse(body);
 
-    // Validate type
-    if (!type || !['pension', 'hishtalmut'].includes(type)) {
+    if (!validation.success) {
       return NextResponse.json(
-        { success: false, error: 'Type must be "pension" or "hishtalmut"' },
+        { success: false, error: 'Invalid data', details: validation.error.format() },
         { status: 400 }
       );
     }
 
-    // Validate provider name
-    if (!providerName || typeof providerName !== 'string' || providerName.trim() === '') {
-      return NextResponse.json(
-        { success: false, error: 'Provider name is required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate account name
-    if (!accountName || typeof accountName !== 'string' || accountName.trim() === '') {
-      return NextResponse.json(
-        { success: false, error: 'Account name is required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate current value
-    if (currentValue === undefined || typeof currentValue !== 'number' || currentValue < 0) {
-      return NextResponse.json(
-        { success: false, error: 'Current value must be a non-negative number' },
-        { status: 400 }
-      );
-    }
-
-    // Validate fees (percentage as decimal, e.g., 0.5 for 0.5%)
-    if (
-      feeFromDeposit === undefined ||
-      typeof feeFromDeposit !== 'number' ||
-      feeFromDeposit < 0 ||
-      feeFromDeposit > 100
-    ) {
-      return NextResponse.json(
-        { success: false, error: 'Fee from deposit must be a percentage between 0 and 100' },
-        { status: 400 }
-      );
-    }
-
-    if (
-      feeFromTotal === undefined ||
-      typeof feeFromTotal !== 'number' ||
-      feeFromTotal < 0 ||
-      feeFromTotal > 100
-    ) {
-      return NextResponse.json(
-        { success: false, error: 'Fee from total must be a percentage between 0 and 100' },
-        { status: 400 }
-      );
-    }
+    const { type, providerName, accountName, currentValue, feeFromDeposit, feeFromTotal } =
+      validation.data;
 
     // Create the account (avoid include for Neon serverless compatibility)
     const account = await prisma.pensionAccount.create({
       data: {
         type,
-        providerName: providerName.trim(),
-        accountName: accountName.trim(),
+        providerName,
+        accountName,
         currentValue,
         feeFromDeposit,
         feeFromTotal,

@@ -129,17 +129,9 @@ describe('Misc Asset Owners API', () => {
     it('should return 403 when no owner is in user household', async () => {
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
 
+      // Mock returns only profileId (API uses select: { profileId: true })
       const owners = [
-        {
-          assetId: 'cm1234567890assetidabc',
-          profileId: 'cm1234567890otherprofi',
-          profile: {
-            id: 'cm1234567890otherprofi',
-            name: 'Other Person',
-            image: null,
-            color: '#ef4444',
-          },
-        },
+        { profileId: 'cm1234567890otherprofi' }, // Not in household
       ];
 
       (prisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce(owners);
@@ -177,18 +169,9 @@ describe('Misc Asset Owners API', () => {
     it('should return owners list successfully', async () => {
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
 
-      const owners = [
-        {
-          assetId: 'cm1234567890assetidabc',
-          profileId: 'cm1234567890profile2abc',
-          profile: {
-            id: 'cm1234567890profile2abc',
-            name: 'Child',
-            image: null,
-            color: '#f59e0b',
-          },
-        },
-      ];
+      // Mock returns only profileId (API uses select: { profileId: true })
+      // Profile details are looked up from householdProfiles in context
+      const owners = [{ profileId: 'cm1234567890profile2abc' }];
 
       (prisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce(owners);
 
@@ -210,27 +193,11 @@ describe('Misc Asset Owners API', () => {
     it('should return multiple owners', async () => {
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
 
+      // Mock returns only profileId (API uses select: { profileId: true })
+      // Profile details are looked up from householdProfiles in context
       const owners = [
-        {
-          assetId: 'cm1234567890assetidabc',
-          profileId: 'cm1234567890abcdefghij',
-          profile: {
-            id: 'cm1234567890abcdefghij',
-            name: 'Test User',
-            image: 'https://example.com/avatar.png',
-            color: '#3b82f6',
-          },
-        },
-        {
-          assetId: 'cm1234567890assetidabc',
-          profileId: 'cm1234567890profile2abc',
-          profile: {
-            id: 'cm1234567890profile2abc',
-            name: 'Child',
-            image: null,
-            color: '#f59e0b',
-          },
-        },
+        { profileId: 'cm1234567890abcdefghij' },
+        { profileId: 'cm1234567890profile2abc' },
       ];
 
       (prisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce(owners);

@@ -162,7 +162,8 @@ describe('Pension Accounts API', () => {
 
       expect(response.status).toBe(400);
       expect(data.success).toBe(false);
-      expect(data.error).toContain('Type must be');
+      expect(data.error).toBe('Invalid data');
+      expect(data.details).toBeDefined();
     });
 
     it('should return 400 for missing provider name', async () => {
@@ -185,7 +186,8 @@ describe('Pension Accounts API', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toContain('Provider name');
+      expect(data.error).toBe('Invalid data');
+      expect(data.details).toBeDefined();
     });
 
     it('should return 400 for negative current value', async () => {
@@ -208,7 +210,8 @@ describe('Pension Accounts API', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toContain('non-negative');
+      expect(data.error).toBe('Invalid data');
+      expect(data.details).toBeDefined();
     });
 
     it('should return 400 for fee > 100%', async () => {
@@ -231,7 +234,8 @@ describe('Pension Accounts API', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toContain('percentage between 0 and 100');
+      expect(data.error).toBe('Invalid data');
+      expect(data.details).toBeDefined();
     });
   });
 

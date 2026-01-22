@@ -188,8 +188,16 @@ export async function POST(request: NextRequest) {
         },
       });
     } catch (innerError) {
-      // Cleanup: delete the profile we created if subsequent steps failed
+      // Cleanup: delete household and profile we created if subsequent steps failed
       console.error(`Onboarding failed at step "${step}", cleaning up:`, innerError);
+      try {
+        // Delete household first (will cascade to household members)
+        if (household) {
+          await prisma.household.delete({ where: { id: household.id } });
+        }
+      } catch (cleanupError) {
+        console.error('Failed to cleanup household:', cleanupError);
+      }
       try {
         await prisma.profile.delete({ where: { id: profile.id } });
       } catch (cleanupError) {

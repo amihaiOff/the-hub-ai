@@ -12,7 +12,7 @@ const updateOwnersSchema = z.object({
  * GET /api/portfolio/accounts/[id]/owners
  * Get current owners of a stock account
  */
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: rawId } = await params;
     const idValidation = validateCuid(rawId);
@@ -73,10 +73,35 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (!idValidation.valid) return idValidation.response;
     const id = idValidation.id;
 
+    // Parse and validate body BEFORE any DB operations
+    const body = await request.json();
+    const validation = updateOwnersSchema.safeParse(body);
+
+    if (!validation.success) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid data', details: validation.error.format() },
+        { status: 400 }
+      );
+    }
+
+    const { profileIds } = validation.data;
+
     const context = await getCurrentContext();
 
     if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Verify all profiles are in the household (early validation)
+    const validProfileIds = profileIds.filter((pid) =>
+      context.householdProfiles.some((hp) => hp.id === pid)
+    );
+
+    if (validProfileIds.length !== profileIds.length) {
+      return NextResponse.json(
+        { success: false, error: 'Some profiles are not in your household' },
+        { status: 400 }
+      );
     }
 
     // Verify account exists and user has access
@@ -104,48 +129,51 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    const body = await request.json();
-    const validation = updateOwnersSchema.safeParse(body);
-
-    if (!validation.success) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid data', details: validation.error.format() },
-        { status: 400 }
-      );
-    }
-
-    const { profileIds } = validation.data;
-
-    // Verify all profiles are in the household
-    const validProfileIds = profileIds.filter((pid) =>
-      context.householdProfiles.some((hp) => hp.id === pid)
-    );
-
-    if (validProfileIds.length !== profileIds.length) {
-      return NextResponse.json(
-        { success: false, error: 'Some profiles are not in your household' },
-        { status: 400 }
-      );
-    }
-
-    // Replace owners (sequential operations for Neon serverless compatibility)
+    // Replace owners with rollback on failure
     // Delete existing owners
     await prisma.stockAccountOwner.deleteMany({
       where: { accountId: id },
     });
 
     // Create new owners one by one (createMany has issues with Neon HTTP fetch mode)
-    for (const profileId of validProfileIds) {
-      await prisma.stockAccountOwner.create({
-        data: {
-          accountId: id,
-          profileId,
-        },
-      });
+    // Track created owners for potential rollback
+    const createdOwnerIds: string[] = [];
+    try {
+      for (const profileId of validProfileIds) {
+        await prisma.stockAccountOwner.create({
+          data: {
+            accountId: id,
+            profileId,
+          },
+        });
+        createdOwnerIds.push(profileId);
+      }
+    } catch (createError) {
+      // Rollback: restore previous owners
+      console.error('Error creating new owners, rolling back:', createError);
+      try {
+        // Delete any partially created owners
+        if (createdOwnerIds.length > 0) {
+          await prisma.stockAccountOwner.deleteMany({
+            where: { accountId: id },
+          });
+        }
+        // Restore original owners
+        for (const profileId of currentOwnerIds) {
+          await prisma.stockAccountOwner.create({
+            data: {
+              accountId: id,
+              profileId,
+            },
+          });
+        }
+      } catch (rollbackError) {
+        console.error('Rollback failed:', rollbackError);
+      }
+      throw createError;
     }
 
     // Return profile details from context (avoids additional DB query with include)
-    // Since we just created owners from validProfileIds, use those directly
     const profileData = validProfileIds
       .map((pid) => context.householdProfiles.find((hp) => hp.id === pid))
       .filter((p) => p !== undefined)
@@ -162,27 +190,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     });
   } catch (error) {
     console.error('Error updating owners:', error);
-    // Extract error info - handle ErrorEvent from Neon websocket
-    let errorName = 'Unknown';
-    let errorMessage = 'Unknown error';
-    if (error instanceof Error) {
-      errorName = error.name;
-      errorMessage = error.message;
-    } else if (error && typeof error === 'object') {
-      // Handle ErrorEvent or other event-like objects
-      const errObj = error as { message?: string; error?: Error; type?: string };
-      errorName = errObj.type || 'ErrorEvent';
-      errorMessage = errObj.message || errObj.error?.message || JSON.stringify(error);
-    } else {
-      errorMessage = String(error);
-    }
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to update owners',
-        debug: { name: errorName, message: errorMessage },
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to update owners' }, { status: 500 });
   }
 }

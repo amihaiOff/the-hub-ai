@@ -131,17 +131,9 @@ describe('Stock Account Owners API', () => {
     it('should return 403 when no owner is in user household', async () => {
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
 
+      // Mock returns only profileId (API uses select: { profileId: true })
       const owners = [
-        {
-          accountId: 'cm1234567890accountabc',
-          profileId: 'cm1234567890otherprofi', // Not in household
-          profile: {
-            id: 'cm1234567890otherprofi',
-            name: 'Other Person',
-            image: null,
-            color: '#ef4444',
-          },
-        },
+        { profileId: 'cm1234567890otherprofi' }, // Not in household
       ];
 
       (prisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(owners);
@@ -179,27 +171,11 @@ describe('Stock Account Owners API', () => {
     it('should return owners list successfully', async () => {
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
 
+      // Mock returns only profileId (API uses select: { profileId: true })
+      // Profile details are looked up from householdProfiles in context
       const owners = [
-        {
-          accountId: 'cm1234567890accountabc',
-          profileId: 'cm1234567890abcdefghij',
-          profile: {
-            id: 'cm1234567890abcdefghij',
-            name: 'Test User',
-            image: 'https://example.com/avatar.png',
-            color: '#3b82f6',
-          },
-        },
-        {
-          accountId: 'cm1234567890accountabc',
-          profileId: 'cm1234567890profile2abc',
-          profile: {
-            id: 'cm1234567890profile2abc',
-            name: 'Family Member',
-            image: null,
-            color: '#10b981',
-          },
-        },
+        { profileId: 'cm1234567890abcdefghij' },
+        { profileId: 'cm1234567890profile2abc' },
       ];
 
       (prisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(owners);
