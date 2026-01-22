@@ -55,26 +55,29 @@ export async function POST(request: NextRequest) {
 
     const { name, description } = validation.data;
 
-    const household = await prisma.$transaction(async (tx) => {
-      // Create household
-      const newHousehold = await tx.household.create({
-        data: {
-          name,
-          description,
-        },
-      });
+    // Note: Not using interactive transaction for Neon serverless compatibility
+    // If member creation fails, we clean up the household
+    const household = await prisma.household.create({
+      data: {
+        name,
+        description,
+      },
+    });
 
+    try {
       // Add current profile as owner
-      await tx.householdMember.create({
+      await prisma.householdMember.create({
         data: {
-          householdId: newHousehold.id,
+          householdId: household.id,
           profileId: context.profile.id,
           role: 'owner',
         },
       });
-
-      return newHousehold;
-    });
+    } catch (memberError) {
+      // Rollback: delete the household if member creation fails
+      await prisma.household.delete({ where: { id: household.id } });
+      throw memberError;
+    }
 
     return NextResponse.json({
       success: true,

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getStockPrices, isStockPriceError } from '@/lib/api/stock-price';
 
+// Extend timeout for snapshot creation with many holdings
+export const maxDuration = 60;
+
 /**
  * GET /api/cron/create-snapshot
  * Creates net worth snapshots on the 1st and 15th of each month

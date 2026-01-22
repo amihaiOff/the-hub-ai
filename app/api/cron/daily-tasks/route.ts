@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { updateStockPriceCache, isStockPriceError } from '@/lib/api/stock-price';
 
+// Extend timeout for cron job processing many stock symbols
+export const maxDuration = 60;
+
 /**
  * GET /api/cron/daily-tasks
  * Combined daily cron job that:

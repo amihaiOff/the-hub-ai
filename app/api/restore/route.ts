@@ -4,6 +4,9 @@ import { prisma } from '@/lib/db';
 import JSZip from 'jszip';
 import { HouseholdRole, PensionAccountType, MiscAssetType } from '@prisma/client';
 
+// Extend timeout for restore operations (Neon serverless can be slow)
+export const maxDuration = 60;
+
 interface BackupMetadata {
   backupDate: string;
   schemaVersion: string;
@@ -106,24 +109,27 @@ export async function POST(request: NextRequest) {
     // Insert data in order of dependencies (parents before children)
     console.log('Restoring data...');
 
+    // Note: Using individual create calls instead of createMany for Neon compatibility
+    // createMany has issues with Neon's HTTP fetch mode (poolQueryViaFetch: true)
+
     // 1. Users
-    if (users.length > 0) {
-      await prisma.user.createMany({
-        data: users.map((u) => ({
+    for (const u of users) {
+      await prisma.user.create({
+        data: {
           id: u.id as string,
           email: u.email as string,
           name: u.name as string | null,
           image: u.image as string | null,
           createdAt: new Date(u.createdAt as string),
           updatedAt: new Date(u.updatedAt as string),
-        })),
+        },
       });
     }
 
     // 2. Profiles
-    if (profiles.length > 0) {
-      await prisma.profile.createMany({
-        data: profiles.map((p) => ({
+    for (const p of profiles) {
+      await prisma.profile.create({
+        data: {
           id: p.id as string,
           name: p.name as string,
           image: p.image as string | null,
@@ -131,40 +137,40 @@ export async function POST(request: NextRequest) {
           userId: p.userId as string | null,
           createdAt: new Date(p.createdAt as string),
           updatedAt: new Date(p.updatedAt as string),
-        })),
+        },
       });
     }
 
     // 3. Households
-    if (households.length > 0) {
-      await prisma.household.createMany({
-        data: households.map((h) => ({
+    for (const h of households) {
+      await prisma.household.create({
+        data: {
           id: h.id as string,
           name: h.name as string,
           description: h.description as string | null,
           createdAt: new Date(h.createdAt as string),
           updatedAt: new Date(h.updatedAt as string),
-        })),
+        },
       });
     }
 
     // 4. Household Members
-    if (householdMembers.length > 0) {
-      await prisma.householdMember.createMany({
-        data: householdMembers.map((hm) => ({
+    for (const hm of householdMembers) {
+      await prisma.householdMember.create({
+        data: {
           id: hm.id as string,
           householdId: hm.householdId as string,
           profileId: hm.profileId as string,
           role: hm.role as HouseholdRole,
           joinedAt: new Date(hm.joinedAt as string),
-        })),
+        },
       });
     }
 
     // 5. Stock Accounts
-    if (stockAccounts.length > 0) {
-      await prisma.stockAccount.createMany({
-        data: stockAccounts.map((sa) => ({
+    for (const sa of stockAccounts) {
+      await prisma.stockAccount.create({
+        data: {
           id: sa.id as string,
           name: sa.name as string,
           broker: sa.broker as string | null,
@@ -172,25 +178,25 @@ export async function POST(request: NextRequest) {
           userId: sa.userId as string | null,
           createdAt: new Date(sa.createdAt as string),
           updatedAt: new Date(sa.updatedAt as string),
-        })),
+        },
       });
     }
 
     // 6. Stock Account Owners
-    if (stockAccountOwners.length > 0) {
-      await prisma.stockAccountOwner.createMany({
-        data: stockAccountOwners.map((sao) => ({
+    for (const sao of stockAccountOwners) {
+      await prisma.stockAccountOwner.create({
+        data: {
           id: sao.id as string,
           accountId: sao.accountId as string,
           profileId: sao.profileId as string,
-        })),
+        },
       });
     }
 
     // 7. Stock Holdings
-    if (stockHoldings.length > 0) {
-      await prisma.stockHolding.createMany({
-        data: stockHoldings.map((sh) => ({
+    for (const sh of stockHoldings) {
+      await prisma.stockHolding.create({
+        data: {
           id: sh.id as string,
           symbol: sh.symbol as string,
           quantity: sh.quantity as number,
@@ -198,26 +204,26 @@ export async function POST(request: NextRequest) {
           accountId: sh.accountId as string,
           createdAt: new Date(sh.createdAt as string),
           updatedAt: new Date(sh.updatedAt as string),
-        })),
+        },
       });
     }
 
     // 8. Stock Price History
-    if (stockPriceHistory.length > 0) {
-      await prisma.stockPriceHistory.createMany({
-        data: stockPriceHistory.map((sph) => ({
+    for (const sph of stockPriceHistory) {
+      await prisma.stockPriceHistory.create({
+        data: {
           id: sph.id as string,
           symbol: sph.symbol as string,
           price: sph.price as number,
           timestamp: new Date(sph.timestamp as string),
-        })),
+        },
       });
     }
 
     // 9. Pension Accounts
-    if (pensionAccounts.length > 0) {
-      await prisma.pensionAccount.createMany({
-        data: pensionAccounts.map((pa) => ({
+    for (const pa of pensionAccounts) {
+      await prisma.pensionAccount.create({
+        data: {
           id: pa.id as string,
           type: pa.type as PensionAccountType,
           providerName: pa.providerName as string,
@@ -228,25 +234,25 @@ export async function POST(request: NextRequest) {
           userId: pa.userId as string | null,
           createdAt: new Date(pa.createdAt as string),
           updatedAt: new Date(pa.updatedAt as string),
-        })),
+        },
       });
     }
 
     // 10. Pension Account Owners
-    if (pensionAccountOwners.length > 0) {
-      await prisma.pensionAccountOwner.createMany({
-        data: pensionAccountOwners.map((pao) => ({
+    for (const pao of pensionAccountOwners) {
+      await prisma.pensionAccountOwner.create({
+        data: {
           id: pao.id as string,
           accountId: pao.accountId as string,
           profileId: pao.profileId as string,
-        })),
+        },
       });
     }
 
     // 11. Pension Deposits
-    if (pensionDeposits.length > 0) {
-      await prisma.pensionDeposit.createMany({
-        data: pensionDeposits.map((pd) => ({
+    for (const pd of pensionDeposits) {
+      await prisma.pensionDeposit.create({
+        data: {
           id: pd.id as string,
           depositDate: new Date(pd.depositDate as string),
           salaryMonth: new Date(pd.salaryMonth as string),
@@ -254,14 +260,14 @@ export async function POST(request: NextRequest) {
           employer: pd.employer as string,
           accountId: pd.accountId as string,
           createdAt: new Date(pd.createdAt as string),
-        })),
+        },
       });
     }
 
     // 12. Misc Assets
-    if (miscAssets.length > 0) {
-      await prisma.miscAsset.createMany({
-        data: miscAssets.map((ma) => ({
+    for (const ma of miscAssets) {
+      await prisma.miscAsset.create({
+        data: {
           id: ma.id as string,
           type: ma.type as MiscAssetType,
           name: ma.name as string,
@@ -273,25 +279,25 @@ export async function POST(request: NextRequest) {
           userId: ma.userId as string | null,
           createdAt: new Date(ma.createdAt as string),
           updatedAt: new Date(ma.updatedAt as string),
-        })),
+        },
       });
     }
 
     // 13. Misc Asset Owners
-    if (miscAssetOwners.length > 0) {
-      await prisma.miscAssetOwner.createMany({
-        data: miscAssetOwners.map((mao) => ({
+    for (const mao of miscAssetOwners) {
+      await prisma.miscAssetOwner.create({
+        data: {
           id: mao.id as string,
           assetId: mao.assetId as string,
           profileId: mao.profileId as string,
-        })),
+        },
       });
     }
 
     // 14. Net Worth Snapshots
-    if (netWorthSnapshots.length > 0) {
-      await prisma.netWorthSnapshot.createMany({
-        data: netWorthSnapshots.map((nws) => ({
+    for (const nws of netWorthSnapshots) {
+      await prisma.netWorthSnapshot.create({
+        data: {
           id: nws.id as string,
           userId: nws.userId as string,
           date: new Date(nws.date as string),
@@ -300,7 +306,7 @@ export async function POST(request: NextRequest) {
           pension: nws.pension as number,
           assets: nws.assets as number,
           createdAt: new Date(nws.createdAt as string),
-        })),
+        },
       });
     }
 

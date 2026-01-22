@@ -3,6 +3,9 @@ import { getCurrentUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import JSZip from 'jszip';
 
+// Extend timeout for backup operations with large datasets
+export const maxDuration = 60;
+
 /**
  * GET /api/backup
  * Creates a full database backup as a downloadable ZIP file

@@ -215,17 +215,9 @@ describe('Households API', () => {
         description: 'A new household',
       };
 
-      (prisma.$transaction as jest.Mock).mockImplementationOnce(async (callback) => {
-        const tx = {
-          household: {
-            create: jest.fn().mockResolvedValueOnce(newHousehold),
-          },
-          householdMember: {
-            create: jest.fn().mockResolvedValueOnce({}),
-          },
-        };
-        return callback(tx);
-      });
+      // Mock direct create calls (no transaction for Neon serverless compatibility)
+      (prisma.household.create as jest.Mock).mockResolvedValueOnce(newHousehold);
+      (prisma.householdMember.create as jest.Mock).mockResolvedValueOnce({});
 
       const request = new NextRequest('http://localhost:3000/api/households', {
         method: 'POST',
@@ -250,17 +242,9 @@ describe('Households API', () => {
         description: null,
       };
 
-      (prisma.$transaction as jest.Mock).mockImplementationOnce(async (callback) => {
-        const tx = {
-          household: {
-            create: jest.fn().mockResolvedValueOnce(newHousehold),
-          },
-          householdMember: {
-            create: jest.fn().mockResolvedValueOnce({}),
-          },
-        };
-        return callback(tx);
-      });
+      // Mock direct create calls (no transaction for Neon serverless compatibility)
+      (prisma.household.create as jest.Mock).mockResolvedValueOnce(newHousehold);
+      (prisma.householdMember.create as jest.Mock).mockResolvedValueOnce({});
 
       const request = new NextRequest('http://localhost:3000/api/households', {
         method: 'POST',
@@ -275,9 +259,9 @@ describe('Households API', () => {
       expect(data.data.description).toBeNull();
     });
 
-    it('should return 500 on transaction failure', async () => {
+    it('should return 500 on database failure', async () => {
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
-      (prisma.$transaction as jest.Mock).mockRejectedValueOnce(new Error('Transaction failed'));
+      (prisma.household.create as jest.Mock).mockRejectedValueOnce(new Error('Database error'));
 
       const request = new NextRequest('http://localhost:3000/api/households', {
         method: 'POST',
@@ -290,6 +274,38 @@ describe('Households API', () => {
       expect(response.status).toBe(500);
       expect(data.success).toBe(false);
       expect(data.error).toBe('Failed to create household');
+    });
+
+    it('should rollback household on member creation failure', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+
+      const newHousehold = {
+        id: 'cm1234567890newhouseh',
+        name: 'New Household',
+        description: null,
+      };
+
+      // Household creates successfully, but member creation fails
+      (prisma.household.create as jest.Mock).mockResolvedValueOnce(newHousehold);
+      (prisma.householdMember.create as jest.Mock).mockRejectedValueOnce(
+        new Error('Member creation failed')
+      );
+      (prisma.household.delete as jest.Mock).mockResolvedValueOnce({});
+
+      const request = new NextRequest('http://localhost:3000/api/households', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'New Household' }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data.success).toBe(false);
+      // Verify rollback was attempted
+      expect(prisma.household.delete).toHaveBeenCalledWith({
+        where: { id: newHousehold.id },
+      });
     });
   });
 

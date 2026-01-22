@@ -9,10 +9,22 @@ import JSZip from 'jszip';
 // Track operation order for testing
 const operationOrder: string[] = [];
 
+// Track which models have been created (to record only first create per model)
+const createdModels = new Set<string>();
+
 // Helper to create mock functions that track operations
+// Note: Using individual create calls instead of createMany for Neon compatibility
 const createMockFns = (name: string) => ({
   deleteMany: jest.fn().mockImplementation(() => operationOrder.push(`delete:${name}`)),
-  createMany: jest.fn().mockImplementation(() => operationOrder.push(`create:${name}`)),
+  createMany: jest.fn().mockImplementation(() => operationOrder.push(`createMany:${name}`)),
+  // Track only the first create per model to verify ordering
+  create: jest.fn().mockImplementation(() => {
+    if (!createdModels.has(name)) {
+      operationOrder.push(`create:${name}`);
+      createdModels.add(name);
+    }
+    return { id: 'mock-id' };
+  }),
 });
 
 // Mock Prisma client - no transaction (Neon serverless compatible)
@@ -98,6 +110,7 @@ describe('Restore API', () => {
     jest.clearAllMocks();
     // Clear operation order tracking
     operationOrder.length = 0;
+    createdModels.clear();
   });
 
   describe('POST /api/restore', () => {
@@ -382,10 +395,10 @@ describe('Restore API', () => {
 
       expect(response.status).toBe(200);
       expect(responseData.success).toBe(true);
-      // Verify data was created
-      expect(mockPrisma.user.createMany).toHaveBeenCalled();
-      expect(mockPrisma.profile.createMany).toHaveBeenCalled();
-      expect(mockPrisma.stockAccount.createMany).toHaveBeenCalled();
+      // Verify data was created (using individual create calls for Neon compatibility)
+      expect(mockPrisma.user.create).toHaveBeenCalled();
+      expect(mockPrisma.profile.create).toHaveBeenCalled();
+      expect(mockPrisma.stockAccount.create).toHaveBeenCalled();
     });
 
     it('should handle database errors gracefully', async () => {

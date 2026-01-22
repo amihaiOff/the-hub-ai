@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { parseMeitavPdf } from '@/lib/pdf/meitav-parser';
 
+// Extend timeout for PDF parsing which can be slow
+export const maxDuration = 30;
+
 /**
  * POST /api/pension/parse-pdf
  * Upload and parse a pension PDF file to extract deposit data
