@@ -47,11 +47,34 @@ jest.mock('@/lib/utils/portfolio', () => ({
   })),
 }));
 
+// Mock global fetch for exchange rates
+const mockFetch = jest.fn();
+global.fetch = mockFetch;
+
 import { GET } from '../route';
+
+// Helper to create mock exchange rate response
+function createExchangeRateResponse(rate: number) {
+  return {
+    ok: true,
+    json: async () => ({
+      chart: {
+        result: [{ meta: { regularMarketPrice: rate } }],
+      },
+    }),
+  };
+}
 
 describe('Portfolio API', () => {
   beforeEach(() => {
     jest.resetAllMocks();
+    // Default mock for exchange rates (returns valid rates)
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('USDILS')) return Promise.resolve(createExchangeRateResponse(3.6));
+      if (url.includes('EURILS')) return Promise.resolve(createExchangeRateResponse(3.9));
+      if (url.includes('GBPILS')) return Promise.resolve(createExchangeRateResponse(4.5));
+      return Promise.resolve({ ok: false });
+    });
   });
 
   const mockUser = {
@@ -120,8 +143,14 @@ describe('Portfolio API', () => {
       ]);
 
       const pricesMap = new Map([
-        ['AAPL', { symbol: 'AAPL', price: 175, timestamp: new Date(), fromCache: true }],
-        ['GOOGL', { symbol: 'GOOGL', price: 145, timestamp: new Date(), fromCache: true }],
+        [
+          'AAPL',
+          { symbol: 'AAPL', price: 175, currency: 'USD', timestamp: new Date(), fromCache: true },
+        ],
+        [
+          'GOOGL',
+          { symbol: 'GOOGL', price: 145, currency: 'USD', timestamp: new Date(), fromCache: true },
+        ],
       ]);
       mockGetStockPrices.mockResolvedValue(pricesMap);
       mockIsStockPriceError.mockReturnValue(false);

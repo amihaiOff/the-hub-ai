@@ -9,8 +9,10 @@ export interface HoldingWithPrice {
   symbol: string;
   quantity: DecimalLike | number | string;
   avgCostBasis: DecimalLike | number | string;
-  currentPrice: DecimalLike | number | string;
-  priceCurrency?: string; // Currency the price is quoted in (e.g., "GBP" for EIMI.L)
+  currentPrice: DecimalLike | number | string; // Price in account's currency (after conversion if needed)
+  // Original price from data source (before conversion) - for display purposes
+  originalPrice?: DecimalLike | number | string;
+  originalPriceCurrency?: string; // Currency of original price (e.g., "GBP" for EIMI.L)
 }
 
 export interface HoldingValue {
@@ -18,8 +20,10 @@ export interface HoldingValue {
   symbol: string;
   quantity: number;
   avgCostBasis: number;
-  currentPrice: number;
-  priceCurrency?: string; // Currency the price is quoted in (e.g., "GBP" for EIMI.L)
+  currentPrice: number; // Price in account's currency (after conversion if needed)
+  // Original price from data source (before conversion) - for display purposes
+  originalPrice?: number;
+  originalPriceCurrency?: string; // Currency of original price (e.g., "GBP" for EIMI.L)
   currentValue: number;
   costBasis: number;
   gainLoss: number;
@@ -118,11 +122,13 @@ export function calculateGainLossPercent(currentValue: number, costBasis: number
 
 /**
  * Calculate all values for a single holding
+ * currentPrice should already be in the account's currency
  */
 export function calculateHoldingDetails(holding: HoldingWithPrice): HoldingValue {
   const quantity = toNumber(holding.quantity);
   const avgCostBasis = toNumber(holding.avgCostBasis);
   const currentPrice = toNumber(holding.currentPrice);
+  const originalPrice = holding.originalPrice ? toNumber(holding.originalPrice) : undefined;
 
   const currentValue = calculateHoldingValue(quantity, currentPrice);
   const costBasis = calculateCostBasis(quantity, avgCostBasis);
@@ -135,7 +141,8 @@ export function calculateHoldingDetails(holding: HoldingWithPrice): HoldingValue
     quantity,
     avgCostBasis,
     currentPrice,
-    priceCurrency: holding.priceCurrency,
+    originalPrice,
+    originalPriceCurrency: holding.originalPriceCurrency,
     currentValue,
     costBasis,
     gainLoss,
