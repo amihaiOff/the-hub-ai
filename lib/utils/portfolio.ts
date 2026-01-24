@@ -7,6 +7,8 @@ interface DecimalLike {
 export interface HoldingWithPrice {
   id: string;
   symbol: string;
+  name?: string | null; // Full stock name (e.g., "Apple Inc.")
+  taseSymbol?: string | null; // TASE equivalent symbol for dual-listed stocks
   quantity: DecimalLike | number | string;
   avgCostBasis: DecimalLike | number | string;
   currentPrice: DecimalLike | number | string; // Price in account's currency (after conversion if needed)
@@ -18,6 +20,8 @@ export interface HoldingWithPrice {
 export interface HoldingValue {
   id: string;
   symbol: string;
+  name?: string | null; // Full stock name (e.g., "Apple Inc.")
+  taseSymbol?: string | null; // TASE equivalent symbol for dual-listed stocks
   quantity: number;
   avgCostBasis: number;
   currentPrice: number; // Price in account's currency (after conversion if needed)
@@ -138,6 +142,8 @@ export function calculateHoldingDetails(holding: HoldingWithPrice): HoldingValue
   return {
     id: holding.id,
     symbol: holding.symbol,
+    name: holding.name,
+    taseSymbol: holding.taseSymbol,
     quantity,
     avgCostBasis,
     currentPrice,

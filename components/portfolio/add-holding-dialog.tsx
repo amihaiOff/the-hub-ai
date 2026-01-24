@@ -32,6 +32,8 @@ export function AddHoldingDialog({
   // Cost basis is always entered in the account's native currency
   const [open, setOpen] = useState(false);
   const [symbol, setSymbol] = useState('');
+  const [stockName, setStockName] = useState('');
+  const [subtitle, setSubtitle] = useState('');
   const [quantity, setQuantity] = useState('');
   const [avgCostBasis, setAvgCostBasis] = useState('');
   const [error, setError] = useState('');
@@ -64,10 +66,14 @@ export function AddHoldingDialog({
       await createHolding.mutateAsync({
         accountId,
         symbol: symbol.toUpperCase().trim(),
+        name: stockName || undefined,
+        taseSymbol: subtitle.trim() || undefined,
         quantity: qty,
         avgCostBasis: cost,
       });
       setSymbol('');
+      setStockName('');
+      setSubtitle('');
       setQuantity('');
       setAvgCostBasis('');
       setOpen(false);
@@ -104,8 +110,17 @@ export function AddHoldingDialog({
               <Autocomplete
                 id="symbol"
                 value={symbol}
-                onChange={(value) => setSymbol(value.toUpperCase())}
-                onSelect={(option) => setSymbol(option.value)}
+                onChange={(value) => {
+                  setSymbol(value.toUpperCase());
+                  // Clear stock name if user types manually
+                  if (!options.find((o) => o.value === value.toUpperCase())) {
+                    setStockName('');
+                  }
+                }}
+                onSelect={(option) => {
+                  setSymbol(option.value);
+                  setStockName(option.label); // Capture the stock name
+                }}
                 options={options}
                 isLoading={isSearching}
                 placeholder="e.g., AAPL, GOOGL, MSFT"
@@ -145,6 +160,19 @@ export function AddHoldingDialog({
               />
               <p className="text-muted-foreground text-xs">
                 Average price per share in {accountCurrency}
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="subtitle">Subtitle</Label>
+              <Input
+                id="subtitle"
+                type="text"
+                value={subtitle}
+                onChange={(e) => setSubtitle(e.target.value)}
+                placeholder="e.g., TASE: 1159169"
+              />
+              <p className="text-muted-foreground text-xs">
+                Additional info shown in tooltip (optional)
               </p>
             </div>
           </div>

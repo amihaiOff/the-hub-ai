@@ -71,6 +71,7 @@ async function updateAccount(params: {
   id: string;
   name?: string;
   broker?: string | null;
+  currency?: string;
 }): Promise<StockAccount> {
   const { id, ...updateData } = params;
 
@@ -104,6 +105,8 @@ async function deleteAccount(accountId: string): Promise<void> {
 async function createHolding(params: {
   accountId: string;
   symbol: string;
+  name?: string;
+  taseSymbol?: string;
   quantity: number;
   avgCostBasis: number;
 }): Promise<StockHolding> {
@@ -126,6 +129,8 @@ async function updateHolding(params: {
   id: string;
   quantity?: number;
   avgCostBasis?: number;
+  name?: string | null;
+  taseSymbol?: string | null;
 }): Promise<StockHolding> {
   const { id, ...updateData } = params;
 

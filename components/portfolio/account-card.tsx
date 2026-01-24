@@ -178,7 +178,7 @@ export function AccountCard({ account }: AccountCardProps) {
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
                     <Pencil className="mr-2 h-4 w-4" />
-                    Edit name & broker
+                    Edit account
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -198,6 +198,7 @@ export function AccountCard({ account }: AccountCardProps) {
             accountId={account.id}
             accountName={account.name}
             accountBroker={account.broker}
+            accountCurrency={nativeCurrency}
             currentOwnerIds={account.owners?.map((o) => o.id) ?? []}
             open={showEditDialog}
             onOpenChange={setShowEditDialog}

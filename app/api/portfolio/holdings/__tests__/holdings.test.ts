@@ -94,6 +94,8 @@ describe('Portfolio Holdings API', () => {
         data: {
           accountId: 'acc-1',
           symbol: 'AAPL',
+          name: null,
+          taseSymbol: null,
           quantity: 10,
           avgCostBasis: 150.0,
         },

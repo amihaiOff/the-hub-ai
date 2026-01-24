@@ -161,6 +161,8 @@ model StockAccount {
 model StockHolding {
   id           String   @id @default(cuid())
   symbol       String   // Stock ticker symbol (e.g., "AAPL", "GOOGL")
+  name         String?  // Full stock name (e.g., "Apple Inc.")
+  taseSymbol   String?  @map("tase_symbol") // TASE equivalent symbol for dual-listed stocks
   quantity     Decimal  @db.Decimal(18, 8) // Number of shares (supports fractional)
   avgCostBasis Decimal  @map("avg_cost_basis") @db.Decimal(18, 4) // Average cost per share
   accountId    String   @map("account_id")

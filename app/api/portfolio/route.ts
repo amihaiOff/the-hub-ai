@@ -171,6 +171,8 @@ export async function GET() {
         return {
           id: holding.id,
           symbol: holding.symbol,
+          name: holding.name,
+          taseSymbol: holding.taseSymbol,
           quantity: holding.quantity,
           avgCostBasis: holding.avgCostBasis,
           currentPrice,

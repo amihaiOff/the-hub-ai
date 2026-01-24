@@ -9,8 +9,6 @@ import { LogOut, LogIn, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { navItems, settingsItem, type NavItem } from '@/lib/constants/navigation';
-import { HouseholdSwitcher } from './household-switcher';
-import { ProfileSelector } from './profile-selector';
 
 function NavItemComponent({ item, pathname }: { item: NavItem; pathname: string }) {
   const hasSubItems = item.subItems && item.subItems.length > 0;
@@ -109,14 +107,6 @@ export function Sidebar() {
             <span className="text-sidebar-foreground text-lg font-semibold">The Hub AI</span>
           </Link>
         </div>
-
-        {/* Household & Profile Selection */}
-        {user && (
-          <div className="border-sidebar-border/30 space-y-2 border-b p-4">
-            <HouseholdSwitcher className="w-full" />
-            <ProfileSelector className="w-full justify-between" />
-          </div>
-        )}
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 p-4">

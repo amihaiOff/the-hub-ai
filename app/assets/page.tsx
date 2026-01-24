@@ -10,14 +10,9 @@ export default function AssetsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Misc Assets & Debt</h1>
-          <p className="text-muted-foreground">
-            Track bank deposits, loans, mortgages, and savings
-          </p>
-        </div>
-        <AddAssetDialog />
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Misc Assets & Debt</h1>
+        <p className="text-muted-foreground">Track bank deposits, loans, mortgages, and savings</p>
       </div>
 
       {/* Error State */}
@@ -37,7 +32,10 @@ export default function AssetsPage() {
 
       {/* Assets & Liabilities List */}
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Your Assets & Liabilities</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Your Assets & Liabilities</h2>
+          <AddAssetDialog />
+        </div>
 
         {isLoading ? (
           // Loading skeleton

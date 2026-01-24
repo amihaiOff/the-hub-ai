@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { accountId, symbol, quantity, avgCostBasis } = validation.data;
+    const { accountId, symbol, name, taseSymbol, quantity, avgCostBasis } = validation.data;
 
     // Verify account exists and belongs to the authenticated user (authorization check)
     const account = await prisma.stockAccount.findUnique({
@@ -75,6 +75,8 @@ export async function POST(request: NextRequest) {
       data: {
         accountId,
         symbol: upperSymbol,
+        name: name || null,
+        taseSymbol: taseSymbol || null,
         quantity,
         avgCostBasis,
       },

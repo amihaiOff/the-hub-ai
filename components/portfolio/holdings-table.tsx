@@ -19,6 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { EditHoldingDialog } from './edit-holding-dialog';
 import { DeleteConfirmDialog } from './delete-confirm-dialog';
 import { useDeleteHolding } from '@/lib/hooks/use-portfolio';
@@ -52,12 +53,37 @@ function HoldingRow({
   // Check if this holding has an original price in a different currency (for display purposes)
   const hasOriginalPrice = holding.originalPrice !== undefined && holding.originalPriceCurrency;
 
+  const hasTooltipContent = Boolean(holding.name || holding.taseSymbol);
+
+  const symbolCellContent = (
+    <div className="flex cursor-default flex-col">
+      <span className="font-medium">{holding.symbol}</span>
+      {holding.name && (
+        <span className="text-muted-foreground/70 max-w-[80px] truncate text-xs sm:max-w-[100px]">
+          {holding.name}
+        </span>
+      )}
+    </div>
+  );
+
   return (
     <TableRow>
       <TableCell>
-        <div className="flex items-center gap-2">
-          <span className="font-medium">{holding.symbol}</span>
-        </div>
+        {hasTooltipContent ? (
+          <Tooltip>
+            <TooltipTrigger asChild>{symbolCellContent}</TooltipTrigger>
+            <TooltipContent side="right" className="max-w-[250px]">
+              <div className="flex flex-col gap-1">
+                {holding.name && <p className="text-sm font-medium">{holding.name}</p>}
+                {holding.taseSymbol && (
+                  <p className="text-muted-foreground text-xs">{holding.taseSymbol}</p>
+                )}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          symbolCellContent
+        )}
       </TableCell>
       <TableCell className="text-right tabular-nums">{formatQuantity(holding.quantity)}</TableCell>
       <TableCell className="hidden text-right tabular-nums sm:table-cell">
