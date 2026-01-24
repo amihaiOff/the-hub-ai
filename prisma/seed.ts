@@ -16,13 +16,14 @@ function createPrismaClient(connString: string): PrismaClient {
   const isNeon = connString.includes('neon.tech');
 
   if (isNeon) {
+    // For seeding, use standard pg Pool which works with Neon's Postgres-compatible connection
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { PrismaNeon } = require('@prisma/adapter-neon');
+    const { PrismaPg } = require('@prisma/adapter-pg');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { Pool } = require('@neondatabase/serverless');
+    const { Pool } = require('pg');
 
     const pool = new Pool({ connectionString: connString });
-    const adapter = new PrismaNeon(pool);
+    const adapter = new PrismaPg(pool);
 
     return new PrismaClient({ adapter });
   }
