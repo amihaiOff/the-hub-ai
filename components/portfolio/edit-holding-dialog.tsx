@@ -46,12 +46,15 @@ export function EditHoldingDialog({
 
   // Create a key that changes when dialog opens with new values
   const dialogKey = useMemo(
-    () => `${open}-${holdingId}-${holding.quantity}-${holding.avgCostBasis}`,
-    [open, holdingId, holding.quantity, holding.avgCostBasis]
+    () =>
+      `${open}-${holdingId}-${holding.quantity}-${holding.avgCostBasis}-${holding.name}-${holding.taseSymbol}`,
+    [open, holdingId, holding.quantity, holding.avgCostBasis, holding.name, holding.taseSymbol]
   );
 
   const [quantity, setQuantity] = useState(holding.quantity.toString());
   const [avgCostBasis, setAvgCostBasis] = useState(holding.avgCostBasis.toString());
+  const [stockName, setStockName] = useState(holding.name || '');
+  const [taseSymbol, setTaseSymbol] = useState(holding.taseSymbol || '');
   const [error, setError] = useState('');
   const [lastDialogKey, setLastDialogKey] = useState(dialogKey);
   const updateHolding = useUpdateHolding();
@@ -60,6 +63,8 @@ export function EditHoldingDialog({
   if (dialogKey !== lastDialogKey) {
     setQuantity(holding.quantity.toString());
     setAvgCostBasis(holding.avgCostBasis.toString());
+    setStockName(holding.name || '');
+    setTaseSymbol(holding.taseSymbol || '');
     setError('');
     setLastDialogKey(dialogKey);
   }
@@ -86,6 +91,8 @@ export function EditHoldingDialog({
         id: holdingId,
         quantity: qty,
         avgCostBasis: cost,
+        name: stockName.trim() || null,
+        taseSymbol: taseSymbol.trim() || null,
       });
       setOpen(false);
     } catch (err) {
@@ -143,6 +150,32 @@ export function EditHoldingDialog({
                 onChange={(e) => setAvgCostBasis(e.target.value)}
                 required
               />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-stockName">Stock Name</Label>
+              <Input
+                id="edit-stockName"
+                type="text"
+                value={stockName}
+                onChange={(e) => setStockName(e.target.value)}
+                placeholder="e.g., Apple Inc."
+              />
+              <p className="text-muted-foreground text-xs">
+                Full company name (displayed under ticker)
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-subtitle">Subtitle</Label>
+              <Input
+                id="edit-subtitle"
+                type="text"
+                value={taseSymbol}
+                onChange={(e) => setTaseSymbol(e.target.value)}
+                placeholder="e.g., TASE: 1159169"
+              />
+              <p className="text-muted-foreground text-xs">
+                Additional info shown in tooltip (optional)
+              </p>
             </div>
           </div>
           <DialogFooter>

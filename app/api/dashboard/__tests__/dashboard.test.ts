@@ -117,8 +117,14 @@ describe('Dashboard API', () => {
 
       // Mock stock prices: AAPL=$175, GOOGL=$140
       const stockPrices = new Map([
-        ['AAPL', { symbol: 'AAPL', price: 175, timestamp: new Date(), fromCache: true }],
-        ['GOOGL', { symbol: 'GOOGL', price: 140, timestamp: new Date(), fromCache: true }],
+        [
+          'AAPL',
+          { symbol: 'AAPL', price: 175, currency: 'USD', timestamp: new Date(), fromCache: true },
+        ],
+        [
+          'GOOGL',
+          { symbol: 'GOOGL', price: 140, currency: 'USD', timestamp: new Date(), fromCache: true },
+        ],
       ]);
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -309,7 +315,10 @@ describe('Dashboard API', () => {
       ];
 
       const stockPrices = new Map([
-        ['VTI', { symbol: 'VTI', price: 250, timestamp: new Date(), fromCache: false }],
+        [
+          'VTI',
+          { symbol: 'VTI', price: 250, currency: 'USD', timestamp: new Date(), fromCache: false },
+        ],
       ]);
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -375,8 +384,14 @@ describe('Dashboard API', () => {
       ];
 
       const stockPrices = new Map([
-        ['AAPL', { symbol: 'AAPL', price: 150, timestamp: new Date(), fromCache: true }],
-        ['MSFT', { symbol: 'MSFT', price: 350, timestamp: new Date(), fromCache: true }],
+        [
+          'AAPL',
+          { symbol: 'AAPL', price: 150, currency: 'USD', timestamp: new Date(), fromCache: true },
+        ],
+        [
+          'MSFT',
+          { symbol: 'MSFT', price: 350, currency: 'USD', timestamp: new Date(), fromCache: true },
+        ],
       ]);
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -418,7 +433,10 @@ describe('Dashboard API', () => {
       ];
 
       const stockPrices = new Map([
-        ['AMZN', { symbol: 'AMZN', price: 3200, timestamp: new Date(), fromCache: true }],
+        [
+          'AMZN',
+          { symbol: 'AMZN', price: 3200, currency: 'USD', timestamp: new Date(), fromCache: true },
+        ],
       ]);
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -505,7 +523,16 @@ describe('Dashboard API', () => {
       ];
 
       const stockPrices = new Map([
-        ['BRK.A', { symbol: 'BRK.A', price: 500000, timestamp: new Date(), fromCache: true }],
+        [
+          'BRK.A',
+          {
+            symbol: 'BRK.A',
+            price: 500000,
+            currency: 'USD',
+            timestamp: new Date(),
+            fromCache: true,
+          },
+        ],
       ]);
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -573,7 +600,10 @@ describe('Dashboard API', () => {
       ];
 
       const stockPrices = new Map([
-        ['LOSER', { symbol: 'LOSER', price: 50, timestamp: new Date(), fromCache: true }],
+        [
+          'LOSER',
+          { symbol: 'LOSER', price: 50, currency: 'USD', timestamp: new Date(), fromCache: true },
+        ],
       ]);
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);

@@ -150,8 +150,8 @@ export function AddAssetDialog() {
       }}
     >
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
+        <Button variant="ghost" size="sm">
+          <Plus className="mr-1.5 h-4 w-4" />
           Add Asset
         </Button>
       </DialogTrigger>

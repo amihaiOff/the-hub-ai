@@ -34,12 +34,22 @@ export const createAccountSchema = z.object({
 export const updateAccountSchema = z.object({
   name: nonEmptyString('Account name cannot be empty').optional(),
   broker: z.string().trim().nullable().optional(),
+  currency: z
+    .string()
+    .optional()
+    .refine(
+      (val) =>
+        val === undefined || VALID_CURRENCIES.includes(val as (typeof VALID_CURRENCIES)[number]),
+      'Invalid currency'
+    ),
 });
 
 // Create stock holding schema
 export const createHoldingSchema = z.object({
   accountId: nonEmptyString('Account ID is required'),
   symbol: nonEmptyString('Stock symbol is required'),
+  name: z.string().trim().optional().nullable(), // Full stock name
+  taseSymbol: z.string().trim().optional().nullable(), // TASE equivalent symbol for dual-listed stocks
   quantity: positiveNumber('Quantity must be a positive number'),
   avgCostBasis: positiveNumber('Average cost basis must be a positive number'),
 });
@@ -48,6 +58,8 @@ export const createHoldingSchema = z.object({
 export const updateHoldingSchema = z.object({
   quantity: positiveNumber('Quantity must be a positive number').optional(),
   avgCostBasis: positiveNumber('Average cost basis must be a positive number').optional(),
+  name: z.string().trim().optional().nullable(), // Full stock name
+  taseSymbol: z.string().trim().optional().nullable(), // TASE equivalent symbol
 });
 
 // Type exports for use in routes

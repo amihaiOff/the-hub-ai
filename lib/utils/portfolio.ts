@@ -7,17 +7,27 @@ interface DecimalLike {
 export interface HoldingWithPrice {
   id: string;
   symbol: string;
+  name?: string | null; // Full stock name (e.g., "Apple Inc.")
+  taseSymbol?: string | null; // TASE equivalent symbol for dual-listed stocks
   quantity: DecimalLike | number | string;
   avgCostBasis: DecimalLike | number | string;
-  currentPrice: DecimalLike | number | string;
+  currentPrice: DecimalLike | number | string; // Price in account's currency (after conversion if needed)
+  // Original price from data source (before conversion) - for display purposes
+  originalPrice?: DecimalLike | number | string;
+  originalPriceCurrency?: string; // Currency of original price (e.g., "GBP" for EIMI.L)
 }
 
 export interface HoldingValue {
   id: string;
   symbol: string;
+  name?: string | null; // Full stock name (e.g., "Apple Inc.")
+  taseSymbol?: string | null; // TASE equivalent symbol for dual-listed stocks
   quantity: number;
   avgCostBasis: number;
-  currentPrice: number;
+  currentPrice: number; // Price in account's currency (after conversion if needed)
+  // Original price from data source (before conversion) - for display purposes
+  originalPrice?: number;
+  originalPriceCurrency?: string; // Currency of original price (e.g., "GBP" for EIMI.L)
   currentValue: number;
   costBasis: number;
   gainLoss: number;
@@ -116,11 +126,13 @@ export function calculateGainLossPercent(currentValue: number, costBasis: number
 
 /**
  * Calculate all values for a single holding
+ * currentPrice should already be in the account's currency
  */
 export function calculateHoldingDetails(holding: HoldingWithPrice): HoldingValue {
   const quantity = toNumber(holding.quantity);
   const avgCostBasis = toNumber(holding.avgCostBasis);
   const currentPrice = toNumber(holding.currentPrice);
+  const originalPrice = holding.originalPrice ? toNumber(holding.originalPrice) : undefined;
 
   const currentValue = calculateHoldingValue(quantity, currentPrice);
   const costBasis = calculateCostBasis(quantity, avgCostBasis);
@@ -130,9 +142,13 @@ export function calculateHoldingDetails(holding: HoldingWithPrice): HoldingValue
   return {
     id: holding.id,
     symbol: holding.symbol,
+    name: holding.name,
+    taseSymbol: holding.taseSymbol,
     quantity,
     avgCostBasis,
     currentPrice,
+    originalPrice,
+    originalPriceCurrency: holding.originalPriceCurrency,
     currentValue,
     costBasis,
     gainLoss,

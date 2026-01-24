@@ -22,12 +22,9 @@ function PortfolioContent() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Stock Portfolio</h1>
-          <p className="text-muted-foreground">Manage your stock holdings and brokerage accounts</p>
-        </div>
-        <AddAccountDialog />
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Stock Portfolio</h1>
+        <p className="text-muted-foreground">Manage your stock holdings and brokerage accounts</p>
       </div>
 
       {/* Error State */}
@@ -71,7 +68,10 @@ function PortfolioContent() {
         <div className="space-y-4 lg:col-span-2">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Brokerage Accounts</h2>
-            {isLoading && <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />}
+            <div className="flex items-center gap-2">
+              {isLoading && <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />}
+              <AddAccountDialog />
+            </div>
           </div>
 
           {isLoading ? (

@@ -12,14 +12,29 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useUpdateAccount } from '@/lib/hooks/use-portfolio';
 import { useUpdateAssetOwners } from '@/lib/hooks/use-profiles';
 import { InlineOwnerPicker } from '@/components/shared';
+
+const CURRENCIES = [
+  { value: 'USD', label: 'USD - US Dollar' },
+  { value: 'ILS', label: 'ILS - Israeli Shekel' },
+  { value: 'EUR', label: 'EUR - Euro' },
+  { value: 'GBP', label: 'GBP - British Pound' },
+];
 
 interface EditAccountDialogProps {
   accountId: string;
   accountName: string;
   accountBroker: string | null;
+  accountCurrency?: string;
   currentOwnerIds?: string[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -29,18 +44,20 @@ export function EditAccountDialog({
   accountId,
   accountName,
   accountBroker,
+  accountCurrency = 'USD',
   currentOwnerIds = [],
   open,
   onOpenChange,
 }: EditAccountDialogProps) {
   // Create a key that changes when dialog opens with new values
   const dialogKey = useMemo(
-    () => `${open}-${accountName}-${accountBroker}-${currentOwnerIds.join(',')}`,
-    [open, accountName, accountBroker, currentOwnerIds]
+    () => `${open}-${accountName}-${accountBroker}-${accountCurrency}-${currentOwnerIds.join(',')}`,
+    [open, accountName, accountBroker, accountCurrency, currentOwnerIds]
   );
 
   const [name, setName] = useState(accountName);
   const [broker, setBroker] = useState(accountBroker || '');
+  const [currency, setCurrency] = useState(accountCurrency);
   const [selectedOwnerIds, setSelectedOwnerIds] = useState<string[]>(currentOwnerIds);
   const [error, setError] = useState('');
   const [lastDialogKey, setLastDialogKey] = useState(dialogKey);
@@ -51,6 +68,7 @@ export function EditAccountDialog({
   if (dialogKey !== lastDialogKey) {
     setName(accountName);
     setBroker(accountBroker || '');
+    setCurrency(accountCurrency);
     setSelectedOwnerIds(currentOwnerIds);
     setError('');
     setLastDialogKey(dialogKey);
@@ -76,6 +94,7 @@ export function EditAccountDialog({
         id: accountId,
         name: name.trim(),
         broker: broker.trim() || null,
+        currency,
       });
 
       // Update owners if changed
@@ -131,6 +150,24 @@ export function EditAccountDialog({
                 onChange={(e) => setBroker(e.target.value)}
                 placeholder="e.g., Fidelity, Vanguard"
               />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-account-currency">Currency *</Label>
+              <Select value={currency} onValueChange={setCurrency}>
+                <SelectTrigger id="edit-account-currency">
+                  <SelectValue placeholder="Select currency" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCIES.map((curr) => (
+                    <SelectItem key={curr.value} value={curr.value}>
+                      {curr.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-muted-foreground text-xs">
+                Currency for cost basis and valuations in this account
+              </p>
             </div>
             <div className="grid gap-2">
               <Label>Owners *</Label>

@@ -20,10 +20,7 @@ export default function PensionPage() {
           <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Pension & Hishtalmut</h1>
           <p className="text-muted-foreground">Track your retirement and savings accounts</p>
         </div>
-        <div className="flex gap-2">
-          <UploadDepositsDialog accounts={data?.accounts ?? []} />
-          <AddAccountDialog />
-        </div>
+        <UploadDepositsDialog accounts={data?.accounts ?? []} />
       </div>
 
       {/* Error State */}
@@ -43,7 +40,10 @@ export default function PensionPage() {
 
       {/* Accounts List */}
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Your Accounts</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Your Accounts</h2>
+          <AddAccountDialog />
+        </div>
 
         {isLoading ? (
           // Loading skeleton

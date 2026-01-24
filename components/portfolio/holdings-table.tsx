@@ -19,6 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { EditHoldingDialog } from './edit-holding-dialog';
 import { DeleteConfirmDialog } from './delete-confirm-dialog';
 import { useDeleteHolding } from '@/lib/hooks/use-portfolio';
@@ -35,27 +36,75 @@ interface HoldingsTableProps {
 interface HoldingRowProps {
   holding: HoldingValue;
   formatDisplayValue: (value: number) => string;
+  formatOriginalCurrency: (value: number, currency: string) => string;
   onDelete: () => Promise<void>;
 }
 
-function HoldingRow({ holding, formatDisplayValue, onDelete }: HoldingRowProps) {
+function HoldingRow({
+  holding,
+  formatDisplayValue,
+  formatOriginalCurrency,
+  onDelete,
+}: HoldingRowProps) {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const isPositive = holding.gainLoss >= 0;
 
+  // Check if this holding has an original price in a different currency (for display purposes)
+  const hasOriginalPrice = holding.originalPrice !== undefined && holding.originalPriceCurrency;
+
+  const hasTooltipContent = Boolean(holding.name || holding.taseSymbol);
+
+  const symbolCellContent = (
+    <div className="flex cursor-default flex-col">
+      <span className="font-medium">{holding.symbol}</span>
+      {holding.name && (
+        <span className="text-muted-foreground/70 max-w-[80px] truncate text-xs sm:max-w-[100px]">
+          {holding.name}
+        </span>
+      )}
+    </div>
+  );
+
   return (
     <TableRow>
       <TableCell>
-        <div className="flex items-center gap-2">
-          <span className="font-medium">{holding.symbol}</span>
-        </div>
+        {hasTooltipContent ? (
+          <Tooltip>
+            <TooltipTrigger asChild>{symbolCellContent}</TooltipTrigger>
+            <TooltipContent side="right" className="max-w-[250px]">
+              <div className="flex flex-col gap-1">
+                {holding.name && <p className="text-sm font-medium">{holding.name}</p>}
+                {holding.taseSymbol && (
+                  <p className="text-muted-foreground text-xs">{holding.taseSymbol}</p>
+                )}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          symbolCellContent
+        )}
       </TableCell>
       <TableCell className="text-right tabular-nums">{formatQuantity(holding.quantity)}</TableCell>
       <TableCell className="hidden text-right tabular-nums sm:table-cell">
         {formatDisplayValue(holding.avgCostBasis)}
       </TableCell>
       <TableCell className="text-right tabular-nums">
-        {formatDisplayValue(holding.currentPrice)}
+        {hasOriginalPrice ? (
+          <span>
+            {formatDisplayValue(holding.currentPrice)}
+            <span className="text-muted-foreground/60 ml-1 text-xs">
+              (
+              {formatOriginalCurrency(
+                holding.originalPrice ?? 0,
+                holding.originalPriceCurrency ?? 'USD'
+              )}
+              )
+            </span>
+          </span>
+        ) : (
+          formatDisplayValue(holding.currentPrice)
+        )}
       </TableCell>
       <TableCell className="text-right font-medium tabular-nums">
         {formatDisplayValue(holding.currentValue)}
@@ -130,6 +179,17 @@ export function HoldingsTable({
   // Use displayCurrency if provided, otherwise use baseCurrency
   const effectiveDisplayCurrency = displayCurrency || baseCurrency;
 
+  // Format a value in its original currency (for the parenthetical display of foreign prices)
+  const formatOriginalCurrency = useCallback((value: number, currency: string): string => {
+    const locale = currency === 'ILS' ? 'he-IL' : 'en-US';
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  }, []);
+
   // Convert and format a value from baseCurrency to displayCurrency
   // Note: rates are TO ILS (e.g., rates.USD = 3.18 means 1 USD = 3.18 ILS)
   // Memoized to prevent unnecessary recalculations on re-renders
@@ -137,16 +197,24 @@ export function HoldingsTable({
     (value: number): string => {
       if (effectiveDisplayCurrency !== baseCurrency && rates) {
         let convertedValue: number;
-        if (baseCurrency === 'ILS' && effectiveDisplayCurrency === 'USD') {
-          // Convert ILS to USD: divide by USD-to-ILS rate
-          convertedValue = value / (rates.USD || 1);
-        } else if (baseCurrency === 'USD' && effectiveDisplayCurrency === 'ILS') {
-          // Convert USD to ILS: multiply by USD-to-ILS rate
-          convertedValue = value * (rates.USD || 1);
+        const upperBaseCurrency = baseCurrency.toUpperCase() as keyof typeof rates;
+        const upperDisplayCurrency = effectiveDisplayCurrency.toUpperCase();
+
+        if (upperDisplayCurrency === 'ILS' && upperBaseCurrency !== 'ILS') {
+          // Convert any currency to ILS: multiply by that currency's rate to ILS
+          const rate = rates[upperBaseCurrency] || rates.USD || 1;
+          convertedValue = value * rate;
+        } else if (upperDisplayCurrency !== 'ILS' && upperBaseCurrency === 'ILS') {
+          // Convert ILS to any currency: divide by that currency's rate to ILS
+          const rate = rates[upperDisplayCurrency as keyof typeof rates] || rates.USD || 1;
+          convertedValue = rate > 0 ? value / rate : value;
         } else {
-          // Default: no conversion
-          convertedValue = value;
+          // Cross-currency conversion (e.g., EUR to USD): go through ILS
+          const baseRate = rates[upperBaseCurrency] || rates.USD || 1;
+          const displayRate = rates[upperDisplayCurrency as keyof typeof rates] || rates.USD || 1;
+          convertedValue = displayRate > 0 ? (value * baseRate) / displayRate : value;
         }
+
         return new Intl.NumberFormat(effectiveDisplayCurrency === 'ILS' ? 'he-IL' : 'en-US', {
           style: 'currency',
           currency: effectiveDisplayCurrency,
@@ -194,6 +262,7 @@ export function HoldingsTable({
               key={holding.id}
               holding={holding}
               formatDisplayValue={formatDisplayValue}
+              formatOriginalCurrency={formatOriginalCurrency}
               onDelete={() => deleteHolding.mutateAsync(holding.id)}
             />
           ))}

@@ -73,7 +73,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { name, broker } = validation.data;
+    const { name, broker, currency } = validation.data;
 
     // Check if account exists
     const existing = await prisma.stockAccount.findUnique({
@@ -95,6 +95,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       data: {
         ...(name !== undefined && { name }),
         ...(broker !== undefined && { broker: broker || null }),
+        ...(currency !== undefined && { currency }),
       },
       include: {
         holdings: true,

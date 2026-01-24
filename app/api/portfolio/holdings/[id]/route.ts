@@ -71,7 +71,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { quantity, avgCostBasis } = validation.data;
+    const { quantity, avgCostBasis, name, taseSymbol } = validation.data;
 
     // Check if holding exists and include account for authorization
     const existing = await prisma.stockHolding.findUnique({
@@ -94,6 +94,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       data: {
         ...(quantity !== undefined && { quantity }),
         ...(avgCostBasis !== undefined && { avgCostBasis }),
+        ...(name !== undefined && { name }),
+        ...(taseSymbol !== undefined && { taseSymbol }),
       },
     });
 
