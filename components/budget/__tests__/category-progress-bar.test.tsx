@@ -38,8 +38,9 @@ describe('CategoryProgressBar', () => {
 
     it('should render with border class for visibility', () => {
       const { container } = render(<CategoryProgressBar budgeted={1000} spent={500} />);
-      const progressContainer = container.firstChild as HTMLElement;
-      expect(progressContainer.className).toContain('border');
+      // The border class is now on the inner progress bar container, not the outer flex wrapper
+      const progressBarContainer = container.querySelector('[role="progressbar"]');
+      expect(progressBarContainer?.className).toContain('border');
     });
   });
 
@@ -197,6 +198,86 @@ describe('CategoryProgressBar', () => {
       const progressBar = container.querySelector('[style*="width"]');
       // 50.25 / 100.5 = ~50%
       expect(progressBar).toBeInTheDocument();
+    });
+  });
+
+  describe('Stats display (showStats prop)', () => {
+    it('should show percentage stats by default', () => {
+      render(<CategoryProgressBar budgeted={1000} spent={500} />);
+      // 500/1000 = 50%
+      expect(screen.getByText('50%')).toBeInTheDocument();
+    });
+
+    it('should hide percentage stats when showStats is false', () => {
+      render(<CategoryProgressBar budgeted={1000} spent={500} showStats={false} />);
+      expect(screen.queryByText('50%')).not.toBeInTheDocument();
+    });
+
+    it('should show 0% for zero budget with zero spending', () => {
+      render(<CategoryProgressBar budgeted={0} spent={0} />);
+      expect(screen.getByText('0%')).toBeInTheDocument();
+    });
+
+    it('should show correct percentage when overspent', () => {
+      render(<CategoryProgressBar budgeted={1000} spent={1500} />);
+      // 1500/1000 = 150%
+      expect(screen.getByText('150%')).toBeInTheDocument();
+    });
+
+    it('should apply red color to percentage when overspent', () => {
+      render(<CategoryProgressBar budgeted={1000} spent={1500} />);
+      const percentageText = screen.getByText('150%');
+      expect(percentageText.className).toContain('text-red-500');
+    });
+
+    it('should round percentage to whole number', () => {
+      render(<CategoryProgressBar budgeted={1000} spent={333} />);
+      // 333/1000 = 33.3% -> rounded to 33%
+      expect(screen.getByText('33%')).toBeInTheDocument();
+    });
+
+    it('should show month completion percentage when in current month', () => {
+      // The month percentage should be displayed when viewing current month
+      const { container } = render(<CategoryProgressBar budgeted={1000} spent={500} />);
+      // Look for text containing "mo" (month completion indicator)
+      const monthIndicator = container.querySelector('.text-muted-foreground\\/60');
+      expect(monthIndicator).toBeInTheDocument();
+      expect(monthIndicator?.textContent).toMatch(/\d+% mo/);
+    });
+
+    it('should not show month percentage for past months', () => {
+      // Set selectedMonth to a past month
+      const pastMonth = '2020-01';
+      const { container } = render(
+        <CategoryProgressBar budgeted={1000} spent={500} selectedMonth={pastMonth} />
+      );
+      // Month percentage should not be displayed for past months
+      const monthIndicator = container.querySelector('.text-muted-foreground\\/60');
+      expect(monthIndicator).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Progress bar height', () => {
+    it('should render with h-3 height class', () => {
+      const { container } = render(<CategoryProgressBar budgeted={1000} spent={500} />);
+      const progressBarContainer = container.querySelector('[role="progressbar"]');
+      expect(progressBarContainer?.className).toContain('h-3');
+    });
+  });
+
+  describe('Flex layout with stats', () => {
+    it('should have flex layout with gap between bar and stats', () => {
+      const { container } = render(<CategoryProgressBar budgeted={1000} spent={500} />);
+      const wrapper = container.firstChild as HTMLElement;
+      expect(wrapper.className).toContain('flex');
+      expect(wrapper.className).toContain('gap-3');
+    });
+
+    it('should have stats container with fixed width', () => {
+      const { container } = render(<CategoryProgressBar budgeted={1000} spent={500} />);
+      // Stats container should have w-16 class for fixed width
+      const statsContainer = container.querySelector('.w-16');
+      expect(statsContainer).toBeInTheDocument();
     });
   });
 });

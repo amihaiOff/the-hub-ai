@@ -120,6 +120,7 @@ function CategoryTableRow({
             budgeted={category.budgeted}
             spent={category.spent}
             selectedMonth={selectedMonth}
+            showStats={false}
           />
         </td>
       </tr>
@@ -225,8 +226,8 @@ export default function BudgetDashboardPage() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-muted/50 border-b">
-                    <th className="px-4 py-3 text-left text-sm font-medium">Category</th>
-                    <th className="hidden w-40 px-4 py-3 text-left text-sm font-medium sm:table-cell">
+                    <th className="w-48 px-4 py-3 text-left text-sm font-medium">Category</th>
+                    <th className="hidden px-4 py-3 text-left text-sm font-medium sm:table-cell">
                       Progress
                     </th>
                     <th className="hidden w-28 px-4 py-3 text-right text-sm font-medium lg:table-cell">
@@ -328,6 +329,7 @@ export default function BudgetDashboardPage() {
                               budgeted={group.totalBudgeted}
                               spent={group.totalSpent}
                               selectedMonth={selectedMonth}
+                              showStats={false}
                             />
                           </td>
                         </tr>
