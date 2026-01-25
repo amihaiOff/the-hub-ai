@@ -84,7 +84,13 @@ async function searchYahoo(query: string): Promise<StockSymbol[]> {
     return data.quotes
       .filter((quote) => {
         const type = quote.quoteType?.toUpperCase() || quote.typeDisp?.toUpperCase() || '';
-        return type === 'EQUITY' || type === 'ETF' || type === 'STOCK' || type === 'INDEX';
+        return (
+          type === 'EQUITY' ||
+          type === 'ETF' ||
+          type === 'STOCK' ||
+          type === 'INDEX' ||
+          type === 'MUTUALFUND'
+        );
       })
       .slice(0, 10)
       .map((quote) => {

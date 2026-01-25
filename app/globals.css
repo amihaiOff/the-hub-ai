@@ -142,25 +142,23 @@
     @apply bg-card/50 border-border/20 backdrop-blur-lg;
   }
 
-  /* Soft shadow effects */
+  /* Soft shadow effects - subtle for dark mode */
   .shadow-glow {
     box-shadow:
       0 0 0 1px oklch(1 0 0 / 0.02),
-      0 4px 16px oklch(0 0 0 / 0.15),
-      0 12px 32px oklch(0 0 0 / 0.1);
+      0 2px 8px oklch(0 0 0 / 0.08);
   }
 
   .shadow-glow-sm {
     box-shadow:
       0 0 0 1px oklch(1 0 0 / 0.02),
-      0 2px 8px oklch(0 0 0 / 0.1);
+      0 1px 4px oklch(0 0 0 / 0.06);
   }
 
   .shadow-glow-lg {
     box-shadow:
       0 0 0 1px oklch(1 0 0 / 0.02),
-      0 8px 24px oklch(0 0 0 / 0.15),
-      0 24px 48px oklch(0 0 0 / 0.12);
+      0 4px 12px oklch(0 0 0 / 0.1);
   }
 
   /* Hover glow for interactive elements */
