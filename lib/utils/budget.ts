@@ -322,6 +322,375 @@ export const MOCK_CATEGORY_GROUPS: BudgetCategoryGroup[] = [
       },
     ],
   },
+  {
+    id: 'group-4',
+    name: 'Health & Wellness',
+    sortOrder: 4,
+    householdId: MOCK_HOUSEHOLD_ID,
+    categories: [
+      {
+        id: 'cat-14',
+        name: 'Health Insurance',
+        groupId: 'group-4',
+        budget: 800,
+        isMust: true,
+        sortOrder: 1,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-15',
+        name: 'Gym & Fitness',
+        groupId: 'group-4',
+        budget: 350,
+        isMust: false,
+        sortOrder: 2,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-16',
+        name: 'Medical & Dental',
+        groupId: 'group-4',
+        budget: 400,
+        isMust: true,
+        sortOrder: 3,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-17',
+        name: 'Personal Care',
+        groupId: 'group-4',
+        budget: 250,
+        isMust: false,
+        sortOrder: 4,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+    ],
+  },
+  {
+    id: 'group-5',
+    name: 'Kids & Education',
+    sortOrder: 5,
+    householdId: MOCK_HOUSEHOLD_ID,
+    categories: [
+      {
+        id: 'cat-18',
+        name: 'Daycare/School',
+        groupId: 'group-5',
+        budget: 3500,
+        isMust: true,
+        sortOrder: 1,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-19',
+        name: 'Kids Activities',
+        groupId: 'group-5',
+        budget: 600,
+        isMust: false,
+        sortOrder: 2,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-20',
+        name: 'Kids Clothing',
+        groupId: 'group-5',
+        budget: 300,
+        isMust: false,
+        sortOrder: 3,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-21',
+        name: 'School Supplies',
+        groupId: 'group-5',
+        budget: 150,
+        isMust: false,
+        sortOrder: 4,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+    ],
+  },
+  {
+    id: 'group-6',
+    name: 'Transportation',
+    sortOrder: 6,
+    householdId: MOCK_HOUSEHOLD_ID,
+    categories: [
+      {
+        id: 'cat-22',
+        name: 'Car Payment',
+        groupId: 'group-6',
+        budget: 1800,
+        isMust: true,
+        sortOrder: 1,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-23',
+        name: 'Car Insurance',
+        groupId: 'group-6',
+        budget: 450,
+        isMust: true,
+        sortOrder: 2,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-24',
+        name: 'Fuel',
+        groupId: 'group-6',
+        budget: 800,
+        isMust: true,
+        sortOrder: 3,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-25',
+        name: 'Car Maintenance',
+        groupId: 'group-6',
+        budget: 300,
+        isMust: false,
+        sortOrder: 4,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-26',
+        name: 'Parking',
+        groupId: 'group-6',
+        budget: 200,
+        isMust: false,
+        sortOrder: 5,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+    ],
+  },
+  {
+    id: 'group-7',
+    name: 'Subscriptions',
+    sortOrder: 7,
+    householdId: MOCK_HOUSEHOLD_ID,
+    categories: [
+      {
+        id: 'cat-27',
+        name: 'Streaming Services',
+        groupId: 'group-7',
+        budget: 150,
+        isMust: false,
+        sortOrder: 1,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-28',
+        name: 'Software & Apps',
+        groupId: 'group-7',
+        budget: 100,
+        isMust: false,
+        sortOrder: 2,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-29',
+        name: 'News & Magazines',
+        groupId: 'group-7',
+        budget: 50,
+        isMust: false,
+        sortOrder: 3,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-30',
+        name: 'Cloud Storage',
+        groupId: 'group-7',
+        budget: 30,
+        isMust: false,
+        sortOrder: 4,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+    ],
+  },
+  {
+    id: 'group-8',
+    name: 'Home & Garden',
+    sortOrder: 8,
+    householdId: MOCK_HOUSEHOLD_ID,
+    categories: [
+      {
+        id: 'cat-31',
+        name: 'Home Maintenance',
+        groupId: 'group-8',
+        budget: 400,
+        isMust: false,
+        sortOrder: 1,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-32',
+        name: 'Furniture',
+        groupId: 'group-8',
+        budget: 300,
+        isMust: false,
+        sortOrder: 2,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-33',
+        name: 'Garden & Plants',
+        groupId: 'group-8',
+        budget: 150,
+        isMust: false,
+        sortOrder: 3,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-34',
+        name: 'Cleaning Supplies',
+        groupId: 'group-8',
+        budget: 100,
+        isMust: true,
+        sortOrder: 4,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+    ],
+  },
+  {
+    id: 'group-9',
+    name: 'Gifts & Donations',
+    sortOrder: 9,
+    householdId: MOCK_HOUSEHOLD_ID,
+    categories: [
+      {
+        id: 'cat-35',
+        name: 'Birthday Gifts',
+        groupId: 'group-9',
+        budget: 300,
+        isMust: false,
+        sortOrder: 1,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-36',
+        name: 'Holiday Gifts',
+        groupId: 'group-9',
+        budget: 500,
+        isMust: false,
+        sortOrder: 2,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-37',
+        name: 'Charity',
+        groupId: 'group-9',
+        budget: 200,
+        isMust: false,
+        sortOrder: 3,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+    ],
+  },
+  {
+    id: 'group-10',
+    name: 'Pets',
+    sortOrder: 10,
+    householdId: MOCK_HOUSEHOLD_ID,
+    categories: [
+      {
+        id: 'cat-38',
+        name: 'Pet Food',
+        groupId: 'group-10',
+        budget: 300,
+        isMust: true,
+        sortOrder: 1,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-39',
+        name: 'Vet & Health',
+        groupId: 'group-10',
+        budget: 200,
+        isMust: true,
+        sortOrder: 2,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-40',
+        name: 'Pet Supplies',
+        groupId: 'group-10',
+        budget: 100,
+        isMust: false,
+        sortOrder: 3,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+    ],
+  },
+  {
+    id: 'group-11',
+    name: 'Personal Development',
+    sortOrder: 11,
+    householdId: MOCK_HOUSEHOLD_ID,
+    categories: [
+      {
+        id: 'cat-41',
+        name: 'Books & Courses',
+        groupId: 'group-11',
+        budget: 200,
+        isMust: false,
+        sortOrder: 1,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-42',
+        name: 'Hobbies',
+        groupId: 'group-11',
+        budget: 300,
+        isMust: false,
+        sortOrder: 2,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-43',
+        name: 'Professional Development',
+        groupId: 'group-11',
+        budget: 150,
+        isMust: false,
+        sortOrder: 3,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+    ],
+  },
+  {
+    id: 'group-12',
+    name: 'Debt Payments',
+    sortOrder: 12,
+    householdId: MOCK_HOUSEHOLD_ID,
+    categories: [
+      {
+        id: 'cat-44',
+        name: 'Credit Card Payment',
+        groupId: 'group-12',
+        budget: 1500,
+        isMust: true,
+        sortOrder: 1,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-45',
+        name: 'Student Loans',
+        groupId: 'group-12',
+        budget: 800,
+        isMust: true,
+        sortOrder: 2,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+      {
+        id: 'cat-46',
+        name: 'Personal Loans',
+        groupId: 'group-12',
+        budget: 500,
+        isMust: true,
+        sortOrder: 3,
+        householdId: MOCK_HOUSEHOLD_ID,
+      },
+    ],
+  },
 ];
 
 export const MOCK_PAYEES: BudgetPayee[] = [
@@ -666,6 +1035,343 @@ function generateMockTransactions(): BudgetTransaction[] {
       null,
       'Monthly investment',
       [],
+      'bank_transfer'
+    )
+  );
+
+  // Health & Wellness
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 1),
+      800,
+      'cat-14',
+      null,
+      'Health insurance premium',
+      ['tag-1', 'tag-3'],
+      'bank_transfer'
+    )
+  );
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 1),
+      320,
+      'cat-15',
+      null,
+      'Gym membership',
+      ['tag-3']
+    )
+  );
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 12),
+      280,
+      'cat-16',
+      null,
+      'Dental checkup',
+      ['tag-1']
+    )
+  );
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 18),
+      180,
+      'cat-17',
+      null,
+      'Haircut and products',
+      []
+    )
+  );
+
+  // Kids & Education
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 1),
+      3500,
+      'cat-18',
+      null,
+      'Monthly daycare',
+      ['tag-1'],
+      'bank_transfer'
+    )
+  );
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 5),
+      450,
+      'cat-19',
+      null,
+      'Swimming lessons',
+      []
+    )
+  );
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 10),
+      220,
+      'cat-20',
+      null,
+      'Kids winter clothes',
+      ['tag-4']
+    )
+  );
+
+  // Transportation
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 1),
+      1800,
+      'cat-22',
+      null,
+      'Car lease payment',
+      ['tag-1', 'tag-3'],
+      'bank_transfer'
+    )
+  );
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 1),
+      450,
+      'cat-23',
+      null,
+      'Car insurance',
+      ['tag-1', 'tag-3'],
+      'bank_transfer'
+    )
+  );
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 8),
+      420,
+      'cat-24',
+      null,
+      'Fuel',
+      ['tag-1']
+    )
+  );
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 22),
+      380,
+      'cat-24',
+      null,
+      'Fuel',
+      ['tag-1']
+    )
+  );
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 15),
+      180,
+      'cat-26',
+      null,
+      'Monthly parking',
+      ['tag-3']
+    )
+  );
+
+  // Subscriptions
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 1),
+      55,
+      'cat-27',
+      null,
+      'Netflix',
+      ['tag-3']
+    )
+  );
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 1),
+      45,
+      'cat-27',
+      null,
+      'Disney+',
+      ['tag-3']
+    )
+  );
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 5),
+      35,
+      'cat-28',
+      null,
+      'Spotify Premium',
+      ['tag-3']
+    )
+  );
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 1),
+      25,
+      'cat-30',
+      null,
+      'iCloud storage',
+      ['tag-3']
+    )
+  );
+
+  // Home & Garden
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 14),
+      350,
+      'cat-31',
+      null,
+      'Plumber visit',
+      ['tag-4']
+    )
+  );
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 20),
+      85,
+      'cat-34',
+      null,
+      'Cleaning supplies',
+      ['tag-1']
+    )
+  );
+
+  // Gifts & Donations
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 16),
+      250,
+      'cat-35',
+      null,
+      'Birthday gift for friend',
+      ['tag-4']
+    )
+  );
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 1),
+      100,
+      'cat-37',
+      null,
+      'Monthly charity donation',
+      ['tag-3'],
+      'bank_transfer'
+    )
+  );
+
+  // Pets
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 3),
+      280,
+      'cat-38',
+      null,
+      'Dog food',
+      ['tag-1']
+    )
+  );
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 11),
+      180,
+      'cat-39',
+      null,
+      'Vet checkup',
+      []
+    )
+  );
+
+  // Personal Development
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 7),
+      150,
+      'cat-41',
+      null,
+      'Online course',
+      ['tag-5']
+    )
+  );
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 19),
+      220,
+      'cat-42',
+      null,
+      'Photography equipment',
+      ['tag-2']
+    )
+  );
+
+  // Debt Payments
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 15),
+      1500,
+      'cat-44',
+      null,
+      'Credit card payment',
+      ['tag-1'],
+      'bank_transfer'
+    )
+  );
+  transactions.push(
+    createTransaction(
+      `tx-${txId++}`,
+      'expense',
+      new Date(currentYear, currentMonth, 1),
+      800,
+      'cat-45',
+      null,
+      'Student loan payment',
+      ['tag-1', 'tag-3'],
       'bank_transfer'
     )
   );
