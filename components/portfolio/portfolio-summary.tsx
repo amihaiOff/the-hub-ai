@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, DollarSign, PieChart } from 'lucide-react';
 import { formatPercent } from '@/lib/utils/portfolio';
 import { useCurrency } from '@/lib/contexts/currency-context';
+import { convertToILS, formatCurrency } from '@/lib/hooks/use-exchange-rates';
 
 interface PortfolioSummaryProps {
   totalValue: number;
@@ -22,8 +23,12 @@ export function PortfolioSummary({
   isLoading,
   baseCurrency = 'USD',
 }: PortfolioSummaryProps) {
-  const { formatValue } = useCurrency();
+  const { formatValue, rates } = useCurrency();
   const isPositive = totalGainLoss >= 0;
+
+  // Get ILS values if rates are available (uses shared utility)
+  const ilsValue = rates ? convertToILS(totalValue, baseCurrency, rates) : null;
+  const ilsGainLoss = rates ? convertToILS(totalGainLoss, baseCurrency, rates) : null;
 
   return (
     <div className="grid grid-cols-3 gap-2 sm:gap-4">
@@ -41,9 +46,11 @@ export function PortfolioSummary({
               <div className="text-sm font-bold tabular-nums sm:text-2xl">
                 {formatValue(totalValue, baseCurrency)}
               </div>
-              <p className="text-muted-foreground hidden text-[10px] sm:block sm:text-xs">
-                Across all accounts
-              </p>
+              {ilsValue !== null && baseCurrency !== 'ILS' && (
+                <p className="text-muted-foreground text-[10px] tabular-nums sm:text-xs">
+                  {formatCurrency(ilsValue, 'ILS')}
+                </p>
+              )}
             </>
           )}
         </CardContent>
@@ -72,11 +79,21 @@ export function PortfolioSummary({
                 {isPositive ? '+' : ''}
                 {formatValue(totalGainLoss, baseCurrency)}
               </div>
-              <p
-                className={`text-[10px] sm:text-xs ${isPositive ? 'text-green-500' : 'text-red-500'}`}
-              >
-                {formatPercent(totalGainLossPercent)}
-              </p>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                {ilsGainLoss !== null && baseCurrency !== 'ILS' && (
+                  <span
+                    className={`text-[10px] tabular-nums sm:text-xs ${isPositive ? 'text-green-500/70' : 'text-red-500/70'}`}
+                  >
+                    {isPositive ? '+' : ''}
+                    {formatCurrency(ilsGainLoss, 'ILS')}
+                  </span>
+                )}
+                <span
+                  className={`text-[10px] sm:text-xs ${isPositive ? 'text-green-500' : 'text-red-500'}`}
+                >
+                  {formatPercent(totalGainLossPercent)}
+                </span>
+              </div>
             </>
           )}
         </CardContent>

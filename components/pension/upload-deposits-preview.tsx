@@ -72,7 +72,9 @@ export function UploadDepositsPreview({
               <TableCell className="text-muted-foreground hidden sm:table-cell">
                 {formatDepositDate(deposit.depositDate)}
               </TableCell>
-              <TableCell className="tabular-nums">{formatCurrency(deposit.amount)}</TableCell>
+              <TableCell className={`tabular-nums ${deposit.amount < 0 ? 'text-red-500' : ''}`}>
+                {formatCurrency(deposit.amount)}
+              </TableCell>
               <TableCell className="text-muted-foreground hidden sm:table-cell">
                 {deposit.employer}
               </TableCell>

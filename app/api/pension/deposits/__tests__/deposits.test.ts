@@ -229,7 +229,7 @@ describe('Pension Deposits API', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('Amount must be a positive number');
+      expect(data.error).toBe('Amount is required (use negative for refunds/corrections)');
     });
 
     it('returns 400 when amount is not a number', async () => {
@@ -251,7 +251,7 @@ describe('Pension Deposits API', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('Amount must be a positive number');
+      expect(data.error).toBe('Amount is required (use negative for refunds/corrections)');
     });
 
     it('returns 400 when amount is zero', async () => {
@@ -273,11 +273,34 @@ describe('Pension Deposits API', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('Amount must be a positive number');
+      expect(data.error).toBe('Amount is required (use negative for refunds/corrections)');
     });
 
-    it('returns 400 when amount is negative', async () => {
+    it('allows negative amounts for refunds/corrections', async () => {
       mockGetCurrentUser.mockResolvedValue(mockUser);
+      mockPrisma.pensionAccount.findUnique.mockResolvedValue({
+        id: 'account-123',
+        userId: mockUser.id,
+        providerName: 'Meitav',
+        accountName: 'Test Account',
+        currentValue: 50000,
+        feeFromDeposit: 0,
+        feeFromTotal: 0.5,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      // Use object with valueOf for Number() conversion in API response
+      const mockAmount = { toNumber: () => -100, valueOf: () => -100 };
+      mockPrisma.pensionDeposit.create.mockResolvedValue({
+        id: 'deposit-123',
+        accountId: 'account-123',
+        depositDate: new Date('2024-01-15'),
+        salaryMonth: new Date('2024-01-01'),
+        amount: mockAmount,
+        employer: 'Test Company',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
       const request = new NextRequest('http://localhost:3001/api/pension/deposits', {
         method: 'POST',
@@ -294,8 +317,9 @@ describe('Pension Deposits API', () => {
       const response = await POST(request);
       const data = await response.json();
 
-      expect(response.status).toBe(400);
-      expect(data.error).toBe('Amount must be a positive number');
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.data.amount).toBe(-100);
     });
 
     it('returns 400 when employer is missing', async () => {
@@ -603,7 +627,7 @@ describe('Pension Deposits API', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('Amount must be a positive number');
+      expect(data.error).toBe('Amount is required (use negative for refunds/corrections)');
     });
 
     it('returns 400 when amount is zero', async () => {
@@ -619,7 +643,7 @@ describe('Pension Deposits API', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('Amount must be a positive number');
+      expect(data.error).toBe('Amount is required (use negative for refunds/corrections)');
     });
 
     it('returns 400 when employer is not a string', async () => {

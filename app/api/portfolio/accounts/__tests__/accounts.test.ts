@@ -417,7 +417,7 @@ describe('Portfolio Accounts API', () => {
       expect(mockPrisma.stockAccount.update).toHaveBeenCalledWith({
         where: { id: 'acc-1' },
         data: { name: 'New Name', broker: 'New Broker' },
-        include: { holdings: true },
+        include: { holdings: true, cashBalances: true },
       });
     });
 
@@ -444,7 +444,7 @@ describe('Portfolio Accounts API', () => {
       expect(mockPrisma.stockAccount.update).toHaveBeenCalledWith({
         where: { id: 'acc-1' },
         data: { name: 'Updated' },
-        include: { holdings: true },
+        include: { holdings: true, cashBalances: true },
       });
     });
 
@@ -471,7 +471,7 @@ describe('Portfolio Accounts API', () => {
       expect(mockPrisma.stockAccount.update).toHaveBeenCalledWith({
         where: { id: 'acc-1' },
         data: { broker: null },
-        include: { holdings: true },
+        include: { holdings: true, cashBalances: true },
       });
     });
 

@@ -37,11 +37,21 @@ function parseSalaryMonth(text: string): Date | null {
 
 /**
  * Parse an amount string with comma separator (e.g., "3,155" -> 3155)
+ * Handles negative amounts indicated by minus sign or parentheses
  */
 function parseAmount(text: string): number {
-  const cleaned = text.replace(/,/g, '').trim();
+  let cleaned = text.replace(/,/g, '').trim();
+
+  // Check for negative indicators: leading minus sign or accounting-style parentheses
+  const isNegative = cleaned.startsWith('-') || (cleaned.startsWith('(') && cleaned.endsWith(')'));
+
+  // Remove negative indicators for parsing
+  cleaned = cleaned.replace(/[-()]/g, '').trim();
+
   const num = parseFloat(cleaned);
-  return isNaN(num) ? 0 : num;
+  if (isNaN(num)) return 0;
+
+  return isNegative ? -num : num;
 }
 
 /**
@@ -195,8 +205,14 @@ function parseDepositsTable(text: string): {
       // The total is the first amount (in the extracted text order)
       const amount = parseAmount(amounts[0]);
 
-      if (amount <= 0 || amount > 50000) {
+      // Allow negative amounts (refunds/corrections) but cap absolute value
+      if (Math.abs(amount) > 50000) {
         errors.push(`Invalid amount ${amount} from: ${line.substring(0, 50)}`);
+        continue;
+      }
+
+      // Skip zero amounts
+      if (amount === 0) {
         continue;
       }
 
@@ -212,7 +228,32 @@ function parseDepositsTable(text: string): {
     }
   }
 
-  return { deposits, errors };
+  // Group deposits by salary month and employer, summing amounts
+  // This handles cases where a deposit and a refund/correction exist for the same month
+  const groupedDepositsMap = new Map<string, ParsedDeposit>();
+
+  for (const deposit of deposits) {
+    const key = `${deposit.salaryMonth.toISOString()}_${deposit.employer}`;
+    const existing = groupedDepositsMap.get(key);
+
+    if (existing) {
+      // Sum the amounts
+      existing.amount += deposit.amount;
+      // Keep the most recent deposit date
+      if (deposit.depositDate > existing.depositDate) {
+        existing.depositDate = deposit.depositDate;
+      }
+      // Append raw text for debugging
+      existing.rawText = `${existing.rawText}\n${deposit.rawText}`;
+    } else {
+      groupedDepositsMap.set(key, { ...deposit });
+    }
+  }
+
+  // Convert back to array and filter out zero-sum deposits
+  const groupedDeposits = Array.from(groupedDepositsMap.values()).filter((d) => d.amount !== 0);
+
+  return { deposits: groupedDeposits, errors };
 }
 
 /**

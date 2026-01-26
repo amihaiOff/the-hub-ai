@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { nonEmptyString, positiveNumber, VALID_CURRENCIES } from './common';
+import { nonEmptyString, positiveNumber, nonNegativeNumber, VALID_CURRENCIES } from './common';
 
 /**
  * Validation schemas for Portfolio API routes.
@@ -62,8 +62,27 @@ export const updateHoldingSchema = z.object({
   taseSymbol: z.string().trim().optional().nullable(), // TASE equivalent symbol
 });
 
+// Create/Update cash balance schema
+// Note: amount can be zero (to clear a balance) or positive
+export const createCashBalanceSchema = z.object({
+  currency: z
+    .string()
+    .refine(
+      (val) => VALID_CURRENCIES.includes(val as (typeof VALID_CURRENCIES)[number]),
+      'Invalid currency. Must be one of: USD, ILS, EUR, GBP'
+    ),
+  amount: nonNegativeNumber('Amount must be a non-negative number'),
+});
+
+// Update cash balance schema
+export const updateCashBalanceSchema = z.object({
+  amount: nonNegativeNumber('Amount must be a non-negative number'),
+});
+
 // Type exports for use in routes
 export type CreateAccountInput = z.infer<typeof createAccountSchema>;
 export type UpdateAccountInput = z.infer<typeof updateAccountSchema>;
 export type CreateHoldingInput = z.infer<typeof createHoldingSchema>;
 export type UpdateHoldingInput = z.infer<typeof updateHoldingSchema>;
+export type CreateCashBalanceInput = z.infer<typeof createCashBalanceSchema>;
+export type UpdateCashBalanceInput = z.infer<typeof updateCashBalanceSchema>;

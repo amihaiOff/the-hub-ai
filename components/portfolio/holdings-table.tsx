@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { MoreVertical, Pencil, Trash2, TrendingUp } from 'lucide-react';
+import { MoreVertical, Pencil, Trash2, TrendingUp, ChevronDown } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -19,12 +19,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { EditHoldingDialog } from './edit-holding-dialog';
 import { DeleteConfirmDialog } from './delete-confirm-dialog';
 import { useDeleteHolding } from '@/lib/hooks/use-portfolio';
 import { formatPercent, formatQuantity } from '@/lib/utils/portfolio';
 import { useCurrency } from '@/lib/contexts/currency-context';
+import { cn } from '@/lib/utils';
 import type { HoldingValue } from '@/lib/utils/portfolio';
 
 interface HoldingsTableProps {
@@ -40,7 +41,148 @@ interface HoldingRowProps {
   onDelete: () => Promise<void>;
 }
 
-function HoldingRow({
+// Mobile expandable card view
+function MobileHoldingCard({
+  holding,
+  formatDisplayValue,
+  formatOriginalCurrency,
+  onDelete,
+}: HoldingRowProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const isPositive = holding.gainLoss >= 0;
+  const hasOriginalPrice = holding.originalPrice !== undefined && holding.originalPriceCurrency;
+
+  return (
+    <div className="border-border border-b last:border-b-0 sm:hidden">
+      {/* Collapsed view - tappable */}
+      <div
+        className="active:bg-muted/50 flex cursor-pointer items-center justify-between px-4 py-3"
+        onClick={() => setIsExpanded(!isExpanded)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setIsExpanded(!isExpanded);
+          }
+        }}
+        aria-expanded={isExpanded}
+      >
+        <div className="flex items-center gap-3">
+          <ChevronDown
+            className={cn(
+              'text-muted-foreground h-4 w-4 shrink-0 transition-transform',
+              isExpanded && 'rotate-180'
+            )}
+          />
+          <div className="flex flex-col">
+            <span className="font-medium">{holding.symbol}</span>
+            {holding.name && (
+              <span className="text-muted-foreground/70 max-w-[120px] truncate text-xs">
+                {holding.name}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-col items-end">
+          <span className="font-medium tabular-nums">
+            {formatDisplayValue(holding.currentValue)}
+          </span>
+          <span
+            className={cn('text-xs tabular-nums', isPositive ? 'text-green-500' : 'text-red-500')}
+          >
+            {isPositive ? '+' : ''}
+            {formatDisplayValue(holding.gainLoss)} ({formatPercent(holding.gainLossPercent)})
+          </span>
+        </div>
+      </div>
+
+      {/* Expanded view */}
+      {isExpanded && (
+        <div className="bg-muted/30 border-border/50 border-t px-4 py-3">
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <span className="text-muted-foreground text-xs">Quantity</span>
+              <p className="font-medium tabular-nums">{formatQuantity(holding.quantity)}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground text-xs">Avg Cost</span>
+              <p className="font-medium tabular-nums">{formatDisplayValue(holding.avgCostBasis)}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground text-xs">Current Price</span>
+              <p className="font-medium tabular-nums">
+                {formatDisplayValue(holding.currentPrice)}
+                {hasOriginalPrice && (
+                  <span className="text-muted-foreground/60 ml-1 text-xs">
+                    (
+                    {formatOriginalCurrency(
+                      holding.originalPrice ?? 0,
+                      holding.originalPriceCurrency ?? 'USD'
+                    )}
+                    )
+                  </span>
+                )}
+              </p>
+            </div>
+            <div>
+              <span className="text-muted-foreground text-xs">Total Cost</span>
+              <p className="font-medium tabular-nums">
+                {formatDisplayValue(holding.quantity * holding.avgCostBasis)}
+              </p>
+            </div>
+          </div>
+          {/* Actions */}
+          <div className="mt-3 flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowEditDialog(true);
+              }}
+            >
+              <Pencil className="mr-1.5 h-3.5 w-3.5" />
+              Edit
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive hover:text-destructive flex-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowDeleteDialog(true);
+              }}
+            >
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+              Delete
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <EditHoldingDialog
+        holdingId={holding.id}
+        holding={holding}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+      />
+      <DeleteConfirmDialog
+        title={`Delete ${holding.symbol}?`}
+        description={`This will remove ${holding.symbol} from your account. This action cannot be undone.`}
+        onConfirm={onDelete}
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+      />
+    </div>
+  );
+}
+
+// Desktop table row view
+function DesktopHoldingRow({
   holding,
   formatDisplayValue,
   formatOriginalCurrency,
@@ -67,7 +209,7 @@ function HoldingRow({
   );
 
   return (
-    <TableRow>
+    <TableRow className="hidden sm:table-row">
       <TableCell>
         {hasTooltipContent ? (
           <Tooltip>
@@ -86,7 +228,7 @@ function HoldingRow({
         )}
       </TableCell>
       <TableCell className="text-right tabular-nums">{formatQuantity(holding.quantity)}</TableCell>
-      <TableCell className="hidden text-right tabular-nums sm:table-cell">
+      <TableCell className="text-right tabular-nums">
         {formatDisplayValue(holding.avgCostBasis)}
       </TableCell>
       <TableCell className="text-right tabular-nums">
@@ -243,31 +385,47 @@ export function HoldingsTable({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Symbol</TableHead>
-            <TableHead className="text-right">Qty</TableHead>
-            <TableHead className="hidden text-right sm:table-cell">Avg Cost</TableHead>
-            <TableHead className="text-right">Price</TableHead>
-            <TableHead className="text-right">Value</TableHead>
-            <TableHead className="hidden text-right md:table-cell">Gain/Loss</TableHead>
-            <TableHead className="w-[80px]"></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {holdings.map((holding) => (
-            <HoldingRow
-              key={holding.id}
-              holding={holding}
-              formatDisplayValue={formatDisplayValue}
-              formatOriginalCurrency={formatOriginalCurrency}
-              onDelete={() => deleteHolding.mutateAsync(holding.id)}
-            />
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <>
+      {/* Mobile view - expandable cards */}
+      <div className="sm:hidden">
+        {holdings.map((holding) => (
+          <MobileHoldingCard
+            key={holding.id}
+            holding={holding}
+            formatDisplayValue={formatDisplayValue}
+            formatOriginalCurrency={formatOriginalCurrency}
+            onDelete={() => deleteHolding.mutateAsync(holding.id)}
+          />
+        ))}
+      </div>
+
+      {/* Desktop view - table */}
+      <div className="hidden overflow-x-auto sm:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Symbol</TableHead>
+              <TableHead className="text-right">Qty</TableHead>
+              <TableHead className="text-right">Avg Cost</TableHead>
+              <TableHead className="text-right">Price</TableHead>
+              <TableHead className="text-right">Value</TableHead>
+              <TableHead className="hidden text-right md:table-cell">Gain/Loss</TableHead>
+              <TableHead className="w-[80px]"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {holdings.map((holding) => (
+              <DesktopHoldingRow
+                key={holding.id}
+                holding={holding}
+                formatDisplayValue={formatDisplayValue}
+                formatOriginalCurrency={formatOriginalCurrency}
+                onDelete={() => deleteHolding.mutateAsync(holding.id)}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </>
   );
 }

@@ -28,7 +28,15 @@ import { getCurrentUser } from '@/lib/auth-utils';
 import { POST } from '../route';
 
 const mockGetCurrentUser = getCurrentUser as jest.MockedFunction<typeof getCurrentUser>;
-const mockPrisma = prisma as jest.Mocked<typeof prisma>;
+const mockPrisma = prisma as unknown as {
+  pensionAccount: {
+    findUnique: jest.Mock;
+  };
+  pensionDeposit: {
+    create: jest.Mock;
+    deleteMany: jest.Mock;
+  };
+};
 
 describe('Bulk Deposits API', () => {
   const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
@@ -335,7 +343,7 @@ describe('Bulk Deposits API', () => {
 
       expect(response.status).toBe(400);
       expect(data.success).toBe(false);
-      expect(data.error).toContain('Amount must be a positive number');
+      expect(data.error).toContain('Amount is required');
     });
 
     it('should return 400 when amount is zero', async () => {
@@ -361,11 +369,37 @@ describe('Bulk Deposits API', () => {
 
       expect(response.status).toBe(400);
       expect(data.success).toBe(false);
-      expect(data.error).toContain('Amount must be a positive number');
+      expect(data.error).toContain('Amount is required');
     });
 
-    it('should return 400 when amount is negative', async () => {
+    it('should allow negative amounts for refunds/corrections', async () => {
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+      // Mock the account lookup
+      mockPrisma.pensionAccount.findUnique.mockResolvedValueOnce({
+        id: 'acc-1',
+        userId: mockUser.id,
+        providerName: 'Meitav',
+        accountName: 'Pension',
+        currentValue: 50000,
+        feeFromDeposit: 0,
+        feeFromTotal: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      // Mock the deposit creation - use object with valueOf for Number() conversion
+      const mockAmount = { toNumber: () => -500, valueOf: () => -500 };
+      mockPrisma.pensionDeposit.create.mockResolvedValueOnce({
+        id: 'dep-1',
+        accountId: 'acc-1',
+        depositDate: new Date('2025-01-02'),
+        salaryMonth: new Date('2024-12-01'),
+        amount: mockAmount,
+        employer: 'Company',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -385,9 +419,9 @@ describe('Bulk Deposits API', () => {
       const response = await POST(request);
       const data = await response.json();
 
-      expect(response.status).toBe(400);
-      expect(data.success).toBe(false);
-      expect(data.error).toContain('Amount must be a positive number');
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.data.deposits[0].amount).toBe(-500);
     });
 
     it('should return 400 when employer is missing', async () => {
@@ -518,7 +552,7 @@ describe('Bulk Deposits API', () => {
             {
               depositDate: '2025-01-02',
               salaryMonth: '2024-11-01',
-              amount: -100, // Invalid
+              amount: 0, // Invalid - zero amount
               employer: 'Company',
             },
           ],

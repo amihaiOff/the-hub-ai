@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { HoldingsTable } from './holdings-table';
+import { CashBalancesSection } from './cash-balances-section';
 import { AddHoldingDialog } from './add-holding-dialog';
 import { EditAccountDialog } from './edit-account-dialog';
 import { DeleteConfirmDialog } from './delete-confirm-dialog';
@@ -216,12 +217,18 @@ export function AccountCard({ account }: AccountCardProps) {
             <div className="mb-4">
               <div className="text-muted-foreground text-sm">
                 {account.holdings.length} holding{account.holdings.length !== 1 ? 's' : ''}
+                {account.totalCash > 0 && ` + cash`}
               </div>
             </div>
             <HoldingsTable
               holdings={account.holdings}
               baseCurrency={nativeCurrency}
               displayCurrency={displayCurrency}
+            />
+            <CashBalancesSection
+              accountId={account.id}
+              cashBalances={account.cashBalances}
+              accountCurrency={nativeCurrency}
             />
           </CardContent>
         </CollapsibleContent>

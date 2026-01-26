@@ -17,6 +17,10 @@ export const positiveNumber = (message = 'Must be a positive number') =>
 export const nonNegativeNumber = (message = 'Must be a non-negative number') =>
   z.number({ message }).nonnegative({ message });
 
+// Non-zero number (allows positive or negative, but not zero)
+export const nonZeroNumber = (message = 'Must be a non-zero number') =>
+  z.number({ message }).refine((val) => val !== 0, { message });
+
 // Percentage (0-100) with custom error messages
 export const percentage = (message = 'Must be a percentage between 0 and 100') =>
   z.number({ message }).min(0, { message }).max(100, { message });

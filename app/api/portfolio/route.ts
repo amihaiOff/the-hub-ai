@@ -107,11 +107,12 @@ export async function GET() {
     }
     const userId = user.id;
 
-    // Fetch all accounts with holdings and owners for the user
+    // Fetch all accounts with holdings, cash balances, and owners for the user
     const accounts = await prisma.stockAccount.findMany({
       where: { userId },
       include: {
         holdings: true,
+        cashBalances: true,
         owners: {
           include: {
             profile: {
@@ -142,7 +143,7 @@ export async function GET() {
     // Fetch exchange rates for currency conversion
     const rates = await fetchExchangeRates();
 
-    // Transform accounts to include current prices and owners
+    // Transform accounts to include current prices, cash balances, and owners
     const accountsWithPrices = accounts.map((account) => ({
       id: account.id,
       name: account.name,
@@ -179,6 +180,21 @@ export async function GET() {
           originalPrice,
           originalPriceCurrency,
         } as HoldingWithPrice;
+      }),
+      // Include cash balances, converting to account currency if needed
+      cashBalances: account.cashBalances.map((cash) => {
+        const amount = Number(cash.amount);
+        // Convert cash to account currency if it's in a different currency
+        let convertedAmount = amount;
+        if (rates && cash.currency !== account.currency && amount > 0) {
+          convertedAmount = convertPrice(amount, cash.currency, account.currency, rates);
+        }
+        return {
+          id: cash.id,
+          currency: cash.currency,
+          amount,
+          convertedAmount,
+        };
       }),
       owners: account.owners.map((o) => ({
         id: o.profile.id,

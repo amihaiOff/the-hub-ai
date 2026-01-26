@@ -35,6 +35,15 @@ interface StockHolding {
   updatedAt: string;
 }
 
+interface CashBalance {
+  id: string;
+  currency: string;
+  amount: number;
+  accountId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Fetch functions
 async function fetchPortfolio(): Promise<PortfolioData> {
   const response = await fetch('/api/portfolio');
@@ -161,6 +170,65 @@ async function deleteHolding(holdingId: string): Promise<void> {
   }
 }
 
+// Cash balance functions
+async function createCashBalance(params: {
+  accountId: string;
+  currency: string;
+  amount: number;
+}): Promise<CashBalance> {
+  const { accountId, ...body } = params;
+
+  const response = await fetch(`/api/portfolio/accounts/${accountId}/cash`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  const data: ApiResponse<CashBalance> = await response.json();
+
+  if (!data.success || !data.data) {
+    throw new Error(data.error || 'Failed to create cash balance');
+  }
+
+  return data.data;
+}
+
+async function updateCashBalance(params: {
+  accountId: string;
+  cashId: string;
+  amount: number;
+}): Promise<CashBalance> {
+  const { accountId, cashId, amount } = params;
+
+  const response = await fetch(`/api/portfolio/accounts/${accountId}/cash/${cashId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount }),
+  });
+
+  const data: ApiResponse<CashBalance> = await response.json();
+
+  if (!data.success || !data.data) {
+    throw new Error(data.error || 'Failed to update cash balance');
+  }
+
+  return data.data;
+}
+
+async function deleteCashBalance(params: { accountId: string; cashId: string }): Promise<void> {
+  const { accountId, cashId } = params;
+
+  const response = await fetch(`/api/portfolio/accounts/${accountId}/cash/${cashId}`, {
+    method: 'DELETE',
+  });
+
+  const data: ApiResponse<void> = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.error || 'Failed to delete cash balance');
+  }
+}
+
 // Hooks
 export function usePortfolio() {
   return useQuery({
@@ -234,6 +302,43 @@ export function useDeleteHolding() {
 
   return useMutation({
     mutationFn: deleteHolding,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
+// Cash balance hooks
+export function useCreateCashBalance() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: createCashBalance,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
+export function useUpdateCashBalance() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: updateCashBalance,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
+export function useDeleteCashBalance() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteCashBalance,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolio'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });

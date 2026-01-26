@@ -28,6 +28,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         holdings: {
           orderBy: { symbol: 'asc' },
         },
+        cashBalances: {
+          orderBy: { currency: 'asc' },
+        },
       },
     });
 
@@ -99,6 +102,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       },
       include: {
         holdings: true,
+        cashBalances: true,
       },
     });
 

@@ -97,8 +97,8 @@ export function EditDepositDialog({
       return;
     }
 
-    if (isNaN(amountNum) || amountNum <= 0) {
-      setError('Amount must be a positive number');
+    if (isNaN(amountNum) || amountNum === 0) {
+      setError('Amount is required (use negative for refunds/corrections)');
       return;
     }
 
@@ -168,12 +168,14 @@ export function EditDepositDialog({
                 id="edit-amount"
                 type="number"
                 step="0.01"
-                min="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="e.g., 1500"
+                placeholder="e.g., 1500 (negative for refund)"
                 required
               />
+              <p className="text-muted-foreground text-xs">
+                Use negative amount for refunds or corrections
+              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-employer">Employer *</Label>

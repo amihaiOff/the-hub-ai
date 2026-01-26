@@ -129,6 +129,7 @@ describe('Portfolio API', () => {
               avgCostBasis: 130,
             },
           ],
+          cashBalances: [],
           owners: [
             {
               profile: {
@@ -175,6 +176,7 @@ describe('Portfolio API', () => {
             { id: 'h1', symbol: 'AAPL', quantity: 10, avgCostBasis: 150 },
             { id: 'h2', symbol: 'MSFT', quantity: 5, avgCostBasis: 300 },
           ],
+          cashBalances: [],
           owners: [],
         },
         {
@@ -186,6 +188,7 @@ describe('Portfolio API', () => {
             { id: 'h3', symbol: 'AAPL', quantity: 20, avgCostBasis: 160 },
             { id: 'h4', symbol: 'GOOGL', quantity: 3, avgCostBasis: 140 },
           ],
+          cashBalances: [],
           owners: [],
         },
       ]);
@@ -211,6 +214,7 @@ describe('Portfolio API', () => {
           broker: 'Broker A',
           currency: 'USD',
           holdings: [{ id: 'h1', symbol: 'AAPL', quantity: 10, avgCostBasis: 150 }],
+          cashBalances: [],
           owners: [],
         },
       ]);

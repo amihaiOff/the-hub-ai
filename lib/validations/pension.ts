@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { nonEmptyString, positiveNumber, nonNegativeNumber, percentage } from './common';
+import { nonEmptyString, nonZeroNumber, nonNegativeNumber, percentage } from './common';
 
 /**
  * Validation schemas for Pension API routes.
@@ -48,7 +48,7 @@ export const createDepositSchema = z.object({
   accountId: nonEmptyString('Account ID is required'),
   depositDate: depositDateString,
   salaryMonth: salaryMonthString,
-  amount: positiveNumber('Amount must be a positive number'),
+  amount: nonZeroNumber('Amount is required (use negative for refunds/corrections)'),
   employer: nonEmptyString('Employer name is required'),
 });
 
@@ -82,7 +82,7 @@ export const updateDepositSchema = z.object({
       return date;
     })
     .optional(),
-  amount: positiveNumber('Amount must be a positive number').optional(),
+  amount: nonZeroNumber('Amount is required (use negative for refunds/corrections)').optional(),
   employer: nonEmptyString('Employer name cannot be empty').optional(),
 });
 
@@ -127,9 +127,9 @@ export function validateBulkDeposit(deposit: z.infer<typeof bulkDepositItemSchem
     }
   }
 
-  // Validate amount
-  if (deposit.amount === undefined || typeof deposit.amount !== 'number' || deposit.amount <= 0) {
-    errors.push(`Deposit ${index + 1}: Amount must be a positive number`);
+  // Validate amount (allow negative for refunds/corrections, but not zero)
+  if (deposit.amount === undefined || typeof deposit.amount !== 'number' || deposit.amount === 0) {
+    errors.push(`Deposit ${index + 1}: Amount is required (use negative for refunds/corrections)`);
   }
 
   // Validate employer

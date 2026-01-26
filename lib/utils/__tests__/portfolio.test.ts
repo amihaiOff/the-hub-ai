@@ -163,6 +163,50 @@ describe('Portfolio Calculations', () => {
       expect(result.totalGainLossPercent).toBe(0);
       expect(result.holdings).toHaveLength(0);
     });
+
+    it('should include cash balances in total value', () => {
+      const account = {
+        id: 'account-1',
+        name: 'Account with Cash',
+        broker: 'Test Broker',
+        currency: 'USD',
+        holdings: [
+          { id: 'h1', symbol: 'AAPL', quantity: 10, avgCostBasis: 100, currentPrice: 150 },
+        ],
+        cashBalances: [
+          { id: 'c1', currency: 'USD', amount: 1000, convertedAmount: 1000 },
+          { id: 'c2', currency: 'EUR', amount: 500, convertedAmount: 550 },
+        ],
+      };
+
+      const result = calculateAccountSummary(account);
+
+      expect(result.totalHoldingsValue).toBe(1500); // Just AAPL
+      expect(result.totalCash).toBe(1550); // 1000 USD + 550 EUR (converted)
+      expect(result.totalValue).toBe(3050); // Holdings + Cash
+      expect(result.totalCostBasis).toBe(1000);
+      expect(result.totalGainLoss).toBe(500); // Only from holdings
+      expect(result.cashBalances).toHaveLength(2);
+    });
+
+    it('should handle account with only cash (no holdings)', () => {
+      const account = {
+        id: 'account-1',
+        name: 'Cash Only Account',
+        broker: null,
+        holdings: [],
+        cashBalances: [{ id: 'c1', currency: 'USD', amount: 5000, convertedAmount: 5000 }],
+      };
+
+      const result = calculateAccountSummary(account);
+
+      expect(result.totalHoldingsValue).toBe(0);
+      expect(result.totalCash).toBe(5000);
+      expect(result.totalValue).toBe(5000);
+      expect(result.totalCostBasis).toBe(0);
+      expect(result.totalGainLoss).toBe(0);
+      expect(result.totalGainLossPercent).toBe(0);
+    });
   });
 
   describe('calculatePortfolioSummary', () => {
@@ -206,6 +250,39 @@ describe('Portfolio Calculations', () => {
       expect(result.totalHoldings).toBe(0);
       expect(result.accounts).toHaveLength(0);
     });
+
+    it('should include cash in portfolio totals', () => {
+      const accounts = [
+        {
+          id: 'account-1',
+          name: 'Account 1',
+          broker: 'Broker 1',
+          holdings: [
+            { id: 'h1', symbol: 'AAPL', quantity: 10, avgCostBasis: 100, currentPrice: 150 },
+          ],
+          cashBalances: [{ id: 'c1', currency: 'USD', amount: 1000, convertedAmount: 1000 }],
+        },
+        {
+          id: 'account-2',
+          name: 'Account 2',
+          broker: 'Broker 2',
+          holdings: [
+            { id: 'h2', symbol: 'GOOGL', quantity: 5, avgCostBasis: 200, currentPrice: 250 },
+          ],
+          cashBalances: [{ id: 'c2', currency: 'EUR', amount: 500, convertedAmount: 600 }],
+        },
+      ];
+
+      const result = calculatePortfolioSummary(accounts);
+
+      expect(result.totalHoldingsValue).toBe(2750); // 1500 + 1250
+      expect(result.totalCash).toBe(1600); // 1000 + 600
+      expect(result.totalValue).toBe(4350); // Holdings + Cash
+      expect(result.totalCostBasis).toBe(2000);
+      expect(result.totalGainLoss).toBe(750); // Only from holdings
+      expect(result.totalGainLossPercent).toBe(37.5);
+      expect(result.totalHoldings).toBe(2);
+    });
   });
 
   describe('calculateAllocation', () => {
@@ -217,6 +294,8 @@ describe('Portfolio Calculations', () => {
           broker: null,
           currency: 'USD',
           totalValue: 2000,
+          totalHoldingsValue: 2000,
+          totalCash: 0,
           totalCostBasis: 1000,
           totalGainLoss: 1000,
           totalGainLossPercent: 100,
@@ -244,6 +323,7 @@ describe('Portfolio Calculations', () => {
               gainLossPercent: 0,
             },
           ],
+          cashBalances: [],
         },
       ];
 
@@ -266,6 +346,8 @@ describe('Portfolio Calculations', () => {
           broker: null,
           currency: 'USD',
           totalValue: 1000,
+          totalHoldingsValue: 1000,
+          totalCash: 0,
           totalCostBasis: 1000,
           totalGainLoss: 0,
           totalGainLossPercent: 0,
@@ -282,6 +364,7 @@ describe('Portfolio Calculations', () => {
               gainLossPercent: 0,
             },
           ],
+          cashBalances: [],
         },
         {
           id: 'account-2',
@@ -289,6 +372,8 @@ describe('Portfolio Calculations', () => {
           broker: null,
           currency: 'USD',
           totalValue: 1000,
+          totalHoldingsValue: 1000,
+          totalCash: 0,
           totalCostBasis: 1000,
           totalGainLoss: 0,
           totalGainLossPercent: 0,
@@ -305,6 +390,7 @@ describe('Portfolio Calculations', () => {
               gainLossPercent: 0,
             },
           ],
+          cashBalances: [],
         },
       ];
 

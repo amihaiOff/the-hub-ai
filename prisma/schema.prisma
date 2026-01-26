@@ -152,10 +152,26 @@ model StockAccount {
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   // New ownership relation
-  owners   StockAccountOwner[]
-  holdings StockHolding[]
+  owners       StockAccountOwner[]
+  holdings     StockHolding[]
+  cashBalances StockAccountCash[]
 
   @@map("stock_accounts")
+}
+
+// Cash balance in a stock account - supports multiple currencies
+model StockAccountCash {
+  id        String   @id @default(cuid())
+  accountId String   @map("account_id")
+  currency  String   // e.g., "USD", "ILS", "EUR"
+  amount    Decimal  @db.Decimal(18, 2) // Cash balance in this currency
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  account StockAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, currency]) // One balance per currency per account
+  @@map("stock_account_cash")
 }
 
 model StockHolding {

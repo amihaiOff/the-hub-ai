@@ -41,21 +41,33 @@ export interface Owner {
   color?: string | null;
 }
 
+export interface CashBalance {
+  id: string;
+  currency: string;
+  amount: number; // Original amount in cash currency
+  convertedAmount: number; // Amount converted to account currency
+}
+
 export interface AccountSummary {
   id: string;
   name: string;
   broker: string | null;
   currency: string;
-  totalValue: number;
+  totalValue: number; // Holdings value + cash
+  totalHoldingsValue: number; // Just holdings value
+  totalCash: number; // Total cash (converted to account currency)
   totalCostBasis: number;
   totalGainLoss: number;
   totalGainLossPercent: number;
   holdings: HoldingValue[];
+  cashBalances: CashBalance[];
   owners?: Owner[];
 }
 
 export interface PortfolioSummary {
-  totalValue: number;
+  totalValue: number; // Holdings + Cash across all accounts
+  totalHoldingsValue: number; // Just holdings value
+  totalCash: number; // Total cash across all accounts
   totalCostBasis: number;
   totalGainLoss: number;
   totalGainLossPercent: number;
@@ -171,7 +183,7 @@ export function calculateAccountCostBasis(holdings: HoldingValue[]): number {
 }
 
 /**
- * Calculate account summary with all holdings
+ * Calculate account summary with all holdings and cash balances
  */
 export function calculateAccountSummary(account: {
   id: string;
@@ -179,13 +191,25 @@ export function calculateAccountSummary(account: {
   broker: string | null;
   currency?: string;
   holdings: HoldingWithPrice[];
+  cashBalances?: CashBalance[];
   owners?: Owner[];
 }): AccountSummary {
   const holdingValues = account.holdings.map(calculateHoldingDetails);
-  const totalValue = calculateAccountTotal(holdingValues);
+  const totalHoldingsValue = calculateAccountTotal(holdingValues);
   const totalCostBasis = calculateAccountCostBasis(holdingValues);
-  const totalGainLoss = calculateGainLoss(totalValue, totalCostBasis);
-  const totalGainLossPercent = calculateGainLossPercent(totalValue, totalCostBasis);
+
+  // Calculate total cash (use converted amounts which are in account currency)
+  const cashBalances = account.cashBalances || [];
+  const totalCash = cashBalances.reduce((sum, cb) => sum + cb.convertedAmount, 0);
+
+  // Total value includes both holdings and cash
+  const totalValue = totalHoldingsValue + totalCash;
+
+  // FINANCIAL NOTE: Gain/loss is calculated only on holdings.
+  // Cash has no gain/loss as it's stored at face value without cost basis tracking.
+  // This reflects standard portfolio accounting where cash is not an investment with returns.
+  const totalGainLoss = calculateGainLoss(totalHoldingsValue, totalCostBasis);
+  const totalGainLossPercent = calculateGainLossPercent(totalHoldingsValue, totalCostBasis);
 
   return {
     id: account.id,
@@ -193,10 +217,13 @@ export function calculateAccountSummary(account: {
     broker: account.broker,
     currency: account.currency || 'USD',
     totalValue,
+    totalHoldingsValue,
+    totalCash,
     totalCostBasis,
     totalGainLoss,
     totalGainLossPercent,
     holdings: holdingValues,
+    cashBalances,
     owners: account.owners,
   };
 }
@@ -211,19 +238,28 @@ export function calculatePortfolioSummary(
     broker: string | null;
     currency?: string;
     holdings: HoldingWithPrice[];
+    cashBalances?: CashBalance[];
     owners?: Owner[];
   }>
 ): PortfolioSummary {
   const accountSummaries = accounts.map(calculateAccountSummary);
 
   const totalValue = accountSummaries.reduce((sum, account) => sum + account.totalValue, 0);
+  const totalHoldingsValue = accountSummaries.reduce(
+    (sum, account) => sum + account.totalHoldingsValue,
+    0
+  );
+  const totalCash = accountSummaries.reduce((sum, account) => sum + account.totalCash, 0);
   const totalCostBasis = accountSummaries.reduce((sum, account) => sum + account.totalCostBasis, 0);
-  const totalGainLoss = calculateGainLoss(totalValue, totalCostBasis);
-  const totalGainLossPercent = calculateGainLossPercent(totalValue, totalCostBasis);
+  // Gain/loss is calculated only on holdings (cash has no gain/loss)
+  const totalGainLoss = calculateGainLoss(totalHoldingsValue, totalCostBasis);
+  const totalGainLossPercent = calculateGainLossPercent(totalHoldingsValue, totalCostBasis);
   const totalHoldings = accountSummaries.reduce((sum, account) => sum + account.holdings.length, 0);
 
   return {
     totalValue,
+    totalHoldingsValue,
+    totalCash,
     totalCostBasis,
     totalGainLoss,
     totalGainLossPercent,
