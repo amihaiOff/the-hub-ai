@@ -9,36 +9,25 @@ import {
   type BudgetPayee,
   type BudgetTag,
   type BudgetMonthSummary,
-  MOCK_TRANSACTIONS,
-  MOCK_CATEGORY_GROUPS,
-  MOCK_PAYEES,
-  MOCK_TAGS,
-  calculateMonthSummary,
   getCurrentMonth,
 } from '@/lib/utils/budget';
 
-// Simulate API delay for realistic UX
-const simulateDelay = (ms: number = 300) => new Promise((resolve) => setTimeout(resolve, ms));
+// API response types
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
 
-/**
- * DEVELOPMENT MOCK STATE
- * ----------------------
- * These module-level variables serve as in-memory storage for the mock implementation.
- * This is intentional for the frontend-only development phase.
- *
- * TODO: Replace with real API calls when backend is implemented:
- * - Replace mockTransactions with API calls to /api/budget/transactions
- * - Replace mockCategoryGroups with API calls to /api/budget/categories
- * - Replace mockPayees with API calls to /api/budget/payees
- * - Replace mockTags with API calls to /api/budget/tags
- *
- * WARNING: This state persists across component remounts but resets on page refresh.
- * In production, all mutations should call the actual backend API.
- */
-let mockTransactions = [...MOCK_TRANSACTIONS];
-let mockCategoryGroups = [...MOCK_CATEGORY_GROUPS];
-let mockPayees = [...MOCK_PAYEES];
-let mockTags = [...MOCK_TAGS];
+interface PaginatedResponse<T> {
+  items: T[];
+  pagination: {
+    total: number;
+    limit: number;
+    offset: number;
+    hasMore: boolean;
+  };
+}
 
 // Query keys
 export const budgetKeys = {
@@ -47,6 +36,7 @@ export const budgetKeys = {
   transactions: (filters?: TransactionFilters) =>
     [...budgetKeys.all, 'transactions', filters] as const,
   categories: () => [...budgetKeys.all, 'categories'] as const,
+  categoryGroups: () => [...budgetKeys.all, 'categoryGroups'] as const,
   payees: () => [...budgetKeys.all, 'payees'] as const,
   tags: () => [...budgetKeys.all, 'tags'] as const,
 };
@@ -61,6 +51,25 @@ export interface TransactionFilters {
   searchQuery?: string;
   startDate?: string;
   endDate?: string;
+}
+
+// API helper function
+async function fetchApi<T>(url: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+  });
+
+  const data: ApiResponse<T> = await response.json();
+
+  if (!data.success) {
+    throw new Error(data.error || 'API request failed');
+  }
+
+  return data.data as T;
 }
 
 // Hooks
@@ -80,8 +89,7 @@ export function useBudgetMonthSummary(month: string) {
   return useQuery({
     queryKey: budgetKeys.monthSummary(month),
     queryFn: async (): Promise<BudgetMonthSummary> => {
-      await simulateDelay();
-      return calculateMonthSummary(month, mockTransactions, mockCategoryGroups);
+      return fetchApi<BudgetMonthSummary>(`/api/budget/summary?month=${month}`);
     },
   });
 }
@@ -93,46 +101,34 @@ export function useTransactions(filters?: TransactionFilters) {
   return useQuery({
     queryKey: budgetKeys.transactions(filters),
     queryFn: async (): Promise<BudgetTransaction[]> => {
-      await simulateDelay();
-      let result = [...mockTransactions];
+      const params = new URLSearchParams();
 
-      if (filters?.month) {
-        result = result.filter((tx) => tx.transactionDate.startsWith(filters.month!));
-      }
-      if (filters?.categoryId) {
-        result = result.filter((tx) => tx.categoryId === filters.categoryId);
-      }
-      if (filters?.payeeId) {
-        result = result.filter((tx) => tx.payeeId === filters.payeeId);
-      }
-      if (filters?.tagId) {
-        result = result.filter((tx) => tx.tagIds.includes(filters.tagId!));
-      }
-      if (filters?.type) {
-        result = result.filter((tx) => tx.type === filters.type);
-      }
+      if (filters?.month) params.set('month', filters.month);
+      if (filters?.categoryId) params.set('categoryId', filters.categoryId);
+      if (filters?.payeeId) params.set('payeeId', filters.payeeId);
+      if (filters?.tagId) params.set('tagIds', filters.tagId);
+      if (filters?.type) params.set('type', filters.type);
+      if (filters?.startDate) params.set('startDate', filters.startDate);
+      if (filters?.endDate) params.set('endDate', filters.endDate);
+
+      const response = await fetchApi<PaginatedResponse<BudgetTransaction>>(
+        `/api/budget/transactions?${params.toString()}`
+      );
+
+      // If search query provided, filter on client side (payee name search)
+      let result = response.items;
       if (filters?.searchQuery) {
         const query = filters.searchQuery.toLowerCase();
         result = result.filter(
           (tx) =>
             tx.notes?.toLowerCase().includes(query) ||
-            mockPayees
-              .find((p) => p.id === tx.payeeId)
-              ?.name.toLowerCase()
+            (tx as BudgetTransaction & { payeeName?: string }).payeeName
+              ?.toLowerCase()
               .includes(query)
         );
       }
-      if (filters?.startDate) {
-        result = result.filter((tx) => tx.transactionDate >= filters.startDate!);
-      }
-      if (filters?.endDate) {
-        result = result.filter((tx) => tx.transactionDate <= filters.endDate!);
-      }
 
-      // Sort by date descending
-      return result.sort(
-        (a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime()
-      );
+      return result;
     },
   });
 }
@@ -142,10 +138,9 @@ export function useTransactions(filters?: TransactionFilters) {
  */
 export function useCategoryGroups() {
   return useQuery({
-    queryKey: budgetKeys.categories(),
+    queryKey: budgetKeys.categoryGroups(),
     queryFn: async (): Promise<BudgetCategoryGroup[]> => {
-      await simulateDelay();
-      return mockCategoryGroups;
+      return fetchApi<BudgetCategoryGroup[]>('/api/budget/category-groups');
     },
   });
 }
@@ -157,8 +152,7 @@ export function usePayees() {
   return useQuery({
     queryKey: budgetKeys.payees(),
     queryFn: async (): Promise<BudgetPayee[]> => {
-      await simulateDelay();
-      return mockPayees;
+      return fetchApi<BudgetPayee[]>('/api/budget/payees');
     },
   });
 }
@@ -170,8 +164,7 @@ export function useTags() {
   return useQuery({
     queryKey: budgetKeys.tags(),
     queryFn: async (): Promise<BudgetTag[]> => {
-      await simulateDelay();
-      return mockTags;
+      return fetchApi<BudgetTag[]>('/api/budget/tags');
     },
   });
 }
@@ -250,35 +243,10 @@ export function useCreateTransaction() {
 
   return useMutation({
     mutationFn: async (input: CreateTransactionInput): Promise<BudgetTransaction> => {
-      await simulateDelay();
-      const newTx: BudgetTransaction = {
-        id: `tx-${Date.now()}`,
-        type: input.type,
-        transactionDate: input.transactionDate,
-        paymentDate: input.transactionDate,
-        amountIls: input.amountIls,
-        currency: 'ILS',
-        amountOriginal: input.amountIls,
-        categoryId: input.categoryId || null,
-        payeeId: input.payeeId || null,
-        paymentMethod:
-          (input.paymentMethod as 'cash' | 'credit_card' | 'bank_transfer' | 'check' | 'other') ||
-          'credit_card',
-        paymentNumber: null,
-        totalPayments: null,
-        notes: input.notes || null,
-        source: 'manual',
-        isRecurring: false,
-        isSplit: false,
-        originalTransactionId: null,
-        profileId: null,
-        householdId: 'mock-household-1',
-        tagIds: input.tagIds || [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      mockTransactions = [...mockTransactions, newTx];
-      return newTx;
+      return fetchApi<BudgetTransaction>('/api/budget/transactions', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.all });
@@ -291,21 +259,11 @@ export function useUpdateTransaction() {
 
   return useMutation({
     mutationFn: async (input: UpdateTransactionInput): Promise<BudgetTransaction> => {
-      await simulateDelay();
-      const index = mockTransactions.findIndex((tx) => tx.id === input.id);
-      if (index === -1) throw new Error('Transaction not found');
-
-      const updated = {
-        ...mockTransactions[index],
-        ...input,
-        updatedAt: new Date().toISOString(),
-      };
-      mockTransactions = [
-        ...mockTransactions.slice(0, index),
-        updated,
-        ...mockTransactions.slice(index + 1),
-      ];
-      return updated;
+      const { id, ...data } = input;
+      return fetchApi<BudgetTransaction>(`/api/budget/transactions/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.all });
@@ -318,8 +276,9 @@ export function useDeleteTransaction() {
 
   return useMutation({
     mutationFn: async (id: string): Promise<void> => {
-      await simulateDelay();
-      mockTransactions = mockTransactions.filter((tx) => tx.id !== id);
+      await fetchApi<{ id: string }>(`/api/budget/transactions/${id}`, {
+        method: 'DELETE',
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.all });
@@ -332,8 +291,10 @@ export function useBulkDeleteTransactions() {
 
   return useMutation({
     mutationFn: async (ids: string[]): Promise<void> => {
-      await simulateDelay();
-      mockTransactions = mockTransactions.filter((tx) => !ids.includes(tx.id));
+      await fetchApi<{ deleted: number }>('/api/budget/transactions/bulk', {
+        method: 'DELETE',
+        body: JSON.stringify({ transactionIds: ids }),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.all });
@@ -352,10 +313,10 @@ export function useBulkCategorizeTransactions() {
       ids: string[];
       categoryId: string;
     }): Promise<void> => {
-      await simulateDelay();
-      mockTransactions = mockTransactions.map((tx) =>
-        ids.includes(tx.id) ? { ...tx, categoryId, updatedAt: new Date().toISOString() } : tx
-      );
+      await fetchApi<{ updated: number }>('/api/budget/transactions/bulk', {
+        method: 'PUT',
+        body: JSON.stringify({ transactionIds: ids, categoryId }),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.all });
@@ -369,24 +330,10 @@ export function useCreateCategory() {
 
   return useMutation({
     mutationFn: async (input: CreateCategoryInput): Promise<BudgetCategory> => {
-      await simulateDelay();
-      const group = mockCategoryGroups.find((g) => g.id === input.groupId);
-      if (!group) throw new Error('Category group not found');
-
-      const newCategory: BudgetCategory = {
-        id: `cat-${Date.now()}`,
-        name: input.name,
-        groupId: input.groupId,
-        budget: input.budget || null,
-        isMust: input.isMust || false,
-        sortOrder: group.categories.length + 1,
-        householdId: 'mock-household-1',
-      };
-
-      mockCategoryGroups = mockCategoryGroups.map((g) =>
-        g.id === input.groupId ? { ...g, categories: [...g.categories, newCategory] } : g
-      );
-      return newCategory;
+      return fetchApi<BudgetCategory>('/api/budget/categories', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.all });
@@ -399,22 +346,11 @@ export function useUpdateCategory() {
 
   return useMutation({
     mutationFn: async (input: UpdateCategoryInput): Promise<BudgetCategory> => {
-      await simulateDelay();
-      let updated: BudgetCategory | null = null;
-
-      mockCategoryGroups = mockCategoryGroups.map((g) => ({
-        ...g,
-        categories: g.categories.map((c) => {
-          if (c.id === input.id) {
-            updated = { ...c, ...input };
-            return updated;
-          }
-          return c;
-        }),
-      }));
-
-      if (!updated) throw new Error('Category not found');
-      return updated;
+      const { id, ...data } = input;
+      return fetchApi<BudgetCategory>(`/api/budget/categories/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.all });
@@ -427,15 +363,9 @@ export function useDeleteCategory() {
 
   return useMutation({
     mutationFn: async (id: string): Promise<void> => {
-      await simulateDelay();
-      mockCategoryGroups = mockCategoryGroups.map((g) => ({
-        ...g,
-        categories: g.categories.filter((c) => c.id !== id),
-      }));
-      // Also uncategorize any transactions with this category
-      mockTransactions = mockTransactions.map((tx) =>
-        tx.categoryId === id ? { ...tx, categoryId: null } : tx
-      );
+      await fetchApi<{ id: string }>(`/api/budget/categories/${id}`, {
+        method: 'DELETE',
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.all });
@@ -449,16 +379,10 @@ export function useCreateCategoryGroup() {
 
   return useMutation({
     mutationFn: async (input: CreateCategoryGroupInput): Promise<BudgetCategoryGroup> => {
-      await simulateDelay();
-      const newGroup: BudgetCategoryGroup = {
-        id: `group-${Date.now()}`,
-        name: input.name,
-        sortOrder: mockCategoryGroups.length + 1,
-        householdId: 'mock-household-1',
-        categories: [],
-      };
-      mockCategoryGroups = [...mockCategoryGroups, newGroup];
-      return newGroup;
+      return fetchApi<BudgetCategoryGroup>('/api/budget/category-groups', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.all });
@@ -471,16 +395,25 @@ export function useDeleteCategoryGroup() {
 
   return useMutation({
     mutationFn: async (id: string): Promise<void> => {
-      await simulateDelay();
-      const group = mockCategoryGroups.find((g) => g.id === id);
-      if (group) {
-        // Uncategorize transactions in this group's categories
-        const categoryIds = group.categories.map((c) => c.id);
-        mockTransactions = mockTransactions.map((tx) =>
-          tx.categoryId && categoryIds.includes(tx.categoryId) ? { ...tx, categoryId: null } : tx
-        );
-      }
-      mockCategoryGroups = mockCategoryGroups.filter((g) => g.id !== id);
+      await fetchApi<{ id: string }>(`/api/budget/category-groups/${id}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+    },
+  });
+}
+
+export function useReorderCategoryGroups() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (groups: { id: string; sortOrder: number }[]): Promise<void> => {
+      await fetchApi<BudgetCategoryGroup[]>('/api/budget/category-groups/reorder', {
+        method: 'POST',
+        body: JSON.stringify({ groups }),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.all });
@@ -494,16 +427,10 @@ export function useCreatePayee() {
 
   return useMutation({
     mutationFn: async (input: CreatePayeeInput): Promise<BudgetPayee> => {
-      await simulateDelay();
-      const newPayee: BudgetPayee = {
-        id: `payee-${Date.now()}`,
-        name: input.name,
-        categoryId: input.categoryId || null,
-        transactionCount: 0,
-        householdId: 'mock-household-1',
-      };
-      mockPayees = [...mockPayees, newPayee];
-      return newPayee;
+      return fetchApi<BudgetPayee>('/api/budget/payees', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.all });
@@ -516,13 +443,11 @@ export function useUpdatePayee() {
 
   return useMutation({
     mutationFn: async (input: UpdatePayeeInput): Promise<BudgetPayee> => {
-      await simulateDelay();
-      const index = mockPayees.findIndex((p) => p.id === input.id);
-      if (index === -1) throw new Error('Payee not found');
-
-      const updated = { ...mockPayees[index], ...input };
-      mockPayees = [...mockPayees.slice(0, index), updated, ...mockPayees.slice(index + 1)];
-      return updated;
+      const { id, ...data } = input;
+      return fetchApi<BudgetPayee>(`/api/budget/payees/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.all });
@@ -535,12 +460,9 @@ export function useDeletePayee() {
 
   return useMutation({
     mutationFn: async (id: string): Promise<void> => {
-      await simulateDelay();
-      mockPayees = mockPayees.filter((p) => p.id !== id);
-      // Clear payee from transactions
-      mockTransactions = mockTransactions.map((tx) =>
-        tx.payeeId === id ? { ...tx, payeeId: null } : tx
-      );
+      await fetchApi<{ id: string }>(`/api/budget/payees/${id}`, {
+        method: 'DELETE',
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.all });
@@ -554,16 +476,10 @@ export function useCreateTag() {
 
   return useMutation({
     mutationFn: async (input: CreateTagInput): Promise<BudgetTag> => {
-      await simulateDelay();
-      const newTag: BudgetTag = {
-        id: `tag-${Date.now()}`,
-        name: input.name,
-        color: input.color,
-        transactionCount: 0,
-        householdId: 'mock-household-1',
-      };
-      mockTags = [...mockTags, newTag];
-      return newTag;
+      return fetchApi<BudgetTag>('/api/budget/tags', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.all });
@@ -576,13 +492,11 @@ export function useUpdateTag() {
 
   return useMutation({
     mutationFn: async (input: UpdateTagInput): Promise<BudgetTag> => {
-      await simulateDelay();
-      const index = mockTags.findIndex((t) => t.id === input.id);
-      if (index === -1) throw new Error('Tag not found');
-
-      const updated = { ...mockTags[index], ...input };
-      mockTags = [...mockTags.slice(0, index), updated, ...mockTags.slice(index + 1)];
-      return updated;
+      const { id, ...data } = input;
+      return fetchApi<BudgetTag>(`/api/budget/tags/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.all });
@@ -595,13 +509,9 @@ export function useDeleteTag() {
 
   return useMutation({
     mutationFn: async (id: string): Promise<void> => {
-      await simulateDelay();
-      mockTags = mockTags.filter((t) => t.id !== id);
-      // Remove tag from transactions
-      mockTransactions = mockTransactions.map((tx) => ({
-        ...tx,
-        tagIds: tx.tagIds.filter((tagId) => tagId !== id),
-      }));
+      await fetchApi<{ id: string }>(`/api/budget/tags/${id}`, {
+        method: 'DELETE',
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.all });
@@ -614,21 +524,10 @@ export function useMergeTags() {
 
   return useMutation({
     mutationFn: async (input: MergeTagsInput): Promise<void> => {
-      await simulateDelay();
-      // Update all transactions to use target tag instead of source tags
-      mockTransactions = mockTransactions.map((tx) => {
-        const hasSourceTag = tx.tagIds.some((id) => input.sourceTagIds.includes(id));
-        if (hasSourceTag) {
-          const newTagIds = tx.tagIds.filter((id) => !input.sourceTagIds.includes(id));
-          if (!newTagIds.includes(input.targetTagId)) {
-            newTagIds.push(input.targetTagId);
-          }
-          return { ...tx, tagIds: newTagIds };
-        }
-        return tx;
+      await fetchApi<{ id: string }>('/api/budget/tags', {
+        method: 'PUT',
+        body: JSON.stringify(input),
       });
-      // Delete source tags
-      mockTags = mockTags.filter((t) => !input.sourceTagIds.includes(t.id));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.all });

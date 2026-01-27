@@ -62,6 +62,9 @@ model Profile {
   pensionAccountOwners PensionAccountOwner[]
   miscAssetOwners      MiscAssetOwner[]
 
+  // Budget transactions attributed to this profile
+  budgetTransactions BudgetTransaction[]
+
   @@map("profiles")
 }
 
@@ -75,6 +78,9 @@ model Household {
 
   // Members
   members HouseholdMember[]
+
+  // Budget module relations
+  budgetCategoryGroups BudgetCategoryGroup[]
 
   @@map("households")
 }
@@ -297,4 +303,162 @@ model NetWorthSnapshot {
   @@index([userId])
   @@index([date])
   @@map("net_worth_snapshots")
+}
+
+// ============================================
+// BUDGET MODULE - Monthly Budget Tracking
+// ============================================
+
+enum TransactionType {
+  income
+  expense
+}
+
+enum TransactionSource {
+  manual
+  bank_import
+  credit_card_import
+}
+
+enum PaymentMethod {
+  cash
+  credit_card
+  bank_transfer
+  check
+  other
+}
+
+// Budget Category Groups - organize categories into logical groups
+model BudgetCategoryGroup {
+  id          String   @id @default(cuid())
+  name        String
+  sortOrder   Int      @default(0) @map("sort_order")
+  householdId String   @map("household_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  household  Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  categories BudgetCategory[]
+
+  @@unique([householdId, name]) // Unique group names per household
+  @@index([householdId])
+  @@map("budget_category_groups")
+}
+
+// Budget Categories - individual budget categories within groups
+model BudgetCategory {
+  id          String   @id @default(cuid())
+  name        String
+  groupId     String   @map("group_id")
+  budget      Decimal? @db.Decimal(18, 2) // Monthly budget amount (null = no budget)
+  isMust      Boolean  @default(false) @map("is_must") // Essential vs discretionary
+  sortOrder   Int      @default(0) @map("sort_order")
+  householdId String   @map("household_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  group        BudgetCategoryGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  transactions BudgetTransaction[]
+  payees       BudgetPayee[]       // Payees with this as default category
+
+  @@unique([groupId, name]) // Unique category names per group
+  @@index([householdId])
+  @@index([groupId])
+  @@map("budget_categories")
+}
+
+// Budget Payees - who you transact with
+model BudgetPayee {
+  id          String   @id @default(cuid())
+  name        String
+  categoryId  String?  @map("category_id") // Default category for this payee
+  householdId String   @map("household_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  category     BudgetCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  transactions BudgetTransaction[]
+
+  @@unique([householdId, name]) // Unique payee names per household
+  @@index([householdId])
+  @@index([categoryId])
+  @@map("budget_payees")
+}
+
+// Budget Tags - labels for transactions
+model BudgetTag {
+  id          String   @id @default(cuid())
+  name        String
+  color       String   @default("#3B82F6") // Hex color code
+  householdId String   @map("household_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  transactionTags BudgetTransactionTag[]
+
+  @@unique([householdId, name]) // Unique tag names per household
+  @@index([householdId])
+  @@map("budget_tags")
+}
+
+// Budget Transactions - income and expense records
+model BudgetTransaction {
+  id                    String            @id @default(cuid())
+  type                  TransactionType
+  transactionDate       DateTime          @map("transaction_date") @db.Date
+  paymentDate           DateTime?         @map("payment_date") @db.Date // For credit cards
+  amountIls             Decimal           @map("amount_ils") @db.Decimal(18, 2)
+  currency              String            @default("ILS") // Original currency
+  amountOriginal        Decimal           @map("amount_original") @db.Decimal(18, 2) // Amount in original currency
+  categoryId            String?           @map("category_id")
+  payeeId               String?           @map("payee_id")
+  paymentMethod         PaymentMethod     @default(credit_card) @map("payment_method")
+  paymentNumber         Int?              @map("payment_number") // For installments (e.g., 2 of 6)
+  totalPayments         Int?              @map("total_payments") // Total installments
+  notes                 String?
+  source                TransactionSource @default(manual)
+  isRecurring           Boolean           @default(false) @map("is_recurring")
+  isSplit               Boolean           @default(false) @map("is_split") // Is this a parent split transaction?
+  originalTransactionId String?           @map("original_transaction_id") // Reference to parent if this is a split child
+  profileId             String?           @map("profile_id") // Which household member made the transaction
+  householdId           String            @map("household_id")
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  category        BudgetCategory?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  payee           BudgetPayee?           @relation(fields: [payeeId], references: [id], onDelete: SetNull)
+  profile         Profile?               @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  tags            BudgetTransactionTag[]
+  // Self-relation for split transactions
+  originalTransaction BudgetTransaction?   @relation("SplitTransactions", fields: [originalTransactionId], references: [id], onDelete: Cascade)
+  splitChildren       BudgetTransaction[]  @relation("SplitTransactions")
+
+  @@index([householdId])
+  @@index([transactionDate])
+  @@index([categoryId])
+  @@index([payeeId])
+  @@index([profileId])
+  @@index([originalTransactionId])
+  @@map("budget_transactions")
+}
+
+// Junction table for transaction tags (many-to-many)
+model BudgetTransactionTag {
+  id            String @id @default(cuid())
+  transactionId String @map("transaction_id")
+  tagId         String @map("tag_id")
+
+  // Relations
+  transaction BudgetTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  tag         BudgetTag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([transactionId, tagId])
+  @@index([transactionId])
+  @@index([tagId])
+  @@map("budget_transaction_tags")
 }

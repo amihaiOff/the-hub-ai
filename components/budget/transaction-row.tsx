@@ -9,6 +9,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { MoreHorizontal, Pencil, Trash2, Split } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -19,8 +28,8 @@ import {
   formatDate,
   formatCurrencyILS,
   getPayeeName,
-  getCategoryWithGroup,
 } from '@/lib/utils/budget';
+import { useUpdateTransaction } from '@/lib/hooks/use-budget';
 
 interface TransactionRowProps {
   transaction: BudgetTransaction;
@@ -45,10 +54,24 @@ export function TransactionRow({
   onDelete,
   onSplit,
 }: TransactionRowProps) {
-  const categoryInfo = getCategoryWithGroup(transaction.categoryId, categoryGroups);
   const payeeName = getPayeeName(transaction.payeeId, payees);
   const transactionTags = tags.filter((t) => transaction.tagIds.includes(t.id));
   const isIncome = transaction.type === 'income';
+  const updateTransaction = useUpdateTransaction();
+
+  const handleCategoryChange = (categoryId: string) => {
+    updateTransaction.mutate(
+      {
+        id: transaction.id,
+        categoryId: categoryId || null,
+      },
+      {
+        onError: (error) => {
+          console.error('Failed to update category:', error);
+        },
+      }
+    );
+  };
 
   return (
     <tr className="hover:bg-muted/50 border-b transition-colors">
@@ -77,16 +100,45 @@ export function TransactionRow({
 
       {/* Category */}
       <td className="hidden px-2 py-2 sm:table-cell sm:px-4">
-        {categoryInfo ? (
-          <div>
-            <span className="text-muted-foreground text-xs">{categoryInfo.groupName}</span>
-            <div className="text-sm">{categoryInfo.categoryName}</div>
-          </div>
-        ) : (
-          <span className="text-muted-foreground text-sm italic">
-            {isIncome ? 'Income' : 'Uncategorized'}
-          </span>
-        )}
+        <Select
+          value={transaction.categoryId || '__uncategorized__'}
+          onValueChange={(value) =>
+            handleCategoryChange(value === '__uncategorized__' ? '' : value)
+          }
+          disabled={updateTransaction.isPending}
+        >
+          <SelectTrigger
+            aria-label={`Select category for ${payeeName || 'transaction'}`}
+            className={cn(
+              'h-auto w-full max-w-[180px] border-0 bg-transparent px-1 py-1 text-sm shadow-none',
+              'hover:bg-muted/50 focus:ring-0 focus:ring-offset-0',
+              !transaction.categoryId && 'text-muted-foreground italic'
+            )}
+          >
+            <SelectValue placeholder={isIncome ? 'Income' : 'Uncategorized'} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__uncategorized__">
+              <span className="italic">{isIncome ? 'Income' : 'Uncategorized'}</span>
+            </SelectItem>
+            {categoryGroups.map((group) => (
+              <SelectGroup key={group.id}>
+                <SelectLabel className="text-foreground text-xs font-semibold tracking-wide uppercase">
+                  {group.name}
+                </SelectLabel>
+                {group.categories.map((category) => (
+                  <SelectItem
+                    key={category.id}
+                    value={category.id}
+                    className="text-muted-foreground"
+                  >
+                    {category.name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            ))}
+          </SelectContent>
+        </Select>
       </td>
 
       {/* Tags */}
@@ -114,8 +166,47 @@ export function TransactionRow({
           {formatCurrencyILS(transaction.amountIls)}
         </span>
         {/* Mobile category */}
-        <div className="text-muted-foreground text-xs sm:hidden">
-          {categoryInfo?.categoryName || (isIncome ? 'Income' : 'Uncategorized')}
+        <div className="sm:hidden">
+          <Select
+            value={transaction.categoryId || '__uncategorized__'}
+            onValueChange={(value) =>
+              handleCategoryChange(value === '__uncategorized__' ? '' : value)
+            }
+            disabled={updateTransaction.isPending}
+          >
+            <SelectTrigger
+              aria-label={`Select category for ${payeeName || 'transaction'}`}
+              className={cn(
+                'h-auto w-full max-w-[120px] justify-end border-0 bg-transparent px-0 py-0 text-xs shadow-none',
+                'hover:bg-muted/50 focus:ring-0 focus:ring-offset-0',
+                'text-muted-foreground',
+                !transaction.categoryId && 'italic'
+              )}
+            >
+              <SelectValue placeholder={isIncome ? 'Income' : 'Uncategorized'} />
+            </SelectTrigger>
+            <SelectContent align="end">
+              <SelectItem value="__uncategorized__">
+                <span className="italic">{isIncome ? 'Income' : 'Uncategorized'}</span>
+              </SelectItem>
+              {categoryGroups.map((group) => (
+                <SelectGroup key={group.id}>
+                  <SelectLabel className="text-foreground text-xs font-semibold tracking-wide uppercase">
+                    {group.name}
+                  </SelectLabel>
+                  {group.categories.map((category) => (
+                    <SelectItem
+                      key={category.id}
+                      value={category.id}
+                      className="text-muted-foreground"
+                    >
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </td>
 
