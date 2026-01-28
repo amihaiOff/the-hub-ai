@@ -24,6 +24,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const asset = await prisma.miscAsset.findUnique({
       where: { id },
+      include: {
+        mortgageTracks: { orderBy: { sortOrder: 'asc' } },
+      },
     });
 
     if (!asset) {
@@ -48,6 +51,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         maturityDate: asset.maturityDate,
         createdAt: asset.createdAt,
         updatedAt: asset.updatedAt,
+        mortgageTracks: asset.mortgageTracks.map((track) => ({
+          id: track.id,
+          name: track.name,
+          amount: Number(track.amount),
+          interestRate: Number(track.interestRate),
+          monthlyPayment: track.monthlyPayment ? Number(track.monthlyPayment) : null,
+          maturityDate: track.maturityDate,
+          sortOrder: track.sortOrder,
+        })),
       },
     });
   } catch (error) {

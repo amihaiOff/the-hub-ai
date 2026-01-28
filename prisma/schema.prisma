@@ -281,8 +281,31 @@ model MiscAsset {
   // New ownership relation
   owners MiscAssetOwner[]
 
+  // Mortgage tracks (only used for mortgage type)
+  mortgageTracks MortgageTrack[]
+
   @@index([userId])
   @@map("misc_assets")
+}
+
+// Mortgage Track - represents a single track/portion of a mortgage with its own terms
+model MortgageTrack {
+  id             String    @id @default(cuid())
+  mortgageId     String    @map("mortgage_id")
+  name           String                                               // Track name (e.g., "Fixed Rate", "Prime + 1%")
+  amount         Decimal   @db.Decimal(18, 2)                         // Outstanding balance for this track
+  interestRate   Decimal   @map("interest_rate") @db.Decimal(5, 4)    // Annual % for this track
+  monthlyPayment Decimal?  @map("monthly_payment") @db.Decimal(18, 2) // Monthly payment for this track
+  maturityDate   DateTime? @map("maturity_date") @db.Date             // When this track ends
+  sortOrder      Int       @default(0) @map("sort_order")             // For ordering tracks
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  // Relation to parent mortgage
+  mortgage MiscAsset @relation(fields: [mortgageId], references: [id], onDelete: Cascade)
+
+  @@index([mortgageId])
+  @@map("mortgage_tracks")
 }
 
 // Net Worth Snapshots - bi-weekly historical records for graph

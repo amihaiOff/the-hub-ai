@@ -30,6 +30,14 @@ export async function GET() {
       select: { id: true, name: true, householdId: true },
     });
 
+    const allUsers = await prisma.user.findMany({
+      select: { id: true, email: true },
+    });
+
+    // Get database URL info (masked)
+    const dbUrl = process.env.DATABASE_URL || '';
+    const dbHost = dbUrl.match(/@([^/]+)/)?.[1] || 'unknown';
+
     return NextResponse.json({
       success: true,
       context: {
@@ -39,7 +47,9 @@ export async function GET() {
         householdsCount: context.households.length,
       },
       debug: {
+        dbHost,
         categoryGroupsForActiveHousehold: categoryGroupCount,
+        allUsersInDb: allUsers,
         allHouseholdsInDb: allHouseholds,
         allCategoryGroupsInDb: allCategoryGroups,
       },

@@ -9,6 +9,16 @@ export interface Owner {
   color?: string | null;
 }
 
+export interface MortgageTrack {
+  id?: string;
+  name: string;
+  amount: number;
+  interestRate: number;
+  monthlyPayment: number | null;
+  maturityDate: Date | string | null;
+  sortOrder?: number;
+}
+
 export interface MiscAsset {
   id: string;
   type: MiscAssetType;
@@ -21,6 +31,7 @@ export interface MiscAsset {
   createdAt: Date | string;
   updatedAt: Date | string;
   owners?: Owner[];
+  mortgageTracks?: MortgageTrack[];
 }
 
 export interface AssetsSummary {
@@ -291,4 +302,67 @@ export function getAssetTypeOptions(): {
     label: config.label,
     description: config.description,
   }));
+}
+
+// ============================================
+// Mortgage Track Utilities
+// ============================================
+
+/**
+ * Calculate total outstanding balance from all tracks
+ */
+export function calculateTotalMortgageAmount(tracks: MortgageTrack[]): number {
+  return tracks.reduce((sum, track) => sum + track.amount, 0);
+}
+
+/**
+ * Calculate weighted average interest rate from tracks
+ */
+export function calculateWeightedAverageRate(tracks: MortgageTrack[]): number {
+  const totalAmount = calculateTotalMortgageAmount(tracks);
+  if (totalAmount === 0) return 0;
+
+  const weightedSum = tracks.reduce((sum, track) => sum + track.amount * track.interestRate, 0);
+  return weightedSum / totalAmount;
+}
+
+/**
+ * Calculate total monthly payment from all tracks
+ */
+export function calculateTotalMonthlyPayment(tracks: MortgageTrack[]): number {
+  return tracks.reduce((sum, track) => sum + (track.monthlyPayment || 0), 0);
+}
+
+/**
+ * Calculate total interest for all tracks combined
+ */
+export function calculateTotalTracksInterest(tracks: MortgageTrack[]): number | null {
+  let totalInterest = 0;
+  for (const track of tracks) {
+    if (!track.monthlyPayment) continue;
+    const interest = calculateTotalLoanInterest(
+      track.amount,
+      track.interestRate,
+      track.monthlyPayment
+    );
+    if (interest === null) return null;
+    totalInterest += interest;
+  }
+  return totalInterest;
+}
+
+/**
+ * Calculate payoff date for a track
+ */
+export function calculateTrackPayoffDate(track: MortgageTrack): Date | null {
+  if (!track.monthlyPayment) return null;
+  return calculatePayoffDate(track.amount, track.interestRate, track.monthlyPayment);
+}
+
+/**
+ * Calculate total interest for a single track
+ */
+export function calculateTrackInterest(track: MortgageTrack): number | null {
+  if (!track.monthlyPayment) return null;
+  return calculateTotalLoanInterest(track.amount, track.interestRate, track.monthlyPayment);
 }

@@ -26,26 +26,89 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { type, name, currentValue, interestRate, monthlyPayment, monthlyDeposit, maturityDate } =
-      validation.data;
+    const {
+      type,
+      name,
+      currentValue,
+      interestRate,
+      monthlyPayment,
+      monthlyDeposit,
+      maturityDate,
+      tracks,
+    } = validation.data;
 
     // For liabilities (loan, mortgage), value should be negative
     const isLiability = type === 'loan' || type === 'mortgage';
-    const normalizedValue = isLiability && currentValue > 0 ? -currentValue : currentValue;
+    const isMortgage = type === 'mortgage';
+    const hasTracks = tracks && tracks.length > 0;
 
-    // Create the asset
-    const asset = await prisma.miscAsset.create({
-      data: {
-        type,
-        name,
-        currentValue: normalizedValue,
-        interestRate,
-        monthlyPayment: isLiability ? monthlyPayment : null,
-        monthlyDeposit: type === 'child_savings' && monthlyDeposit ? monthlyDeposit : null,
-        maturityDate,
-        userId: user.id,
-      },
+    // For mortgages with tracks, calculate aggregate values from tracks
+    let finalCurrentValue = currentValue;
+    let finalInterestRate = interestRate;
+    let finalMonthlyPayment = monthlyPayment;
+
+    if (isMortgage && hasTracks) {
+      // Calculate totals from tracks
+      const totalAmount = tracks.reduce((sum, t) => sum + t.amount, 0);
+      const totalPayment = tracks.reduce((sum, t) => sum + (t.monthlyPayment || 0), 0);
+      // Weighted average interest rate
+      const weightedRate =
+        totalAmount > 0
+          ? tracks.reduce((sum, t) => sum + t.amount * t.interestRate, 0) / totalAmount
+          : 0;
+
+      finalCurrentValue = totalAmount;
+      finalInterestRate = weightedRate;
+      finalMonthlyPayment = totalPayment > 0 ? totalPayment : null;
+    }
+
+    const normalizedValue =
+      isLiability && finalCurrentValue > 0 ? -finalCurrentValue : finalCurrentValue;
+
+    // Create the asset with tracks in a transaction
+    const asset = await prisma.$transaction(async (tx) => {
+      // Create the main asset
+      const newAsset = await tx.miscAsset.create({
+        data: {
+          type,
+          name,
+          currentValue: normalizedValue,
+          interestRate: finalInterestRate,
+          monthlyPayment: isLiability ? finalMonthlyPayment : null,
+          monthlyDeposit: type === 'child_savings' && monthlyDeposit ? monthlyDeposit : null,
+          maturityDate,
+          userId: user.id,
+        },
+      });
+
+      // Create mortgage tracks if provided
+      if (isMortgage && hasTracks) {
+        await tx.mortgageTrack.createMany({
+          data: tracks.map((track, index) => ({
+            mortgageId: newAsset.id,
+            name: track.name,
+            amount: track.amount,
+            interestRate: track.interestRate,
+            monthlyPayment: track.monthlyPayment,
+            maturityDate: track.maturityDate,
+            sortOrder: track.sortOrder ?? index,
+          })),
+        });
+      }
+
+      // Fetch the complete asset with tracks
+      return tx.miscAsset.findUnique({
+        where: { id: newAsset.id },
+        include: { mortgageTracks: { orderBy: { sortOrder: 'asc' } } },
+      });
     });
+
+    if (!asset) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to create asset' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -60,6 +123,15 @@ export async function POST(request: NextRequest) {
         maturityDate: asset.maturityDate,
         createdAt: asset.createdAt,
         updatedAt: asset.updatedAt,
+        mortgageTracks: asset.mortgageTracks.map((track) => ({
+          id: track.id,
+          name: track.name,
+          amount: Number(track.amount),
+          interestRate: Number(track.interestRate),
+          monthlyPayment: track.monthlyPayment ? Number(track.monthlyPayment) : null,
+          maturityDate: track.maturityDate,
+          sortOrder: track.sortOrder,
+        })),
       },
     });
   } catch (error) {
@@ -83,6 +155,9 @@ export async function GET() {
     const assets = await prisma.miscAsset.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: 'asc' },
+      include: {
+        mortgageTracks: { orderBy: { sortOrder: 'asc' } },
+      },
     });
 
     return NextResponse.json({
@@ -98,6 +173,15 @@ export async function GET() {
         maturityDate: asset.maturityDate,
         createdAt: asset.createdAt,
         updatedAt: asset.updatedAt,
+        mortgageTracks: asset.mortgageTracks.map((track) => ({
+          id: track.id,
+          name: track.name,
+          amount: Number(track.amount),
+          interestRate: Number(track.interestRate),
+          monthlyPayment: track.monthlyPayment ? Number(track.monthlyPayment) : null,
+          maturityDate: track.maturityDate,
+          sortOrder: track.sortOrder,
+        })),
       })),
     });
   } catch (error) {
