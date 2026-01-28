@@ -314,6 +314,25 @@ export function calculateAllocation(accounts: AccountSummary[]): AllocationItem[
 }
 
 /**
+ * Currency symbols map
+ */
+export const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: '$',
+  ILS: '₪',
+  EUR: '€',
+  GBP: '£',
+};
+
+/**
+ * Get currency code with its symbol (e.g., "$ USD", "₪ ILS")
+ * Falls back to just the currency code if no symbol is defined
+ */
+export function getCurrencyWithSymbol(currency: string): string {
+  const symbol = CURRENCY_SYMBOLS[currency];
+  return symbol ? `${symbol} ${currency}` : currency;
+}
+
+/**
  * Format currency value for display
  */
 export function formatCurrency(value: number, currency = 'USD'): string {

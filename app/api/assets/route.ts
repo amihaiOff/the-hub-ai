@@ -14,7 +14,7 @@ export async function GET() {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch all misc assets with owners for the user
+    // Fetch all misc assets with owners and mortgage tracks for the user
     const assets = await prisma.miscAsset.findMany({
       where: { userId: user.id },
       include: {
@@ -29,6 +29,9 @@ export async function GET() {
               },
             },
           },
+        },
+        mortgageTracks: {
+          orderBy: { sortOrder: 'asc' },
         },
       },
       orderBy: { createdAt: 'asc' },
@@ -62,6 +65,15 @@ export async function GET() {
           name: o.profile.name,
           image: o.profile.image,
           color: o.profile.color,
+        })),
+        mortgageTracks: asset.mortgageTracks.map((track) => ({
+          id: track.id,
+          name: track.name,
+          amount: Number(track.amount),
+          interestRate: Number(track.interestRate),
+          monthlyPayment: track.monthlyPayment ? Number(track.monthlyPayment) : null,
+          maturityDate: track.maturityDate,
+          sortOrder: track.sortOrder,
         })),
       };
     });

@@ -13,6 +13,8 @@ import {
   Calendar,
   Percent,
   DollarSign,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,6 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { EditAssetDialog } from './edit-asset-dialog';
 import { DeleteConfirmDialog } from '@/components/portfolio/delete-confirm-dialog';
 import { OwnerBadges } from '@/components/shared/owner-badges';
@@ -41,6 +44,8 @@ import {
   calculateTotalLoanInterest,
   calculateChildSavingsProjection,
   getMonthsUntilDate,
+  calculateTrackInterest,
+  calculateTrackPayoffDate,
 } from '@/lib/utils/assets';
 
 interface AssetCardProps {
@@ -57,11 +62,13 @@ const ASSET_ICONS: Record<MiscAssetType, typeof Landmark> = {
 export function AssetCard({ asset }: AssetCardProps) {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [tracksExpanded, setTracksExpanded] = useState(false);
   const deleteAsset = useDeleteAsset();
 
   const Icon = ASSET_ICONS[asset.type];
   const isDebt = isLiability(asset.type);
   const value = Math.abs(asset.currentValue);
+  const hasTracks = asset.mortgageTracks && asset.mortgageTracks.length > 0;
 
   // Calculate projections based on asset type
   const getProjection = () => {
@@ -240,6 +247,59 @@ export function AssetCard({ asset }: AssetCardProps) {
                 </div>
               </div>
             )}
+
+            {/* Mortgage tracks collapsible section */}
+            {hasTracks && asset.mortgageTracks && (
+              <Collapsible open={tracksExpanded} onOpenChange={setTracksExpanded}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="w-full justify-between">
+                    <span className="text-sm font-medium">
+                      {asset.mortgageTracks.length} Track
+                      {asset.mortgageTracks.length > 1 ? 's' : ''}
+                    </span>
+                    {tracksExpanded ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-2 pt-2">
+                  {asset.mortgageTracks.map((track) => {
+                    const trackInterest = calculateTrackInterest(track);
+                    const trackPayoff = calculateTrackPayoffDate(track);
+                    return (
+                      <div key={track.id} className="bg-muted/30 rounded-lg p-3 text-sm">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="font-medium">{track.name}</div>
+                            <div className="text-muted-foreground mt-1 flex flex-wrap gap-3 text-xs">
+                              <span>{formatCurrency(track.amount)}</span>
+                              <span>{formatInterestRate(track.interestRate)}</span>
+                              {track.monthlyPayment && (
+                                <span>{formatCurrency(track.monthlyPayment)}/mo</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right text-xs">
+                            {trackInterest !== null && (
+                              <div className="text-red-500">
+                                +{formatCurrency(trackInterest)} int.
+                              </div>
+                            )}
+                            {trackPayoff && (
+                              <div className="text-muted-foreground">
+                                Payoff: {formatDate(trackPayoff)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
           </div>
         </CardContent>
       </CardHeader>
@@ -255,6 +315,7 @@ export function AssetCard({ asset }: AssetCardProps) {
         monthlyDeposit={asset.monthlyDeposit}
         maturityDate={asset.maturityDate}
         currentOwnerIds={asset.owners?.map((o) => o.id) ?? []}
+        mortgageTracks={asset.mortgageTracks}
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
       />

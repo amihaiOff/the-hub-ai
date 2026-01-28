@@ -290,7 +290,66 @@ SKIP_AUTH="true"                         # DEV ONLY - bypasses OAuth for local d
 The project uses Neon PostgreSQL with database branches that mirror Git branches:
 
 - `main` Neon branch → Production data (connected to Vercel Production)
-- `develop` Neon branch → Preview data (connected to Vercel Preview)
+- `preview/develop` Neon branch → Preview data (connected to Vercel Preview)
+
+## CRITICAL: Database Safety Rules
+
+**PRODUCTION DATABASE IS READ-ONLY FOR CLAUDE. NEVER WRITE, DELETE, OR SEED.**
+
+### Database Identification
+
+| Environment | Neon Branch       | Endpoint Host Identifier    | Safe to Modify?    |
+| ----------- | ----------------- | --------------------------- | ------------------ |
+| Production  | `main`            | `ep-sweet-cherry-ahrs8a65`  | **NO - READ ONLY** |
+| Preview     | `preview/develop` | `ep-restless-rain-ahgyjgi3` | Yes                |
+| Local       | N/A               | `localhost`                 | Yes                |
+
+### Before ANY Database Write Operation
+
+**ALWAYS verify which database you're connected to by checking the host in DATABASE_URL:**
+
+```bash
+# Check current DATABASE_URL
+echo $DATABASE_URL | grep -o 'ep-[^.]*'
+
+# If it shows: ep-sweet-cherry-ahrs8a65 → STOP! This is PRODUCTION
+# If it shows: ep-restless-rain-ahgyjgi3 → OK, this is Preview
+# If it shows: localhost → OK, this is Local
+```
+
+### Forbidden Operations on Production
+
+**NEVER run these on production (ep-sweet-cherry):**
+
+- `prisma migrate reset`
+- `prisma db push` (without migration)
+- `npx tsx prisma/seed.ts`
+- Any `deleteMany()` or `DELETE FROM` SQL
+- Any bulk data modifications
+
+### Safe Seeding Workflow
+
+When seeding preview/develop database:
+
+```bash
+# 1. Pull preview environment (WARNING: may still give production URL!)
+vercel env pull .env.preview --environment=preview
+
+# 2. VERIFY the database host before proceeding
+grep "DATABASE_URL" .env.preview | grep -o 'ep-[^.]*'
+# MUST show: ep-restless-rain-ahgyjgi3 (preview)
+# If it shows ep-sweet-cherry-ahrs8a65, STOP - wrong database!
+
+# 3. Only if verified as preview, run seed
+DATABASE_URL=$(grep "^DATABASE_URL=" .env.preview | head -1 | cut -d'"' -f2) npx tsx prisma/seed.ts
+
+# 4. Clean up credentials
+rm .env.preview
+```
+
+### Why This Matters
+
+The Vercel environment variable system may return production DATABASE_URL even when requesting preview. Always verify the endpoint hostname before any write operation.
 
 **Schema Change Workflow:**
 

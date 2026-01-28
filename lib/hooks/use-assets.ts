@@ -10,6 +10,17 @@ interface ApiResponse<T> {
   error?: string;
 }
 
+// Track input for API calls (without id for new tracks)
+interface MortgageTrackInput {
+  id?: string;
+  name: string;
+  amount: number;
+  interestRate: number;
+  monthlyPayment?: number | null;
+  maturityDate?: string | null;
+  sortOrder?: number;
+}
+
 interface CreateAssetParams {
   type: MiscAssetType;
   name: string;
@@ -18,6 +29,7 @@ interface CreateAssetParams {
   monthlyPayment?: number | null;
   monthlyDeposit?: number | null;
   maturityDate?: string | null;
+  tracks?: MortgageTrackInput[] | null;
 }
 
 interface UpdateAssetParams {
@@ -28,6 +40,7 @@ interface UpdateAssetParams {
   monthlyPayment?: number | null;
   monthlyDeposit?: number | null;
   maturityDate?: string | null;
+  tracks?: MortgageTrackInput[] | null;
 }
 
 // Fetch functions

@@ -20,7 +20,7 @@ import { EditAccountDialog } from './edit-account-dialog';
 import { DeleteConfirmDialog } from './delete-confirm-dialog';
 import { OwnerBadges } from '@/components/shared/owner-badges';
 import { useDeleteAccount } from '@/lib/hooks/use-portfolio';
-import { formatPercent } from '@/lib/utils/portfolio';
+import { formatPercent, getCurrencyWithSymbol } from '@/lib/utils/portfolio';
 import { useCurrency } from '@/lib/contexts/currency-context';
 import { cn } from '@/lib/utils';
 import type { AccountSummary } from '@/lib/utils/portfolio';
@@ -144,7 +144,7 @@ export function AccountCard({ account }: AccountCardProps) {
                   !showInAlternate ? 'bg-background shadow-sm' : 'hover:bg-transparent'
                 )}
               >
-                {nativeCurrency}
+                {getCurrencyWithSymbol(nativeCurrency)}
               </Button>
               <Button
                 variant="ghost"
@@ -158,7 +158,7 @@ export function AccountCard({ account }: AccountCardProps) {
                   toggleDisabled && 'cursor-not-allowed opacity-50'
                 )}
               >
-                {alternateCurrency}
+                {getCurrencyWithSymbol(alternateCurrency)}
               </Button>
             </div>
 

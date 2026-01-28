@@ -12,7 +12,8 @@ const createDecimal = (value: number) => ({
   valueOf: () => value,
 });
 
-// Mock Prisma client
+// Mock Prisma client with transaction support
+const mockTransaction = jest.fn();
 jest.mock('@/lib/db', () => ({
   prisma: {
     miscAsset: {
@@ -22,6 +23,11 @@ jest.mock('@/lib/db', () => ({
       update: jest.fn(),
       delete: jest.fn(),
     },
+    mortgageTrack: {
+      createMany: jest.fn(),
+      deleteMany: jest.fn(),
+    },
+    $transaction: mockTransaction,
   },
 }));
 
@@ -42,6 +48,15 @@ const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 describe('Assets API', () => {
   beforeEach(() => {
     jest.resetAllMocks();
+    // Reset transaction mock to execute callback by default
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mockMortgageTrack = (prisma as any).mortgageTrack;
+    mockTransaction.mockImplementation(async (callback) => {
+      return callback({
+        miscAsset: mockPrisma.miscAsset,
+        mortgageTrack: mockMortgageTrack,
+      });
+    });
   });
 
   describe('GET /api/assets (Summary)', () => {
@@ -61,6 +76,7 @@ describe('Assets API', () => {
           createdAt: new Date(),
           updatedAt: new Date(),
           owners: [],
+          mortgageTracks: [],
         },
         {
           id: 'asset-2',
@@ -75,6 +91,7 @@ describe('Assets API', () => {
           createdAt: new Date(),
           updatedAt: new Date(),
           owners: [],
+          mortgageTracks: [],
         },
       ];
 
@@ -136,10 +153,23 @@ describe('Assets API', () => {
         userId: 'user-1',
         createdAt: new Date(),
         updatedAt: new Date(),
+        mortgageTracks: [],
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.miscAsset.create as jest.Mock).mockResolvedValueOnce(mockAsset);
+      // Mock the transaction to handle the create and findUnique calls
+      mockTransaction.mockImplementationOnce(async (callback) => {
+        const tx = {
+          miscAsset: {
+            create: jest.fn().mockResolvedValue({ id: 'asset-1' }),
+            findUnique: jest.fn().mockResolvedValue(mockAsset),
+          },
+          mortgageTrack: {
+            createMany: jest.fn(),
+          },
+        };
+        return callback(tx);
+      });
 
       const request = new NextRequest('http://localhost:3000/api/assets/items', {
         method: 'POST',
@@ -165,18 +195,35 @@ describe('Assets API', () => {
     it('should create loan with negative value', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.miscAsset.create as jest.Mock).mockResolvedValueOnce({
-        id: 'asset-1',
-        type: 'loan',
-        name: 'Car Loan',
-        currentValue: createDecimal(-15000),
-        interestRate: createDecimal(5.0),
-        monthlyPayment: createDecimal(500),
-        monthlyDeposit: null,
-        maturityDate: null,
-        userId: 'user-1',
-        createdAt: new Date(),
-        updatedAt: new Date(),
+
+      let capturedCreateData: unknown = null;
+      mockTransaction.mockImplementationOnce(async (callback) => {
+        const tx = {
+          miscAsset: {
+            create: jest.fn().mockImplementation((args) => {
+              capturedCreateData = args.data;
+              return Promise.resolve({ id: 'asset-1' });
+            }),
+            findUnique: jest.fn().mockResolvedValue({
+              id: 'asset-1',
+              type: 'loan',
+              name: 'Car Loan',
+              currentValue: createDecimal(-15000),
+              interestRate: createDecimal(5.0),
+              monthlyPayment: createDecimal(500),
+              monthlyDeposit: null,
+              maturityDate: null,
+              userId: 'user-1',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              mortgageTracks: [],
+            }),
+          },
+          mortgageTrack: {
+            createMany: jest.fn(),
+          },
+        };
+        return callback(tx);
       });
 
       const request = new NextRequest('http://localhost:3000/api/assets/items', {
@@ -197,30 +244,39 @@ describe('Assets API', () => {
       expect(data.success).toBe(true);
 
       // Verify it was stored with negative value
-      expect(mockPrisma.miscAsset.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            currentValue: -15000,
-          }),
-        })
-      );
+      expect(capturedCreateData).toMatchObject({
+        currentValue: -15000,
+      });
     });
 
     it('should create child savings with monthly deposit', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.miscAsset.create as jest.Mock).mockResolvedValueOnce({
-        id: 'asset-1',
-        type: 'child_savings',
-        name: 'College Fund',
-        currentValue: createDecimal(5000),
-        interestRate: createDecimal(4.0),
-        monthlyPayment: null,
-        monthlyDeposit: createDecimal(200),
-        maturityDate: null,
-        userId: 'user-1',
-        createdAt: new Date(),
-        updatedAt: new Date(),
+
+      mockTransaction.mockImplementationOnce(async (callback) => {
+        const tx = {
+          miscAsset: {
+            create: jest.fn().mockResolvedValue({ id: 'asset-1' }),
+            findUnique: jest.fn().mockResolvedValue({
+              id: 'asset-1',
+              type: 'child_savings',
+              name: 'College Fund',
+              currentValue: createDecimal(5000),
+              interestRate: createDecimal(4.0),
+              monthlyPayment: null,
+              monthlyDeposit: createDecimal(200),
+              maturityDate: null,
+              userId: 'user-1',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              mortgageTracks: [],
+            }),
+          },
+          mortgageTrack: {
+            createMany: jest.fn(),
+          },
+        };
+        return callback(tx);
       });
 
       const request = new NextRequest('http://localhost:3000/api/assets/items', {
@@ -420,6 +476,7 @@ describe('Assets API', () => {
           maturityDate: null,
           createdAt: new Date(),
           updatedAt: new Date(),
+          mortgageTracks: [],
         },
       ];
 
@@ -461,6 +518,7 @@ describe('Assets API', () => {
         userId: 'user-1',
         createdAt: new Date(),
         updatedAt: new Date(),
+        mortgageTracks: [],
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -518,6 +576,7 @@ describe('Assets API', () => {
         id: 'asset-1',
         type: 'bank_deposit',
         userId: 'user-1',
+        mortgageTracks: [],
       };
       const mockUpdated = {
         id: 'asset-1',
@@ -531,11 +590,24 @@ describe('Assets API', () => {
         userId: 'user-1',
         createdAt: new Date(),
         updatedAt: new Date(),
+        mortgageTracks: [],
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
       (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(mockExisting);
-      (mockPrisma.miscAsset.update as jest.Mock).mockResolvedValueOnce(mockUpdated);
+      mockTransaction.mockImplementationOnce(async (callback) => {
+        const tx = {
+          miscAsset: {
+            update: jest.fn().mockResolvedValue({ id: 'asset-1' }),
+            findUnique: jest.fn().mockResolvedValue(mockUpdated),
+          },
+          mortgageTrack: {
+            deleteMany: jest.fn(),
+            createMany: jest.fn(),
+          },
+        };
+        return callback(tx);
+      });
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
         method: 'PUT',
@@ -561,18 +633,37 @@ describe('Assets API', () => {
         id: 'asset-1',
         type: 'loan',
         userId: 'user-1',
+        mortgageTracks: [],
       });
-      (mockPrisma.miscAsset.update as jest.Mock).mockResolvedValueOnce({
-        id: 'asset-1',
-        type: 'loan',
-        name: 'Loan',
-        currentValue: createDecimal(-8000),
-        interestRate: createDecimal(5),
-        monthlyPayment: createDecimal(400),
-        monthlyDeposit: null,
-        maturityDate: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+
+      let capturedUpdateData: unknown = null;
+      mockTransaction.mockImplementationOnce(async (callback) => {
+        const tx = {
+          miscAsset: {
+            update: jest.fn().mockImplementation((args) => {
+              capturedUpdateData = args.data;
+              return Promise.resolve({ id: 'asset-1' });
+            }),
+            findUnique: jest.fn().mockResolvedValue({
+              id: 'asset-1',
+              type: 'loan',
+              name: 'Loan',
+              currentValue: createDecimal(-8000),
+              interestRate: createDecimal(5),
+              monthlyPayment: createDecimal(400),
+              monthlyDeposit: null,
+              maturityDate: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              mortgageTracks: [],
+            }),
+          },
+          mortgageTrack: {
+            deleteMany: jest.fn(),
+            createMany: jest.fn(),
+          },
+        };
+        return callback(tx);
       });
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
@@ -584,13 +675,9 @@ describe('Assets API', () => {
 
       await PUT(request, { params: Promise.resolve({ id: 'asset-1' }) });
 
-      expect(mockPrisma.miscAsset.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            currentValue: -8000,
-          }),
-        })
-      );
+      expect(capturedUpdateData).toMatchObject({
+        currentValue: -8000,
+      });
     });
 
     it('should return 400 for empty name', async () => {
@@ -937,18 +1024,37 @@ describe('Assets API', () => {
         id: 'asset-1',
         type: 'bank_deposit',
         userId: 'user-1',
+        mortgageTracks: [],
       });
-      (mockPrisma.miscAsset.update as jest.Mock).mockResolvedValueOnce({
-        id: 'asset-1',
-        type: 'bank_deposit',
-        name: 'Savings',
-        currentValue: createDecimal(5000),
-        interestRate: createDecimal(3),
-        monthlyPayment: null,
-        monthlyDeposit: null,
-        maturityDate: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+
+      let capturedUpdateData: unknown = null;
+      mockTransaction.mockImplementationOnce(async (callback) => {
+        const tx = {
+          miscAsset: {
+            update: jest.fn().mockImplementation((args) => {
+              capturedUpdateData = args.data;
+              return Promise.resolve({ id: 'asset-1' });
+            }),
+            findUnique: jest.fn().mockResolvedValue({
+              id: 'asset-1',
+              type: 'bank_deposit',
+              name: 'Savings',
+              currentValue: createDecimal(5000),
+              interestRate: createDecimal(3),
+              monthlyPayment: null,
+              monthlyDeposit: null,
+              maturityDate: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              mortgageTracks: [],
+            }),
+          },
+          mortgageTrack: {
+            deleteMany: jest.fn(),
+            createMany: jest.fn(),
+          },
+        };
+        return callback(tx);
       });
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
@@ -961,11 +1067,7 @@ describe('Assets API', () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(mockPrisma.miscAsset.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ maturityDate: null }),
-        })
-      );
+      expect(capturedUpdateData).toMatchObject({ maturityDate: null });
     });
 
     it('should return 400 for invalid maturity date format in update', async () => {
@@ -999,18 +1101,37 @@ describe('Assets API', () => {
         id: 'asset-1',
         type: 'mortgage',
         userId: 'user-1',
+        mortgageTracks: [],
       });
-      (mockPrisma.miscAsset.update as jest.Mock).mockResolvedValueOnce({
-        id: 'asset-1',
-        type: 'mortgage',
-        name: 'Home Mortgage',
-        currentValue: createDecimal(-250000),
-        interestRate: createDecimal(4.5),
-        monthlyPayment: createDecimal(1500),
-        monthlyDeposit: null,
-        maturityDate: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+
+      let capturedUpdateData: unknown = null;
+      mockTransaction.mockImplementationOnce(async (callback) => {
+        const tx = {
+          miscAsset: {
+            update: jest.fn().mockImplementation((args) => {
+              capturedUpdateData = args.data;
+              return Promise.resolve({ id: 'asset-1' });
+            }),
+            findUnique: jest.fn().mockResolvedValue({
+              id: 'asset-1',
+              type: 'mortgage',
+              name: 'Home Mortgage',
+              currentValue: createDecimal(-250000),
+              interestRate: createDecimal(4.5),
+              monthlyPayment: createDecimal(1500),
+              monthlyDeposit: null,
+              maturityDate: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              mortgageTracks: [],
+            }),
+          },
+          mortgageTrack: {
+            deleteMany: jest.fn(),
+            createMany: jest.fn(),
+          },
+        };
+        return callback(tx);
       });
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
@@ -1020,11 +1141,7 @@ describe('Assets API', () => {
 
       await PUT(request, { params: Promise.resolve({ id: 'asset-1' }) });
 
-      expect(mockPrisma.miscAsset.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ currentValue: -250000 }),
-        })
-      );
+      expect(capturedUpdateData).toMatchObject({ currentValue: -250000 });
     });
 
     it('should allow null monthlyPayment', async () => {
@@ -1034,18 +1151,33 @@ describe('Assets API', () => {
         id: 'asset-1',
         type: 'bank_deposit',
         userId: 'user-1',
+        mortgageTracks: [],
       });
-      (mockPrisma.miscAsset.update as jest.Mock).mockResolvedValueOnce({
-        id: 'asset-1',
-        type: 'bank_deposit',
-        name: 'Savings',
-        currentValue: createDecimal(5000),
-        interestRate: createDecimal(3),
-        monthlyPayment: null,
-        monthlyDeposit: null,
-        maturityDate: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+
+      mockTransaction.mockImplementationOnce(async (callback) => {
+        const tx = {
+          miscAsset: {
+            update: jest.fn().mockResolvedValue({ id: 'asset-1' }),
+            findUnique: jest.fn().mockResolvedValue({
+              id: 'asset-1',
+              type: 'bank_deposit',
+              name: 'Savings',
+              currentValue: createDecimal(5000),
+              interestRate: createDecimal(3),
+              monthlyPayment: null,
+              monthlyDeposit: null,
+              maturityDate: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              mortgageTracks: [],
+            }),
+          },
+          mortgageTrack: {
+            deleteMany: jest.fn(),
+            createMany: jest.fn(),
+          },
+        };
+        return callback(tx);
       });
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
@@ -1065,18 +1197,33 @@ describe('Assets API', () => {
         id: 'asset-1',
         type: 'bank_deposit',
         userId: 'user-1',
+        mortgageTracks: [],
       });
-      (mockPrisma.miscAsset.update as jest.Mock).mockResolvedValueOnce({
-        id: 'asset-1',
-        type: 'bank_deposit',
-        name: 'Savings',
-        currentValue: createDecimal(5000),
-        interestRate: createDecimal(3),
-        monthlyPayment: null,
-        monthlyDeposit: null,
-        maturityDate: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+
+      mockTransaction.mockImplementationOnce(async (callback) => {
+        const tx = {
+          miscAsset: {
+            update: jest.fn().mockResolvedValue({ id: 'asset-1' }),
+            findUnique: jest.fn().mockResolvedValue({
+              id: 'asset-1',
+              type: 'bank_deposit',
+              name: 'Savings',
+              currentValue: createDecimal(5000),
+              interestRate: createDecimal(3),
+              monthlyPayment: null,
+              monthlyDeposit: null,
+              maturityDate: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              mortgageTracks: [],
+            }),
+          },
+          mortgageTrack: {
+            deleteMany: jest.fn(),
+            createMany: jest.fn(),
+          },
+        };
+        return callback(tx);
       });
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
@@ -1177,6 +1324,719 @@ describe('Assets API', () => {
       expect(response.status).toBe(500);
       expect(data.success).toBe(false);
       expect(data.error).toBe('Failed to delete asset');
+    });
+  });
+
+  // ============================================
+  // Mortgage Tracks Tests
+  // ============================================
+
+  describe('Mortgage Tracks Feature', () => {
+    describe('POST /api/assets/items - Create Mortgage with Tracks', () => {
+      it('should create mortgage with multiple tracks', async () => {
+        const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+        const mockCreatedAsset = {
+          id: 'mortgage-1',
+          type: 'mortgage',
+          name: 'Home Mortgage',
+          currentValue: createDecimal(-450000),
+          interestRate: createDecimal(4.67), // Weighted average
+          monthlyPayment: createDecimal(2900),
+          monthlyDeposit: null,
+          maturityDate: null,
+          userId: 'user-1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          mortgageTracks: [
+            {
+              id: 'track-1',
+              name: 'Fixed Rate',
+              amount: createDecimal(200000),
+              interestRate: createDecimal(4.5),
+              monthlyPayment: createDecimal(1500),
+              maturityDate: null,
+              sortOrder: 0,
+            },
+            {
+              id: 'track-2',
+              name: 'Prime',
+              amount: createDecimal(150000),
+              interestRate: createDecimal(5.0),
+              monthlyPayment: createDecimal(800),
+              maturityDate: null,
+              sortOrder: 1,
+            },
+            {
+              id: 'track-3',
+              name: 'Variable',
+              amount: createDecimal(100000),
+              interestRate: createDecimal(4.5),
+              monthlyPayment: createDecimal(600),
+              maturityDate: null,
+              sortOrder: 2,
+            },
+          ],
+        };
+
+        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        mockTransaction.mockImplementationOnce(async (callback) => {
+          const tx = {
+            miscAsset: {
+              create: jest.fn().mockResolvedValue({
+                id: 'mortgage-1',
+                type: 'mortgage',
+                name: 'Home Mortgage',
+                currentValue: createDecimal(-450000),
+                interestRate: createDecimal(4.67),
+                monthlyPayment: createDecimal(2900),
+              }),
+              findUnique: jest.fn().mockResolvedValue(mockCreatedAsset),
+            },
+            mortgageTrack: {
+              createMany: jest.fn().mockResolvedValue({ count: 3 }),
+            },
+          };
+          return callback(tx);
+        });
+
+        const request = new NextRequest('http://localhost:3000/api/assets/items', {
+          method: 'POST',
+          body: JSON.stringify({
+            type: 'mortgage',
+            name: 'Home Mortgage',
+            currentValue: 450000,
+            interestRate: 4.5, // Will be overwritten by weighted avg
+            tracks: [
+              {
+                name: 'Fixed Rate',
+                amount: 200000,
+                interestRate: 4.5,
+                monthlyPayment: 1500,
+              },
+              {
+                name: 'Prime',
+                amount: 150000,
+                interestRate: 5.0,
+                monthlyPayment: 800,
+              },
+              {
+                name: 'Variable',
+                amount: 100000,
+                interestRate: 4.5,
+                monthlyPayment: 600,
+              },
+            ],
+          }),
+        });
+
+        const response = await POST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.data.mortgageTracks).toHaveLength(3);
+        expect(data.data.mortgageTracks[0].name).toBe('Fixed Rate');
+        expect(data.data.mortgageTracks[0].amount).toBe(200000);
+      });
+
+      it('should calculate aggregate values from tracks', async () => {
+        const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+
+        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        mockTransaction.mockImplementationOnce(async (callback) => {
+          const tx = {
+            miscAsset: {
+              create: jest.fn().mockImplementation((args) => {
+                // Verify the calculated values are correct
+                expect(args.data.currentValue).toBe(-300000); // Sum: 200000 + 100000, negated
+                // Weighted avg: (200000 * 4.5 + 100000 * 6.0) / 300000 = 5.0
+                expect(args.data.interestRate).toBe(5.0);
+                expect(args.data.monthlyPayment).toBe(2300); // 1500 + 800
+                return Promise.resolve({ id: 'mortgage-1' });
+              }),
+              findUnique: jest.fn().mockResolvedValue({
+                id: 'mortgage-1',
+                type: 'mortgage',
+                name: 'Test Mortgage',
+                currentValue: createDecimal(-300000),
+                interestRate: createDecimal(5.0),
+                monthlyPayment: createDecimal(2300),
+                monthlyDeposit: null,
+                maturityDate: null,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                mortgageTracks: [],
+              }),
+            },
+            mortgageTrack: {
+              createMany: jest.fn().mockResolvedValue({ count: 2 }),
+            },
+          };
+          return callback(tx);
+        });
+
+        const request = new NextRequest('http://localhost:3000/api/assets/items', {
+          method: 'POST',
+          body: JSON.stringify({
+            type: 'mortgage',
+            name: 'Test Mortgage',
+            currentValue: 999999, // Should be overwritten by track sum
+            interestRate: 1.0, // Should be overwritten by weighted average
+            tracks: [
+              { name: 'Fixed', amount: 200000, interestRate: 4.5, monthlyPayment: 1500 },
+              { name: 'Prime', amount: 100000, interestRate: 6.0, monthlyPayment: 800 },
+            ],
+          }),
+        });
+
+        await POST(request);
+      });
+
+      it('should allow mortgage without tracks (requires monthlyPayment)', async () => {
+        const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        mockTransaction.mockImplementationOnce(async (callback) => {
+          const tx = {
+            miscAsset: {
+              create: jest.fn().mockResolvedValue({ id: 'mortgage-1' }),
+              findUnique: jest.fn().mockResolvedValue({
+                id: 'mortgage-1',
+                type: 'mortgage',
+                name: 'Simple Mortgage',
+                currentValue: createDecimal(-200000),
+                interestRate: createDecimal(5.0),
+                monthlyPayment: createDecimal(1500),
+                monthlyDeposit: null,
+                maturityDate: null,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                mortgageTracks: [],
+              }),
+            },
+            mortgageTrack: {
+              createMany: jest.fn(),
+            },
+          };
+          return callback(tx);
+        });
+
+        const request = new NextRequest('http://localhost:3000/api/assets/items', {
+          method: 'POST',
+          body: JSON.stringify({
+            type: 'mortgage',
+            name: 'Simple Mortgage',
+            currentValue: 200000,
+            interestRate: 5.0,
+            monthlyPayment: 1500,
+          }),
+        });
+
+        const response = await POST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.data.mortgageTracks).toHaveLength(0);
+      });
+
+      it('should return 400 when mortgage has no tracks and no monthlyPayment', async () => {
+        const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+        const request = new NextRequest('http://localhost:3000/api/assets/items', {
+          method: 'POST',
+          body: JSON.stringify({
+            type: 'mortgage',
+            name: 'Invalid Mortgage',
+            currentValue: 200000,
+            interestRate: 5.0,
+            // No monthlyPayment and no tracks
+          }),
+        });
+
+        const response = await POST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(data.error).toContain('Monthly payment is required');
+      });
+
+      it('should return 400 when tracks are added to non-mortgage type', async () => {
+        const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+        const request = new NextRequest('http://localhost:3000/api/assets/items', {
+          method: 'POST',
+          body: JSON.stringify({
+            type: 'loan',
+            name: 'Car Loan',
+            currentValue: 15000,
+            interestRate: 5.0,
+            monthlyPayment: 500,
+            tracks: [{ name: 'Track 1', amount: 10000, interestRate: 5.0 }],
+          }),
+        });
+
+        const response = await POST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(data.error).toContain('Tracks can only be added to mortgages');
+      });
+    });
+
+    describe('Track Validation', () => {
+      it('should return 400 when track name is missing', async () => {
+        const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+        const request = new NextRequest('http://localhost:3000/api/assets/items', {
+          method: 'POST',
+          body: JSON.stringify({
+            type: 'mortgage',
+            name: 'Home Mortgage',
+            currentValue: 200000,
+            interestRate: 5.0,
+            tracks: [
+              { amount: 200000, interestRate: 4.5, monthlyPayment: 1500 }, // Missing name
+            ],
+          }),
+        });
+
+        const response = await POST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(data.error).toContain('Track name is required');
+      });
+
+      it('should return 400 when track amount is missing', async () => {
+        const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+        const request = new NextRequest('http://localhost:3000/api/assets/items', {
+          method: 'POST',
+          body: JSON.stringify({
+            type: 'mortgage',
+            name: 'Home Mortgage',
+            currentValue: 200000,
+            interestRate: 5.0,
+            tracks: [
+              { name: 'Fixed', interestRate: 4.5, monthlyPayment: 1500 }, // Missing amount
+            ],
+          }),
+        });
+
+        const response = await POST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(data.error).toContain('Track amount');
+      });
+
+      it('should return 400 when track interest rate is missing', async () => {
+        const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+        const request = new NextRequest('http://localhost:3000/api/assets/items', {
+          method: 'POST',
+          body: JSON.stringify({
+            type: 'mortgage',
+            name: 'Home Mortgage',
+            currentValue: 200000,
+            interestRate: 5.0,
+            tracks: [
+              { name: 'Fixed', amount: 200000, monthlyPayment: 1500 }, // Missing interestRate
+            ],
+          }),
+        });
+
+        const response = await POST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(data.error).toContain('Track interest rate');
+      });
+
+      it('should return 400 when track interest rate is negative', async () => {
+        const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+        const request = new NextRequest('http://localhost:3000/api/assets/items', {
+          method: 'POST',
+          body: JSON.stringify({
+            type: 'mortgage',
+            name: 'Home Mortgage',
+            currentValue: 200000,
+            interestRate: 5.0,
+            tracks: [{ name: 'Fixed', amount: 200000, interestRate: -5, monthlyPayment: 1500 }],
+          }),
+        });
+
+        const response = await POST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(data.error).toContain('Track interest rate');
+      });
+
+      it('should return 400 when track interest rate exceeds 100', async () => {
+        const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+        const request = new NextRequest('http://localhost:3000/api/assets/items', {
+          method: 'POST',
+          body: JSON.stringify({
+            type: 'mortgage',
+            name: 'Home Mortgage',
+            currentValue: 200000,
+            interestRate: 5.0,
+            tracks: [{ name: 'Fixed', amount: 200000, interestRate: 150, monthlyPayment: 1500 }],
+          }),
+        });
+
+        const response = await POST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(data.error).toContain('Track interest rate');
+      });
+
+      it('should return 400 when track amount is negative', async () => {
+        const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+        const request = new NextRequest('http://localhost:3000/api/assets/items', {
+          method: 'POST',
+          body: JSON.stringify({
+            type: 'mortgage',
+            name: 'Home Mortgage',
+            currentValue: 200000,
+            interestRate: 5.0,
+            tracks: [{ name: 'Fixed', amount: -200000, interestRate: 4.5, monthlyPayment: 1500 }],
+          }),
+        });
+
+        const response = await POST(request);
+        const data = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(data.error).toContain('Track amount');
+      });
+    });
+
+    describe('PUT /api/assets/items/[id] - Update Mortgage Tracks', () => {
+      it('should update mortgage tracks (replace all)', async () => {
+        const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+        const mockExisting = {
+          id: 'mortgage-1',
+          type: 'mortgage',
+          userId: 'user-1',
+          mortgageTracks: [{ id: 'old-track-1', name: 'Old Track', amount: createDecimal(100000) }],
+        };
+
+        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        // First findUnique call is outside transaction (to verify ownership)
+        (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(mockExisting);
+
+        mockTransaction.mockImplementationOnce(async (callback) => {
+          const tx = {
+            miscAsset: {
+              update: jest.fn().mockResolvedValue({ id: 'mortgage-1' }),
+              findUnique: jest.fn().mockResolvedValue({
+                id: 'mortgage-1',
+                type: 'mortgage',
+                name: 'Updated Mortgage',
+                currentValue: createDecimal(-300000),
+                interestRate: createDecimal(5.0),
+                monthlyPayment: createDecimal(2300),
+                monthlyDeposit: null,
+                maturityDate: null,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                mortgageTracks: [
+                  {
+                    id: 'new-track-1',
+                    name: 'New Fixed',
+                    amount: createDecimal(200000),
+                    interestRate: createDecimal(4.5),
+                    monthlyPayment: createDecimal(1500),
+                    maturityDate: null,
+                    sortOrder: 0,
+                  },
+                  {
+                    id: 'new-track-2',
+                    name: 'New Prime',
+                    amount: createDecimal(100000),
+                    interestRate: createDecimal(6.0),
+                    monthlyPayment: createDecimal(800),
+                    maturityDate: null,
+                    sortOrder: 1,
+                  },
+                ],
+              }),
+            },
+            mortgageTrack: {
+              deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+              createMany: jest.fn().mockResolvedValue({ count: 2 }),
+            },
+          };
+          return callback(tx);
+        });
+
+        const request = new NextRequest('http://localhost:3000/api/assets/items/mortgage-1', {
+          method: 'PUT',
+          body: JSON.stringify({
+            name: 'Updated Mortgage',
+            tracks: [
+              { name: 'New Fixed', amount: 200000, interestRate: 4.5, monthlyPayment: 1500 },
+              { name: 'New Prime', amount: 100000, interestRate: 6.0, monthlyPayment: 800 },
+            ],
+          }),
+        });
+
+        const response = await PUT(request, { params: Promise.resolve({ id: 'mortgage-1' }) });
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.data.mortgageTracks).toHaveLength(2);
+      });
+
+      it('should clear tracks when empty array provided', async () => {
+        const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+        const mockExisting = {
+          id: 'mortgage-1',
+          type: 'mortgage',
+          userId: 'user-1',
+          mortgageTracks: [{ id: 'track-1', name: 'Track 1' }],
+        };
+
+        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(mockExisting);
+        mockTransaction.mockImplementationOnce(async (callback) => {
+          const tx = {
+            miscAsset: {
+              update: jest.fn().mockResolvedValue({ id: 'mortgage-1' }),
+              findUnique: jest.fn().mockResolvedValue({
+                id: 'mortgage-1',
+                type: 'mortgage',
+                name: 'Mortgage',
+                currentValue: createDecimal(-200000),
+                interestRate: createDecimal(5.0),
+                monthlyPayment: createDecimal(1500),
+                monthlyDeposit: null,
+                maturityDate: null,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                mortgageTracks: [],
+              }),
+            },
+            mortgageTrack: {
+              deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+              createMany: jest.fn(),
+            },
+          };
+          return callback(tx);
+        });
+
+        const request = new NextRequest('http://localhost:3000/api/assets/items/mortgage-1', {
+          method: 'PUT',
+          body: JSON.stringify({
+            tracks: [],
+            monthlyPayment: 1500, // Required when no tracks
+          }),
+        });
+
+        const response = await PUT(request, { params: Promise.resolve({ id: 'mortgage-1' }) });
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.data.mortgageTracks).toHaveLength(0);
+      });
+
+      it('should not modify tracks when tracks field not provided in update', async () => {
+        const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+        const mockExisting = {
+          id: 'mortgage-1',
+          type: 'mortgage',
+          userId: 'user-1',
+          mortgageTracks: [
+            {
+              id: 'track-1',
+              name: 'Existing Track',
+              amount: createDecimal(100000),
+              interestRate: createDecimal(4.5),
+              monthlyPayment: createDecimal(800),
+              maturityDate: null,
+              sortOrder: 0,
+            },
+          ],
+        };
+
+        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(mockExisting);
+        mockTransaction.mockImplementationOnce(async (callback) => {
+          const tx = {
+            miscAsset: {
+              update: jest.fn().mockResolvedValue({ id: 'mortgage-1' }),
+              findUnique: jest.fn().mockResolvedValue({
+                ...mockExisting,
+                name: 'Updated Name',
+                currentValue: createDecimal(-100000),
+                interestRate: createDecimal(4.5),
+                monthlyPayment: createDecimal(800),
+                monthlyDeposit: null,
+                maturityDate: null,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              }),
+            },
+            mortgageTrack: {
+              deleteMany: jest.fn(),
+              createMany: jest.fn(),
+            },
+          };
+          return callback(tx);
+        });
+
+        const request = new NextRequest('http://localhost:3000/api/assets/items/mortgage-1', {
+          method: 'PUT',
+          body: JSON.stringify({
+            name: 'Updated Name',
+            // No tracks field - should preserve existing
+          }),
+        });
+
+        const response = await PUT(request, { params: Promise.resolve({ id: 'mortgage-1' }) });
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+      });
+    });
+
+    describe('GET /api/assets/items - Retrieve Mortgage with Tracks', () => {
+      it('should return mortgage with tracks in list', async () => {
+        const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+        const mockAssets = [
+          {
+            id: 'mortgage-1',
+            type: 'mortgage',
+            name: 'Home Mortgage',
+            currentValue: createDecimal(-300000),
+            interestRate: createDecimal(5.0),
+            monthlyPayment: createDecimal(2000),
+            monthlyDeposit: null,
+            maturityDate: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            mortgageTracks: [
+              {
+                id: 'track-1',
+                name: 'Fixed',
+                amount: createDecimal(200000),
+                interestRate: createDecimal(4.5),
+                monthlyPayment: createDecimal(1200),
+                maturityDate: null,
+                sortOrder: 0,
+              },
+              {
+                id: 'track-2',
+                name: 'Prime',
+                amount: createDecimal(100000),
+                interestRate: createDecimal(6.0),
+                monthlyPayment: createDecimal(800),
+                maturityDate: null,
+                sortOrder: 1,
+              },
+            ],
+          },
+        ];
+
+        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        (mockPrisma.miscAsset.findMany as jest.Mock).mockResolvedValueOnce(mockAssets);
+
+        const response = await GET_LIST();
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.data[0].mortgageTracks).toHaveLength(2);
+        expect(data.data[0].mortgageTracks[0].name).toBe('Fixed');
+        expect(data.data[0].mortgageTracks[0].amount).toBe(200000);
+      });
+
+      it('should return empty tracks array for non-mortgage assets', async () => {
+        const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+        const mockAssets = [
+          {
+            id: 'deposit-1',
+            type: 'bank_deposit',
+            name: 'Savings',
+            currentValue: createDecimal(10000),
+            interestRate: createDecimal(3.0),
+            monthlyPayment: null,
+            monthlyDeposit: null,
+            maturityDate: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            mortgageTracks: [],
+          },
+        ];
+
+        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        (mockPrisma.miscAsset.findMany as jest.Mock).mockResolvedValueOnce(mockAssets);
+
+        const response = await GET_LIST();
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.data[0].mortgageTracks).toHaveLength(0);
+      });
+    });
+
+    describe('GET /api/assets/items/[id] - Retrieve Single Mortgage with Tracks', () => {
+      it('should return single mortgage with tracks', async () => {
+        const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+        const mockAsset = {
+          id: 'mortgage-1',
+          type: 'mortgage',
+          name: 'Home Mortgage',
+          currentValue: createDecimal(-300000),
+          interestRate: createDecimal(5.0),
+          monthlyPayment: createDecimal(2000),
+          monthlyDeposit: null,
+          maturityDate: new Date('2045-01-15'),
+          userId: 'user-1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          mortgageTracks: [
+            {
+              id: 'track-1',
+              name: 'Fixed Rate',
+              amount: createDecimal(200000),
+              interestRate: createDecimal(4.5),
+              monthlyPayment: createDecimal(1200),
+              maturityDate: new Date('2045-01-15'),
+              sortOrder: 0,
+            },
+          ],
+        };
+
+        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(mockAsset);
+
+        const request = new NextRequest('http://localhost:3000/api/assets/items/mortgage-1');
+        const response = await GET_BY_ID(request, {
+          params: Promise.resolve({ id: 'mortgage-1' }),
+        });
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.data.mortgageTracks).toHaveLength(1);
+        expect(data.data.mortgageTracks[0].name).toBe('Fixed Rate');
+        expect(data.data.mortgageTracks[0].maturityDate).toBeTruthy();
+      });
     });
   });
 });

@@ -17,7 +17,18 @@ import { Label } from '@/components/ui/label';
 import { useUpdateAsset } from '@/lib/hooks/use-assets';
 import { useUpdateAssetOwners } from '@/lib/hooks/use-profiles';
 import { InlineOwnerPicker } from '@/components/shared';
-import { type MiscAssetType, getAssetTypeConfig, formatAssetType } from '@/lib/utils/assets';
+import {
+  type MiscAssetType,
+  type MortgageTrack,
+  getAssetTypeConfig,
+  formatAssetType,
+} from '@/lib/utils/assets';
+import {
+  MortgageTracks,
+  type MortgageTrackInput,
+  tracksToApi,
+  tracksFromApi,
+} from './mortgage-tracks';
 
 interface EditAssetDialogProps {
   assetId: string;
@@ -29,6 +40,7 @@ interface EditAssetDialogProps {
   monthlyDeposit: number | null;
   maturityDate: Date | string | null;
   currentOwnerIds?: string[];
+  mortgageTracks?: MortgageTrack[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -49,13 +61,15 @@ export function EditAssetDialog({
   monthlyDeposit: initialDeposit,
   maturityDate: initialMaturityDate,
   currentOwnerIds = [],
+  mortgageTracks: initialTracks = [],
   open,
   onOpenChange,
 }: EditAssetDialogProps) {
   // Create a key that changes when dialog opens with new values
   const dialogKey = useMemo(
-    () => `${open}-${assetId}-${initialValue}-${initialName}-${currentOwnerIds.join(',')}`,
-    [open, assetId, initialValue, initialName, currentOwnerIds]
+    () =>
+      `${open}-${assetId}-${initialValue}-${initialName}-${currentOwnerIds.join(',')}-${initialTracks.length}`,
+    [open, assetId, initialValue, initialName, currentOwnerIds, initialTracks.length]
   );
 
   const [name, setName] = useState(initialName);
@@ -71,12 +85,15 @@ export function EditAssetDialog({
     parseDate(initialMaturityDate)
   );
   const [selectedOwnerIds, setSelectedOwnerIds] = useState<string[]>(currentOwnerIds);
+  const [tracks, setTracks] = useState<MortgageTrackInput[]>(tracksFromApi(initialTracks));
   const [error, setError] = useState('');
   const [lastDialogKey, setLastDialogKey] = useState(dialogKey);
   const updateAsset = useUpdateAsset();
   const updateOwners = useUpdateAssetOwners('assets');
 
   const typeConfig = getAssetTypeConfig(type);
+  const isMortgage = type === 'mortgage';
+  const hasTracks = tracks.length > 0;
 
   // Reset state when dialog key changes
   if (dialogKey !== lastDialogKey) {
@@ -87,6 +104,7 @@ export function EditAssetDialog({
     setMonthlyDeposit(initialDeposit ? String(initialDeposit) : '');
     setMaturityDate(parseDate(initialMaturityDate));
     setSelectedOwnerIds(currentOwnerIds);
+    setTracks(tracksFromApi(initialTracks));
     setError('');
     setLastDialogKey(dialogKey);
   }
@@ -103,19 +121,45 @@ export function EditAssetDialog({
       return;
     }
 
-    if (isNaN(value) || value <= 0) {
-      setError('Current value must be a positive number');
-      return;
+    // For mortgages with tracks, validate tracks instead of value/rate
+    const tracksData = isMortgage && hasTracks ? tracksToApi(tracks) : null;
+
+    if (isMortgage && hasTracks) {
+      if (tracksData && tracksData.length === 0) {
+        setError('Please complete at least one track with name and amount');
+        return;
+      }
+      for (const track of tracks) {
+        if (!track.name.trim()) {
+          setError('All tracks must have a name');
+          return;
+        }
+        const trackAmount = parseFloat(track.amount);
+        if (isNaN(trackAmount) || trackAmount <= 0) {
+          setError('All tracks must have a positive amount');
+          return;
+        }
+        const trackRate = parseFloat(track.interestRate);
+        if (isNaN(trackRate) || trackRate < 0 || trackRate > 100) {
+          setError('All track interest rates must be between 0 and 100');
+          return;
+        }
+      }
+    } else {
+      if (isNaN(value) || value <= 0) {
+        setError('Current value must be a positive number');
+        return;
+      }
+
+      if (isNaN(rate) || rate < 0 || rate > 100) {
+        setError('Interest rate must be between 0 and 100');
+        return;
+      }
     }
 
-    if (isNaN(rate) || rate < 0 || rate > 100) {
-      setError('Interest rate must be between 0 and 100');
-      return;
-    }
-
-    // Validate monthly payment for loans/mortgages
+    // Validate monthly payment for loans (and mortgages without tracks)
     let payment: number | null = null;
-    if (typeConfig.hasMonthlyPayment) {
+    if (typeConfig.hasMonthlyPayment && !hasTracks) {
       payment = parseFloat(monthlyPayment);
       if (isNaN(payment) || payment <= 0) {
         setError('Monthly payment must be a positive number');
@@ -143,11 +187,12 @@ export function EditAssetDialog({
       await updateAsset.mutateAsync({
         id: assetId,
         name: name.trim(),
-        currentValue: value,
-        interestRate: rate,
-        monthlyPayment: payment,
+        currentValue: isMortgage && hasTracks ? 0 : value,
+        interestRate: isMortgage && hasTracks ? 0 : rate,
+        monthlyPayment: isMortgage && hasTracks ? null : payment,
         monthlyDeposit: deposit,
         maturityDate: maturityDate ? format(maturityDate, 'yyyy-MM-dd') : null,
+        tracks: isMortgage ? tracksData : undefined,
       });
 
       // Update owners if changed
@@ -198,48 +243,62 @@ export function EditAssetDialog({
               />
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="edit-currentValue">
-                {typeConfig.isLiability ? 'Outstanding Balance' : 'Current Value'} (ILS) *
-              </Label>
-              <Input
-                id="edit-currentValue"
-                type="number"
-                step="0.01"
-                min="0"
-                value={currentValue}
-                onChange={(e) => setCurrentValue(e.target.value)}
-                required
+            {/* Mortgage tracks section */}
+            {isMortgage && (
+              <MortgageTracks
+                tracks={tracks}
+                onTracksChange={setTracks}
+                disabled={updateAsset.isPending || updateOwners.isPending}
               />
-            </div>
+            )}
 
-            <div className="grid gap-2">
-              <Label htmlFor="edit-interestRate">Interest Rate (%) *</Label>
-              <Input
-                id="edit-interestRate"
-                type="number"
-                step="0.01"
-                min="0"
-                max="100"
-                value={interestRate}
-                onChange={(e) => setInterestRate(e.target.value)}
-                required
-              />
-            </div>
+            {/* Only show these fields if not a mortgage with tracks */}
+            {!(isMortgage && hasTracks) && (
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-currentValue">
+                    {typeConfig.isLiability ? 'Outstanding Balance' : 'Current Value'} (ILS) *
+                  </Label>
+                  <Input
+                    id="edit-currentValue"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={currentValue}
+                    onChange={(e) => setCurrentValue(e.target.value)}
+                    required={!(isMortgage && hasTracks)}
+                  />
+                </div>
 
-            {typeConfig.hasMonthlyPayment && (
-              <div className="grid gap-2">
-                <Label htmlFor="edit-monthlyPayment">Monthly Payment (ILS) *</Label>
-                <Input
-                  id="edit-monthlyPayment"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={monthlyPayment}
-                  onChange={(e) => setMonthlyPayment(e.target.value)}
-                  required
-                />
-              </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-interestRate">Interest Rate (%) *</Label>
+                  <Input
+                    id="edit-interestRate"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={interestRate}
+                    onChange={(e) => setInterestRate(e.target.value)}
+                    required={!(isMortgage && hasTracks)}
+                  />
+                </div>
+
+                {typeConfig.hasMonthlyPayment && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-monthlyPayment">Monthly Payment (ILS) *</Label>
+                    <Input
+                      id="edit-monthlyPayment"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={monthlyPayment}
+                      onChange={(e) => setMonthlyPayment(e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
+              </>
             )}
 
             {typeConfig.hasMonthlyDeposit && (

@@ -28,6 +28,7 @@ import { useUpdateAssetOwners } from '@/lib/hooks/use-profiles';
 import { useHouseholdContext } from '@/lib/contexts/household-context';
 import { InlineOwnerPicker } from '@/components/shared';
 import { type MiscAssetType, getAssetTypeOptions, getAssetTypeConfig } from '@/lib/utils/assets';
+import { MortgageTracks, type MortgageTrackInput, tracksToApi } from './mortgage-tracks';
 
 export function AddAssetDialog() {
   const [open, setOpen] = useState(false);
@@ -39,6 +40,7 @@ export function AddAssetDialog() {
   const [monthlyDeposit, setMonthlyDeposit] = useState('');
   const [maturityDate, setMaturityDate] = useState<Date | undefined>(undefined);
   const [selectedOwnerIds, setSelectedOwnerIds] = useState<string[]>([]);
+  const [mortgageTracks, setMortgageTracks] = useState<MortgageTrackInput[]>([]);
   const [error, setError] = useState('');
   const createAsset = useCreateAsset();
   const updateOwners = useUpdateAssetOwners('assets');
@@ -46,6 +48,8 @@ export function AddAssetDialog() {
 
   const typeConfig = getAssetTypeConfig(type);
   const assetTypeOptions = getAssetTypeOptions();
+  const isMortgage = type === 'mortgage';
+  const hasTracks = mortgageTracks.length > 0;
 
   const resetForm = () => {
     setType('bank_deposit');
@@ -56,6 +60,7 @@ export function AddAssetDialog() {
     setMonthlyDeposit('');
     setMaturityDate(undefined);
     setSelectedOwnerIds([]);
+    setMortgageTracks([]);
     setError('');
   };
 
@@ -71,19 +76,48 @@ export function AddAssetDialog() {
       return;
     }
 
-    if (isNaN(value) || value <= 0) {
-      setError('Current value must be a positive number');
-      return;
+    // For mortgages with tracks, value and rate are calculated from tracks
+    const tracksData = isMortgage && hasTracks ? tracksToApi(mortgageTracks) : null;
+
+    if (isMortgage && hasTracks) {
+      // Validate tracks
+      if (tracksData && tracksData.length === 0) {
+        setError('Please complete at least one track with name and amount');
+        return;
+      }
+      // Check that all tracks have required fields
+      for (const track of mortgageTracks) {
+        if (!track.name.trim()) {
+          setError('All tracks must have a name');
+          return;
+        }
+        const trackAmount = parseFloat(track.amount);
+        if (isNaN(trackAmount) || trackAmount <= 0) {
+          setError('All tracks must have a positive amount');
+          return;
+        }
+        const trackRate = parseFloat(track.interestRate);
+        if (isNaN(trackRate) || trackRate < 0 || trackRate > 100) {
+          setError('All track interest rates must be between 0 and 100');
+          return;
+        }
+      }
+    } else {
+      // Standard validation for non-track assets
+      if (isNaN(value) || value <= 0) {
+        setError('Current value must be a positive number');
+        return;
+      }
+
+      if (isNaN(rate) || rate < 0 || rate > 100) {
+        setError('Interest rate must be between 0 and 100');
+        return;
+      }
     }
 
-    if (isNaN(rate) || rate < 0 || rate > 100) {
-      setError('Interest rate must be between 0 and 100');
-      return;
-    }
-
-    // Validate monthly payment for loans/mortgages
+    // Validate monthly payment for loans (and mortgages without tracks)
     let payment: number | null = null;
-    if (typeConfig.hasMonthlyPayment) {
+    if (typeConfig.hasMonthlyPayment && !hasTracks) {
       payment = parseFloat(monthlyPayment);
       if (isNaN(payment) || payment <= 0) {
         setError('Monthly payment must be a positive number');
@@ -111,11 +145,12 @@ export function AddAssetDialog() {
       const newAsset = await createAsset.mutateAsync({
         type,
         name: name.trim(),
-        currentValue: value,
-        interestRate: rate,
-        monthlyPayment: payment,
+        currentValue: isMortgage && hasTracks ? 0 : value, // Will be calculated from tracks
+        interestRate: isMortgage && hasTracks ? 0 : rate, // Will be calculated from tracks
+        monthlyPayment: isMortgage && hasTracks ? null : payment,
         monthlyDeposit: deposit,
         maturityDate: maturityDate ? format(maturityDate, 'yyyy-MM-dd') : null,
+        tracks: tracksData,
       });
 
       // Step 2: Set owners
@@ -206,56 +241,70 @@ export function AddAssetDialog() {
               />
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="currentValue">
-                {typeConfig.isLiability ? 'Outstanding Balance' : 'Current Value'} (ILS) *
-              </Label>
-              <Input
-                id="currentValue"
-                type="number"
-                step="0.01"
-                min="0"
-                value={currentValue}
-                onChange={(e) => setCurrentValue(e.target.value)}
-                placeholder="e.g., 50000"
-                required
+            {/* Mortgage tracks section */}
+            {isMortgage && (
+              <MortgageTracks
+                tracks={mortgageTracks}
+                onTracksChange={setMortgageTracks}
+                disabled={createAsset.isPending || updateOwners.isPending}
               />
-              {typeConfig.isLiability && (
-                <p className="text-muted-foreground text-xs">
-                  Enter as positive number - it will be stored as liability
-                </p>
-              )}
-            </div>
+            )}
 
-            <div className="grid gap-2">
-              <Label htmlFor="interestRate">Interest Rate (%) *</Label>
-              <Input
-                id="interestRate"
-                type="number"
-                step="0.01"
-                min="0"
-                max="100"
-                value={interestRate}
-                onChange={(e) => setInterestRate(e.target.value)}
-                placeholder="e.g., 5.0"
-                required
-              />
-            </div>
+            {/* Only show these fields if not a mortgage with tracks */}
+            {!(isMortgage && hasTracks) && (
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="currentValue">
+                    {typeConfig.isLiability ? 'Outstanding Balance' : 'Current Value'} (ILS) *
+                  </Label>
+                  <Input
+                    id="currentValue"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={currentValue}
+                    onChange={(e) => setCurrentValue(e.target.value)}
+                    placeholder="e.g., 50000"
+                    required={!(isMortgage && hasTracks)}
+                  />
+                  {typeConfig.isLiability && (
+                    <p className="text-muted-foreground text-xs">
+                      Enter as positive number - it will be stored as liability
+                    </p>
+                  )}
+                </div>
 
-            {typeConfig.hasMonthlyPayment && (
-              <div className="grid gap-2">
-                <Label htmlFor="monthlyPayment">Monthly Payment (ILS) *</Label>
-                <Input
-                  id="monthlyPayment"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={monthlyPayment}
-                  onChange={(e) => setMonthlyPayment(e.target.value)}
-                  placeholder="e.g., 2000"
-                  required
-                />
-              </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="interestRate">Interest Rate (%) *</Label>
+                  <Input
+                    id="interestRate"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={interestRate}
+                    onChange={(e) => setInterestRate(e.target.value)}
+                    placeholder="e.g., 5.0"
+                    required={!(isMortgage && hasTracks)}
+                  />
+                </div>
+
+                {typeConfig.hasMonthlyPayment && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="monthlyPayment">Monthly Payment (ILS) *</Label>
+                    <Input
+                      id="monthlyPayment"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={monthlyPayment}
+                      onChange={(e) => setMonthlyPayment(e.target.value)}
+                      placeholder="e.g., 2000"
+                      required
+                    />
+                  </div>
+                )}
+              </>
             )}
 
             {typeConfig.hasMonthlyDeposit && (

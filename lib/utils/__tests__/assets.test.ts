@@ -611,6 +611,297 @@ describe('Assets Utility Functions', () => {
   });
 });
 
+// ============================================
+// Mortgage Track Utility Tests
+// ============================================
+
+describe('Mortgage Track Utility Functions', () => {
+  // Import additional functions at the top of the file
+  const {
+    calculateTotalMortgageAmount,
+    calculateWeightedAverageRate,
+    calculateTotalMonthlyPayment,
+    calculateTotalTracksInterest,
+    calculateTrackPayoffDate,
+    calculateTrackInterest,
+  } = require('../assets');
+
+  type MortgageTrack = {
+    id?: string;
+    name: string;
+    amount: number;
+    interestRate: number;
+    monthlyPayment: number | null;
+    maturityDate: Date | string | null;
+    sortOrder?: number;
+  };
+
+  const createTrack = (
+    name: string,
+    amount: number,
+    rate: number,
+    payment: number | null = null
+  ): MortgageTrack => ({
+    name,
+    amount,
+    interestRate: rate,
+    monthlyPayment: payment,
+    maturityDate: null,
+  });
+
+  describe('calculateTotalMortgageAmount', () => {
+    it('should sum all track amounts correctly', () => {
+      const tracks: MortgageTrack[] = [
+        createTrack('Fixed Rate', 200000, 4.5),
+        createTrack('Prime', 150000, 5.0),
+        createTrack('Variable', 100000, 3.5),
+      ];
+      expect(calculateTotalMortgageAmount(tracks)).toBe(450000);
+    });
+
+    it('should return 0 for empty tracks array', () => {
+      expect(calculateTotalMortgageAmount([])).toBe(0);
+    });
+
+    it('should handle single track', () => {
+      const tracks: MortgageTrack[] = [createTrack('Fixed', 300000, 5.0)];
+      expect(calculateTotalMortgageAmount(tracks)).toBe(300000);
+    });
+
+    it('should handle very small amounts', () => {
+      const tracks: MortgageTrack[] = [
+        createTrack('Track 1', 100.5, 4.0),
+        createTrack('Track 2', 200.75, 5.0),
+      ];
+      expect(calculateTotalMortgageAmount(tracks)).toBeCloseTo(301.25, 2);
+    });
+
+    it('should handle very large amounts', () => {
+      const tracks: MortgageTrack[] = [
+        createTrack('Track 1', 5000000, 4.0),
+        createTrack('Track 2', 3000000, 5.0),
+      ];
+      expect(calculateTotalMortgageAmount(tracks)).toBe(8000000);
+    });
+
+    it('should handle zero amount tracks', () => {
+      const tracks: MortgageTrack[] = [
+        createTrack('Track 1', 0, 4.0),
+        createTrack('Track 2', 100000, 5.0),
+      ];
+      expect(calculateTotalMortgageAmount(tracks)).toBe(100000);
+    });
+  });
+
+  describe('calculateWeightedAverageRate', () => {
+    it('should calculate weighted average rate correctly', () => {
+      const tracks: MortgageTrack[] = [
+        createTrack('Fixed Rate', 200000, 4.5),
+        createTrack('Prime', 100000, 6.0),
+      ];
+      // Weighted avg: (200000 * 4.5 + 100000 * 6.0) / 300000 = (900000 + 600000) / 300000 = 5.0
+      expect(calculateWeightedAverageRate(tracks)).toBe(5.0);
+    });
+
+    it('should return 0 for empty tracks array', () => {
+      expect(calculateWeightedAverageRate([])).toBe(0);
+    });
+
+    it('should return 0 when total amount is 0', () => {
+      const tracks: MortgageTrack[] = [
+        createTrack('Track 1', 0, 4.0),
+        createTrack('Track 2', 0, 5.0),
+      ];
+      expect(calculateWeightedAverageRate(tracks)).toBe(0);
+    });
+
+    it('should handle single track (return its rate)', () => {
+      const tracks: MortgageTrack[] = [createTrack('Fixed', 300000, 4.75)];
+      expect(calculateWeightedAverageRate(tracks)).toBe(4.75);
+    });
+
+    it('should handle tracks with equal amounts (simple average)', () => {
+      const tracks: MortgageTrack[] = [
+        createTrack('Track 1', 100000, 4.0),
+        createTrack('Track 2', 100000, 6.0),
+        createTrack('Track 3', 100000, 5.0),
+      ];
+      expect(calculateWeightedAverageRate(tracks)).toBe(5.0);
+    });
+
+    it('should weight higher amounts more heavily', () => {
+      const tracks: MortgageTrack[] = [
+        createTrack('Large Track', 900000, 4.0),
+        createTrack('Small Track', 100000, 10.0),
+      ];
+      // Weighted avg: (900000 * 4.0 + 100000 * 10.0) / 1000000 = 4.6
+      expect(calculateWeightedAverageRate(tracks)).toBe(4.6);
+    });
+
+    it('should handle zero interest rate tracks', () => {
+      const tracks: MortgageTrack[] = [
+        createTrack('Zero Interest', 100000, 0),
+        createTrack('Normal', 100000, 4.0),
+      ];
+      expect(calculateWeightedAverageRate(tracks)).toBe(2.0);
+    });
+
+    it('should handle decimal precision', () => {
+      const tracks: MortgageTrack[] = [
+        createTrack('Track 1', 333333, 4.25),
+        createTrack('Track 2', 333333, 5.75),
+        createTrack('Track 3', 333334, 3.5),
+      ];
+      // Approximately equal weights
+      expect(calculateWeightedAverageRate(tracks)).toBeCloseTo(4.5, 1);
+    });
+  });
+
+  describe('calculateTotalMonthlyPayment', () => {
+    it('should sum all monthly payments correctly', () => {
+      const tracks: MortgageTrack[] = [
+        createTrack('Fixed', 200000, 4.5, 1500),
+        createTrack('Prime', 100000, 5.0, 800),
+        createTrack('Variable', 100000, 3.5, 600),
+      ];
+      expect(calculateTotalMonthlyPayment(tracks)).toBe(2900);
+    });
+
+    it('should return 0 for empty tracks array', () => {
+      expect(calculateTotalMonthlyPayment([])).toBe(0);
+    });
+
+    it('should handle null monthly payments', () => {
+      const tracks: MortgageTrack[] = [
+        createTrack('With Payment', 200000, 4.5, 1500),
+        createTrack('No Payment', 100000, 5.0, null),
+      ];
+      expect(calculateTotalMonthlyPayment(tracks)).toBe(1500);
+    });
+
+    it('should return 0 when all payments are null', () => {
+      const tracks: MortgageTrack[] = [
+        createTrack('Track 1', 200000, 4.5, null),
+        createTrack('Track 2', 100000, 5.0, null),
+      ];
+      expect(calculateTotalMonthlyPayment(tracks)).toBe(0);
+    });
+
+    it('should handle single track with payment', () => {
+      const tracks: MortgageTrack[] = [createTrack('Fixed', 300000, 5.0, 2000)];
+      expect(calculateTotalMonthlyPayment(tracks)).toBe(2000);
+    });
+
+    it('should handle decimal payments', () => {
+      const tracks: MortgageTrack[] = [
+        createTrack('Track 1', 100000, 4.0, 1234.56),
+        createTrack('Track 2', 100000, 5.0, 987.44),
+      ];
+      expect(calculateTotalMonthlyPayment(tracks)).toBe(2222);
+    });
+  });
+
+  describe('calculateTotalTracksInterest', () => {
+    it('should calculate total interest for all tracks', () => {
+      const tracks: MortgageTrack[] = [
+        createTrack('Track 1', 10000, 5, 500),
+        createTrack('Track 2', 10000, 5, 500),
+      ];
+      const result = calculateTotalTracksInterest(tracks);
+      // Each track: ~$500 interest (21 months * $500 - $10000)
+      expect(result).toBeCloseTo(1000, -2);
+    });
+
+    it('should return 0 for empty tracks array', () => {
+      // No tracks means no interest, so this should return 0
+      // Based on the implementation: it iterates through tracks, so empty = 0
+      expect(calculateTotalTracksInterest([])).toBe(0);
+    });
+
+    it('should return null if any track cannot be paid off', () => {
+      const tracks: MortgageTrack[] = [
+        createTrack('Good Track', 10000, 5, 500),
+        createTrack('Bad Track', 10000, 60, 400), // Payment too low
+      ];
+      expect(calculateTotalTracksInterest(tracks)).toBeNull();
+    });
+
+    it('should skip tracks without monthly payment', () => {
+      const tracks: MortgageTrack[] = [
+        createTrack('With Payment', 10000, 5, 500),
+        createTrack('No Payment', 10000, 5, null),
+      ];
+      const result = calculateTotalTracksInterest(tracks);
+      // Only the first track contributes
+      expect(result).toBeCloseTo(500, -1);
+    });
+
+    it('should return 0 when all tracks have no payment', () => {
+      const tracks: MortgageTrack[] = [
+        createTrack('Track 1', 10000, 5, null),
+        createTrack('Track 2', 10000, 5, null),
+      ];
+      expect(calculateTotalTracksInterest(tracks)).toBe(0);
+    });
+  });
+
+  describe('calculateTrackPayoffDate', () => {
+    it('should return payoff date for track with payment', () => {
+      const track = createTrack('Fixed', 10000, 5, 500);
+      const result = calculateTrackPayoffDate(track);
+      expect(result).toBeInstanceOf(Date);
+      expect(result!.getTime()).toBeGreaterThan(Date.now());
+    });
+
+    it('should return null for track without monthly payment', () => {
+      const track = createTrack('Fixed', 10000, 5, null);
+      expect(calculateTrackPayoffDate(track)).toBeNull();
+    });
+
+    it('should return null when payment is too low', () => {
+      const track = createTrack('Fixed', 10000, 60, 400); // Payment below interest
+      expect(calculateTrackPayoffDate(track)).toBeNull();
+    });
+
+    it('should calculate correct date for typical mortgage', () => {
+      const track = createTrack('Fixed', 100000, 4, 500);
+      const result = calculateTrackPayoffDate(track);
+      expect(result).not.toBeNull();
+      // Should be several years in the future
+      const yearsAway =
+        result!.getFullYear() -
+        new Date().getFullYear() +
+        (result!.getMonth() - new Date().getMonth()) / 12;
+      expect(yearsAway).toBeGreaterThan(15);
+    });
+  });
+
+  describe('calculateTrackInterest', () => {
+    it('should calculate interest for track with payment', () => {
+      const track = createTrack('Fixed', 10000, 5, 500);
+      const result = calculateTrackInterest(track);
+      expect(result).toBeCloseTo(500, -1);
+    });
+
+    it('should return null for track without monthly payment', () => {
+      const track = createTrack('Fixed', 10000, 5, null);
+      expect(calculateTrackInterest(track)).toBeNull();
+    });
+
+    it('should return null when payment is too low', () => {
+      const track = createTrack('Fixed', 10000, 60, 400);
+      expect(calculateTrackInterest(track)).toBeNull();
+    });
+
+    it('should calculate interest for typical mortgage track', () => {
+      const track = createTrack('Fixed', 200000, 4.5, 1500);
+      const result = calculateTrackInterest(track);
+      // Should be significant interest over the life of the track
+      expect(result).toBeGreaterThan(50000);
+    });
+  });
+});
+
 describe('Edge Cases and Financial Accuracy', () => {
   describe('Compound Interest Edge Cases', () => {
     it('should handle very small principal amounts', () => {

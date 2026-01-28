@@ -207,6 +207,14 @@ Const vs. non const expenses
    - Monthly payment amount
    - Maturity/payoff date
    - Calculated: Total interest to be paid
+   - **Mortgage Tracks**: Multiple "tracks" per mortgage, each with own:
+     - Track name (e.g., "Fixed Rate", "Prime + 1%", "CPI-linked")
+     - Amount (outstanding balance for this track)
+     - Interest rate (specific to this track)
+     - Monthly payment
+     - Maturity date
+   - Aggregate values calculated from tracks: total amount, weighted avg rate, total payment
+   - Displayed in collapsible section on mortgage card
 
 4. **Child Savings**
    - Current amount
@@ -250,10 +258,25 @@ Const vs. non const expenses
 1. Click "Add Asset"
 2. Select "Loan" or "Mortgage"
 3. Enter name (e.g., "Car Loan", "House Mortgage")
-4. Enter outstanding balance
-5. Enter interest rate and monthly payment
+4. For Mortgages with multiple tracks:
+   - Click "Add Track" button
+   - For each track: enter name, amount, interest rate, monthly payment, maturity date
+   - Aggregate values (total amount, weighted avg rate, total payment) calculated automatically
+   - Can add/remove tracks as needed
+5. For simple mortgages (single track) or loans:
+   - Enter outstanding balance
+   - Enter interest rate and monthly payment
 6. System calculates payoff date and total interest
 7. Liability saved
+
+**View Mortgage with Tracks:**
+
+1. Navigate to Assets section
+2. Locate the mortgage card
+3. Click "X Tracks" button to expand collapsible section
+4. View each track's details: name, amount, interest rate, payment
+5. See per-track interest and payoff projections
+6. Click again to collapse
 
 **Add Child Savings:**
 
