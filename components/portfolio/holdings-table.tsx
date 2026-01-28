@@ -86,7 +86,7 @@ function MobileHoldingCard({
             )}
           </div>
         </div>
-        <div className="flex flex-col items-end">
+        <div className="flex flex-col items-end" dir="ltr">
           <span className="font-medium tabular-nums">
             {formatDisplayValue(holding.currentValue)}
           </span>
@@ -252,7 +252,7 @@ function DesktopHoldingRow({
         {formatDisplayValue(holding.currentValue)}
       </TableCell>
       <TableCell className="hidden text-right md:table-cell">
-        <div className="flex flex-col items-end">
+        <div className="flex flex-col items-end" dir="ltr">
           <Badge
             variant="outline"
             className={

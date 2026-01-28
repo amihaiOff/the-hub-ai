@@ -15,6 +15,12 @@ import {
   formatDate,
   getAssetTypeOptions,
   ASSET_TYPE_CONFIGS,
+  calculateTotalMortgageAmount,
+  calculateWeightedAverageRate,
+  calculateTotalMonthlyPayment,
+  calculateTotalTracksInterest,
+  calculateTrackPayoffDate,
+  calculateTrackInterest,
   type MiscAsset,
   type MiscAssetType,
 } from '../assets';
@@ -616,16 +622,6 @@ describe('Assets Utility Functions', () => {
 // ============================================
 
 describe('Mortgage Track Utility Functions', () => {
-  // Import additional functions at the top of the file
-  const {
-    calculateTotalMortgageAmount,
-    calculateWeightedAverageRate,
-    calculateTotalMonthlyPayment,
-    calculateTotalTracksInterest,
-    calculateTrackPayoffDate,
-    calculateTrackInterest,
-  } = require('../assets');
-
   type MortgageTrack = {
     id?: string;
     name: string;

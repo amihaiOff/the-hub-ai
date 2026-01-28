@@ -324,12 +324,11 @@ export const CURRENCY_SYMBOLS: Record<string, string> = {
 };
 
 /**
- * Get currency code with its symbol (e.g., "$ USD", "₪ ILS")
- * Falls back to just the currency code if no symbol is defined
+ * Get currency symbol (e.g., "$", "₪")
+ * Falls back to the currency code if no symbol is defined
  */
-export function getCurrencyWithSymbol(currency: string): string {
-  const symbol = CURRENCY_SYMBOLS[currency];
-  return symbol ? `${symbol} ${currency}` : currency;
+export function getCurrencySymbol(currency: string): string {
+  return CURRENCY_SYMBOLS[currency] || currency;
 }
 
 /**

@@ -3,7 +3,7 @@
 import { useCurrency } from '@/lib/contexts/currency-context';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { getCurrencyWithSymbol } from '@/lib/utils/portfolio';
+import { getCurrencySymbol } from '@/lib/utils/portfolio';
 import { AlertCircle } from 'lucide-react';
 
 export function CurrencyToggle() {
@@ -37,7 +37,7 @@ export function CurrencyToggle() {
         )}
       >
         {ratesError ? <AlertCircle className="text-destructive mr-1 h-3 w-3" /> : null}
-        {getCurrencyWithSymbol('ILS')}
+        {getCurrencySymbol('ILS')}
       </Button>
     </div>
   );

@@ -62,19 +62,22 @@ export function PensionSummary({
   const hasMultipleProfiles = profileBalances.length > 1;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+    <div className="grid grid-cols-2 gap-2 sm:gap-4">
+      <Card className="p-2 sm:p-0">
+        <CardHeader className="hidden flex-row items-center justify-between space-y-0 pb-2 sm:flex">
           <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
           <Wallet className="text-muted-foreground h-4 w-4" />
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 text-center sm:p-6 sm:pt-0">
           {isLoading ? (
-            <div className="bg-muted h-8 w-32 animate-pulse rounded" />
+            <div className="bg-muted mx-auto h-6 w-16 animate-pulse rounded sm:h-8 sm:w-32" />
           ) : (
             <>
-              <div className="text-2xl font-bold tabular-nums">{formatCurrency(totalValue)}</div>
-              <p className="text-muted-foreground text-xs">Across all accounts</p>
+              <p className="text-muted-foreground mb-0.5 text-[10px] sm:hidden">Total Balance</p>
+              <div className="text-sm font-bold tabular-nums sm:text-2xl">
+                {formatCurrency(totalValue)}
+              </div>
+              <p className="text-muted-foreground hidden text-xs sm:block">Across all accounts</p>
 
               {/* Collapsible profile breakdown */}
               {hasMultipleProfiles && (
@@ -119,18 +122,19 @@ export function PensionSummary({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <Card className="p-2 sm:p-0">
+        <CardHeader className="hidden flex-row items-center justify-between space-y-0 pb-2 sm:flex">
           <CardTitle className="text-sm font-medium">Accounts</CardTitle>
           <Building2 className="text-muted-foreground h-4 w-4" />
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 text-center sm:p-6 sm:pt-0">
           {isLoading ? (
-            <div className="bg-muted h-8 w-16 animate-pulse rounded" />
+            <div className="bg-muted mx-auto h-6 w-10 animate-pulse rounded sm:h-8 sm:w-16" />
           ) : (
             <>
-              <div className="text-2xl font-bold tabular-nums">{accountsCount}</div>
-              <p className="text-muted-foreground text-xs">Pension & Hishtalmut</p>
+              <p className="text-muted-foreground mb-0.5 text-[10px] sm:hidden">Accounts</p>
+              <div className="text-sm font-bold tabular-nums sm:text-2xl">{accountsCount}</div>
+              <p className="text-muted-foreground hidden text-xs sm:block">Pension & Hishtalmut</p>
             </>
           )}
         </CardContent>

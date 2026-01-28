@@ -37,9 +37,9 @@ export function PortfolioSummary({
           <CardTitle className="text-sm font-medium">Total Value</CardTitle>
           <DollarSign className="text-muted-foreground h-4 w-4" />
         </CardHeader>
-        <CardContent className="p-0 sm:p-6 sm:pt-0">
+        <CardContent className="p-0 text-center sm:p-6 sm:pt-0">
           {isLoading ? (
-            <div className="bg-muted h-6 w-16 animate-pulse rounded sm:h-8 sm:w-32" />
+            <div className="bg-muted mx-auto h-6 w-16 animate-pulse rounded sm:h-8 sm:w-32" />
           ) : (
             <>
               <p className="text-muted-foreground mb-0.5 text-[10px] sm:hidden">Total Value</p>
@@ -65,9 +65,9 @@ export function PortfolioSummary({
             <TrendingDown className="h-4 w-4 text-red-500" />
           )}
         </CardHeader>
-        <CardContent className="p-0 sm:p-6 sm:pt-0">
+        <CardContent className="p-0 text-center sm:p-6 sm:pt-0">
           {isLoading ? (
-            <div className="bg-muted h-6 w-16 animate-pulse rounded sm:h-8 sm:w-32" />
+            <div className="bg-muted mx-auto h-6 w-16 animate-pulse rounded sm:h-8 sm:w-32" />
           ) : (
             <>
               <p className="text-muted-foreground mb-0.5 text-[10px] sm:hidden">Gain/Loss</p>
@@ -79,7 +79,7 @@ export function PortfolioSummary({
                 {isPositive ? '+' : ''}
                 {formatValue(totalGainLoss, baseCurrency)}
               </div>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
+              <div className="flex flex-col items-center sm:flex-row sm:justify-center sm:gap-2">
                 {ilsGainLoss !== null && baseCurrency !== 'ILS' && (
                   <span
                     className={`text-[10px] tabular-nums sm:text-xs ${isPositive ? 'text-green-500/70' : 'text-red-500/70'}`}
@@ -104,9 +104,9 @@ export function PortfolioSummary({
           <CardTitle className="text-sm font-medium">Holdings</CardTitle>
           <PieChart className="text-muted-foreground h-4 w-4" />
         </CardHeader>
-        <CardContent className="p-0 sm:p-6 sm:pt-0">
+        <CardContent className="p-0 text-center sm:p-6 sm:pt-0">
           {isLoading ? (
-            <div className="bg-muted h-6 w-10 animate-pulse rounded sm:h-8 sm:w-16" />
+            <div className="bg-muted mx-auto h-6 w-10 animate-pulse rounded sm:h-8 sm:w-16" />
           ) : (
             <>
               <p className="text-muted-foreground mb-0.5 text-[10px] sm:hidden">Holdings</p>
