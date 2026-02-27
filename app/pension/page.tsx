@@ -2,12 +2,7 @@
 
 import { Building2 } from 'lucide-react';
 import { usePension } from '@/lib/hooks/use-pension';
-import {
-  PensionSummary,
-  AddAccountDialog,
-  AccountCard,
-  UploadDepositsDialog,
-} from '@/components/pension';
+import { AddAccountDialog, AccountCard, UploadDepositsDialog } from '@/components/pension';
 
 export default function PensionPage() {
   const { data, isLoading, error } = usePension();
@@ -29,14 +24,6 @@ export default function PensionPage() {
           Failed to load pension data. Please try again.
         </div>
       )}
-
-      {/* Summary Cards */}
-      <PensionSummary
-        totalValue={data?.totalValue ?? 0}
-        accountsCount={data?.accountsCount ?? 0}
-        accounts={data?.accounts}
-        isLoading={isLoading}
-      />
 
       {/* Accounts List */}
       <div className="space-y-4">
