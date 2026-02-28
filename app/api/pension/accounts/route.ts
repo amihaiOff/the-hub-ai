@@ -7,6 +7,7 @@ const createPensionAccountSchema = z.object({
   type: z.enum(['pension', 'hishtalmut']),
   providerName: z.string().trim().min(1).max(200),
   accountName: z.string().trim().min(1).max(200),
+  accountNumber: z.string().trim().max(50).nullable().optional(),
   currentValue: z.number().nonnegative(),
   feeFromDeposit: z.number().min(0).max(100),
   feeFromTotal: z.number().min(0).max(100),
@@ -34,8 +35,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { type, providerName, accountName, currentValue, feeFromDeposit, feeFromTotal } =
-      validation.data;
+    const {
+      type,
+      providerName,
+      accountName,
+      accountNumber,
+      currentValue,
+      feeFromDeposit,
+      feeFromTotal,
+    } = validation.data;
 
     // Create the account (avoid include for Neon serverless compatibility)
     const account = await prisma.pensionAccount.create({
@@ -43,6 +51,7 @@ export async function POST(request: NextRequest) {
         type,
         providerName,
         accountName,
+        accountNumber: accountNumber || null,
         currentValue,
         feeFromDeposit,
         feeFromTotal,
@@ -57,6 +66,7 @@ export async function POST(request: NextRequest) {
         type: account.type,
         providerName: account.providerName,
         accountName: account.accountName,
+        accountNumber: account.accountNumber,
         currentValue: Number(account.currentValue),
         feeFromDeposit: Number(account.feeFromDeposit),
         feeFromTotal: Number(account.feeFromTotal),
@@ -101,6 +111,7 @@ export async function GET() {
         type: account.type,
         providerName: account.providerName,
         accountName: account.accountName,
+        accountNumber: account.accountNumber,
         currentValue: Number(account.currentValue),
         feeFromDeposit: Number(account.feeFromDeposit),
         feeFromTotal: Number(account.feeFromTotal),

@@ -19,6 +19,7 @@ interface CreatePensionAccountParams {
   type: PensionAccountType;
   providerName: string;
   accountName: string;
+  accountNumber?: string;
   currentValue: number;
   feeFromDeposit: number;
   feeFromTotal: number;
@@ -28,6 +29,7 @@ interface UpdatePensionAccountParams {
   id: string;
   providerName?: string;
   accountName?: string;
+  accountNumber?: string;
   currentValue?: number;
   feeFromDeposit?: number;
   feeFromTotal?: number;
@@ -69,6 +71,7 @@ export interface ParsePdfResult {
   providerName: string | null;
   reportDate: string | null;
   memberName: string | null;
+  accountNumber: string | null;
   warnings: string[];
   accountSummary: AccountSummaryFromPdf | null;
 }

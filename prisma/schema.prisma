@@ -220,6 +220,7 @@ model PensionAccount {
   type           PensionAccountType
   providerName   String             @map("provider_name") // e.g., "Meitav", "Altshuler Shaham"
   accountName    String             @map("account_name")  // User-defined name
+  accountNumber  String?            @map("account_number") // Institution account number (from PDF)
   currentValue   Decimal            @map("current_value") @db.Decimal(18, 2) // Current total value
   feeFromDeposit Decimal            @map("fee_from_deposit") @db.Decimal(5, 4) // Fee % from each deposit
   feeFromTotal   Decimal            @map("fee_from_total") @db.Decimal(5, 4) // Annual management fee %

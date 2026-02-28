@@ -67,6 +67,22 @@ function extractMemberName(text: string): string | null {
 }
 
 /**
+ * Extract account number from Harel PDF text
+ * Pattern: "172365048מספר חשבון:" (RTL - number appears before label in extracted text)
+ */
+function extractAccountNumber(text: string): string | null {
+  // Pattern: digits followed by מספר חשבון
+  const match = text.match(/(\d+)\s*מספר חשבון/);
+  if (match) return match[1];
+
+  // Fallback: מספר חשבון followed by digits
+  const fallback = text.match(/מספר חשבון[:\s]+(\d+)/);
+  if (fallback) return fallback[1];
+
+  return null;
+}
+
+/**
  * Extract the closing balance (current value) from Harel PDF text
  * Look for the balance at end of reporting period
  */
@@ -246,6 +262,7 @@ export function parseHarelPdf(text: string): ParseResult {
     providerName: null,
     reportDate: null,
     memberName: null,
+    accountNumber: null,
   };
 
   try {
@@ -258,6 +275,7 @@ export function parseHarelPdf(text: string): ParseResult {
     result.providerName = 'Harel';
     result.reportDate = extractReportDate(text);
     result.memberName = extractMemberName(text);
+    result.accountNumber = extractAccountNumber(text);
 
     // Extract account summary
     const currentValue = extractCurrentValue(text);

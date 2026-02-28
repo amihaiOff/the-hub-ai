@@ -268,6 +268,7 @@ export function parseMeitavPdf(text: string): ParseResult {
     providerName: null,
     reportDate: null,
     memberName: null,
+    accountNumber: null,
   };
 
   try {

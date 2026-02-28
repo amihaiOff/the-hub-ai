@@ -9,6 +9,7 @@ import { nonEmptyString, nonZeroNumber, nonNegativeNumber, percentage } from './
 export const updatePensionAccountSchema = z.object({
   providerName: nonEmptyString('Provider name cannot be empty').optional(),
   accountName: nonEmptyString('Account name cannot be empty').optional(),
+  accountNumber: z.string().trim().max(50).nullable().optional(),
   currentValue: nonNegativeNumber('Current value must be a non-negative number').optional(),
   feeFromDeposit: percentage('Fee from deposit must be a percentage between 0 and 100').optional(),
   feeFromTotal: percentage('Fee from total must be a percentage between 0 and 100').optional(),

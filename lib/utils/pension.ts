@@ -22,6 +22,7 @@ export interface PensionAccountSummary {
   type: PensionAccountType;
   providerName: string;
   accountName: string;
+  accountNumber: string | null;
   currentValue: number;
   feeFromDeposit: number;
   feeFromTotal: number;

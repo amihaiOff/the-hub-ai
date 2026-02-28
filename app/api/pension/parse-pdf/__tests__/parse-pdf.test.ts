@@ -76,6 +76,7 @@ describe('Parse PDF API', () => {
         providerName: 'Meitav',
         reportDate: new Date('2025-01-15'),
         memberName: 'Test User',
+        accountNumber: null,
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -117,6 +118,7 @@ describe('Parse PDF API', () => {
         providerName: 'Meitav',
         reportDate: new Date('2025-01-15'),
         memberName: null,
+        accountNumber: null,
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -211,6 +213,7 @@ describe('Parse PDF API', () => {
         providerName: null,
         reportDate: null,
         memberName: null,
+        accountNumber: null,
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -243,6 +246,7 @@ describe('Parse PDF API', () => {
         providerName: 'Meitav',
         reportDate: new Date('2025-01-15'),
         memberName: 'Test User',
+        accountNumber: null,
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -305,6 +309,7 @@ describe('Parse PDF API', () => {
         providerName: 'Meitav',
         reportDate: new Date('2025-01-15'),
         memberName: 'Test User',
+        accountNumber: null,
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -344,6 +349,7 @@ describe('Parse PDF API', () => {
         providerName: 'Meitav',
         reportDate: null,
         memberName: 'Test User',
+        accountNumber: null,
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -382,6 +388,7 @@ describe('Parse PDF API', () => {
         providerName: 'Meitav',
         reportDate: new Date('2025-01-15'),
         memberName: null,
+        accountNumber: null,
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -445,6 +452,7 @@ describe('Parse PDF API', () => {
         providerName: 'Harel',
         reportDate: new Date('2025-01-15'),
         memberName: 'Test User',
+        accountNumber: '172365048',
         accountSummary: {
           currentValue: 150000,
           feeFromTotal: 0.55,
@@ -498,6 +506,132 @@ describe('Parse PDF API', () => {
     });
   });
 
+  describe('Account Number in Response', () => {
+    it('should return accountNumber from Harel parser response', async () => {
+      const mockResult = {
+        success: true,
+        deposits: [
+          {
+            depositDate: new Date('2025-01-02'),
+            salaryMonth: new Date('2024-12-01'),
+            amount: 4000,
+            employer: 'Company',
+            rawText: 'line',
+          },
+        ],
+        errors: [],
+        warnings: [],
+        providerName: 'Harel',
+        reportDate: new Date('2025-01-15'),
+        memberName: 'Test User',
+        accountNumber: '172365048',
+        accountSummary: {
+          currentValue: 150000,
+          feeFromTotal: 0.55,
+          investmentTrack: 'S&P 500',
+          trackReturn: 3.32,
+        },
+      };
+
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetPdfRawText.mockResolvedValueOnce('הראל פנסיה וגמל');
+      mockParseHarelPdf.mockReturnValueOnce(mockResult);
+
+      const formData = new FormData();
+      formData.append('file', createMockPdfFile('harel.pdf', 'harel content'));
+
+      const request = new NextRequest('http://localhost:3000/api/pension/parse-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.accountNumber).toBe('172365048');
+    });
+
+    it('should return null accountNumber from Meitav parser response', async () => {
+      const mockResult = {
+        success: true,
+        deposits: [
+          {
+            depositDate: new Date('2025-01-02'),
+            salaryMonth: new Date('2024-12-01'),
+            amount: 3000,
+            employer: 'Company',
+            rawText: 'line',
+          },
+        ],
+        errors: [],
+        warnings: [],
+        providerName: 'Meitav',
+        reportDate: new Date('2025-01-15'),
+        memberName: 'Test User',
+        accountNumber: null,
+      };
+
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetPdfRawText.mockResolvedValueOnce('מיטב דש');
+      mockParseMeitavPdf.mockReturnValueOnce(mockResult);
+
+      const formData = new FormData();
+      formData.append('file', createMockPdfFile('meitav.pdf', 'meitav content'));
+
+      const request = new NextRequest('http://localhost:3000/api/pension/parse-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.accountNumber).toBeNull();
+    });
+
+    it('should include accountNumber field in response data structure', async () => {
+      const mockResult = {
+        success: true,
+        deposits: [
+          {
+            depositDate: new Date('2025-01-02'),
+            salaryMonth: new Date('2024-12-01'),
+            amount: 3000,
+            employer: 'Company',
+            rawText: 'line',
+          },
+        ],
+        errors: [],
+        warnings: [],
+        providerName: 'Meitav',
+        reportDate: new Date('2025-01-15'),
+        memberName: 'Test User',
+        accountNumber: null,
+      };
+
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetPdfRawText.mockResolvedValueOnce('מיטב דש');
+      mockParseMeitavPdf.mockReturnValueOnce(mockResult);
+
+      const formData = new FormData();
+      formData.append('file', createMockPdfFile('pension.pdf', 'pdf'));
+
+      const request = new NextRequest('http://localhost:3000/api/pension/parse-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      // Verify accountNumber is present as a top-level field in the response data
+      expect(data.data).toHaveProperty('accountNumber');
+    });
+  });
+
   describe('Response Format', () => {
     it('should strip rawText from deposit responses', async () => {
       const mockResult = {
@@ -516,6 +650,7 @@ describe('Parse PDF API', () => {
         providerName: 'Meitav',
         reportDate: new Date('2025-01-15'),
         memberName: null,
+        accountNumber: null,
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);

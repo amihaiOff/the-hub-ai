@@ -67,6 +67,7 @@ export async function GET() {
         type: account.type,
         providerName: account.providerName,
         accountName: account.accountName,
+        accountNumber: account.accountNumber,
         currentValue: Number(account.currentValue),
         feeFromDeposit: Number(account.feeFromDeposit),
         feeFromTotal: Number(account.feeFromTotal),

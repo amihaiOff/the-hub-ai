@@ -79,15 +79,21 @@ export function UploadDepositsDialog({ accounts }: UploadDepositsDialogProps) {
     [accounts]
   );
 
-  // Auto-select account based on provider name when parsing completes
+  // Auto-select account based on account number or provider name when parsing completes
   const autoSelectAccount = useCallback(
-    (providerName: string | null): string => {
-      if (providerName && accounts.length > 0) {
-        const matchingAccount = accounts.find((a) =>
-          a.providerName.toLowerCase().includes(providerName.toLowerCase())
-        );
-        if (matchingAccount) {
-          return matchingAccount.id;
+    (providerName: string | null, accountNumber: string | null): string => {
+      if (accounts.length > 0) {
+        // First try matching by account number (most specific)
+        if (accountNumber) {
+          const matchByNumber = accounts.find((a) => a.accountNumber === accountNumber);
+          if (matchByNumber) return matchByNumber.id;
+        }
+        // Fallback to provider name matching
+        if (providerName) {
+          const matchByProvider = accounts.find((a) =>
+            a.providerName.toLowerCase().includes(providerName.toLowerCase())
+          );
+          if (matchByProvider) return matchByProvider.id;
         }
       }
       if (accounts.length === 1) {
@@ -129,7 +135,7 @@ export function UploadDepositsDialog({ accounts }: UploadDepositsDialogProps) {
       setParseResult(result);
 
       // Auto-select account
-      const autoSelectedAccountId = autoSelectAccount(result.providerName);
+      const autoSelectedAccountId = autoSelectAccount(result.providerName, result.accountNumber);
 
       // If no matching account found and we have a provider name, offer to create one
       if (!autoSelectedAccountId && result.providerName && result.accountSummary) {
@@ -166,6 +172,7 @@ export function UploadDepositsDialog({ accounts }: UploadDepositsDialogProps) {
         type: 'hishtalmut',
         providerName: parseResult.providerName,
         accountName: `${parseResult.providerName} Hishtalmut`,
+        accountNumber: parseResult.accountNumber ?? undefined,
         currentValue: parseResult.accountSummary?.currentValue ?? 0,
         feeFromDeposit: 0,
         feeFromTotal: parseResult.accountSummary?.feeFromTotal ?? 0,
@@ -251,9 +258,19 @@ export function UploadDepositsDialog({ accounts }: UploadDepositsDialogProps) {
         );
       }
 
-      // Update account values from summary if checked
-      if (willUpdateAccount) {
-        const updateData: { id: string; currentValue?: number; feeFromTotal?: number } = {
+      // Backfill account number if parsed and the account doesn't have one yet
+      const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
+      const shouldBackfillAccountNumber =
+        parseResult?.accountNumber && !selectedAccount?.accountNumber;
+
+      // Update account values from summary if checked, or backfill account number
+      if (willUpdateAccount || shouldBackfillAccountNumber) {
+        const updateData: {
+          id: string;
+          currentValue?: number;
+          feeFromTotal?: number;
+          accountNumber?: string;
+        } = {
           id: selectedAccountId,
         };
         if (updateValue && parseResult?.accountSummary?.currentValue != null) {
@@ -261,6 +278,9 @@ export function UploadDepositsDialog({ accounts }: UploadDepositsDialogProps) {
         }
         if (updateFee && parseResult?.accountSummary?.feeFromTotal != null) {
           updateData.feeFromTotal = parseResult.accountSummary.feeFromTotal;
+        }
+        if (shouldBackfillAccountNumber) {
+          updateData.accountNumber = parseResult!.accountNumber!;
         }
         await updateAccount.mutateAsync(updateData);
         accountUpdated = true;
@@ -421,7 +441,8 @@ export function UploadDepositsDialog({ accounts }: UploadDepositsDialogProps) {
                   <SelectContent>
                     {accounts.map((account) => (
                       <SelectItem key={account.id} value={account.id}>
-                        {account.accountName} ({account.providerName})
+                        {account.accountName} ({account.providerName}
+                        {account.accountNumber && ` #${account.accountNumber}`})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -537,6 +558,9 @@ function CreateAccountStep({
           <div className="mb-3 flex items-center gap-2">
             <Building2 className="text-muted-foreground h-4 w-4" />
             <span className="font-medium">{parseResult.providerName} Hishtalmut</span>
+            {parseResult.accountNumber && (
+              <span className="text-muted-foreground text-sm">#{parseResult.accountNumber}</span>
+            )}
           </div>
           <div className="text-muted-foreground grid grid-cols-2 gap-y-2 text-sm">
             {summary?.currentValue != null && (

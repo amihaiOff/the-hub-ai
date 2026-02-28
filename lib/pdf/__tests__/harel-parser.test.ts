@@ -66,6 +66,12 @@ describe('Harel PDF Parser', () => {
       expect(result.memberName).toBe('עמיחי רון  אופנבכר');
     });
 
+    it('should extract account number', () => {
+      const result = parseHarelPdf(SAMPLE_HAREL_TEXT);
+
+      expect(result.accountNumber).toBe('172365048');
+    });
+
     it('should mark success when account summary is found', () => {
       const result = parseHarelPdf(SAMPLE_HAREL_TEXT);
 
@@ -180,6 +186,94 @@ describe('Harel PDF Parser', () => {
       const result = parseHarelPdf(text);
 
       expect(result.reportDate).toBeNull();
+    });
+  });
+
+  describe('Account Number Extraction', () => {
+    it('should extract account number from RTL format (digits before label)', () => {
+      const text = `הראל קרן השתלמות
+שכיר כללישם המעסיק:  172365048מספר חשבון:  305392656 :מספר ת.ז. עמיחי רון  אופנבכר : שם
+59,000יתרת הכספים בחשבון בסוף
+תקופת הדיווח`;
+
+      const result = parseHarelPdf(text);
+
+      expect(result.accountNumber).toBe('172365048');
+    });
+
+    it('should extract account number from fallback format (digits after label)', () => {
+      const text = `הראל קרן השתלמות
+מספר חשבון: 987654321
+59,000יתרת הכספים בחשבון בסוף
+תקופת הדיווח`;
+
+      const result = parseHarelPdf(text);
+
+      expect(result.accountNumber).toBe('987654321');
+    });
+
+    it('should extract account number when digits are immediately adjacent to label', () => {
+      const text = `הראל קרן השתלמות
+555444333מספר חשבון
+59,000יתרת הכספים בחשבון בסוף
+תקופת הדיווח`;
+
+      const result = parseHarelPdf(text);
+
+      expect(result.accountNumber).toBe('555444333');
+    });
+
+    it('should extract account number with spaces between digits and label', () => {
+      const text = `הראל קרן השתלמות
+172365048  מספר חשבון
+59,000יתרת הכספים בחשבון בסוף
+תקופת הדיווח`;
+
+      const result = parseHarelPdf(text);
+
+      expect(result.accountNumber).toBe('172365048');
+    });
+
+    it('should return null when no account number is present', () => {
+      const text = `הראל קרן השתלמות
+59,000יתרת הכספים בחשבון בסוף
+תקופת הדיווח`;
+
+      const result = parseHarelPdf(text);
+
+      expect(result.accountNumber).toBeNull();
+    });
+
+    it('should extract account number from full sample text matching real PDF', () => {
+      // This matches the exact text pattern provided by the user:
+      // "שכיר כללישם המעסיק:  172365048מספר חשבון:  305392656 :מספר ת.ז. עמיחי רון  אופנבכר : שם"
+      const result = parseHarelPdf(SAMPLE_HAREL_TEXT);
+
+      expect(result.accountNumber).toBe('172365048');
+      // Ensure it gets the account number (172365048), not the ID number (305392656)
+      expect(result.accountNumber).not.toBe('305392656');
+    });
+
+    it('should handle account number with varying digit lengths', () => {
+      const text = `הראל קרן השתלמות
+12345מספר חשבון
+59,000יתרת הכספים בחשבון בסוף
+תקופת הדיווח`;
+
+      const result = parseHarelPdf(text);
+
+      expect(result.accountNumber).toBe('12345');
+    });
+
+    it('should extract account number with colon after label in fallback', () => {
+      const text = `הראל קרן השתלמות
+מספר חשבון:  111222333
+59,000יתרת הכספים בחשבון בסוף
+תקופת הדיווח`;
+
+      const result = parseHarelPdf(text);
+
+      expect(result.accountNumber).toBe('111222333');
     });
   });
 

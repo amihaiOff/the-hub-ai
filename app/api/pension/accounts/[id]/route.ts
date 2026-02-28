@@ -49,6 +49,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         type: account.type,
         providerName: account.providerName,
         accountName: account.accountName,
+        accountNumber: account.accountNumber,
         currentValue: Number(account.currentValue),
         feeFromDeposit: Number(account.feeFromDeposit),
         feeFromTotal: Number(account.feeFromTotal),
@@ -95,7 +96,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { providerName, accountName, currentValue, feeFromDeposit, feeFromTotal } =
+    const { providerName, accountName, accountNumber, currentValue, feeFromDeposit, feeFromTotal } =
       validation.data;
 
     // Check if account exists
@@ -118,6 +119,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       data: {
         ...(providerName !== undefined && { providerName }),
         ...(accountName !== undefined && { accountName }),
+        ...(accountNumber !== undefined && { accountNumber }),
         ...(currentValue !== undefined && { currentValue }),
         ...(feeFromDeposit !== undefined && { feeFromDeposit }),
         ...(feeFromTotal !== undefined && { feeFromTotal }),
@@ -138,6 +140,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         type: account.type,
         providerName: account.providerName,
         accountName: account.accountName,
+        accountNumber: account.accountNumber,
         currentValue: Number(account.currentValue),
         feeFromDeposit: Number(account.feeFromDeposit),
         feeFromTotal: Number(account.feeFromTotal),

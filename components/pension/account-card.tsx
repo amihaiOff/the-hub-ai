@@ -58,6 +58,9 @@ export function AccountCard({ account }: AccountCardProps) {
                   <div className="text-muted-foreground flex items-center gap-2 text-sm">
                     <Building2 className="h-3 w-3" />
                     {account.providerName}
+                    {account.accountNumber && (
+                      <span className="text-muted-foreground/70">#{account.accountNumber}</span>
+                    )}
                   </div>
                   {account.owners && account.owners.length > 0 && (
                     <OwnerBadges owners={account.owners} size="xs" className="mt-1" />

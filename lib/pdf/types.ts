@@ -23,6 +23,7 @@ export interface ParseResult {
   providerName: string | null;
   reportDate: Date | null;
   memberName: string | null;
+  accountNumber: string | null;
   accountSummary?: AccountSummary;
 }
 
