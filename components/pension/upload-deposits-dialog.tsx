@@ -87,8 +87,11 @@ export function UploadDepositsDialog({ accounts }: UploadDepositsDialogProps) {
         if (accountNumber) {
           const matchByNumber = accounts.find((a) => a.accountNumber === accountNumber);
           if (matchByNumber) return matchByNumber.id;
+          // If PDF has an account number but no account matches, don't fall back to
+          // provider name - this is a different account at the same institution
+          return '';
         }
-        // Fallback to provider name matching
+        // Only fall back to provider name when PDF has no account number
         if (providerName) {
           const matchByProvider = accounts.find((a) =>
             a.providerName.toLowerCase().includes(providerName.toLowerCase())
