@@ -268,6 +268,42 @@ export function calculatePortfolioSummary(
   };
 }
 
+/**
+ * Convert portfolio summary totals to ILS using exchange rates.
+ * Each account's values are multiplied by the rate for its currency.
+ * Account-level data remains in native currency for display.
+ */
+export function convertSummaryToILS(
+  summary: PortfolioSummary,
+  rates: { USD: number; EUR: number; GBP: number; ILS: number }
+): PortfolioSummary {
+  let totalValue = 0;
+  let totalHoldingsValue = 0;
+  let totalCash = 0;
+  let totalCostBasis = 0;
+
+  for (const account of summary.accounts) {
+    const rate = rates[account.currency.toUpperCase() as keyof typeof rates] || rates.USD || 1;
+    totalValue += account.totalValue * rate;
+    totalHoldingsValue += account.totalHoldingsValue * rate;
+    totalCash += account.totalCash * rate;
+    totalCostBasis += account.totalCostBasis * rate;
+  }
+
+  const totalGainLoss = calculateGainLoss(totalHoldingsValue, totalCostBasis);
+  const totalGainLossPercent = calculateGainLossPercent(totalHoldingsValue, totalCostBasis);
+
+  return {
+    ...summary,
+    totalValue,
+    totalHoldingsValue,
+    totalCash,
+    totalCostBasis,
+    totalGainLoss,
+    totalGainLossPercent,
+  };
+}
+
 // Color palette for allocation chart
 const ALLOCATION_COLORS = [
   '#3B82F6', // blue-500

@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { getStockPrices, isStockPriceError } from '@/lib/api/stock-price';
-import { calculatePortfolioSummary, HoldingWithPrice } from '@/lib/utils/portfolio';
+import {
+  calculatePortfolioSummary,
+  convertSummaryToILS,
+  HoldingWithPrice,
+} from '@/lib/utils/portfolio';
+import { fetchExchangeRates, convertPrice } from '@/lib/api/exchange-rates';
 
 /**
  * GET /api/dashboard
@@ -38,7 +43,10 @@ export async function GET() {
       }
     }
 
-    const prices = await getStockPrices(Array.from(allSymbols));
+    const [prices, rates] = await Promise.all([
+      getStockPrices(Array.from(allSymbols)),
+      fetchExchangeRates(),
+    ]);
 
     const accountsWithPrices = stockAccounts.map((account) => ({
       id: account.id,
@@ -47,7 +55,16 @@ export async function GET() {
       currency: account.currency,
       holdings: account.holdings.map((holding) => {
         const priceResult = prices.get(holding.symbol);
-        const currentPrice = priceResult && !isStockPriceError(priceResult) ? priceResult.price : 0;
+        const fetchedPrice = priceResult && !isStockPriceError(priceResult) ? priceResult.price : 0;
+        const fetchedPriceCurrency =
+          priceResult && !isStockPriceError(priceResult) ? priceResult.currency : account.currency;
+
+        // Convert price to account currency if needed (e.g., GBP-listed stock in USD account)
+        let currentPrice = fetchedPrice;
+        if (rates && fetchedPriceCurrency !== account.currency && fetchedPrice > 0) {
+          currentPrice = convertPrice(fetchedPrice, fetchedPriceCurrency, account.currency, rates);
+        }
+
         return {
           id: holding.id,
           symbol: holding.symbol,
@@ -59,7 +76,12 @@ export async function GET() {
       owners: [],
     }));
 
-    const portfolioSummary = calculatePortfolioSummary(accountsWithPrices);
+    const rawSummary = calculatePortfolioSummary(accountsWithPrices);
+    // Convert portfolio totals to ILS so they can be summed with pension/assets (also in ILS)
+    if (!rates) {
+      console.warn('Exchange rates unavailable, dashboard net worth may mix currencies');
+    }
+    const portfolioSummary = rates ? convertSummaryToILS(rawSummary, rates) : rawSummary;
 
     // Calculate pension totals
     const pensionTotal = pensionAccounts.reduce((sum, acc) => sum + Number(acc.currentValue), 0);

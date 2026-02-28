@@ -38,6 +38,12 @@ jest.mock('@/lib/api/stock-price', () => ({
     result !== null && typeof result === 'object' && 'error' in result,
 }));
 
+// Mock exchange-rates module - return null so convertSummaryToILS is not called
+// This means the raw summary is used, preserving the original test expectations
+jest.mock('@/lib/api/exchange-rates', () => ({
+  fetchExchangeRates: jest.fn().mockResolvedValue(null),
+}));
+
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { getStockPrices } from '@/lib/api/stock-price';
@@ -50,6 +56,11 @@ const mockGetStockPrices = getStockPrices as jest.MockedFunction<typeof getStock
 describe('Dashboard API', () => {
   beforeEach(() => {
     jest.resetAllMocks();
+    // Re-apply exchange rates mock after reset - return null to skip ILS conversion
+    // so raw USD values are used, matching the original test expectations
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { fetchExchangeRates } = require('@/lib/api/exchange-rates');
+    (fetchExchangeRates as jest.Mock).mockResolvedValue(null);
   });
 
   describe('GET /api/dashboard', () => {

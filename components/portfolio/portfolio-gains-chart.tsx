@@ -2,12 +2,13 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, LabelList } from 'recharts';
-import { formatCurrency, formatPercent } from '@/lib/utils/portfolio';
+import { formatCurrency, formatPercent, getCurrencySymbol } from '@/lib/utils/portfolio';
 
 interface PortfolioGainsChartProps {
   currentValue: number;
   totalGainLoss: number;
   isLoading?: boolean;
+  currency?: string;
 }
 
 type TimeRange = '6M' | '1Y' | '3Y' | '5Y' | 'YTD';
@@ -23,7 +24,12 @@ const TIME_RANGES: { label: string; value: TimeRange }[] = [
 
 // Generate mock historical data based on current portfolio value and time range
 // In production, this would come from a database snapshot table
-function generateMockData(currentValue: number, totalGainLoss: number, timeRange: TimeRange) {
+function generateMockData(
+  currentValue: number,
+  totalGainLoss: number,
+  timeRange: TimeRange,
+  currency = 'ILS'
+) {
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
@@ -88,7 +94,7 @@ function generateMockData(currentValue: number, totalGainLoss: number, timeRange
       month: `${monthNames[targetMonth]} '${String(year).slice(-2)}`,
       value: actualValue,
       percentageGain,
-      displayValue: formatCurrency(actualValue),
+      displayValue: formatCurrency(actualValue, currency),
       displayPercent: formatPercent(percentageGain),
     });
   }
@@ -98,7 +104,7 @@ function generateMockData(currentValue: number, totalGainLoss: number, timeRange
     const finalPercentageGain = costBasis > 0 ? ((currentValue - costBasis) / costBasis) * 100 : 0;
     data[data.length - 1].value = currentValue;
     data[data.length - 1].percentageGain = finalPercentageGain;
-    data[data.length - 1].displayValue = formatCurrency(currentValue);
+    data[data.length - 1].displayValue = formatCurrency(currentValue, currency);
     data[data.length - 1].displayPercent = formatPercent(finalPercentageGain);
   }
 
@@ -109,6 +115,7 @@ export function PortfolioGainsChart({
   currentValue,
   totalGainLoss,
   isLoading,
+  currency = 'ILS',
 }: PortfolioGainsChartProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('1Y');
   const [viewMode, setViewMode] = useState<ViewMode>('absolute');
@@ -123,8 +130,8 @@ export function PortfolioGainsChart({
   }, []);
 
   const data = useMemo(
-    () => generateMockData(currentValue, totalGainLoss, timeRange),
-    [currentValue, totalGainLoss, timeRange]
+    () => generateMockData(currentValue, totalGainLoss, timeRange, currency),
+    [currentValue, totalGainLoss, timeRange, currency]
   );
 
   const isPositive = totalGainLoss >= 0;
@@ -167,7 +174,7 @@ export function PortfolioGainsChart({
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              $
+              {getCurrencySymbol(currency)}
             </button>
             <button
               onClick={() => setViewMode('percentage')}

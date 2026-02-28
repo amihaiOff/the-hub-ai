@@ -35,6 +35,11 @@ jest.mock('@/lib/api/stock-price', () => ({
   getStockPrices: jest.fn(),
 }));
 
+// Mock exchange-rates module - return rates with multiplier of 1 so values stay the same
+jest.mock('@/lib/api/exchange-rates', () => ({
+  fetchExchangeRates: jest.fn().mockResolvedValue({ USD: 1, EUR: 1, GBP: 1, ILS: 1 }),
+}));
+
 import { GET as dailyTasksGET } from '../daily-tasks/route';
 import { GET as createSnapshotGET } from '../create-snapshot/route';
 import { prisma } from '@/lib/db';
@@ -230,6 +235,7 @@ describe('Create Snapshot Cron', () => {
 
       (mockPrisma.stockAccount.findMany as jest.Mock).mockResolvedValue([
         {
+          currency: 'USD',
           holdings: [{ symbol: 'AAPL', quantity: { toNumber: () => 10 } }],
         },
       ]);
@@ -259,7 +265,7 @@ describe('Create Snapshot Cron', () => {
       expect(data.success).toBe(true);
       expect(data.snapshots).toHaveLength(1);
       expect(data.snapshots[0].householdName).toBe('Test Family');
-      // 10 shares * $150 + $50000 pension + $10000 misc = $61500
+      // 10 shares * $150 * rate(1) + $50000 pension + $10000 misc = $61500
       expect(data.snapshots[0].netWorth).toBe(61500);
     });
 
@@ -326,6 +332,7 @@ describe('Create Snapshot Cron', () => {
 
       (mockPrisma.stockAccount.findMany as jest.Mock).mockResolvedValue([
         {
+          currency: 'USD',
           holdings: [{ symbol: 'INVALID', quantity: { toNumber: () => 10 } }],
         },
       ]);

@@ -1,50 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-utils';
-
-export interface ExchangeRates {
-  USD: number;
-  EUR: number;
-  GBP: number;
-  ILS: number;
-}
+import { fetchExchangeRates, ExchangeRates } from '@/lib/api/exchange-rates';
 
 export interface ExchangeRatesResponse {
   success: boolean;
   rates?: ExchangeRates;
   baseCurrency: string;
   error?: string;
-}
-
-interface YahooChartResponse {
-  chart?: {
-    result?: Array<{
-      meta?: {
-        regularMarketPrice?: number;
-      };
-    }>;
-  };
-}
-
-// Fetch a single exchange rate using Yahoo Finance chart API
-async function fetchRate(symbol: string): Promise<number | null> {
-  try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
-      next: { revalidate: 3600 }, // Cache for 1 hour
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const data: YahooChartResponse = await response.json();
-    return data.chart?.result?.[0]?.meta?.regularMarketPrice ?? null;
-  } catch {
-    return null;
-  }
 }
 
 export async function GET(): Promise<NextResponse<ExchangeRatesResponse>> {
@@ -58,14 +20,9 @@ export async function GET(): Promise<NextResponse<ExchangeRatesResponse>> {
       );
     }
 
-    const [usdRate, eurRate, gbpRate] = await Promise.all([
-      fetchRate('USDILS=X'),
-      fetchRate('EURILS=X'),
-      fetchRate('GBPILS=X'),
-    ]);
+    const rates = await fetchExchangeRates();
 
-    // If any rate failed to fetch, return error
-    if (usdRate === null || eurRate === null || gbpRate === null) {
+    if (!rates) {
       return NextResponse.json(
         {
           success: false,
@@ -78,12 +35,7 @@ export async function GET(): Promise<NextResponse<ExchangeRatesResponse>> {
 
     return NextResponse.json({
       success: true,
-      rates: {
-        USD: usdRate,
-        EUR: eurRate,
-        GBP: gbpRate,
-        ILS: 1,
-      },
+      rates,
       baseCurrency: 'ILS',
     });
   } catch (error) {

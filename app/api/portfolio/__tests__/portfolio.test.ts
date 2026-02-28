@@ -45,36 +45,27 @@ jest.mock('@/lib/utils/portfolio', () => ({
     ),
     accounts,
   })),
+  convertSummaryToILS: jest.fn((summary) => summary),
 }));
 
-// Mock global fetch for exchange rates
-const mockFetch = jest.fn();
-global.fetch = mockFetch;
+// Mock exchange-rates module
+jest.mock('@/lib/api/exchange-rates', () => ({
+  fetchExchangeRates: jest.fn().mockResolvedValue({ USD: 3.6, EUR: 3.9, GBP: 4.5, ILS: 1 }),
+}));
 
 import { GET } from '../route';
-
-// Helper to create mock exchange rate response
-function createExchangeRateResponse(rate: number) {
-  return {
-    ok: true,
-    json: async () => ({
-      chart: {
-        result: [{ meta: { regularMarketPrice: rate } }],
-      },
-    }),
-  };
-}
 
 describe('Portfolio API', () => {
   beforeEach(() => {
     jest.resetAllMocks();
-    // Default mock for exchange rates (returns valid rates)
-    mockFetch.mockImplementation((url: string) => {
-      if (url.includes('USDILS')) return Promise.resolve(createExchangeRateResponse(3.6));
-      if (url.includes('EURILS')) return Promise.resolve(createExchangeRateResponse(3.9));
-      if (url.includes('GBPILS')) return Promise.resolve(createExchangeRateResponse(4.5));
-      return Promise.resolve({ ok: false });
-    });
+    // Re-apply default mock for exchange-rates after resetAllMocks
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { fetchExchangeRates } = require('@/lib/api/exchange-rates');
+    (fetchExchangeRates as jest.Mock).mockResolvedValue({ USD: 3.6, EUR: 3.9, GBP: 4.5, ILS: 1 });
+    // Re-apply default mock for convertSummaryToILS (identity function)
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { convertSummaryToILS } = require('@/lib/utils/portfolio');
+    (convertSummaryToILS as jest.Mock).mockImplementation((summary: unknown) => summary);
   });
 
   const mockUser = {

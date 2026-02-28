@@ -21,7 +21,7 @@ export function PortfolioSummary({
   totalGainLossPercent,
   totalHoldings,
   isLoading,
-  baseCurrency = 'USD',
+  baseCurrency = 'ILS',
 }: PortfolioSummaryProps) {
   const { formatValue, rates } = useCurrency();
   const isPositive = totalGainLoss >= 0;

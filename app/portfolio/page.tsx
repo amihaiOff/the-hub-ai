@@ -49,6 +49,7 @@ function PortfolioContent() {
         totalGainLossPercent={portfolio?.totalGainLossPercent ?? 0}
         totalHoldings={portfolio?.totalHoldings ?? 0}
         isLoading={isLoading}
+        baseCurrency="ILS"
       />
 
       {/* Portfolio Performance Chart */}
@@ -58,6 +59,7 @@ function PortfolioContent() {
             currentValue={portfolio?.totalValue ?? 0}
             totalGainLoss={portfolio?.totalGainLoss ?? 0}
             isLoading={isLoading}
+            currency="ILS"
           />
         </CardContent>
       </Card>

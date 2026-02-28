@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getStockPrices, isStockPriceError } from '@/lib/api/stock-price';
+import { fetchExchangeRates, ExchangeRates } from '@/lib/api/exchange-rates';
 
 // Extend timeout for snapshot creation with many holdings
 export const maxDuration = 60;
@@ -32,13 +33,16 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // Fetch exchange rates once for all households
+    const rates = await fetchExchangeRates();
+
     const snapshots = [];
 
     for (const household of households) {
       const profileIds = household.members.map((m) => m.profileId);
 
       // Calculate net worth for this household
-      const netWorth = await calculateHouseholdNetWorth(profileIds);
+      const netWorth = await calculateHouseholdNetWorth(profileIds, rates);
 
       snapshots.push({
         householdId: household.id,
@@ -65,7 +69,7 @@ export async function GET(request: NextRequest) {
 
     for (const user of usersWithoutHousehold) {
       if (user.profile) {
-        const netWorth = await calculateHouseholdNetWorth([user.profile.id]);
+        const netWorth = await calculateHouseholdNetWorth([user.profile.id], rates);
         snapshots.push({
           userId: user.id,
           userName: user.name || user.email,
@@ -90,9 +94,12 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * Calculate total net worth for a set of profiles
+ * Calculate total net worth for a set of profiles (in ILS)
  */
-async function calculateHouseholdNetWorth(profileIds: string[]): Promise<number> {
+async function calculateHouseholdNetWorth(
+  profileIds: string[],
+  rates: ExchangeRates | null
+): Promise<number> {
   let totalNetWorth = 0;
 
   // 1. Stock portfolio value
@@ -115,12 +122,18 @@ async function calculateHouseholdNetWorth(profileIds: string[]): Promise<number>
   // Fetch current prices
   const priceMap = await getStockPrices(allSymbols);
 
-  // Calculate stock portfolio value
+  // Calculate stock portfolio value (convert to ILS)
   for (const account of stockAccounts) {
+    // Get the rate for this account's currency to convert to ILS
+    const accountRate =
+      rates?.[account.currency.toUpperCase() as keyof ExchangeRates] || rates?.USD || 1;
     for (const holding of account.holdings) {
       const priceResult = priceMap.get(holding.symbol);
       if (priceResult && !isStockPriceError(priceResult)) {
-        totalNetWorth += holding.quantity.toNumber() * priceResult.price;
+        // Price is in the stock's native currency; convert via the price currency rate
+        const priceCurrencyRate =
+          rates?.[priceResult.currency.toUpperCase() as keyof ExchangeRates] || accountRate;
+        totalNetWorth += holding.quantity.toNumber() * priceResult.price * priceCurrencyRate;
       }
     }
   }
