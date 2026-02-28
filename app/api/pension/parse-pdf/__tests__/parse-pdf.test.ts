@@ -77,6 +77,7 @@ describe('Parse PDF API', () => {
         reportDate: new Date('2025-01-15'),
         memberName: 'Test User',
         accountNumber: null,
+        employerName: null,
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -119,6 +120,7 @@ describe('Parse PDF API', () => {
         reportDate: new Date('2025-01-15'),
         memberName: null,
         accountNumber: null,
+        employerName: null,
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -214,6 +216,7 @@ describe('Parse PDF API', () => {
         reportDate: null,
         memberName: null,
         accountNumber: null,
+        employerName: null,
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -247,6 +250,7 @@ describe('Parse PDF API', () => {
         reportDate: new Date('2025-01-15'),
         memberName: 'Test User',
         accountNumber: null,
+        employerName: null,
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -310,6 +314,7 @@ describe('Parse PDF API', () => {
         reportDate: new Date('2025-01-15'),
         memberName: 'Test User',
         accountNumber: null,
+        employerName: null,
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -350,6 +355,7 @@ describe('Parse PDF API', () => {
         reportDate: null,
         memberName: 'Test User',
         accountNumber: null,
+        employerName: null,
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -389,6 +395,7 @@ describe('Parse PDF API', () => {
         reportDate: new Date('2025-01-15'),
         memberName: null,
         accountNumber: null,
+        employerName: null,
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -453,6 +460,7 @@ describe('Parse PDF API', () => {
         reportDate: new Date('2025-01-15'),
         memberName: 'Test User',
         accountNumber: '172365048',
+        employerName: 'שכיר כללי',
         accountSummary: {
           currentValue: 150000,
           feeFromTotal: 0.55,
@@ -525,6 +533,7 @@ describe('Parse PDF API', () => {
         reportDate: new Date('2025-01-15'),
         memberName: 'Test User',
         accountNumber: '172365048',
+        employerName: 'שכיר כללי',
         accountSummary: {
           currentValue: 150000,
           feeFromTotal: 0.55,
@@ -570,6 +579,7 @@ describe('Parse PDF API', () => {
         reportDate: new Date('2025-01-15'),
         memberName: 'Test User',
         accountNumber: null,
+        employerName: null,
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -609,6 +619,7 @@ describe('Parse PDF API', () => {
         reportDate: new Date('2025-01-15'),
         memberName: 'Test User',
         accountNumber: null,
+        employerName: null,
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
@@ -651,6 +662,7 @@ describe('Parse PDF API', () => {
         reportDate: new Date('2025-01-15'),
         memberName: null,
         accountNumber: null,
+        employerName: null,
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);

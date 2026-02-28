@@ -24,6 +24,7 @@ export interface ParseResult {
   reportDate: Date | null;
   memberName: string | null;
   accountNumber: string | null;
+  employerName: string | null;
   accountSummary?: AccountSummary;
 }
 

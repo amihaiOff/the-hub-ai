@@ -101,6 +101,7 @@ export async function POST(request: NextRequest) {
         reportDate: result.reportDate?.toISOString().split('T')[0] ?? null,
         memberName: result.memberName,
         accountNumber: result.accountNumber,
+        employerName: result.employerName,
         warnings: result.warnings,
         accountSummary: result.accountSummary ?? null,
       },

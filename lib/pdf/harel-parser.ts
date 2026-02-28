@@ -83,6 +83,22 @@ function extractAccountNumber(text: string): string | null {
 }
 
 /**
+ * Extract employer name from Harel PDF text
+ * Pattern: "שכיר כללישם המעסיק:" (RTL - employer name appears before label in extracted text)
+ */
+function extractEmployerName(text: string): string | null {
+  // Pattern: Hebrew text directly before שם המעסיק (same line, no newlines)
+  const match = text.match(/([א-ת][א-ת "״']*[א-ת])שם המעסיק/);
+  if (match) return match[1].trim();
+
+  // Fallback: שם המעסיק followed by Hebrew text
+  const fallback = text.match(/שם המעסיק[: ]+([א-ת][א-ת "״']*[א-ת])/);
+  if (fallback) return fallback[1].trim();
+
+  return null;
+}
+
+/**
  * Extract the closing balance (current value) from Harel PDF text
  * Look for the balance at end of reporting period
  */
@@ -263,6 +279,7 @@ export function parseHarelPdf(text: string): ParseResult {
     reportDate: null,
     memberName: null,
     accountNumber: null,
+    employerName: null,
   };
 
   try {
@@ -276,6 +293,7 @@ export function parseHarelPdf(text: string): ParseResult {
     result.reportDate = extractReportDate(text);
     result.memberName = extractMemberName(text);
     result.accountNumber = extractAccountNumber(text);
+    result.employerName = extractEmployerName(text);
 
     // Extract account summary
     const currentValue = extractCurrentValue(text);

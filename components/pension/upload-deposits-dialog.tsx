@@ -174,7 +174,7 @@ export function UploadDepositsDialog({ accounts }: UploadDepositsDialogProps) {
       const newAccount = await createAccount.mutateAsync({
         type: 'hishtalmut',
         providerName: parseResult.providerName,
-        accountName: `${parseResult.providerName} Hishtalmut`,
+        accountName: parseResult.employerName || `${parseResult.providerName} Hishtalmut`,
         accountNumber: parseResult.accountNumber ?? undefined,
         currentValue: parseResult.accountSummary?.currentValue ?? 0,
         feeFromDeposit: 0,

@@ -72,6 +72,7 @@ export interface ParsePdfResult {
   reportDate: string | null;
   memberName: string | null;
   accountNumber: string | null;
+  employerName: string | null;
   warnings: string[];
   accountSummary: AccountSummaryFromPdf | null;
 }
