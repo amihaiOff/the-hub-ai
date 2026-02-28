@@ -107,7 +107,13 @@ async function createPensionAccount(
     body: JSON.stringify(params),
   });
 
-  const data: ApiResponse<PensionAccountSummary> = await response.json();
+  const data: ApiResponse<PensionAccountSummary> = await response.json().catch(
+    () =>
+      ({
+        success: false,
+        error: `Failed to create pension account (${response.status})`,
+      }) as ApiResponse<PensionAccountSummary>
+  );
 
   if (!data.success || !data.data) {
     throw new Error(data.error || 'Failed to create pension account');

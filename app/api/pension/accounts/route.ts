@@ -70,6 +70,8 @@ export async function POST(request: NextRequest) {
         currentValue: Number(account.currentValue),
         feeFromDeposit: Number(account.feeFromDeposit),
         feeFromTotal: Number(account.feeFromTotal),
+        totalDeposits: 0,
+        depositsCount: 0,
         deposits: [],
       },
     });
