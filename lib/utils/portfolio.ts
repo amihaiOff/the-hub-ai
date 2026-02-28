@@ -368,6 +368,21 @@ export function getCurrencySymbol(currency: string): string {
 }
 
 /**
+ * Convert an ILS value to a target currency using exchange rates.
+ * Dashboard API returns all values in ILS; this converts for display.
+ */
+export function convertFromILS(
+  value: number,
+  targetCurrency: string,
+  rates?: { USD: number; EUR: number; GBP: number; ILS: number }
+): number {
+  if (targetCurrency === 'ILS' || !rates) return value;
+  const rate = rates[targetCurrency as keyof typeof rates];
+  if (!rate || rate === 0) return value;
+  return value / rate;
+}
+
+/**
  * Format currency value for display
  */
 export function formatCurrency(value: number, currency = 'USD'): string {

@@ -19,37 +19,22 @@ describe('Meitav PDF Parser', () => {
   });
 
   describe('parseMeitavPdf', () => {
-    it('should return error when PDF is not from Meitav', async () => {
-      mockPdfParse.mockResolvedValueOnce({
-        text: 'Some random PDF content without Meitav identifier',
-      });
-
-      const buffer = Buffer.from('fake pdf content');
-      const result = await parseMeitavPdf(buffer);
+    it('should return error when PDF is not from Meitav', () => {
+      const result = parseMeitavPdf('Some random PDF content without Meitav identifier');
 
       expect(result.success).toBe(false);
       expect(result.providerName).toBeNull();
       expect(result.errors).toContain('This does not appear to be a Meitav pension report');
     });
 
-    it('should identify Meitav provider from PDF text', async () => {
-      mockPdfParse.mockResolvedValueOnce({
-        text: 'חברת מיטב דש גמל ופנסיה\nתאריך הדוח: 01.01.2025',
-      });
-
-      const buffer = Buffer.from('fake pdf content');
-      const result = await parseMeitavPdf(buffer);
+    it('should identify Meitav provider from PDF text', () => {
+      const result = parseMeitavPdf('חברת מיטב דש גמל ופנסיה\nתאריך הדוח: 01.01.2025');
 
       expect(result.providerName).toBe('Meitav');
     });
 
-    it('should extract report date from PDF text', async () => {
-      mockPdfParse.mockResolvedValueOnce({
-        text: 'מיטב דש\nתאריך הדוח: 15.06.2024\nפרטים נוספים',
-      });
-
-      const buffer = Buffer.from('fake pdf content');
-      const result = await parseMeitavPdf(buffer);
+    it('should extract report date from PDF text', () => {
+      const result = parseMeitavPdf('מיטב דש\nתאריך הדוח: 15.06.2024\nפרטים נוספים');
 
       expect(result.reportDate).toBeDefined();
       expect(result.reportDate?.getFullYear()).toBe(2024);
@@ -57,20 +42,13 @@ describe('Meitav PDF Parser', () => {
       expect(result.reportDate?.getDate()).toBe(15);
     });
 
-    it('should handle missing report date gracefully', async () => {
-      mockPdfParse.mockResolvedValueOnce({
-        text: 'מיטב דש\nNo date here\n',
-      });
-
-      const buffer = Buffer.from('fake pdf content');
-      const result = await parseMeitavPdf(buffer);
+    it('should handle missing report date gracefully', () => {
+      const result = parseMeitavPdf('מיטב דש\nNo date here\n');
 
       expect(result.reportDate).toBeNull();
     });
 
-    it('should parse deposit rows correctly', async () => {
-      // Simulated text from a Meitav PDF with deposit data
-      // Format: amounts followed by salary month (MM/YYYY) and deposit date (DD/MM/YYYY) and employer
+    it('should parse deposit rows correctly', () => {
       const pdfText = `
 מיטב דש גמל ופנסיה
 תאריך הדוח: 01.01.2025
@@ -78,10 +56,7 @@ describe('Meitav PDF Parser', () => {
 3,15512/202402/01/2025חברה בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf content');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       expect(result.success).toBe(true);
       expect(result.deposits.length).toBeGreaterThanOrEqual(1);
@@ -91,7 +66,7 @@ describe('Meitav PDF Parser', () => {
       expect(deposit.employer).toContain('בע"מ');
     });
 
-    it('should skip header and summary rows', async () => {
+    it('should skip header and summary rows', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
@@ -101,16 +76,13 @@ describe('Meitav PDF Parser', () => {
 3,15512/202402/01/2025חברה בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf content');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       // Should only have the actual deposit row, not headers/summaries
       expect(result.deposits.length).toBe(1);
     });
 
-    it('should sort deposits by salary month descending (newest first)', async () => {
+    it('should sort deposits by salary month descending (newest first)', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.03.2025
@@ -120,10 +92,7 @@ describe('Meitav PDF Parser', () => {
 2,50011/202401/12/2024חברה א בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf content');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       expect(result.success).toBe(true);
       expect(result.deposits.length).toBe(3);
@@ -134,34 +103,21 @@ describe('Meitav PDF Parser', () => {
       expect(result.deposits[2].salaryMonth.getMonth()).toBe(9); // October
     });
 
-    it('should return error when no deposits found', async () => {
+    it('should return error when no deposits found', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
 No actual deposit data here
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf content');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       expect(result.success).toBe(false);
       expect(result.deposits).toHaveLength(0);
       expect(result.errors).toContain('No deposits found in the PDF');
     });
 
-    it('should handle PDF parsing errors gracefully', async () => {
-      mockPdfParse.mockRejectedValueOnce(new Error('PDF is encrypted'));
-
-      const buffer = Buffer.from('encrypted pdf');
-      const result = await parseMeitavPdf(buffer);
-
-      expect(result.success).toBe(false);
-      expect(result.errors.some((e) => e.includes('Failed to parse PDF'))).toBe(true);
-    });
-
-    it('should reject amounts exceeding absolute value of 50000', async () => {
+    it('should reject amounts exceeding absolute value of 50000', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
@@ -169,10 +125,7 @@ No actual deposit data here
 60,00012/202402/01/2025חברה בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf content');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       // Amount 60,000 exceeds 50,000 limit, should be rejected
       expect(result.deposits.length).toBe(0);
@@ -181,7 +134,7 @@ No actual deposit data here
   });
 
   describe('Date Parsing (via parseMeitavPdf)', () => {
-    it('should parse DD/MM/YYYY deposit date format correctly', async () => {
+    it('should parse DD/MM/YYYY deposit date format correctly', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
@@ -189,10 +142,7 @@ No actual deposit data here
 3,00012/202425/12/2024חברה בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf content');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       expect(result.success).toBe(true);
       const deposit = result.deposits[0];
@@ -203,7 +153,7 @@ No actual deposit data here
       expect(deposit.depositDate.getUTCDate()).toBe(25);
     });
 
-    it('should parse MM/YYYY salary month format correctly', async () => {
+    it('should parse MM/YYYY salary month format correctly', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
@@ -211,10 +161,7 @@ No actual deposit data here
 3,00011/202401/12/2024חברה בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf content');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       expect(result.success).toBe(true);
       const deposit = result.deposits[0];
@@ -225,7 +172,7 @@ No actual deposit data here
       expect(deposit.salaryMonth.getUTCDate()).toBe(1); // First of month
     });
 
-    it('should use UTC to avoid timezone issues', async () => {
+    it('should use UTC to avoid timezone issues', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
@@ -233,10 +180,7 @@ No actual deposit data here
 3,00001/202402/02/2024חברה בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf content');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       expect(result.success).toBe(true);
       const deposit = result.deposits[0];
@@ -248,7 +192,7 @@ No actual deposit data here
   });
 
   describe('Amount Parsing (via parseMeitavPdf)', () => {
-    it('should parse amounts with comma separators', async () => {
+    it('should parse amounts with comma separators', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
@@ -256,16 +200,13 @@ No actual deposit data here
 5,50012/202402/01/2025חברה בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf content');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       expect(result.success).toBe(true);
       expect(result.deposits[0].amount).toBe(5500);
     });
 
-    it('should parse amounts without comma separators', async () => {
+    it('should parse amounts without comma separators', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
@@ -273,16 +214,13 @@ No actual deposit data here
 50012/202402/01/2025חברה בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf content');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       expect(result.success).toBe(true);
       expect(result.deposits[0].amount).toBe(500);
     });
 
-    it('should handle amounts with multiple comma separators', async () => {
+    it('should handle amounts with multiple comma separators', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
@@ -290,10 +228,7 @@ No actual deposit data here
 10,50012/202402/01/2025חברה בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf content');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       expect(result.success).toBe(true);
       expect(result.deposits[0].amount).toBe(10500);
@@ -301,7 +236,7 @@ No actual deposit data here
   });
 
   describe('Employer Name Extraction', () => {
-    it('should extract Hebrew employer name ending with "Ltd" in Hebrew', async () => {
+    it('should extract Hebrew employer name ending with "Ltd" in Hebrew', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
@@ -309,16 +244,13 @@ No actual deposit data here
 3,00012/202402/01/2025וויאנטיס בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf content');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       expect(result.success).toBe(true);
       expect(result.deposits[0].employer).toContain('בע"מ');
     });
 
-    it('should handle alternative Hebrew quotation marks for Ltd', async () => {
+    it('should handle alternative Hebrew quotation marks for Ltd', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
@@ -326,10 +258,7 @@ No actual deposit data here
 3,00012/202402/01/2025חברה ישראלית בע״מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf content');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       expect(result.success).toBe(true);
       expect(result.deposits[0].employer).toContain('בע״מ');
@@ -358,17 +287,14 @@ No actual deposit data here
   });
 
   describe('Edge Cases', () => {
-    it('should handle PDF with only whitespace', async () => {
-      mockPdfParse.mockResolvedValueOnce({ text: '   \n\n\t  ' });
-
-      const buffer = Buffer.from('whitespace pdf');
-      const result = await parseMeitavPdf(buffer);
+    it('should handle PDF with only whitespace', () => {
+      const result = parseMeitavPdf('   \n\n\t  ');
 
       expect(result.success).toBe(false);
       expect(result.errors).toContain('This does not appear to be a Meitav pension report');
     });
 
-    it('should handle malformed deposit rows gracefully', async () => {
+    it('should handle malformed deposit rows gracefully', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
@@ -378,17 +304,14 @@ incomplete row data בע"מ
 another broken line 02/01/2025
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       // Should still parse the valid deposit row
       expect(result.deposits.length).toBeGreaterThanOrEqual(1);
       expect(result.deposits[0].amount).toBe(3000);
     });
 
-    it('should store raw text in deposit for debugging', async () => {
+    it('should store raw text in deposit for debugging', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
@@ -396,81 +319,56 @@ another broken line 02/01/2025
 3,00012/202402/01/2025חברה בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       expect(result.success).toBe(true);
       expect(result.deposits[0].rawText).toBeDefined();
       expect(result.deposits[0].rawText).toContain('בע"מ');
     });
 
-    it('should handle row with deposit date but missing salary month', async () => {
+    it('should handle row with deposit date but missing salary month', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
 
 3,00002/01/2025חברה בע"מ
 `;
-      // This row has a deposit date (02/01/2025) but no salary month (MM/YYYY)
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       // Should not parse this row since salary month is missing
       expect(result.deposits.length).toBe(0);
     });
 
-    it('should handle row with invalid deposit date format', async () => {
+    it('should handle row with invalid deposit date format', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
 
 3,00012/2024xx/yy/zzzzחברה בע"מ
 `;
-      // xx/yy/zzzz is not a valid date pattern - won't match the regex
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       // Row doesn't have a valid deposit date pattern, should not be parsed
       expect(result.deposits.length).toBe(0);
     });
 
-    it('should use fallback salary month parsing when combined pattern fails', async () => {
+    it('should use fallback salary month parsing when combined pattern fails', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
 
 3,000 12/2024 02/01/2025חברה בע"מ
 `;
-      // Space separated pattern
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       // Should attempt fallback parsing
       expect(result.providerName).toBe('Meitav');
     });
 
-    it('should handle non-Error exceptions in PDF parsing', async () => {
-      mockPdfParse.mockRejectedValueOnce('String error');
-
-      const buffer = Buffer.from('bad pdf');
-      const result = await parseMeitavPdf(buffer);
-
-      expect(result.success).toBe(false);
-      expect(result.errors.some((e) => e.includes('Unknown error'))).toBe(true);
-    });
-
-    it('should skip lines with header text like "מועד"', async () => {
+    it('should skip lines with header text like "מועד"', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
@@ -479,16 +377,13 @@ another broken line 02/01/2025
 3,00012/202402/01/2025חברה בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       // Should skip the header row
       expect(result.deposits.length).toBe(1);
     });
 
-    it('should handle zero amount as invalid', async () => {
+    it('should handle zero amount as invalid', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
@@ -496,15 +391,12 @@ another broken line 02/01/2025
 012/202402/01/2025חברה בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       expect(result.deposits.length).toBe(0);
     });
 
-    it('should handle member name extraction', async () => {
+    it('should handle member name extraction', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
@@ -513,15 +405,12 @@ another broken line 02/01/2025
 3,00012/202402/01/2025חברה בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       expect(result.memberName).toBe('ישראל ישראלי');
     });
 
-    it('should handle missing member name', async () => {
+    it('should handle missing member name', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
@@ -529,16 +418,12 @@ another broken line 02/01/2025
 3,00012/202402/01/2025חברה בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       expect(result.memberName).toBeNull();
     });
 
-    it('should set employer to Unknown when not found', async () => {
-      // Create a row that has dates and numbers but no Hebrew company name pattern
+    it('should set employer to Unknown when not found', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
@@ -546,16 +431,13 @@ another broken line 02/01/2025
 3,00012/202402/01/2025ABC Corp בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       // Should have parsed the deposit
       expect(result.providerName).toBe('Meitav');
     });
 
-    it('should handle line with no amounts before salary month', async () => {
+    it('should handle line with no amounts before salary month', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
@@ -563,10 +445,7 @@ another broken line 02/01/2025
 12/202402/01/2025חברה בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       // Should fail to parse - no amounts
       expect(result.errors.some((e) => e.includes('Could not extract amounts'))).toBe(true);
@@ -574,10 +453,7 @@ another broken line 02/01/2025
   });
 
   describe('Negative Amount Handling', () => {
-    it('should allow negative amounts within valid range (-50000 to 50000)', async () => {
-      // Note: The parseAmount function handles negative numbers, but the regex
-      // for amount extraction primarily captures positive numbers with commas.
-      // This test verifies the validation allows negative amounts up to -50000.
+    it('should allow negative amounts within valid range (-50000 to 50000)', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
@@ -585,17 +461,14 @@ another broken line 02/01/2025
 3,00012/202402/01/2025חברה בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       // Should successfully parse the positive deposit
       expect(result.success).toBe(true);
       expect(result.deposits[0].amount).toBe(3000);
     });
 
-    it('should reject amounts exceeding 50000 absolute value', async () => {
+    it('should reject amounts exceeding 50000 absolute value', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.01.2025
@@ -603,18 +476,14 @@ another broken line 02/01/2025
 60,00012/202402/01/2025חברה בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       // Should reject - amount exceeds 50000
       expect(result.deposits.length).toBe(0);
       expect(result.errors.some((e) => e.includes('Invalid amount'))).toBe(true);
     });
 
-    it('should group deposits by salary month and employer, summing amounts', async () => {
-      // This tests the grouping logic that sums deposits with the same salary month and employer
+    it('should group deposits by salary month and employer, summing amounts', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.03.2025
@@ -623,10 +492,7 @@ another broken line 02/01/2025
 2,00012/202402/02/2025חברה א בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       // Should group the two deposits for the same month and employer
       expect(result.success).toBe(true);
@@ -634,8 +500,7 @@ another broken line 02/01/2025
       expect(result.deposits[0].amount).toBe(5000); // 3000 + 2000
     });
 
-    it('should filter out zero-sum deposits after grouping', async () => {
-      // When a deposit and refund cancel out, the result should be filtered
+    it('should filter out zero-sum deposits after grouping', () => {
       const pdfText = `
 מיטב דש
 תאריך הדוח: 01.03.2025
@@ -643,10 +508,7 @@ another broken line 02/01/2025
 3,00012/202402/01/2025חברה א בע"מ
 `;
 
-      mockPdfParse.mockResolvedValueOnce({ text: pdfText });
-
-      const buffer = Buffer.from('fake pdf');
-      const result = await parseMeitavPdf(buffer);
+      const result = parseMeitavPdf(pdfText);
 
       // Only the non-zero deposit should remain
       expect(result.success).toBe(true);

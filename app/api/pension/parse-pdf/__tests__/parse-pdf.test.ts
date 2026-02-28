@@ -10,17 +10,25 @@ jest.mock('@/lib/auth-utils', () => ({
   getCurrentUser: jest.fn(),
 }));
 
-// Mock the PDF parser
+// Mock the PDF parsers
 jest.mock('@/lib/pdf/meitav-parser', () => ({
   parseMeitavPdf: jest.fn(),
+  getPdfRawText: jest.fn(),
+}));
+
+jest.mock('@/lib/pdf/harel-parser', () => ({
+  parseHarelPdf: jest.fn(),
 }));
 
 import { getCurrentUser } from '@/lib/auth-utils';
-import { parseMeitavPdf } from '@/lib/pdf/meitav-parser';
+import { parseMeitavPdf, getPdfRawText } from '@/lib/pdf/meitav-parser';
+import { parseHarelPdf } from '@/lib/pdf/harel-parser';
 import { POST } from '../route';
 
 const mockGetCurrentUser = getCurrentUser as jest.MockedFunction<typeof getCurrentUser>;
 const mockParseMeitavPdf = parseMeitavPdf as jest.MockedFunction<typeof parseMeitavPdf>;
+const mockGetPdfRawText = getPdfRawText as jest.MockedFunction<typeof getPdfRawText>;
+const mockParseHarelPdf = parseHarelPdf as jest.MockedFunction<typeof parseHarelPdf>;
 
 // Helper to create a mock File for FormData
 // Must include PDF magic bytes (%PDF-) for validation
@@ -71,7 +79,8 @@ describe('Parse PDF API', () => {
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      mockParseMeitavPdf.mockResolvedValueOnce(mockResult);
+      mockGetPdfRawText.mockResolvedValueOnce('מיטב דש גמל ופנסיה');
+      mockParseMeitavPdf.mockReturnValueOnce(mockResult);
 
       const formData = new FormData();
       formData.append('file', createMockPdfFile('pension.pdf', 'fake pdf content'));
@@ -111,7 +120,8 @@ describe('Parse PDF API', () => {
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      mockParseMeitavPdf.mockResolvedValueOnce(mockResult);
+      mockGetPdfRawText.mockResolvedValueOnce('מיטב דש גמל ופנסיה');
+      mockParseMeitavPdf.mockReturnValueOnce(mockResult);
 
       const formData = new FormData();
       formData.append('file', createMockPdfFile('pension.pdf', 'pdf'));
@@ -204,7 +214,8 @@ describe('Parse PDF API', () => {
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      mockParseMeitavPdf.mockResolvedValueOnce(mockResult);
+      mockGetPdfRawText.mockResolvedValueOnce('מיטב דש');
+      mockParseMeitavPdf.mockReturnValueOnce(mockResult);
 
       const formData = new FormData();
       formData.append('file', createMockPdfFile('wrong.pdf', 'not meitav'));
@@ -235,7 +246,8 @@ describe('Parse PDF API', () => {
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      mockParseMeitavPdf.mockResolvedValueOnce(mockResult);
+      mockGetPdfRawText.mockResolvedValueOnce('מיטב דש');
+      mockParseMeitavPdf.mockReturnValueOnce(mockResult);
 
       const formData = new FormData();
       formData.append('file', createMockPdfFile('empty.pdf', 'meitav no deposits'));
@@ -255,7 +267,10 @@ describe('Parse PDF API', () => {
 
     it('should handle PDF parsing exceptions gracefully', async () => {
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      mockParseMeitavPdf.mockRejectedValueOnce(new Error('PDF is encrypted'));
+      mockGetPdfRawText.mockResolvedValueOnce('מיטב דש');
+      mockParseMeitavPdf.mockImplementationOnce(() => {
+        throw new Error('PDF is encrypted');
+      });
 
       const formData = new FormData();
       formData.append('file', createMockPdfFile('encrypted.pdf', 'encrypted content'));
@@ -293,7 +308,8 @@ describe('Parse PDF API', () => {
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      mockParseMeitavPdf.mockResolvedValueOnce(mockResult);
+      mockGetPdfRawText.mockResolvedValueOnce('מיטב דש');
+      mockParseMeitavPdf.mockReturnValueOnce(mockResult);
 
       const formData = new FormData();
       formData.append('file', createMockPdfFile('pension.pdf', 'pdf'));
@@ -331,7 +347,8 @@ describe('Parse PDF API', () => {
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      mockParseMeitavPdf.mockResolvedValueOnce(mockResult);
+      mockGetPdfRawText.mockResolvedValueOnce('מיטב דש');
+      mockParseMeitavPdf.mockReturnValueOnce(mockResult);
 
       const formData = new FormData();
       formData.append('file', createMockPdfFile('pension.pdf', 'pdf'));
@@ -368,7 +385,8 @@ describe('Parse PDF API', () => {
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      mockParseMeitavPdf.mockResolvedValueOnce(mockResult);
+      mockGetPdfRawText.mockResolvedValueOnce('מיטב דש');
+      mockParseMeitavPdf.mockReturnValueOnce(mockResult);
 
       const formData = new FormData();
       formData.append('file', createMockPdfFile('pension.pdf', 'pdf'));
@@ -409,6 +427,77 @@ describe('Parse PDF API', () => {
     });
   });
 
+  describe('Provider Auto-Detection', () => {
+    it('should route to Harel parser when PDF contains Harel identifier', async () => {
+      const mockResult = {
+        success: true,
+        deposits: [
+          {
+            depositDate: new Date('2025-01-02'),
+            salaryMonth: new Date('2024-12-01'),
+            amount: 4000,
+            employer: 'Company',
+            rawText: 'line',
+          },
+        ],
+        errors: [],
+        warnings: [],
+        providerName: 'Harel',
+        reportDate: new Date('2025-01-15'),
+        memberName: 'Test User',
+        accountSummary: {
+          currentValue: 150000,
+          feeFromTotal: 0.55,
+          investmentTrack: 'S&P 500',
+          trackReturn: 3.32,
+        },
+      };
+
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetPdfRawText.mockResolvedValueOnce('הראל פנסיה וגמל');
+      mockParseHarelPdf.mockReturnValueOnce(mockResult);
+
+      const formData = new FormData();
+      formData.append('file', createMockPdfFile('harel.pdf', 'harel content'));
+
+      const request = new NextRequest('http://localhost:3000/api/pension/parse-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.providerName).toBe('Harel');
+      expect(data.data.accountSummary).toBeDefined();
+      expect(data.data.accountSummary.currentValue).toBe(150000);
+      expect(mockParseHarelPdf).toHaveBeenCalled();
+      expect(mockParseMeitavPdf).not.toHaveBeenCalled();
+    });
+
+    it('should return 400 for unsupported PDF format', async () => {
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetPdfRawText.mockResolvedValueOnce('Some unknown pension provider document');
+
+      const formData = new FormData();
+      formData.append('file', createMockPdfFile('unknown.pdf', 'unknown content'));
+
+      const request = new NextRequest('http://localhost:3000/api/pension/parse-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toBe(
+        'Unsupported PDF format. Only Meitav and Harel reports are supported.'
+      );
+    });
+  });
+
   describe('Response Format', () => {
     it('should strip rawText from deposit responses', async () => {
       const mockResult = {
@@ -430,7 +519,8 @@ describe('Parse PDF API', () => {
       };
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      mockParseMeitavPdf.mockResolvedValueOnce(mockResult);
+      mockGetPdfRawText.mockResolvedValueOnce('מיטב דש');
+      mockParseMeitavPdf.mockReturnValueOnce(mockResult);
 
       const formData = new FormData();
       formData.append('file', createMockPdfFile('pension.pdf', 'pdf'));

@@ -8,6 +8,13 @@ export interface ParsedDeposit {
   rawText?: string; // Original text for debugging
 }
 
+export interface AccountSummary {
+  currentValue: number | null;
+  feeFromTotal: number | null;
+  investmentTrack: string | null;
+  trackReturn: number | null;
+}
+
 export interface ParseResult {
   success: boolean;
   deposits: ParsedDeposit[];
@@ -16,6 +23,7 @@ export interface ParseResult {
   providerName: string | null;
   reportDate: Date | null;
   memberName: string | null;
+  accountSummary?: AccountSummary;
 }
 
 // Input for bulk deposit creation

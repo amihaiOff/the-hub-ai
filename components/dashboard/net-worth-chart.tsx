@@ -3,8 +3,9 @@
 import { useMemo, useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { useNetWorthHistory, NetWorthDataPoint } from '@/lib/hooks/use-dashboard';
-import { formatCurrency } from '@/lib/utils/portfolio';
-
+import { formatCurrency, getCurrencySymbol, convertFromILS } from '@/lib/utils/portfolio';
+import type { ExchangeRates } from '@/lib/hooks/use-exchange-rates';
+import type { DashboardCurrency } from '@/components/dashboard/currency-selector';
 type TimeRange = '3M' | '6M' | '1Y';
 
 const TIME_RANGES: { label: string; value: TimeRange; points: number }[] = [
@@ -41,7 +42,12 @@ function formatDate(dateStr: string): string {
   return `${months[date.getMonth()]} ${date.getDate()}`;
 }
 
-export function NetWorthChart() {
+interface NetWorthChartProps {
+  displayCurrency?: DashboardCurrency;
+  rates?: ExchangeRates;
+}
+
+export function NetWorthChart({ displayCurrency = 'ILS', rates }: NetWorthChartProps) {
   const { data: history, isLoading, error } = useNetWorthHistory();
   const [timeRange, setTimeRange] = useState<TimeRange>('1Y');
   const [isMobile, setIsMobile] = useState(false);
@@ -53,6 +59,8 @@ export function NetWorthChart() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  const currencySymbol = getCurrencySymbol(displayCurrency);
 
   const chartData = useMemo(() => {
     if (!history || history.length === 0) return [];
@@ -67,13 +75,13 @@ export function NetWorthChart() {
       (point: NetWorthDataPoint): ChartDataPoint => ({
         date: point.date,
         displayDate: formatDate(point.date),
-        netWorth: point.netWorth,
-        portfolio: point.portfolio,
-        pension: point.pension,
-        assets: point.assets,
+        netWorth: convertFromILS(point.netWorth, displayCurrency, rates),
+        portfolio: convertFromILS(point.portfolio, displayCurrency, rates),
+        pension: convertFromILS(point.pension, displayCurrency, rates),
+        assets: convertFromILS(point.assets, displayCurrency, rates),
       })
     );
-  }, [history, timeRange]);
+  }, [history, timeRange, displayCurrency, rates]);
 
   if (isLoading) {
     return (
@@ -114,7 +122,7 @@ export function NetWorthChart() {
             className={`text-sm font-semibold tabular-nums ${isPositive ? 'text-green-500' : 'text-red-500'}`}
           >
             {isPositive ? '+' : ''}
-            {formatCurrency(change)} ({isPositive ? '+' : ''}
+            {formatCurrency(change, displayCurrency)} ({isPositive ? '+' : ''}
             {changePercent.toFixed(1)}%)
           </span>
         </div>
@@ -170,7 +178,7 @@ export function NetWorthChart() {
               axisLine={false}
               tickLine={false}
               tick={{ fontSize: 10, fill: '#71717a' }}
-              tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+              tickFormatter={(value) => `${currencySymbol}${(value / 1000).toFixed(0)}k`}
               width={50}
             />
             <Tooltip
@@ -185,7 +193,7 @@ export function NetWorthChart() {
                           className="text-xs tabular-nums"
                           style={{ color: entry.color }}
                         >
-                          {entry.name}: {formatCurrency(entry.value as number)}
+                          {entry.name}: {formatCurrency(entry.value as number, displayCurrency)}
                         </p>
                       ))}
                     </div>

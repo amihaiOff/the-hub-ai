@@ -1,14 +1,28 @@
 'use client';
 
+import { useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, DollarSign, PiggyBank, Wallet } from 'lucide-react';
 import { useDashboard } from '@/lib/hooks/use-dashboard';
-import { formatCurrency, formatPercent } from '@/lib/utils/portfolio';
+import { formatCurrency, formatPercent, convertFromILS } from '@/lib/utils/portfolio';
+import { useExchangeRates } from '@/lib/hooks/use-exchange-rates';
 import { NetWorthChart } from '@/components/dashboard/net-worth-chart';
+import { CurrencySelector, type DashboardCurrency } from '@/components/dashboard/currency-selector';
 import Link from 'next/link';
 
 export default function DashboardPage() {
   const { data, isLoading, error } = useDashboard();
+  const { data: rates, isLoading: ratesLoading } = useExchangeRates();
+  const [displayCurrency, setDisplayCurrency] = useState<DashboardCurrency>('ILS');
+
+  // Format a value from the API (which is in ILS) in the selected display currency
+  const fmt = useCallback(
+    (value: number) => {
+      const converted = convertFromILS(value, displayCurrency, rates);
+      return formatCurrency(converted, displayCurrency);
+    },
+    [displayCurrency, rates]
+  );
 
   const hasData =
     data &&
@@ -19,9 +33,16 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Dashboard</h1>
-        <p className="text-muted-foreground">Your financial overview at a glance</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Dashboard</h1>
+          <p className="text-muted-foreground">Your financial overview at a glance</p>
+        </div>
+        <CurrencySelector
+          currency={displayCurrency}
+          onCurrencyChange={setDisplayCurrency}
+          disabled={ratesLoading || !rates}
+        />
       </div>
 
       {/* Summary Cards */}
@@ -39,9 +60,7 @@ export default function DashboardPage() {
               <div className="text-destructive text-sm">Failed to load</div>
             ) : (
               <>
-                <div className="text-2xl font-bold tabular-nums">
-                  {formatCurrency(data?.netWorth || 0)}
-                </div>
+                <div className="text-2xl font-bold tabular-nums">{fmt(data?.netWorth || 0)}</div>
                 <p className="text-muted-foreground text-xs">
                   {hasData ? 'Combined from all sources' : 'Add your accounts to get started'}
                 </p>
@@ -69,7 +88,7 @@ export default function DashboardPage() {
               ) : (
                 <>
                   <div className="text-2xl font-bold tabular-nums">
-                    {formatCurrency(data?.portfolio.totalValue || 0)}
+                    {fmt(data?.portfolio.totalValue || 0)}
                   </div>
                   <p className="text-muted-foreground text-xs">
                     {data && data.portfolio.holdingsCount > 0 ? (
@@ -79,7 +98,7 @@ export default function DashboardPage() {
                         }
                       >
                         {data.portfolio.totalGain >= 0 ? '+' : ''}
-                        {formatCurrency(data.portfolio.totalGain)} (
+                        {fmt(data.portfolio.totalGain)} (
                         {formatPercent(data.portfolio.totalGainPercent)})
                       </span>
                     ) : (
@@ -107,7 +126,7 @@ export default function DashboardPage() {
               ) : (
                 <>
                   <div className="text-2xl font-bold tabular-nums">
-                    {formatCurrency(data?.pension.totalValue || 0)}
+                    {fmt(data?.pension.totalValue || 0)}
                   </div>
                   <p className="text-muted-foreground text-xs">
                     {data?.pension.accountsCount || 0} accounts
@@ -133,7 +152,7 @@ export default function DashboardPage() {
               ) : (
                 <>
                   <div className="text-2xl font-bold tabular-nums">
-                    {formatCurrency(data?.assets.netValue || 0)}
+                    {fmt(data?.assets.netValue || 0)}
                   </div>
                   <p className="text-muted-foreground text-xs">
                     {data?.assets.itemsCount || 0} assets/debts
@@ -153,7 +172,7 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           {hasData ? (
-            <NetWorthChart />
+            <NetWorthChart displayCurrency={displayCurrency} rates={rates} />
           ) : (
             <div className="border-border flex h-64 items-center justify-center rounded-lg border border-dashed">
               <p className="text-muted-foreground">Chart will appear here once you add data</p>

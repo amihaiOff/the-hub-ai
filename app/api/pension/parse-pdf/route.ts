@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-utils';
-import { parseMeitavPdf } from '@/lib/pdf/meitav-parser';
+import { parseMeitavPdf, getPdfRawText } from '@/lib/pdf/meitav-parser';
+import { parseHarelPdf } from '@/lib/pdf/harel-parser';
 
 // Extend timeout for PDF parsing which can be slow
 export const maxDuration = 30;
@@ -55,8 +56,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse the PDF
-    const result = await parseMeitavPdf(buffer);
+    // Extract text once and auto-detect provider
+    const rawText = await getPdfRawText(buffer);
+    let result;
+
+    if (rawText.includes('הראל')) {
+      result = parseHarelPdf(rawText);
+    } else if (rawText.includes('מיטב')) {
+      result = parseMeitavPdf(rawText);
+    } else {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Unsupported PDF format. Only Meitav and Harel reports are supported.',
+        },
+        { status: 400 }
+      );
+    }
 
     if (!result.success) {
       return NextResponse.json(
@@ -85,6 +101,7 @@ export async function POST(request: NextRequest) {
         reportDate: result.reportDate?.toISOString().split('T')[0] ?? null,
         memberName: result.memberName,
         warnings: result.warnings,
+        accountSummary: result.accountSummary ?? null,
       },
     });
   } catch (error) {

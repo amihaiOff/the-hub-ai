@@ -257,9 +257,9 @@ function parseDepositsTable(text: string): {
 }
 
 /**
- * Parse a Meitav pension PDF and extract deposit data
+ * Parse a Meitav pension PDF from pre-extracted text
  */
-export async function parseMeitavPdf(buffer: Buffer): Promise<ParseResult> {
+export function parseMeitavPdf(text: string): ParseResult {
   const result: ParseResult = {
     success: false,
     deposits: [],
@@ -271,11 +271,6 @@ export async function parseMeitavPdf(buffer: Buffer): Promise<ParseResult> {
   };
 
   try {
-    // Parse PDF to text
-    const pdfParse = await getPdfParser();
-    const pdfData = await pdfParse(buffer);
-    const text = pdfData.text;
-
     // Extract metadata
     result.providerName = extractProviderName(text);
     result.reportDate = extractReportDate(text);

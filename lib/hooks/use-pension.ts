@@ -57,12 +57,20 @@ export interface ParsedDepositFromPdf {
   employer: string;
 }
 
+export interface AccountSummaryFromPdf {
+  currentValue: number | null;
+  feeFromTotal: number | null;
+  investmentTrack: string | null;
+  trackReturn: number | null;
+}
+
 export interface ParsePdfResult {
   deposits: ParsedDepositFromPdf[];
   providerName: string | null;
   reportDate: string | null;
   memberName: string | null;
   warnings: string[];
+  accountSummary: AccountSummaryFromPdf | null;
 }
 
 interface BulkCreateDepositsParams {
