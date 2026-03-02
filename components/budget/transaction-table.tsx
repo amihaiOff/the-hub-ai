@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
@@ -76,30 +75,26 @@ export function TransactionTable({
 
   if (isLoading && transactions.length === 0) {
     return (
-      <Card className="p-8">
-        <div className="flex items-center justify-center">
-          <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-        </div>
-      </Card>
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+      </div>
     );
   }
 
   if (transactions.length === 0) {
     return (
-      <Card className="p-8">
-        <div className="text-center">
-          <p className="text-muted-foreground">No transactions found</p>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Try adjusting your filters or add a new transaction
-          </p>
-        </div>
-      </Card>
+      <div className="p-8 text-center">
+        <p className="text-muted-foreground">No transactions found</p>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Try adjusting your filters or add a new transaction
+        </p>
+      </div>
     );
   }
 
   return (
     <div className="relative">
-      <Card className="overflow-hidden">
+      <div className="lg:border-border/40 lg:bg-card/80 lg:shadow-glow overflow-hidden lg:rounded-3xl lg:border lg:py-6 lg:backdrop-blur-xl">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-muted/50 border-b">
@@ -171,7 +166,7 @@ export function TransactionTable({
             </Button>
           </div>
         )}
-      </Card>
+      </div>
 
       {/* Bulk Actions Bar */}
       {selectedIds.size > 0 && (

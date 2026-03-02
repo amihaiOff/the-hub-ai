@@ -378,17 +378,13 @@ export default function BudgetDashboardPage() {
         </div>
 
         {isLoading ? (
-          <Card>
-            <CardContent className="py-3">
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="bg-muted h-8 animate-pulse rounded" />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <div className="space-y-2 py-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-muted h-8 animate-pulse rounded" />
+            ))}
+          </div>
         ) : orderedGroups.length > 0 ? (
-          <Card className="overflow-hidden">
+          <div className="lg:border-border/40 lg:bg-card/80 lg:shadow-glow overflow-hidden lg:rounded-3xl lg:border lg:py-6 lg:backdrop-blur-xl">
             <div className="overflow-x-auto">
               <DndContext
                 sensors={sensors}
@@ -429,21 +425,17 @@ export default function BudgetDashboardPage() {
                 </table>
               </DndContext>
             </div>
-          </Card>
+          </div>
         ) : (
-          <Card>
-            <CardContent className="py-8">
-              <div className="text-center">
-                <p className="text-muted-foreground">No categories set up yet</p>
-                <p className="text-muted-foreground mt-1 text-sm">
-                  Create categories to start tracking your budget
-                </p>
-                <Button variant="outline" className="mt-3" size="sm" asChild>
-                  <Link href="/budget/categories">Set Up Categories</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="py-8 text-center">
+            <p className="text-muted-foreground">No categories set up yet</p>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Create categories to start tracking your budget
+            </p>
+            <Button variant="outline" className="mt-3" size="sm" asChild>
+              <Link href="/budget/categories">Set Up Categories</Link>
+            </Button>
+          </div>
         )}
       </div>
     </div>

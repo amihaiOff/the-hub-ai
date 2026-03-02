@@ -52,7 +52,7 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
   };
 
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+    <div className="flex flex-1 items-center gap-2">
       {/* Search */}
       <div className="relative flex-1">
         <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
@@ -69,11 +69,10 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
       {/* Filter Button with Popover */}
       <Popover open={isOpen} onOpenChange={setIsOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" size="icon" className="relative shrink-0">
             <Filter className="h-4 w-4" />
-            Filters
             {activeFilterCount > 0 && (
-              <span className="bg-primary text-primary-foreground flex h-5 w-5 items-center justify-center rounded-full text-xs">
+              <span className="bg-primary text-primary-foreground absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[10px]">
                 {activeFilterCount}
               </span>
             )}

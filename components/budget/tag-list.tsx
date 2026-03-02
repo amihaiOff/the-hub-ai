@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { type BudgetTag } from '@/lib/utils/budget';
 
 interface TagListProps {
@@ -51,7 +51,7 @@ export function TagList({ tags, selectedTagIds, onToggleSelect, onEdit, onDelete
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
+                <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">

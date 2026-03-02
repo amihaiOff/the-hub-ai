@@ -6,7 +6,7 @@ import { useAuthState } from '@/lib/hooks/use-auth';
 import { Sidebar } from './sidebar';
 import { MobileHeader } from './mobile-header';
 import { MobileMenu } from './mobile-menu';
-import { MobileBottomNav } from './mobile-bottom-nav';
+
 import { useNeedsOnboarding } from '@/lib/contexts/household-context';
 
 interface AppShellProps {
@@ -68,12 +68,9 @@ export function AppShell({ children }: AppShellProps) {
       {/* Mobile Menu (Sheet) */}
       <MobileMenu open={menuOpen} onOpenChange={setMenuOpen} />
 
-      {/* Mobile Bottom Nav */}
-      <MobileBottomNav />
-
       {/* Main Content */}
       <main className="lg:ml-64">
-        <div className="mx-auto max-w-7xl p-4 pb-20 lg:p-8 lg:pb-8">{children}</div>
+        <div className="mx-auto max-w-7xl p-4 lg:p-8">{children}</div>
       </main>
     </div>
   );

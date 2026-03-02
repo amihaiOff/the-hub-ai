@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { MoreHorizontal, Pencil, Trash2, Split } from 'lucide-react';
+import { MoreVertical, Pencil, Trash2, Split } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   type BudgetTransaction,
@@ -215,7 +215,7 @@ export function TransactionRow({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreHorizontal className="h-4 w-4" />
+              <MoreVertical className="h-4 w-4" />
               <span className="sr-only">Open menu</span>
             </Button>
           </DropdownMenuTrigger>

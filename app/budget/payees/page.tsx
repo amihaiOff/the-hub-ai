@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { AlertCircle, Loader2, Search } from 'lucide-react';
 import { usePayees, useCategoryGroups, useDeletePayee } from '@/lib/hooks/use-budget';
@@ -71,26 +71,24 @@ export default function PayeesPage() {
 
       {/* Payees Table */}
       {!isLoading && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              All Payees
-              {filteredPayees.length !== payees.length && (
-                <span className="text-muted-foreground ml-2 text-sm font-normal">
-                  ({filteredPayees.length} of {payees.length})
-                </span>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 sm:p-6 sm:pt-0">
+        <div className="lg:border-border/40 lg:bg-card/80 lg:shadow-glow lg:rounded-3xl lg:border lg:py-6 lg:backdrop-blur-xl">
+          <h2 className="px-0 pb-4 text-lg font-semibold lg:px-6">
+            All Payees
+            {filteredPayees.length !== payees.length && (
+              <span className="text-muted-foreground ml-2 text-sm font-normal">
+                ({filteredPayees.length} of {payees.length})
+              </span>
+            )}
+          </h2>
+          <div className="lg:px-6">
             <PayeeTable
               payees={filteredPayees}
               categoryGroups={categoryGroups}
               onEdit={setEditingPayee}
               onDelete={handleDeletePayee}
             />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Edit Dialog */}

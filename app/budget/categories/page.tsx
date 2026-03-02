@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Plus, MoreHorizontal, Pencil, Trash2, Star, AlertCircle, Loader2 } from 'lucide-react';
+import { Plus, MoreVertical, Pencil, Trash2, AlertCircle, Loader2 } from 'lucide-react';
 import {
   useCategoryGroups,
   useDeleteCategory,
@@ -103,31 +103,25 @@ export default function CategoriesPage() {
 
       {/* Categories Table */}
       {!isLoading && categoryGroups.length === 0 ? (
-        <Card>
-          <CardContent className="py-12">
-            <div className="text-center">
-              <p className="text-muted-foreground">No category groups yet</p>
-              <p className="text-muted-foreground mt-1 text-sm">
-                Create a group to start organizing your categories
-              </p>
-              <Button variant="outline" className="mt-4" onClick={() => setShowAddGroup(true)}>
-                <Plus className="mr-1.5 h-4 w-4" />
-                Add Your First Group
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="py-12 text-center">
+          <p className="text-muted-foreground">No category groups yet</p>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Create a group to start organizing your categories
+          </p>
+          <Button variant="outline" className="mt-4" onClick={() => setShowAddGroup(true)}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Add Your First Group
+          </Button>
+        </div>
       ) : (
-        <Card className="overflow-hidden">
+        <div className="lg:border-border/40 lg:bg-card/80 lg:shadow-glow overflow-hidden lg:rounded-3xl lg:border lg:py-6 lg:backdrop-blur-xl">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="bg-muted/50 border-b">
                   <th className="px-4 py-3 text-left text-sm font-medium">Name</th>
-                  <th className="hidden px-4 py-3 text-right text-sm font-medium sm:table-cell">
-                    Budget
-                  </th>
-                  <th className="w-20 px-4 py-3 text-right text-sm font-medium">Actions</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium">Budget</th>
+                  <th className="w-10 px-2 py-3"></th>
                 </tr>
               </thead>
               <tbody>
@@ -145,41 +139,34 @@ export default function CategoriesPage() {
                           {group.categories.length === 1 ? 'category' : 'categories'})
                         </span>
                       </td>
-                      <td className="hidden px-4 py-4 text-right sm:table-cell">
+                      <td className="px-4 py-4 text-right">
                         <span className="text-muted-foreground text-sm tabular-nums">
                           {formatCurrencyILS(
                             group.categories.reduce((sum, cat) => sum + (cat.budget || 0), 0)
                           )}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8"
-                            onClick={() => handleAddCategoryToGroup(group.id)}
-                          >
-                            <Plus className="mr-1 h-3.5 w-3.5" />
-                            <span className="hidden sm:inline">Add</span>
-                          </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => handleDeleteGroup(group.id, group.name)}
-                                className="text-destructive"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete Group
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
+                      <td className="px-2 py-4 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleAddCategoryToGroup(group.id)}>
+                              <Plus className="mr-2 h-4 w-4" />
+                              Add Category
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteGroup(group.id, group.name)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete Group
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
 
@@ -199,14 +186,9 @@ export default function CategoriesPage() {
                           className="hover:bg-muted/30 border-b transition-colors"
                         >
                           <td className="px-4 py-3 pl-8">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{category.name}</span>
-                              {category.isMust && (
-                                <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
-                              )}
-                            </div>
+                            <span className="font-medium">{category.name}</span>
                           </td>
-                          <td className="hidden px-4 py-3 text-right sm:table-cell">
+                          <td className="px-4 py-3 text-right">
                             {category.budget ? (
                               <span className="text-muted-foreground text-sm tabular-nums">
                                 {formatCurrencyILS(category.budget)}/mo
@@ -215,11 +197,11 @@ export default function CategoriesPage() {
                               <span className="text-muted-foreground/50 text-sm">—</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-2 py-3 text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreHorizontal className="h-4 w-4" />
+                                  <MoreVertical className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
@@ -245,7 +227,7 @@ export default function CategoriesPage() {
               </tbody>
             </table>
           </div>
-        </Card>
+        </div>
       )}
 
       {/* Dialogs */}

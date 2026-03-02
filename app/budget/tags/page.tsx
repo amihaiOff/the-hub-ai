@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus, Merge, AlertCircle, Loader2 } from 'lucide-react';
 import { useTags, useDeleteTag } from '@/lib/hooks/use-budget';
@@ -89,11 +89,9 @@ export default function TagsPage() {
 
       {/* Tags List */}
       {!isLoading && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">All Tags</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="lg:border-border/40 lg:bg-card/80 lg:shadow-glow lg:rounded-3xl lg:border lg:py-6 lg:backdrop-blur-xl">
+          <h2 className="px-0 pb-4 text-lg font-semibold lg:px-6">All Tags</h2>
+          <div className="lg:px-6">
             <TagList
               tags={tags}
               selectedTagIds={selectedTagIds}
@@ -101,8 +99,8 @@ export default function TagsPage() {
               onEdit={handleEditTag}
               onDelete={handleDeleteTag}
             />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Selection Info */}

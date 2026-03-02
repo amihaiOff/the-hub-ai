@@ -34,15 +34,9 @@ export default function TransactionsPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">Transactions</h1>
-          <p className="text-muted-foreground text-sm">View and manage all your transactions</p>
-        </div>
-        <Button onClick={() => setShowAddTransaction(true)} className="gap-1.5">
-          <Plus className="h-4 w-4" />
-          Add Transaction
-        </Button>
+      <div>
+        <h1 className="text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">Transactions</h1>
+        <p className="text-muted-foreground text-sm">View and manage all your transactions</p>
       </div>
 
       {/* Error State */}
@@ -60,8 +54,18 @@ export default function TransactionsPage() {
         </Card>
       )}
 
-      {/* Filters */}
-      <TransactionFilters filters={filters} onFiltersChange={setFilters} />
+      {/* Search, Filters & Add */}
+      <div className="flex items-center gap-2">
+        <TransactionFilters filters={filters} onFiltersChange={setFilters} />
+        <Button
+          variant="outline"
+          size="icon"
+          className="shrink-0"
+          onClick={() => setShowAddTransaction(true)}
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
 
       {/* Active Filter Badges */}
       <ActiveFilterBadges filters={filters} onRemoveFilter={handleRemoveFilter} />
