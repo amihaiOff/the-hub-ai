@@ -19,6 +19,8 @@ import {
   useDeleteTransaction,
   useBulkDeleteTransactions,
   useBulkCategorizeTransactions,
+  useUpdateCategory,
+  useDeleteCategory,
   useExpandedGroups,
   useExpandedCategories,
 } from '../use-budget';
@@ -387,6 +389,111 @@ describe('Budget Hooks', () => {
         expect.objectContaining({
           method: 'PUT',
           body: JSON.stringify({ transactionIds: ['tx-1', 'tx-2', 'tx-3'], categoryId: 'cat-1' }),
+        })
+      );
+    });
+  });
+
+  describe('useUpdateCategory', () => {
+    it('should update category isMust field only (toggle essential)', async () => {
+      const mockUpdatedCategory = { id: 'cat-1', name: 'Groceries', budget: 1000, isMust: true };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: mockUpdatedCategory }),
+      });
+
+      const { result } = renderHook(() => useUpdateCategory(), {
+        wrapper: createWrapper(),
+      });
+
+      result.current.mutate({ id: 'cat-1', isMust: true });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(result.current.data).toEqual(mockUpdatedCategory);
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/budget/categories/cat-1',
+        expect.objectContaining({
+          method: 'PUT',
+          body: JSON.stringify({ isMust: true }),
+        })
+      );
+    });
+
+    it('should update category budget only (inline budget edit)', async () => {
+      const mockUpdatedCategory = { id: 'cat-1', name: 'Groceries', budget: 2500, isMust: true };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: mockUpdatedCategory }),
+      });
+
+      const { result } = renderHook(() => useUpdateCategory(), {
+        wrapper: createWrapper(),
+      });
+
+      result.current.mutate({ id: 'cat-1', budget: 2500 });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/budget/categories/cat-1',
+        expect.objectContaining({
+          method: 'PUT',
+          body: JSON.stringify({ budget: 2500 }),
+        })
+      );
+    });
+
+    it('should clear budget to null (inline budget edit with empty value)', async () => {
+      const mockUpdatedCategory = { id: 'cat-1', name: 'Groceries', budget: null, isMust: false };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: mockUpdatedCategory }),
+      });
+
+      const { result } = renderHook(() => useUpdateCategory(), {
+        wrapper: createWrapper(),
+      });
+
+      result.current.mutate({ id: 'cat-1', budget: null });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/budget/categories/cat-1',
+        expect.objectContaining({
+          method: 'PUT',
+          body: JSON.stringify({ budget: null }),
+        })
+      );
+    });
+
+    it('should handle update error gracefully', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'Category not found' }),
+      });
+
+      const { result } = renderHook(() => useUpdateCategory(), {
+        wrapper: createWrapper(),
+      });
+
+      result.current.mutate({ id: 'invalid-cat', isMust: true });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+    });
+  });
+
+  describe('useDeleteCategory', () => {
+    it('should delete a category', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: { id: 'cat-1' } }),
+      });
+
+      const { result } = renderHook(() => useDeleteCategory(), {
+        wrapper: createWrapper(),
+      });
+
+      result.current.mutate('cat-1');
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/budget/categories/cat-1',
+        expect.objectContaining({
+          method: 'DELETE',
         })
       );
     });

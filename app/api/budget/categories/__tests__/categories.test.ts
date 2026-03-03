@@ -545,6 +545,217 @@ describe('Categories API', () => {
       expect(data.error).toBe('Category not found');
     });
 
+    it('should toggle isMust field only', async () => {
+      const mockExisting = {
+        id: 'cat-1',
+        name: 'Groceries',
+        groupId: 'group-1',
+        householdId: 'household-1',
+      };
+      const mockUpdated = {
+        id: 'cat-1',
+        name: 'Groceries',
+        budget: createDecimal(1000),
+        isMust: true,
+        sortOrder: 1,
+        groupId: 'group-1',
+        householdId: 'household-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        group: { id: 'group-1', name: 'Essential' },
+      };
+
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetCategory.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
+      (mockPrisma.budgetCategory.update as jest.Mock).mockResolvedValueOnce({});
+      (mockPrisma.budgetCategory.findUnique as jest.Mock).mockResolvedValueOnce(mockUpdated);
+
+      const request = new NextRequest('http://localhost:3000/api/budget/categories/cat-1', {
+        method: 'PUT',
+        body: JSON.stringify({ isMust: true }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'cat-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.data.isMust).toBe(true);
+      expect(mockPrisma.budgetCategory.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { isMust: true },
+        })
+      );
+    });
+
+    it('should toggle isMust from true to false', async () => {
+      const mockExisting = {
+        id: 'cat-1',
+        name: 'Groceries',
+        groupId: 'group-1',
+        householdId: 'household-1',
+      };
+      const mockUpdated = {
+        id: 'cat-1',
+        name: 'Groceries',
+        budget: createDecimal(1000),
+        isMust: false,
+        sortOrder: 1,
+        groupId: 'group-1',
+        householdId: 'household-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        group: { id: 'group-1', name: 'Essential' },
+      };
+
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetCategory.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
+      (mockPrisma.budgetCategory.update as jest.Mock).mockResolvedValueOnce({});
+      (mockPrisma.budgetCategory.findUnique as jest.Mock).mockResolvedValueOnce(mockUpdated);
+
+      const request = new NextRequest('http://localhost:3000/api/budget/categories/cat-1', {
+        method: 'PUT',
+        body: JSON.stringify({ isMust: false }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'cat-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.isMust).toBe(false);
+      expect(mockPrisma.budgetCategory.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { isMust: false },
+        })
+      );
+    });
+
+    it('should update only budget via inline edit', async () => {
+      const mockExisting = {
+        id: 'cat-1',
+        name: 'Groceries',
+        groupId: 'group-1',
+        householdId: 'household-1',
+      };
+      const mockUpdated = {
+        id: 'cat-1',
+        name: 'Groceries',
+        budget: createDecimal(2500),
+        isMust: true,
+        sortOrder: 1,
+        groupId: 'group-1',
+        householdId: 'household-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        group: { id: 'group-1', name: 'Essential' },
+      };
+
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetCategory.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
+      (mockPrisma.budgetCategory.update as jest.Mock).mockResolvedValueOnce({});
+      (mockPrisma.budgetCategory.findUnique as jest.Mock).mockResolvedValueOnce(mockUpdated);
+
+      const request = new NextRequest('http://localhost:3000/api/budget/categories/cat-1', {
+        method: 'PUT',
+        body: JSON.stringify({ budget: 2500 }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'cat-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.budget).toBe(2500);
+      expect(mockPrisma.budgetCategory.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { budget: 2500 },
+        })
+      );
+    });
+
+    it('should clear budget to null via inline edit', async () => {
+      const mockExisting = {
+        id: 'cat-1',
+        name: 'Groceries',
+        groupId: 'group-1',
+        householdId: 'household-1',
+      };
+      const mockUpdated = {
+        id: 'cat-1',
+        name: 'Groceries',
+        budget: null,
+        isMust: true,
+        sortOrder: 1,
+        groupId: 'group-1',
+        householdId: 'household-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        group: { id: 'group-1', name: 'Essential' },
+      };
+
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetCategory.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
+      (mockPrisma.budgetCategory.update as jest.Mock).mockResolvedValueOnce({});
+      (mockPrisma.budgetCategory.findUnique as jest.Mock).mockResolvedValueOnce(mockUpdated);
+
+      const request = new NextRequest('http://localhost:3000/api/budget/categories/cat-1', {
+        method: 'PUT',
+        body: JSON.stringify({ budget: null }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'cat-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.budget).toBeNull();
+      expect(mockPrisma.budgetCategory.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { budget: null },
+        })
+      );
+    });
+
+    it('should set budget to zero via inline edit', async () => {
+      const mockExisting = {
+        id: 'cat-1',
+        name: 'Groceries',
+        groupId: 'group-1',
+        householdId: 'household-1',
+      };
+      const mockUpdated = {
+        id: 'cat-1',
+        name: 'Groceries',
+        budget: createDecimal(0),
+        isMust: true,
+        sortOrder: 1,
+        groupId: 'group-1',
+        householdId: 'household-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        group: { id: 'group-1', name: 'Essential' },
+      };
+
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetCategory.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
+      (mockPrisma.budgetCategory.update as jest.Mock).mockResolvedValueOnce({});
+      (mockPrisma.budgetCategory.findUnique as jest.Mock).mockResolvedValueOnce(mockUpdated);
+
+      const request = new NextRequest('http://localhost:3000/api/budget/categories/cat-1', {
+        method: 'PUT',
+        body: JSON.stringify({ budget: 0 }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'cat-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      // budget 0 is falsy, so the API converts it to null via the ternary
+      expect(mockPrisma.budgetCategory.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { budget: 0 },
+        })
+      );
+    });
+
     it('should return 401 when not authenticated', async () => {
       mockGetCurrentContext.mockResolvedValueOnce(null);
 

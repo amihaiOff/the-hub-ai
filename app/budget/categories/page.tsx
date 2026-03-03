@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect, Fragment } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +15,7 @@ import {
   useCategoryGroups,
   useDeleteCategory,
   useDeleteCategoryGroup,
+  useUpdateCategory,
 } from '@/lib/hooks/use-budget';
 import { type BudgetCategory, formatCurrencyILS } from '@/lib/utils/budget';
 import { AddCategoryDialog, EditCategoryDialog, AddCategoryGroupDialog } from '@/components/budget';
@@ -24,9 +26,41 @@ export default function CategoriesPage() {
   const [editingCategory, setEditingCategory] = useState<BudgetCategory | null>(null);
   const [defaultGroupId, setDefaultGroupId] = useState<string>('');
 
+  const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
+  const [editingBudgetValue, setEditingBudgetValue] = useState('');
+  const budgetInputRef = useRef<HTMLInputElement>(null);
+  const cancelledRef = useRef(false);
+
   const { data: categoryGroups = [], isLoading, error } = useCategoryGroups();
   const deleteCategory = useDeleteCategory();
   const deleteCategoryGroup = useDeleteCategoryGroup();
+  const updateCategory = useUpdateCategory();
+
+  useEffect(() => {
+    if (editingBudgetId && budgetInputRef.current) {
+      budgetInputRef.current.focus();
+      budgetInputRef.current.select();
+    }
+  }, [editingBudgetId]);
+
+  const handleBudgetSave = (categoryId: string) => {
+    if (cancelledRef.current) {
+      cancelledRef.current = false;
+      return;
+    }
+    const value = editingBudgetValue.trim();
+    const budget = value === '' ? null : Number(value);
+    if (budget !== null && (isNaN(budget) || budget < 0)) {
+      setEditingBudgetId(null);
+      return;
+    }
+    updateCategory.mutate({ id: categoryId, budget });
+    setEditingBudgetId(null);
+  };
+
+  const handleToggleEssential = (categoryId: string, currentValue: boolean) => {
+    updateCategory.mutate({ id: categoryId, isMust: !currentValue });
+  };
 
   const handleAddCategoryToGroup = (groupId: string) => {
     setDefaultGroupId(groupId);
@@ -114,24 +148,22 @@ export default function CategoriesPage() {
           </Button>
         </div>
       ) : (
-        <div className="lg:border-border/40 lg:bg-card/80 lg:shadow-glow overflow-hidden lg:rounded-3xl lg:border lg:py-6 lg:backdrop-blur-xl">
+        <div className="border-border/40 bg-card/80 shadow-glow overflow-hidden rounded-3xl border py-6 backdrop-blur-xl">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="bg-muted/50 border-b">
                   <th className="px-4 py-3 text-left text-sm font-medium">Name</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium">Budget</th>
+                  <th className="w-20 px-2 py-3 text-center text-sm font-medium">Essential</th>
+                  <th className="w-32 px-4 py-3 text-right text-sm font-medium">Budget</th>
                   <th className="w-10 px-2 py-3"></th>
                 </tr>
               </thead>
               <tbody>
                 {categoryGroups.map((group) => (
-                  <>
+                  <Fragment key={group.id}>
                     {/* Group Row - Highlighted and larger */}
-                    <tr
-                      key={`group-${group.id}`}
-                      className="bg-muted/30 hover:bg-muted/50 border-b"
-                    >
+                    <tr className="bg-muted/30 hover:bg-muted/50 border-b">
                       <td className="px-4 py-4">
                         <span className="text-base font-semibold">{group.name}</span>
                         <span className="text-muted-foreground ml-2 text-sm">
@@ -139,6 +171,7 @@ export default function CategoriesPage() {
                           {group.categories.length === 1 ? 'category' : 'categories'})
                         </span>
                       </td>
+                      <td className="px-2 py-4"></td>
                       <td className="px-4 py-4 text-right">
                         <span className="text-muted-foreground text-sm tabular-nums">
                           {formatCurrencyILS(
@@ -173,7 +206,7 @@ export default function CategoriesPage() {
                     {/* Category Rows */}
                     {group.categories.length === 0 ? (
                       <tr key={`empty-${group.id}`} className="border-b">
-                        <td colSpan={3} className="px-4 py-3 pl-8">
+                        <td colSpan={4} className="px-4 py-3 pl-8">
                           <p className="text-muted-foreground text-sm italic">
                             No categories in this group
                           </p>
@@ -188,13 +221,50 @@ export default function CategoriesPage() {
                           <td className="px-4 py-3 pl-8">
                             <span className="font-medium">{category.name}</span>
                           </td>
-                          <td className="px-4 py-3 text-right">
-                            {category.budget ? (
-                              <span className="text-muted-foreground text-sm tabular-nums">
-                                {formatCurrencyILS(category.budget)}/mo
+                          <td className="px-2 py-3 text-center">
+                            <Checkbox
+                              checked={category.isMust}
+                              onCheckedChange={() =>
+                                handleToggleEssential(category.id, category.isMust)
+                              }
+                              className="border-muted-foreground"
+                            />
+                          </td>
+                          <td
+                            className="w-32 px-4 py-3 text-right"
+                            onClick={() => {
+                              if (editingBudgetId !== category.id) {
+                                setEditingBudgetId(category.id);
+                                setEditingBudgetValue(
+                                  category.budget ? String(category.budget) : ''
+                                );
+                              }
+                            }}
+                          >
+                            {editingBudgetId === category.id ? (
+                              <input
+                                ref={budgetInputRef}
+                                type="number"
+                                value={editingBudgetValue}
+                                onChange={(e) => setEditingBudgetValue(e.target.value)}
+                                onBlur={() => handleBudgetSave(category.id)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') e.currentTarget.blur();
+                                  if (e.key === 'Escape') {
+                                    cancelledRef.current = true;
+                                    setEditingBudgetId(null);
+                                  }
+                                }}
+                                className="w-full [appearance:textfield] bg-transparent text-right text-sm tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              />
+                            ) : category.budget ? (
+                              <span className="text-muted-foreground cursor-pointer text-sm tabular-nums hover:underline">
+                                {formatCurrencyILS(category.budget)}
                               </span>
                             ) : (
-                              <span className="text-muted-foreground/50 text-sm">—</span>
+                              <span className="text-muted-foreground/50 cursor-pointer text-sm hover:underline">
+                                —
+                              </span>
                             )}
                           </td>
                           <td className="px-2 py-3 text-right">
@@ -222,7 +292,7 @@ export default function CategoriesPage() {
                         </tr>
                       ))
                     )}
-                  </>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
