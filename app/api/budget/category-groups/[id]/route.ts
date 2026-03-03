@@ -95,12 +95,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const { name, sortOrder } = validation.data;
 
-    const group = await prisma.budgetCategoryGroup.update({
+    await prisma.budgetCategoryGroup.update({
       where: { id },
       data: {
         ...(name !== undefined && { name }),
         ...(sortOrder !== undefined && { sortOrder }),
       },
+    });
+
+    const group = await prisma.budgetCategoryGroup.findUnique({
+      where: { id },
       include: {
         categories: {
           orderBy: { sortOrder: 'asc' },
@@ -112,7 +116,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       success: true,
       data: {
         ...group,
-        categories: group.categories.map((cat) => ({
+        categories: group!.categories.map((cat) => ({
           ...cat,
           budget: cat.budget ? Number(cat.budget) : null,
         })),

@@ -25,7 +25,6 @@ jest.mock('@/lib/db', () => ({
     budgetCategory: {
       findMany: jest.fn(),
     },
-    $transaction: jest.fn(),
   },
 }));
 
@@ -124,7 +123,10 @@ describe('Transactions Split API', () => {
         { id: 'cat-1' },
         { id: 'cat-2' },
       ]);
-      (mockPrisma.$transaction as jest.Mock).mockResolvedValueOnce(undefined);
+      (mockPrisma.budgetTransaction.update as jest.Mock).mockResolvedValueOnce({});
+      (mockPrisma.budgetTransaction.create as jest.Mock)
+        .mockResolvedValueOnce({ id: 'split-1' })
+        .mockResolvedValueOnce({ id: 'split-2' });
       (mockPrisma.budgetTransaction.findUnique as jest.Mock).mockResolvedValueOnce(mockSplitResult);
 
       const request = new NextRequest('http://localhost:3000/api/budget/transactions/split', {
@@ -306,7 +308,9 @@ describe('Transactions Split API', () => {
       (mockPrisma.budgetTransaction.findFirst as jest.Mock).mockResolvedValueOnce(
         mockOriginalTransaction
       );
-      (mockPrisma.$transaction as jest.Mock).mockRejectedValueOnce(new Error('Database error'));
+      (mockPrisma.budgetTransaction.update as jest.Mock).mockRejectedValueOnce(
+        new Error('Database error')
+      );
 
       const request = new NextRequest('http://localhost:3000/api/budget/transactions/split', {
         method: 'POST',
@@ -334,7 +338,8 @@ describe('Transactions Split API', () => {
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       (mockPrisma.budgetTransaction.findFirst as jest.Mock).mockResolvedValueOnce(mockTransaction);
-      (mockPrisma.$transaction as jest.Mock).mockResolvedValueOnce(undefined);
+      (mockPrisma.budgetTransaction.deleteMany as jest.Mock).mockResolvedValueOnce({ count: 2 });
+      (mockPrisma.budgetTransaction.update as jest.Mock).mockResolvedValueOnce({});
 
       const request = new NextRequest(
         'http://localhost:3000/api/budget/transactions/split?transactionId=tx-1',
@@ -433,7 +438,9 @@ describe('Transactions Split API', () => {
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       (mockPrisma.budgetTransaction.findFirst as jest.Mock).mockResolvedValueOnce(mockTransaction);
-      (mockPrisma.$transaction as jest.Mock).mockRejectedValueOnce(new Error('Database error'));
+      (mockPrisma.budgetTransaction.deleteMany as jest.Mock).mockRejectedValueOnce(
+        new Error('Database error')
+      );
 
       const request = new NextRequest(
         'http://localhost:3000/api/budget/transactions/split?transactionId=tx-1',

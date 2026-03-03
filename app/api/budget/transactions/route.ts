@@ -280,46 +280,43 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Use transaction to ensure atomicity for transaction + tag links creation
-    const transactionId = await prisma.$transaction(async (tx) => {
-      // Create transaction
-      const transaction = await tx.budgetTransaction.create({
-        data: {
-          type: data.type,
-          transactionDate: new Date(data.transactionDate),
-          paymentDate: data.paymentDate ? new Date(data.paymentDate) : null,
-          amountIls: data.amountIls,
-          currency: data.currency,
-          amountOriginal: data.amountOriginal ?? data.amountIls,
-          categoryId: data.categoryId ?? null,
-          payeeId: data.payeeId ?? null,
-          paymentMethod: data.paymentMethod,
-          paymentNumber: data.paymentNumber ?? null,
-          totalPayments: data.totalPayments ?? null,
-          notes: data.notes ?? null,
-          source: data.source,
-          isRecurring: data.isRecurring,
-          paymentIdentifier: data.paymentIdentifier ?? null,
-          excludedFromFlow: data.excludedFromFlow,
-          profileId: data.profileId ?? null,
-          householdId,
-        },
-      });
-
-      // Create tag links
-      if (data.tagIds && data.tagIds.length > 0) {
-        for (const tagId of data.tagIds) {
-          await tx.budgetTransactionTag.create({
-            data: {
-              transactionId: transaction.id,
-              tagId,
-            },
-          });
-        }
-      }
-
-      return transaction.id;
+    // Create the transaction
+    const transaction = await prisma.budgetTransaction.create({
+      data: {
+        type: data.type,
+        transactionDate: new Date(data.transactionDate),
+        paymentDate: data.paymentDate ? new Date(data.paymentDate) : null,
+        amountIls: data.amountIls,
+        currency: data.currency,
+        amountOriginal: data.amountOriginal ?? data.amountIls,
+        categoryId: data.categoryId ?? null,
+        payeeId: data.payeeId ?? null,
+        paymentMethod: data.paymentMethod,
+        paymentNumber: data.paymentNumber ?? null,
+        totalPayments: data.totalPayments ?? null,
+        notes: data.notes ?? null,
+        source: data.source,
+        isRecurring: data.isRecurring,
+        paymentIdentifier: data.paymentIdentifier ?? null,
+        excludedFromFlow: data.excludedFromFlow,
+        profileId: data.profileId ?? null,
+        householdId,
+      },
     });
+
+    const transactionId = transaction.id;
+
+    // Create tag links sequentially
+    if (data.tagIds && data.tagIds.length > 0) {
+      for (const tagId of data.tagIds) {
+        await prisma.budgetTransactionTag.create({
+          data: {
+            transactionId,
+            tagId,
+          },
+        });
+      }
+    }
 
     // Fetch with tags for response
     const transactionWithTags = await prisma.budgetTransaction.findUnique({

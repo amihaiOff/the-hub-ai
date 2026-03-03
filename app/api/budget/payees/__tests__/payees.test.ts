@@ -11,6 +11,7 @@ jest.mock('@/lib/db', () => ({
     budgetPayee: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
@@ -358,7 +359,8 @@ describe('Payees API', () => {
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       (mockPrisma.budgetPayee.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
-      (mockPrisma.budgetPayee.update as jest.Mock).mockResolvedValueOnce(mockUpdated);
+      (mockPrisma.budgetPayee.update as jest.Mock).mockResolvedValueOnce({});
+      (mockPrisma.budgetPayee.findUnique as jest.Mock).mockResolvedValueOnce(mockUpdated);
 
       const request = new NextRequest('http://localhost:3000/api/budget/payees/payee-1', {
         method: 'PUT',
@@ -399,7 +401,8 @@ describe('Payees API', () => {
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       (mockPrisma.budgetPayee.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
       (mockPrisma.budgetCategory.findFirst as jest.Mock).mockResolvedValueOnce(mockCategory);
-      (mockPrisma.budgetPayee.update as jest.Mock).mockResolvedValueOnce(mockUpdated);
+      (mockPrisma.budgetPayee.update as jest.Mock).mockResolvedValueOnce({});
+      (mockPrisma.budgetPayee.findUnique as jest.Mock).mockResolvedValueOnce(mockUpdated);
 
       const request = new NextRequest('http://localhost:3000/api/budget/payees/payee-1', {
         method: 'PUT',

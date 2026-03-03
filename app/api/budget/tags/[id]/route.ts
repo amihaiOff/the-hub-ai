@@ -88,12 +88,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const { name, color } = validation.data;
 
-    const tag = await prisma.budgetTag.update({
+    await prisma.budgetTag.update({
       where: { id },
       data: {
         ...(name !== undefined && { name }),
         ...(color !== undefined && { color }),
       },
+    });
+
+    const tag = await prisma.budgetTag.findUnique({
+      where: { id },
       include: {
         _count: {
           select: { transactionTags: true },
@@ -104,13 +108,13 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       success: true,
       data: {
-        id: tag.id,
-        name: tag.name,
-        color: tag.color,
-        transactionCount: tag._count.transactionTags,
-        householdId: tag.householdId,
-        createdAt: tag.createdAt,
-        updatedAt: tag.updatedAt,
+        id: tag!.id,
+        name: tag!.name,
+        color: tag!.color,
+        transactionCount: tag!._count.transactionTags,
+        householdId: tag!.householdId,
+        createdAt: tag!.createdAt,
+        updatedAt: tag!.updatedAt,
       },
     });
   } catch (error) {

@@ -40,7 +40,6 @@ jest.mock('@/lib/db', () => ({
     householdMember: {
       findFirst: jest.fn(),
     },
-    $transaction: jest.fn(),
   },
 }));
 
@@ -229,7 +228,9 @@ describe('Transactions API', () => {
       };
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
-      (mockPrisma.$transaction as jest.Mock).mockResolvedValueOnce('tx-1');
+      (mockPrisma.budgetTransaction.create as jest.Mock).mockResolvedValueOnce({
+        id: 'tx-1',
+      });
       (mockPrisma.budgetTransaction.findUnique as jest.Mock).mockResolvedValueOnce(
         mockCreatedTransaction
       );
@@ -287,7 +288,9 @@ describe('Transactions API', () => {
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       (mockPrisma.budgetCategory.findFirst as jest.Mock).mockResolvedValueOnce(mockCategory);
-      (mockPrisma.$transaction as jest.Mock).mockResolvedValueOnce('tx-1');
+      (mockPrisma.budgetTransaction.create as jest.Mock).mockResolvedValueOnce({
+        id: 'tx-1',
+      });
       (mockPrisma.budgetTransaction.findUnique as jest.Mock).mockResolvedValueOnce(
         mockCreatedTransaction
       );

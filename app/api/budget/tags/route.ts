@@ -173,28 +173,25 @@ export async function PUT(request: NextRequest) {
       .filter((link) => !existingTargetTransactionIds.has(link.transactionId))
       .map((link) => link.transactionId);
 
-    // Use transaction to ensure atomicity of merge operation
-    await prisma.$transaction(async (tx) => {
-      // Create new links one by one (Neon compatibility)
-      for (const transactionId of [...new Set(newLinksToCreate)]) {
-        try {
-          await tx.budgetTransactionTag.create({
-            data: {
-              transactionId,
-              tagId: targetTagId,
-            },
-          });
-        } catch {
-          // Ignore duplicates
-        }
+    // Create new links one by one (Neon compatibility)
+    for (const transactionId of [...new Set(newLinksToCreate)]) {
+      try {
+        await prisma.budgetTransactionTag.create({
+          data: {
+            transactionId,
+            tagId: targetTagId,
+          },
+        });
+      } catch {
+        // Ignore duplicates
       }
+    }
 
-      // Delete source tags (cascade deletes their links)
-      await tx.budgetTag.deleteMany({
-        where: {
-          id: { in: sourceTagIds },
-        },
-      });
+    // Delete source tags (cascade deletes their links)
+    await prisma.budgetTag.deleteMany({
+      where: {
+        id: { in: sourceTagIds },
+      },
     });
 
     // Fetch updated target tag

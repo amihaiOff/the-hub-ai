@@ -83,38 +83,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Use transaction to ensure atomicity - either all operations succeed or none
-    await prisma.$transaction(async (tx) => {
-      // Mark original transaction as split
-      await tx.budgetTransaction.update({
-        where: { id: originalTransactionId },
-        data: { isSplit: true },
-      });
-
-      // Create split child transactions
-      for (const split of splits) {
-        await tx.budgetTransaction.create({
-          data: {
-            type: originalTransaction.type,
-            transactionDate: originalTransaction.transactionDate,
-            paymentDate: originalTransaction.paymentDate,
-            amountIls: split.amountIls,
-            currency: originalTransaction.currency,
-            amountOriginal: split.amountIls, // Splits are always in ILS for simplicity
-            categoryId: split.categoryId ?? null,
-            payeeId: originalTransaction.payeeId,
-            paymentMethod: originalTransaction.paymentMethod,
-            notes: split.notes ?? null,
-            source: originalTransaction.source,
-            isRecurring: originalTransaction.isRecurring,
-            isSplit: false,
-            originalTransactionId: originalTransactionId,
-            profileId: originalTransaction.profileId,
-            householdId,
-          },
-        });
-      }
+    // Mark original transaction as split
+    await prisma.budgetTransaction.update({
+      where: { id: originalTransactionId },
+      data: { isSplit: true },
     });
+
+    // Create split child transactions sequentially
+    for (const split of splits) {
+      await prisma.budgetTransaction.create({
+        data: {
+          type: originalTransaction.type,
+          transactionDate: originalTransaction.transactionDate,
+          paymentDate: originalTransaction.paymentDate,
+          amountIls: split.amountIls,
+          currency: originalTransaction.currency,
+          amountOriginal: split.amountIls, // Splits are always in ILS for simplicity
+          categoryId: split.categoryId ?? null,
+          payeeId: originalTransaction.payeeId,
+          paymentMethod: originalTransaction.paymentMethod,
+          notes: split.notes ?? null,
+          source: originalTransaction.source,
+          isRecurring: originalTransaction.isRecurring,
+          isSplit: false,
+          originalTransactionId: originalTransactionId,
+          profileId: originalTransaction.profileId,
+          householdId,
+        },
+      });
+    }
 
     // Fetch the complete split transaction with children
     const result = await prisma.budgetTransaction.findUnique({
@@ -212,18 +209,15 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Use transaction to ensure atomicity
-    await prisma.$transaction(async (tx) => {
-      // Delete all split children
-      await tx.budgetTransaction.deleteMany({
-        where: { originalTransactionId: transactionId },
-      });
+    // Delete all split children
+    await prisma.budgetTransaction.deleteMany({
+      where: { originalTransactionId: transactionId },
+    });
 
-      // Mark parent as not split
-      await tx.budgetTransaction.update({
-        where: { id: transactionId },
-        data: { isSplit: false },
-      });
+    // Mark parent as not split
+    await prisma.budgetTransaction.update({
+      where: { id: transactionId },
+      data: { isSplit: false },
     });
 
     return NextResponse.json({

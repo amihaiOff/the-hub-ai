@@ -90,19 +90,13 @@ export async function POST(request: NextRequest) {
         sortOrder: finalSortOrder,
         householdId,
       },
-      include: {
-        categories: true,
-      },
     });
 
     return NextResponse.json({
       success: true,
       data: {
         ...group,
-        categories: group.categories.map((cat) => ({
-          ...cat,
-          budget: cat.budget ? Number(cat.budget) : null,
-        })),
+        categories: [],
       },
     });
   } catch (error) {

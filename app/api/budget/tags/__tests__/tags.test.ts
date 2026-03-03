@@ -21,7 +21,6 @@ jest.mock('@/lib/db', () => ({
       findMany: jest.fn(),
       create: jest.fn(),
     },
-    $transaction: jest.fn(),
   },
 }));
 
@@ -292,7 +291,8 @@ describe('Tags API', () => {
       (mockPrisma.budgetTransactionTag.findMany as jest.Mock)
         .mockResolvedValueOnce(mockSourceLinks) // Source links
         .mockResolvedValueOnce(mockExistingTargetLinks); // Existing target links
-      (mockPrisma.$transaction as jest.Mock).mockResolvedValueOnce(undefined);
+      (mockPrisma.budgetTransactionTag.create as jest.Mock).mockResolvedValueOnce({}); // Create link for tx-2
+      (mockPrisma.budgetTag.deleteMany as jest.Mock).mockResolvedValueOnce({ count: 2 });
       (mockPrisma.budgetTag.findUnique as jest.Mock).mockResolvedValueOnce(mockUpdatedTag);
 
       const request = new NextRequest('http://localhost:3000/api/budget/tags', {
@@ -439,7 +439,8 @@ describe('Tags API', () => {
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       (mockPrisma.budgetTag.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
-      (mockPrisma.budgetTag.update as jest.Mock).mockResolvedValueOnce(mockUpdated);
+      (mockPrisma.budgetTag.update as jest.Mock).mockResolvedValueOnce({});
+      (mockPrisma.budgetTag.findUnique as jest.Mock).mockResolvedValueOnce(mockUpdated);
 
       const request = new NextRequest('http://localhost:3000/api/budget/tags/tag-1', {
         method: 'PUT',

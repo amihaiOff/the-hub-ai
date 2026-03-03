@@ -78,6 +78,7 @@ export async function POST(request: NextRequest) {
     const { name, categoryId } = validation.data;
 
     // If categoryId provided, verify it belongs to household
+    let categoryName: string | null = null;
     if (categoryId) {
       const category = await prisma.budgetCategory.findFirst({
         where: { id: categoryId, householdId },
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
       if (!category) {
         return NextResponse.json({ success: false, error: 'Category not found' }, { status: 404 });
       }
+      categoryName = category.name;
     }
 
     const payee = await prisma.budgetPayee.create({
@@ -93,11 +95,6 @@ export async function POST(request: NextRequest) {
         name,
         categoryId: categoryId ?? null,
         householdId,
-      },
-      include: {
-        category: {
-          select: { id: true, name: true },
-        },
       },
     });
 
@@ -107,7 +104,7 @@ export async function POST(request: NextRequest) {
         id: payee.id,
         name: payee.name,
         categoryId: payee.categoryId,
-        categoryName: payee.category?.name ?? null,
+        categoryName,
         transactionCount: 0,
         householdId: payee.householdId,
         createdAt: payee.createdAt,

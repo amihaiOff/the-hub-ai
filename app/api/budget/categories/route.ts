@@ -110,11 +110,6 @@ export async function POST(request: NextRequest) {
         sortOrder: finalSortOrder,
         householdId,
       },
-      include: {
-        group: {
-          select: { id: true, name: true },
-        },
-      },
     });
 
     return NextResponse.json({
@@ -122,6 +117,7 @@ export async function POST(request: NextRequest) {
       data: {
         ...category,
         budget: category.budget ? Number(category.budget) : null,
+        group: { id: group.id, name: group.name },
       },
     });
   } catch (error) {

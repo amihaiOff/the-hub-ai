@@ -103,12 +103,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    const payee = await prisma.budgetPayee.update({
+    await prisma.budgetPayee.update({
       where: { id },
       data: {
         ...(name !== undefined && { name }),
         ...(categoryId !== undefined && { categoryId }),
       },
+    });
+
+    const payee = await prisma.budgetPayee.findUnique({
+      where: { id },
       include: {
         category: {
           select: { id: true, name: true },
@@ -122,14 +126,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       success: true,
       data: {
-        id: payee.id,
-        name: payee.name,
-        categoryId: payee.categoryId,
-        categoryName: payee.category?.name ?? null,
-        transactionCount: payee._count.transactions,
-        householdId: payee.householdId,
-        createdAt: payee.createdAt,
-        updatedAt: payee.updatedAt,
+        id: payee!.id,
+        name: payee!.name,
+        categoryId: payee!.categoryId,
+        categoryName: payee!.category?.name ?? null,
+        transactionCount: payee!._count.transactions,
+        householdId: payee!.householdId,
+        createdAt: payee!.createdAt,
+        updatedAt: payee!.updatedAt,
       },
     });
   } catch (error) {

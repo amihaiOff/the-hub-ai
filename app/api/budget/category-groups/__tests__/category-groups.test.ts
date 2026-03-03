@@ -18,6 +18,7 @@ jest.mock('@/lib/db', () => ({
     budgetCategoryGroup: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
@@ -384,7 +385,8 @@ describe('Category Groups API', () => {
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       (mockPrisma.budgetCategoryGroup.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
-      (mockPrisma.budgetCategoryGroup.update as jest.Mock).mockResolvedValueOnce(mockUpdated);
+      (mockPrisma.budgetCategoryGroup.update as jest.Mock).mockResolvedValueOnce({});
+      (mockPrisma.budgetCategoryGroup.findUnique as jest.Mock).mockResolvedValueOnce(mockUpdated);
 
       const request = new NextRequest('http://localhost:3000/api/budget/category-groups/group-1', {
         method: 'PUT',
@@ -418,7 +420,8 @@ describe('Category Groups API', () => {
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       (mockPrisma.budgetCategoryGroup.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
-      (mockPrisma.budgetCategoryGroup.update as jest.Mock).mockResolvedValueOnce(mockUpdated);
+      (mockPrisma.budgetCategoryGroup.update as jest.Mock).mockResolvedValueOnce({});
+      (mockPrisma.budgetCategoryGroup.findUnique as jest.Mock).mockResolvedValueOnce(mockUpdated);
 
       const request = new NextRequest('http://localhost:3000/api/budget/category-groups/group-1', {
         method: 'PUT',

@@ -103,7 +103,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    const category = await prisma.budgetCategory.update({
+    await prisma.budgetCategory.update({
       where: { id },
       data: {
         ...(name !== undefined && { name }),
@@ -112,6 +112,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         ...(isMust !== undefined && { isMust }),
         ...(sortOrder !== undefined && { sortOrder }),
       },
+    });
+
+    const category = await prisma.budgetCategory.findUnique({
+      where: { id },
       include: {
         group: {
           select: { id: true, name: true },
@@ -123,7 +127,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       success: true,
       data: {
         ...category,
-        budget: category.budget ? Number(category.budget) : null,
+        budget: category!.budget ? Number(category!.budget) : null,
       },
     });
   } catch (error) {
