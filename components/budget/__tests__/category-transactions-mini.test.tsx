@@ -69,6 +69,8 @@ const createMockTransaction = (overrides: Partial<BudgetTransaction> = {}): Budg
   isRecurring: false,
   isSplit: false,
   originalTransactionId: null,
+  paymentIdentifier: null,
+  excludedFromFlow: false,
   profileId: null,
   householdId: 'hh-1',
   tagIds: [],

@@ -80,7 +80,7 @@ export function CategoryProgressBar({
     return (
       <div className={cn('flex items-center gap-3', className)}>
         <div
-          className="border-border/50 bg-muted/30 relative h-3 flex-1 rounded-full border"
+          className="border-border/50 bg-muted relative h-3 flex-1 rounded-full border"
           role="progressbar"
           aria-valuenow={0}
           aria-valuemin={0}
@@ -110,7 +110,7 @@ export function CategoryProgressBar({
   return (
     <div className={cn('flex items-center gap-3', className)}>
       <div
-        className="border-border/50 bg-muted/30 relative h-3 flex-1 rounded-full border"
+        className="border-border/50 bg-muted relative h-3 flex-1 rounded-full border"
         role="progressbar"
         aria-valuenow={Math.round(spentPercent)}
         aria-valuemin={0}

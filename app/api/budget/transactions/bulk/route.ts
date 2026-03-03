@@ -122,6 +122,8 @@ export async function POST(request: NextRequest) {
           notes: data.notes ?? null,
           source: data.source,
           isRecurring: data.isRecurring,
+          paymentIdentifier: data.paymentIdentifier ?? null,
+          excludedFromFlow: data.excludedFromFlow,
           profileId: data.profileId ?? null,
           householdId,
         },

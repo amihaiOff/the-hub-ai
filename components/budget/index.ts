@@ -14,6 +14,7 @@ export { EditTransactionDialog } from './edit-transaction-dialog';
 export { TransactionFilters, ActiveFilterBadges } from './transaction-filters';
 export { BulkActionsBar } from './bulk-actions-bar';
 export { SplitTransactionDialog } from './split-transaction-dialog';
+export { ImportCsvDialog } from './import-csv-dialog';
 
 // Category components
 export { AddCategoryDialog } from './add-category-dialog';

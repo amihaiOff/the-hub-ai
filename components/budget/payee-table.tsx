@@ -1,6 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,12 +26,47 @@ import { useUpdatePayee } from '@/lib/hooks/use-budget';
 interface PayeeTableProps {
   payees: BudgetPayee[];
   categoryGroups: BudgetCategoryGroup[];
+  selectedIds?: Set<string>;
+  onSelectionChange?: (ids: Set<string>) => void;
   onEdit: (payee: BudgetPayee) => void;
   onDelete: (payee: BudgetPayee) => void;
 }
 
-export function PayeeTable({ payees, categoryGroups, onEdit, onDelete }: PayeeTableProps) {
+export function PayeeTable({
+  payees,
+  categoryGroups,
+  selectedIds: controlledSelectedIds,
+  onSelectionChange,
+  onEdit,
+  onDelete,
+}: PayeeTableProps) {
+  const [internalSelectedIds, setInternalSelectedIds] = useState<Set<string>>(new Set());
   const updatePayee = useUpdatePayee();
+
+  // Support both controlled and uncontrolled selection
+  const selectedIds = controlledSelectedIds ?? internalSelectedIds;
+  const setSelectedIds = onSelectionChange ?? setInternalSelectedIds;
+
+  const allSelected = payees.length > 0 && selectedIds.size === payees.length;
+  const someSelected = selectedIds.size > 0 && selectedIds.size < payees.length;
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(payees.map((p) => p.id)));
+    }
+  };
+
+  const toggleSelect = (id: string, checked: boolean) => {
+    const next = new Set(selectedIds);
+    if (checked) {
+      next.add(id);
+    } else {
+      next.delete(id);
+    }
+    setSelectedIds(next);
+  };
 
   const handleCategoryChange = (payeeId: string, categoryId: string) => {
     updatePayee.mutate({
@@ -52,6 +89,13 @@ export function PayeeTable({ payees, categoryGroups, onEdit, onDelete }: PayeeTa
       <table className="w-full">
         <thead className="bg-muted/50 border-b">
           <tr>
+            <th className="w-10 px-2 py-3 text-left sm:px-4">
+              <Checkbox
+                checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                onCheckedChange={toggleSelectAll}
+                aria-label="Select all"
+              />
+            </th>
             <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wider uppercase">
               Payee Name
             </th>
@@ -61,12 +105,21 @@ export function PayeeTable({ payees, categoryGroups, onEdit, onDelete }: PayeeTa
             <th className="text-muted-foreground hidden px-4 py-3 text-right text-xs font-medium tracking-wider uppercase sm:table-cell">
               Transactions
             </th>
-            <th className="w-10 px-2 py-3"></th>
+            <th className="w-10 px-2 py-3">
+              <span className="sr-only">Actions</span>
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y">
           {payees.map((payee) => (
             <tr key={payee.id} className="hover:bg-muted/50 transition-colors">
+              <td className="px-2 py-3 sm:px-4">
+                <Checkbox
+                  checked={selectedIds.has(payee.id)}
+                  onCheckedChange={(checked) => toggleSelect(payee.id, !!checked)}
+                  aria-label={`Select ${payee.name}`}
+                />
+              </td>
               <td className="px-4 py-3">
                 <span className="font-medium">{payee.name}</span>
                 <div className="text-muted-foreground text-xs sm:hidden">

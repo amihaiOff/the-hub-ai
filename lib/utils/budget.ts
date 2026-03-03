@@ -24,6 +24,8 @@ export interface BudgetTransaction {
   isRecurring: boolean;
   isSplit: boolean;
   originalTransactionId: string | null;
+  paymentIdentifier: string | null;
+  excludedFromFlow: boolean;
   profileId: string | null;
   householdId: string;
   tagIds: string[];
@@ -840,6 +842,8 @@ function generateMockTransactions(): BudgetTransaction[] {
     isRecurring: false,
     isSplit: false,
     originalTransactionId: null,
+    paymentIdentifier: null,
+    excludedFromFlow: false,
     profileId: null,
     householdId: MOCK_HOUSEHOLD_ID,
     tagIds,

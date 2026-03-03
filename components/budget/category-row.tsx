@@ -84,13 +84,22 @@ export function CategoryRow({ category, payees, isExpanded, onToggleExpand }: Ca
           </span>
           <span className="text-muted-foreground text-xs tabular-nums">
             {formatCurrencyILS(category.spent)} / {formatCurrencyILS(category.budgeted)}
+            {category.budgeted > 0 && (
+              <span className="ml-1">
+                ({Math.round((category.spent / category.budgeted) * 100)}%)
+              </span>
+            )}
           </span>
         </div>
       </button>
 
       {/* Mobile Progress Bar */}
       <div className="px-9 pb-2 sm:hidden">
-        <CategoryProgressBar budgeted={category.budgeted} spent={category.spent} />
+        <CategoryProgressBar
+          budgeted={category.budgeted}
+          spent={category.spent}
+          showStats={false}
+        />
       </div>
 
       {/* Expanded Content - Mini Transactions */}

@@ -101,13 +101,7 @@ export function TransactionTable({
               <tr>
                 <th className="w-10 px-2 py-3 text-left sm:px-4">
                   <Checkbox
-                    checked={allSelected}
-                    ref={(el) => {
-                      if (el) {
-                        (el as HTMLButtonElement & { indeterminate: boolean }).indeterminate =
-                          someSelected;
-                      }
-                    }}
+                    checked={allSelected ? true : someSelected ? 'indeterminate' : false}
                     onCheckedChange={toggleSelectAll}
                     aria-label="Select all"
                   />

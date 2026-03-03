@@ -30,6 +30,8 @@ function transformTransaction(tx: {
   isRecurring: boolean;
   isSplit: boolean;
   originalTransactionId: string | null;
+  paymentIdentifier: string | null;
+  excludedFromFlow: boolean;
   profileId: string | null;
   householdId: string;
   createdAt: Date;
@@ -59,6 +61,8 @@ function transformTransaction(tx: {
     isRecurring: tx.isRecurring,
     isSplit: tx.isSplit,
     originalTransactionId: tx.originalTransactionId,
+    paymentIdentifier: tx.paymentIdentifier,
+    excludedFromFlow: tx.excludedFromFlow,
     profileId: tx.profileId,
     profileName: tx.profile?.name ?? null,
     householdId: tx.householdId,
@@ -249,6 +253,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (data.notes !== undefined) updateData.notes = data.notes;
     if (data.source !== undefined) updateData.source = data.source;
     if (data.isRecurring !== undefined) updateData.isRecurring = data.isRecurring;
+    if (data.paymentIdentifier !== undefined) updateData.paymentIdentifier = data.paymentIdentifier;
+    if (data.excludedFromFlow !== undefined) updateData.excludedFromFlow = data.excludedFromFlow;
     if (data.profileId !== undefined)
       updateData.profile = data.profileId
         ? { connect: { id: data.profileId } }

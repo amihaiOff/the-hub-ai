@@ -26,6 +26,8 @@ function transformTransaction(tx: {
   isRecurring: boolean;
   isSplit: boolean;
   originalTransactionId: string | null;
+  paymentIdentifier: string | null;
+  excludedFromFlow: boolean;
   profileId: string | null;
   householdId: string;
   createdAt: Date;
@@ -55,6 +57,8 @@ function transformTransaction(tx: {
     isRecurring: tx.isRecurring,
     isSplit: tx.isSplit,
     originalTransactionId: tx.originalTransactionId,
+    paymentIdentifier: tx.paymentIdentifier,
+    excludedFromFlow: tx.excludedFromFlow,
     profileId: tx.profileId,
     profileName: tx.profile?.name ?? null,
     householdId: tx.householdId,
@@ -295,6 +299,8 @@ export async function POST(request: NextRequest) {
           notes: data.notes ?? null,
           source: data.source,
           isRecurring: data.isRecurring,
+          paymentIdentifier: data.paymentIdentifier ?? null,
+          excludedFromFlow: data.excludedFromFlow,
           profileId: data.profileId ?? null,
           householdId,
         },

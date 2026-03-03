@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, AlertCircle } from 'lucide-react';
+import { Plus, Upload, AlertCircle } from 'lucide-react';
 import {
   useTransactions,
   useCategoryGroups,
@@ -16,10 +16,12 @@ import {
   AddTransactionDialog,
   TransactionFilters,
   ActiveFilterBadges,
+  ImportCsvDialog,
 } from '@/components/budget';
 
 export default function TransactionsPage() {
   const [showAddTransaction, setShowAddTransaction] = useState(false);
+  const [showImportCsv, setShowImportCsv] = useState(false);
   const [filters, setFilters] = useState<FilterType>({});
 
   const { data: transactions = [], isLoading, error } = useTransactions(filters);
@@ -61,6 +63,15 @@ export default function TransactionsPage() {
           variant="outline"
           size="icon"
           className="shrink-0"
+          onClick={() => setShowImportCsv(true)}
+          title="Import CSV"
+        >
+          <Upload className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="shrink-0"
           onClick={() => setShowAddTransaction(true)}
         >
           <Plus className="h-4 w-4" />
@@ -86,6 +97,9 @@ export default function TransactionsPage() {
 
       {/* Add Transaction Dialog */}
       <AddTransactionDialog open={showAddTransaction} onOpenChange={setShowAddTransaction} />
+
+      {/* Import CSV Dialog */}
+      <ImportCsvDialog open={showImportCsv} onOpenChange={setShowImportCsv} />
     </div>
   );
 }

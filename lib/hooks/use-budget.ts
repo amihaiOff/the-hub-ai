@@ -535,6 +535,49 @@ export function useMergeTags() {
   });
 }
 
+// Import mutations
+interface ImportTransactionsInput {
+  transactions: {
+    type: 'income' | 'expense';
+    transactionDate: string;
+    paymentDate?: string | null;
+    amountIls: number;
+    currency?: string;
+    amountOriginal?: number;
+    payeeName: string;
+    riseupCategory?: string | null;
+    paymentMethod?: string;
+    paymentNumber?: number | null;
+    totalPayments?: number | null;
+    notes?: string | null;
+    source?: string;
+    paymentIdentifier?: string | null;
+    excludedFromFlow?: boolean;
+  }[];
+}
+
+interface ImportResult {
+  created: number;
+  duplicatesSkipped: number;
+  payeesCreated: string[];
+}
+
+export function useImportTransactions() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: ImportTransactionsInput): Promise<ImportResult> => {
+      return fetchApi<ImportResult>('/api/budget/transactions/import', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+    },
+  });
+}
+
 // Utility hook for expanded state management
 export function useExpandedGroups() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());

@@ -135,6 +135,8 @@ export const createTransactionSchema = z.object({
   isRecurring: z.boolean().optional().default(false),
   profileId: z.string().nullable().optional(),
   tagIds: z.array(z.string()).optional().default([]),
+  paymentIdentifier: z.string().max(100).nullable().optional(),
+  excludedFromFlow: z.boolean().optional().default(false),
 });
 
 export const updateTransactionSchema = z.object({
@@ -154,6 +156,8 @@ export const updateTransactionSchema = z.object({
   isRecurring: z.boolean().optional(),
   profileId: z.string().nullable().optional(),
   tagIds: z.array(z.string()).optional(),
+  paymentIdentifier: z.string().max(100).nullable().optional(),
+  excludedFromFlow: z.boolean().optional(),
 });
 
 export const transactionFiltersSchema = z.object({
@@ -199,6 +203,32 @@ export const createSplitSchema = z.object({
 });
 
 // ============================================
+// Import Schemas (Riseup CSV)
+// ============================================
+
+export const importTransactionSchema = z.object({
+  type: transactionTypeSchema,
+  transactionDate: dateStringSchema,
+  paymentDate: dateStringSchema.nullable().optional(),
+  amountIls: nonNegativeNumber('Amount must be a non-negative number'),
+  currency: z.string().optional().default('ILS'),
+  amountOriginal: z.number().nullable().optional(),
+  payeeName: z.string().min(1, 'Payee name is required'),
+  riseupCategory: z.string().nullable().optional(),
+  paymentMethod: paymentMethodSchema.optional().default('credit_card'),
+  paymentNumber: z.number().int().positive().nullable().optional(),
+  totalPayments: z.number().int().positive().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  source: transactionSourceSchema.optional().default('manual'),
+  paymentIdentifier: z.string().max(100).nullable().optional(),
+  excludedFromFlow: z.boolean().optional().default(false),
+});
+
+export const importBulkSchema = z.object({
+  transactions: z.array(importTransactionSchema).min(1).max(5000),
+});
+
+// ============================================
 // Summary Schema
 // ============================================
 
@@ -232,5 +262,8 @@ export type BulkTransactionInput = z.infer<typeof bulkTransactionSchema>;
 export type BulkCategorizeInput = z.infer<typeof bulkCategorizeSchema>;
 export type BulkDeleteInput = z.infer<typeof bulkDeleteSchema>;
 export type CreateSplitInput = z.infer<typeof createSplitSchema>;
+
+export type ImportTransactionInput = z.infer<typeof importTransactionSchema>;
+export type ImportBulkInput = z.infer<typeof importBulkSchema>;
 
 export type SummaryQuery = z.infer<typeof summaryQuerySchema>;

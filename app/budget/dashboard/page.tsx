@@ -103,14 +103,17 @@ function CategoryTableRow({
           ? 'text-yellow-500'
           : 'text-muted-foreground';
 
+  const spentPercent =
+    category.budgeted > 0 ? Math.round((category.spent / category.budgeted) * 100) : 0;
+
   return (
     <>
       <tr
         className="hover:bg-muted/30 cursor-pointer border-b transition-colors"
         onClick={onToggleExpand}
       >
-        {/* Category Name */}
-        <td className="w-36 py-2.5 pr-2 pl-8 sm:w-44">
+        {/* Category Name + mobile progress bar */}
+        <td className="py-2.5 pr-2 pl-8 sm:w-44" colSpan={1}>
           <div className="flex items-center gap-1.5">
             <span className="text-muted-foreground/70 shrink-0">
               {isExpanded ? (
@@ -121,9 +124,18 @@ function CategoryTableRow({
             </span>
             <span className="truncate text-sm">{category.categoryName}</span>
           </div>
+          {/* Mobile: progress bar on new line */}
+          <div className="mt-1.5 pr-2 pl-5 sm:hidden">
+            <CategoryProgressBar
+              budgeted={category.budgeted}
+              spent={category.spent}
+              selectedMonth={selectedMonth}
+              showStats={false}
+            />
+          </div>
         </td>
-        {/* Progress Bar with date indicator */}
-        <td className="px-2 py-2.5">
+        {/* Desktop: Progress Bar with date indicator */}
+        <td className="hidden px-2 py-2.5 sm:table-cell">
           <CategoryProgressBar
             budgeted={category.budgeted}
             spent={category.spent}
@@ -145,9 +157,10 @@ function CategoryTableRow({
           <span className={cn('text-sm font-medium tabular-nums', availableColor)}>
             {formatCurrencyILS(category.available)}
           </span>
-          {/* Mobile: spent/budget */}
+          {/* Mobile: spent/budget with percentage */}
           <div className="text-muted-foreground text-[10px] tabular-nums lg:hidden">
             {formatCurrencyILS(category.spent)}/{formatCurrencyILS(category.budgeted)}
+            {category.budgeted > 0 && <span className="ml-0.5">({spentPercent}%)</span>}
           </div>
         </td>
       </tr>
@@ -201,6 +214,9 @@ function SortableGroupRow({
           ? 'text-yellow-500'
           : 'text-muted-foreground';
 
+  const groupSpentPercent =
+    group.totalBudgeted > 0 ? Math.round((group.totalSpent / group.totalBudgeted) * 100) : 0;
+
   return (
     <Fragment>
       {/* Group Row */}
@@ -234,8 +250,18 @@ function SortableGroupRow({
               <span className="truncate font-semibold">{group.name}</span>
             </div>
           </div>
+          {/* Mobile: progress bar on new line */}
+          <div className="mt-1.5 pr-2 pl-8 sm:hidden" onClick={onToggleExpand}>
+            <CategoryProgressBar
+              budgeted={group.totalBudgeted}
+              spent={group.totalSpent}
+              selectedMonth={selectedMonth}
+              showStats={false}
+            />
+          </div>
         </td>
-        <td className="px-2 py-3" onClick={onToggleExpand}>
+        {/* Desktop: Progress Bar */}
+        <td className="hidden px-2 py-3 sm:table-cell" onClick={onToggleExpand}>
           <CategoryProgressBar
             budgeted={group.totalBudgeted}
             spent={group.totalSpent}
@@ -257,6 +283,7 @@ function SortableGroupRow({
           </span>
           <div className="text-muted-foreground text-[10px] tabular-nums lg:hidden">
             {formatCurrencyILS(group.totalSpent)}/{formatCurrencyILS(group.totalBudgeted)}
+            {group.totalBudgeted > 0 && <span className="ml-0.5">({groupSpentPercent}%)</span>}
           </div>
         </td>
       </tr>
@@ -397,7 +424,9 @@ export default function BudgetDashboardPage() {
                       <th className="w-36 py-2.5 pr-2 pl-3 text-left font-medium sm:w-44">
                         Category
                       </th>
-                      <th className="px-2 py-2.5 text-left font-medium">Progress</th>
+                      <th className="hidden px-2 py-2.5 text-left font-medium sm:table-cell">
+                        Progress
+                      </th>
                       <th className="hidden w-28 px-2 py-2.5 text-right font-medium lg:table-cell">
                         Spent/Budget
                       </th>
