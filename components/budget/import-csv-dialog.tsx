@@ -32,6 +32,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   useImportTransactions,
+  useCreateRiseupCategories,
   useCategoryGroups,
   usePayees,
   useRiseupCategories,
@@ -43,7 +44,7 @@ import {
 } from '@/lib/utils/riseup-csv-parser';
 import { formatCurrencyILS } from '@/lib/utils/budget';
 
-type DialogStep = 'upload' | 'preview' | 'importing' | 'success' | 'error';
+type DialogStep = 'upload' | 'preview' | 'importing' | 'success' | 'categories-success' | 'error';
 
 interface ImportCsvDialogProps {
   open: boolean;
@@ -61,9 +62,14 @@ export function ImportCsvDialog({ open, onOpenChange }: ImportCsvDialogProps) {
   } | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
+  const [categoriesResult, setCategoriesResult] = useState<{
+    created: number;
+    existing: number;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const importMutation = useImportTransactions();
+  const createCategoriesMutation = useCreateRiseupCategories();
   const { data: categoryGroups = [] } = useCategoryGroups();
   const { data: payees = [] } = usePayees();
   const { data: riseupCategories = [] } = useRiseupCategories();
@@ -118,6 +124,7 @@ export function ImportCsvDialog({ open, onOpenChange }: ImportCsvDialogProps) {
     setParsedTransactions([]);
     setParseErrors([]);
     setImportResult(null);
+    setCategoriesResult(null);
     setErrorMessage('');
     setImportProgress({ current: 0, total: 0 });
     if (fileInputRef.current) {
@@ -213,6 +220,31 @@ export function ImportCsvDialog({ open, onOpenChange }: ImportCsvDialogProps) {
         setErrorMessage(err instanceof Error ? err.message : 'Import failed');
         setStep('error');
       }
+    }
+  };
+
+  const handleExtractCategories = async () => {
+    const uniqueNames = [
+      ...new Set(
+        parsedTransactions
+          .map((tx) => tx.riseupCategory?.trim())
+          .filter((name): name is string => !!name)
+      ),
+    ];
+
+    if (uniqueNames.length === 0) {
+      setErrorMessage('No Riseup categories found in the CSV');
+      setStep('error');
+      return;
+    }
+
+    try {
+      const result = await createCategoriesMutation.mutateAsync(uniqueNames);
+      setCategoriesResult(result);
+      setStep('categories-success');
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to extract categories');
+      setStep('error');
     }
   };
 
@@ -395,9 +427,19 @@ export function ImportCsvDialog({ open, onOpenChange }: ImportCsvDialogProps) {
               )}
             </ScrollArea>
 
-            <DialogFooter>
+            <DialogFooter className="flex-col gap-2 sm:flex-row">
               <Button variant="outline" onClick={resetState}>
                 Back
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleExtractCategories}
+                disabled={createCategoriesMutation.isPending}
+              >
+                {createCategoriesMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Extract Categories Only
               </Button>
               <Button onClick={handleImport}>
                 Import {parsedTransactions.length} Transactions
@@ -485,6 +527,41 @@ export function ImportCsvDialog({ open, onOpenChange }: ImportCsvDialogProps) {
                   </div>
                 </div>
               )}
+            </div>
+            <DialogFooter>
+              <Button onClick={handleClose}>Done</Button>
+            </DialogFooter>
+          </>
+        )}
+
+        {/* Categories Extracted Step */}
+        {step === 'categories-success' && categoriesResult && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Categories Extracted</DialogTitle>
+              <DialogDescription>Riseup categories have been saved for mapping</DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4 py-6">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10">
+                <CheckCircle2 className="h-8 w-8 text-green-500" />
+              </div>
+
+              <div className="grid w-full grid-cols-2 gap-3">
+                <div className="bg-muted rounded-lg p-3 text-center">
+                  <div className="text-lg font-bold text-green-500">{categoriesResult.created}</div>
+                  <div className="text-muted-foreground text-xs">New Categories</div>
+                </div>
+                <div className="bg-muted rounded-lg p-3 text-center">
+                  <div className="text-lg font-bold text-amber-500">
+                    {categoriesResult.existing}
+                  </div>
+                  <div className="text-muted-foreground text-xs">Already Existed</div>
+                </div>
+              </div>
+
+              <p className="text-muted-foreground text-center text-sm">
+                Map them in Riseup Categories, then re-import to apply the mappings.
+              </p>
             </div>
             <DialogFooter>
               <Button onClick={handleClose}>Done</Button>

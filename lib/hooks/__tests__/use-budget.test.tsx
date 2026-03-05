@@ -23,6 +23,10 @@ import {
   useDeleteCategory,
   useExpandedGroups,
   useExpandedCategories,
+  riseupCategoryKeys,
+  useRiseupCategories,
+  useCreateRiseupCategories,
+  useDeleteRiseupCategory,
 } from '../use-budget';
 
 // Mock fetch globally
@@ -578,6 +582,130 @@ describe('Budget Hooks', () => {
       expect(result.current.isCategoryExpanded('cat-1')).toBe(true);
       expect(result.current.isCategoryExpanded('cat-2')).toBe(true);
       expect(result.current.isCategoryExpanded('cat-3')).toBe(false);
+    });
+  });
+
+  describe('riseupCategoryKeys', () => {
+    it('should generate correct base key', () => {
+      expect(riseupCategoryKeys.all).toEqual(['riseupCategories']);
+    });
+  });
+
+  describe('useRiseupCategories', () => {
+    it('should fetch riseup categories', async () => {
+      const mockCategories = [
+        { id: 'rc-1', name: 'Food', isDeleted: false, budgetCategoryId: null, householdId: 'h-1' },
+      ];
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: mockCategories }),
+      });
+
+      const { result } = renderHook(() => useRiseupCategories(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(result.current.data).toEqual(mockCategories);
+      expect(mockFetch).toHaveBeenCalledWith('/api/budget/riseup-categories', expect.any(Object));
+    });
+
+    it('should handle API error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'Failed to fetch' }),
+      });
+
+      const { result } = renderHook(() => useRiseupCategories(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+    });
+  });
+
+  describe('useCreateRiseupCategories', () => {
+    it('should send POST request with category names', async () => {
+      const mockResult = { created: 3, existing: 1 };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: mockResult }),
+      });
+
+      const { result } = renderHook(() => useCreateRiseupCategories(), {
+        wrapper: createWrapper(),
+      });
+
+      result.current.mutate(['Food', 'Transport', 'Entertainment', 'Bills']);
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(result.current.data).toEqual(mockResult);
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/budget/riseup-categories',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ categoryNames: ['Food', 'Transport', 'Entertainment', 'Bills'] }),
+        })
+      );
+    });
+
+    it('should handle error when creating categories fails', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'Failed to create' }),
+      });
+
+      const { result } = renderHook(() => useCreateRiseupCategories(), {
+        wrapper: createWrapper(),
+      });
+
+      result.current.mutate(['Food']);
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+    });
+
+    it('should return created and existing counts', async () => {
+      const mockResult = { created: 0, existing: 5 };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: mockResult }),
+      });
+
+      const { result } = renderHook(() => useCreateRiseupCategories(), {
+        wrapper: createWrapper(),
+      });
+
+      result.current.mutate(['A', 'B', 'C', 'D', 'E']);
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(result.current.data?.created).toBe(0);
+      expect(result.current.data?.existing).toBe(5);
+    });
+  });
+
+  describe('useDeleteRiseupCategory', () => {
+    it('should send DELETE request with category id', async () => {
+      const mockDeleted = {
+        id: 'rc-1',
+        name: 'Food',
+        isDeleted: true,
+        budgetCategoryId: null,
+        householdId: 'h-1',
+      };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: mockDeleted }),
+      });
+
+      const { result } = renderHook(() => useDeleteRiseupCategory(), {
+        wrapper: createWrapper(),
+      });
+
+      result.current.mutate('rc-1');
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(result.current.data).toEqual(mockDeleted);
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/budget/riseup-categories',
+        expect.objectContaining({
+          method: 'DELETE',
+          body: JSON.stringify({ id: 'rc-1' }),
+        })
+      );
     });
   });
 });

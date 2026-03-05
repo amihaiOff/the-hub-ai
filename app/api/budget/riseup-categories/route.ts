@@ -36,6 +36,60 @@ export async function GET(request: NextRequest) {
 }
 
 /**
+ * POST /api/budget/riseup-categories
+ * Bulk-create Riseup category records (skips already-known and deleted ones)
+ * Body: { categoryNames: string[] }
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const context = await getCurrentContext();
+    if (!context) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const householdId = context.activeHousehold.id;
+    const body = await request.json();
+    const { categoryNames } = body;
+
+    if (!Array.isArray(categoryNames) || categoryNames.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'categoryNames array is required' },
+        { status: 400 }
+      );
+    }
+
+    // Fetch existing riseup categories (including deleted)
+    const existing = await prisma.riseupCategory.findMany({
+      where: { householdId },
+      select: { name: true, isDeleted: true },
+    });
+
+    // knownNames includes both active and deleted — skip all of them
+    const knownNames = new Set(existing.map((rc) => rc.name.trim()));
+
+    // Deduplicate and filter input
+    const uniqueNames = [...new Set(categoryNames.map((n: string) => n.trim()).filter(Boolean))];
+    const toCreate = uniqueNames.filter((n) => !knownNames.has(n));
+    const existingCount = uniqueNames.length - toCreate.length;
+
+    // Create new categories in a single batch
+    const result = await prisma.riseupCategory.createMany({
+      data: toCreate.map((name) => ({ name, householdId })),
+      skipDuplicates: true,
+    });
+    const created = result.count;
+
+    return NextResponse.json({ success: true, data: { created, existing: existingCount } });
+  } catch (error) {
+    console.error('Error creating riseup categories:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to create riseup categories' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * PUT /api/budget/riseup-categories
  * Update mapping: assign a Riseup category to a budget category
  * Body: { id: string, budgetCategoryId: string | null }

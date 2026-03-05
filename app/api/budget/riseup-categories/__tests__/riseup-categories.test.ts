@@ -1,6 +1,6 @@
 /**
  * Integration tests for /api/budget/riseup-categories routes
- * Tests Riseup category listing, mapping updates, and soft-delete operations
+ * Tests Riseup category listing, bulk creation, mapping updates, and soft-delete operations
  */
 
 import { NextRequest } from 'next/server';
@@ -12,6 +12,7 @@ jest.mock('@/lib/db', () => ({
       findMany: jest.fn(),
       findFirst: jest.fn(),
       create: jest.fn(),
+      createMany: jest.fn(),
       update: jest.fn(),
     },
     budgetCategory: {
@@ -27,7 +28,7 @@ jest.mock('@/lib/auth-utils', () => ({
 
 import { prisma } from '@/lib/db';
 import { getCurrentContext } from '@/lib/auth-utils';
-import { GET, PUT, DELETE } from '../route';
+import { GET, POST, PUT, DELETE } from '../route';
 
 const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
@@ -191,6 +192,302 @@ describe('Riseup Categories API', () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.data).toEqual([]);
+    });
+  });
+
+  // ==========================================
+  // POST /api/budget/riseup-categories
+  // ==========================================
+  describe('POST /api/budget/riseup-categories', () => {
+    it('should create new riseup categories from provided names', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.riseupCategory.createMany as jest.Mock).mockResolvedValueOnce({ count: 2 });
+
+      const request = new NextRequest('http://localhost:3000/api/budget/riseup-categories', {
+        method: 'POST',
+        body: JSON.stringify({ categoryNames: ['Food', 'Transport'] }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.data.created).toBe(2);
+      expect(data.data.existing).toBe(0);
+    });
+
+    it('should skip already existing category names', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([
+        { name: 'Food', isDeleted: false },
+      ]);
+      (mockPrisma.riseupCategory.createMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
+
+      const request = new NextRequest('http://localhost:3000/api/budget/riseup-categories', {
+        method: 'POST',
+        body: JSON.stringify({ categoryNames: ['Food', 'Transport'] }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.created).toBe(1);
+      expect(data.data.existing).toBe(1);
+      expect(mockPrisma.riseupCategory.createMany).toHaveBeenCalledWith({
+        data: [{ name: 'Transport', householdId: 'household-1' }],
+        skipDuplicates: true,
+      });
+    });
+
+    it('should skip deleted category names', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([
+        { name: 'OldCategory', isDeleted: true },
+      ]);
+      (mockPrisma.riseupCategory.createMany as jest.Mock).mockResolvedValueOnce({ count: 0 });
+
+      const request = new NextRequest('http://localhost:3000/api/budget/riseup-categories', {
+        method: 'POST',
+        body: JSON.stringify({ categoryNames: ['OldCategory'] }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.created).toBe(0);
+      expect(data.data.existing).toBe(1);
+      expect(mockPrisma.riseupCategory.createMany).toHaveBeenCalledWith({
+        data: [],
+        skipDuplicates: true,
+      });
+    });
+
+    it('should deduplicate input category names', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.riseupCategory.createMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
+
+      const request = new NextRequest('http://localhost:3000/api/budget/riseup-categories', {
+        method: 'POST',
+        body: JSON.stringify({ categoryNames: ['Food', 'Food', 'Food'] }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.created).toBe(1);
+      expect(mockPrisma.riseupCategory.createMany).toHaveBeenCalledWith({
+        data: [{ name: 'Food', householdId: 'household-1' }],
+        skipDuplicates: true,
+      });
+    });
+
+    it('should trim whitespace from category names', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.riseupCategory.createMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
+
+      const request = new NextRequest('http://localhost:3000/api/budget/riseup-categories', {
+        method: 'POST',
+        body: JSON.stringify({ categoryNames: ['  Food  '] }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.created).toBe(1);
+      expect(mockPrisma.riseupCategory.createMany).toHaveBeenCalledWith({
+        data: [{ name: 'Food', householdId: 'household-1' }],
+        skipDuplicates: true,
+      });
+    });
+
+    it('should filter out empty strings after trimming', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.riseupCategory.createMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
+
+      const request = new NextRequest('http://localhost:3000/api/budget/riseup-categories', {
+        method: 'POST',
+        body: JSON.stringify({ categoryNames: ['  ', '', 'Food'] }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.created).toBe(1);
+      expect(mockPrisma.riseupCategory.createMany).toHaveBeenCalledWith({
+        data: [{ name: 'Food', householdId: 'household-1' }],
+        skipDuplicates: true,
+      });
+    });
+
+    it('should return 400 when categoryNames is not an array', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+
+      const request = new NextRequest('http://localhost:3000/api/budget/riseup-categories', {
+        method: 'POST',
+        body: JSON.stringify({ categoryNames: 'not-an-array' }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toBe('categoryNames array is required');
+    });
+
+    it('should return 400 when categoryNames is an empty array', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+
+      const request = new NextRequest('http://localhost:3000/api/budget/riseup-categories', {
+        method: 'POST',
+        body: JSON.stringify({ categoryNames: [] }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toBe('categoryNames array is required');
+    });
+
+    it('should return 400 when categoryNames is missing', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+
+      const request = new NextRequest('http://localhost:3000/api/budget/riseup-categories', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toBe('categoryNames array is required');
+    });
+
+    it('should return 401 when not authenticated', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(null);
+
+      const request = new NextRequest('http://localhost:3000/api/budget/riseup-categories', {
+        method: 'POST',
+        body: JSON.stringify({ categoryNames: ['Food'] }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(data.error).toBe('Unauthorized');
+    });
+
+    it('should handle skipDuplicates (concurrent requests)', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
+      // createMany with skipDuplicates skips duplicates and returns lower count
+      (mockPrisma.riseupCategory.createMany as jest.Mock).mockResolvedValueOnce({ count: 0 });
+
+      const request = new NextRequest('http://localhost:3000/api/budget/riseup-categories', {
+        method: 'POST',
+        body: JSON.stringify({ categoryNames: ['Food'] }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.data.created).toBe(0);
+    });
+
+    it('should query existing categories including deleted ones', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.riseupCategory.createMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
+
+      const request = new NextRequest('http://localhost:3000/api/budget/riseup-categories', {
+        method: 'POST',
+        body: JSON.stringify({ categoryNames: ['Food'] }),
+      });
+
+      await POST(request);
+
+      // The findMany should query without isDeleted filter to get all existing
+      expect(mockPrisma.riseupCategory.findMany).toHaveBeenCalledWith({
+        where: { householdId: 'household-1' },
+        select: { name: true, isDeleted: true },
+      });
+    });
+
+    it('should return 500 on unexpected database error during findMany', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.riseupCategory.findMany as jest.Mock).mockRejectedValueOnce(
+        new Error('DB connection failed')
+      );
+
+      const request = new NextRequest('http://localhost:3000/api/budget/riseup-categories', {
+        method: 'POST',
+        body: JSON.stringify({ categoryNames: ['Food'] }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data.error).toBe('Failed to create riseup categories');
+    });
+
+    it('should handle mix of existing, deleted, and new categories', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([
+        { name: 'Existing', isDeleted: false },
+        { name: 'Deleted', isDeleted: true },
+      ]);
+      (mockPrisma.riseupCategory.createMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
+
+      const request = new NextRequest('http://localhost:3000/api/budget/riseup-categories', {
+        method: 'POST',
+        body: JSON.stringify({ categoryNames: ['Existing', 'Deleted', 'NewCategory'] }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.created).toBe(1);
+      expect(data.data.existing).toBe(2);
+      expect(mockPrisma.riseupCategory.createMany).toHaveBeenCalledWith({
+        data: [{ name: 'NewCategory', householdId: 'household-1' }],
+        skipDuplicates: true,
+      });
+    });
+
+    it('should match existing names with trimmed comparison', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([
+        { name: '  Food  ', isDeleted: false },
+      ]);
+      (mockPrisma.riseupCategory.createMany as jest.Mock).mockResolvedValueOnce({ count: 0 });
+
+      const request = new NextRequest('http://localhost:3000/api/budget/riseup-categories', {
+        method: 'POST',
+        body: JSON.stringify({ categoryNames: ['Food'] }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.created).toBe(0);
+      expect(data.data.existing).toBe(1);
     });
   });
 

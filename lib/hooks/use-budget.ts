@@ -639,6 +639,22 @@ export function useUpdateRiseupCategoryMapping() {
   });
 }
 
+export function useCreateRiseupCategories() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (categoryNames: string[]): Promise<{ created: number; existing: number }> => {
+      return fetchApi<{ created: number; existing: number }>('/api/budget/riseup-categories', {
+        method: 'POST',
+        body: JSON.stringify({ categoryNames }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: riseupCategoryKeys.all });
+    },
+  });
+}
+
 export function useDeleteRiseupCategory() {
   const queryClient = useQueryClient();
 
