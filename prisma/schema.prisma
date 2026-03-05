@@ -81,6 +81,7 @@ model Household {
 
   // Budget module relations
   budgetCategoryGroups BudgetCategoryGroup[]
+  riseupCategories     RiseupCategory[]
 
   @@map("households")
 }
@@ -365,6 +366,7 @@ model RiseupCategory {
 
   // Relations
   budgetCategory BudgetCategory? @relation(fields: [budgetCategoryId], references: [id], onDelete: SetNull)
+  household      Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
   @@unique([householdId, name]) // One entry per Riseup category per household
   @@index([householdId])

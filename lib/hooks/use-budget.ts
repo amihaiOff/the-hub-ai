@@ -29,6 +29,48 @@ interface PaginatedResponse<T> {
   };
 }
 
+// Analysis response types
+export interface AnalysisMonthlyTotal {
+  month: string;
+  totalIncome: number;
+  totalExpenses: number;
+  totalBudgeted: number;
+}
+
+export interface AnalysisCategoryData {
+  id: string;
+  name: string;
+  totalBudgeted: number;
+  totalSpent: number;
+  isMust: boolean;
+  monthlySpent: { month: string; spent: number }[];
+}
+
+export interface AnalysisGroupData {
+  id: string;
+  name: string;
+  sortOrder: number;
+  totalBudgeted: number;
+  totalSpent: number;
+  monthlySpent: { month: string; spent: number }[];
+  categories: AnalysisCategoryData[];
+}
+
+export interface AnalysisTagData {
+  id: string;
+  name: string;
+  color: string;
+  totalSpent: number;
+  transactionCount: number;
+  monthlySpent: { month: string; spent: number }[];
+}
+
+export interface AnalysisData {
+  monthlyTotals: AnalysisMonthlyTotal[];
+  groups: AnalysisGroupData[];
+  tags: AnalysisTagData[];
+}
+
 // Query keys
 export const budgetKeys = {
   all: ['budget'] as const,
@@ -39,6 +81,8 @@ export const budgetKeys = {
   categoryGroups: () => [...budgetKeys.all, 'categoryGroups'] as const,
   payees: () => [...budgetKeys.all, 'payees'] as const,
   tags: () => [...budgetKeys.all, 'tags'] as const,
+  analysis: (startDate: string, endDate: string) =>
+    [...budgetKeys.all, 'analysis', startDate, endDate] as const,
 };
 
 // Filter types
@@ -169,6 +213,20 @@ export function useTags() {
   });
 }
 
+/**
+ * Hook to fetch budget analysis data for a date range
+ */
+export function useBudgetAnalysis(startDate: string, endDate: string) {
+  return useQuery({
+    queryKey: budgetKeys.analysis(startDate, endDate),
+    queryFn: async (): Promise<AnalysisData> => {
+      return fetchApi<AnalysisData>(
+        `/api/budget/analysis?startDate=${startDate}&endDate=${endDate}`
+      );
+    },
+  });
+}
+
 // Mutation types
 interface CreateTransactionInput {
   type: 'income' | 'expense';
@@ -219,6 +277,7 @@ interface UpdatePayeeInput {
   id: string;
   name?: string;
   categoryId?: string | null;
+  recategorizeTransactions?: boolean;
 }
 
 interface CreateTagInput {
@@ -535,6 +594,67 @@ export function useMergeTags() {
   });
 }
 
+// Riseup category types and hooks
+export interface RiseupCategory {
+  id: string;
+  name: string;
+  isDeleted: boolean;
+  budgetCategoryId: string | null;
+  householdId: string;
+}
+
+export const riseupCategoryKeys = {
+  all: ['riseupCategories'] as const,
+};
+
+export function useRiseupCategories() {
+  return useQuery({
+    queryKey: riseupCategoryKeys.all,
+    queryFn: async (): Promise<RiseupCategory[]> => {
+      return fetchApi<RiseupCategory[]>('/api/budget/riseup-categories');
+    },
+  });
+}
+
+export function useUpdateRiseupCategoryMapping() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      budgetCategoryId,
+    }: {
+      id: string;
+      budgetCategoryId: string | null;
+    }): Promise<RiseupCategory> => {
+      return fetchApi<RiseupCategory>('/api/budget/riseup-categories', {
+        method: 'PUT',
+        body: JSON.stringify({ id, budgetCategoryId }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: riseupCategoryKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+    },
+  });
+}
+
+export function useDeleteRiseupCategory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string): Promise<RiseupCategory> => {
+      return fetchApi<RiseupCategory>('/api/budget/riseup-categories', {
+        method: 'DELETE',
+        body: JSON.stringify({ id }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: riseupCategoryKeys.all });
+    },
+  });
+}
+
 // Import mutations
 interface ImportTransactionsInput {
   transactions: {
@@ -574,6 +694,7 @@ export function useImportTransactions() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: riseupCategoryKeys.all });
     },
   });
 }

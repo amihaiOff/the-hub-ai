@@ -29,3 +29,4 @@ export { MergeTagsDialog } from './merge-tags-dialog';
 // Payee components
 export { PayeeTable } from './payee-table';
 export { EditPayeeDialog } from './edit-payee-dialog';
+export { PayeeCategoryPrompt } from './payee-category-prompt';

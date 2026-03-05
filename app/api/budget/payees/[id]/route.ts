@@ -90,7 +90,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { name, categoryId } = validation.data;
+    const { name, categoryId, recategorizeTransactions } = validation.data;
 
     // If categoryId provided, verify it belongs to household
     if (categoryId) {
@@ -103,13 +103,34 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    await prisma.budgetPayee.update({
-      where: { id },
-      data: {
-        ...(name !== undefined && { name }),
-        ...(categoryId !== undefined && { categoryId }),
-      },
-    });
+    // Optionally re-categorize all transactions for this payee (atomically with payee update)
+    let recategorizedCount = 0;
+    const shouldRecategorize = recategorizeTransactions && categoryId;
+
+    if (shouldRecategorize) {
+      const [, recategorizeResult] = await prisma.$transaction([
+        prisma.budgetPayee.update({
+          where: { id },
+          data: {
+            ...(name !== undefined && { name }),
+            ...(categoryId !== undefined && { categoryId }),
+          },
+        }),
+        prisma.budgetTransaction.updateMany({
+          where: { payeeId: id, householdId },
+          data: { categoryId },
+        }),
+      ]);
+      recategorizedCount = recategorizeResult.count;
+    } else {
+      await prisma.budgetPayee.update({
+        where: { id },
+        data: {
+          ...(name !== undefined && { name }),
+          ...(categoryId !== undefined && { categoryId }),
+        },
+      });
+    }
 
     const payee = await prisma.budgetPayee.findUnique({
       where: { id },
@@ -134,6 +155,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         householdId: payee!.householdId,
         createdAt: payee!.createdAt,
         updatedAt: payee!.updatedAt,
+        recategorizedCount,
       },
     });
   } catch (error) {

@@ -10,6 +10,7 @@ import {
   FolderTree,
   Tags,
   Users,
+  BarChart3,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -41,6 +42,7 @@ export const navItems: NavItem[] = [
       { href: '/budget/categories', label: 'Categories', icon: FolderTree },
       { href: '/budget/tags', label: 'Tags', icon: Tags },
       { href: '/budget/payees', label: 'Payees', icon: Users },
+      { href: '/budget/analysis', label: 'Analysis', icon: BarChart3 },
     ],
   },
 ];

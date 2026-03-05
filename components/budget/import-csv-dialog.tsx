@@ -30,11 +30,15 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useImportTransactions, useCategoryGroups, usePayees } from '@/lib/hooks/use-budget';
+import {
+  useImportTransactions,
+  useCategoryGroups,
+  usePayees,
+  useRiseupCategories,
+} from '@/lib/hooks/use-budget';
 import {
   parseRiseupCSV,
   getDuplicateKey,
-  RISEUP_CATEGORY_MAP,
   type ParsedRiseupTransaction,
 } from '@/lib/utils/riseup-csv-parser';
 import { formatCurrencyILS } from '@/lib/utils/budget';
@@ -62,30 +66,37 @@ export function ImportCsvDialog({ open, onOpenChange }: ImportCsvDialogProps) {
   const importMutation = useImportTransactions();
   const { data: categoryGroups = [] } = useCategoryGroups();
   const { data: payees = [] } = usePayees();
+  const { data: riseupCategories = [] } = useRiseupCategories();
 
   // Build lookup maps for preview
-  const categoryByName = useMemo(() => {
+  const categoryById = useMemo(() => {
     const map = new Map<string, string>();
     for (const group of categoryGroups) {
       for (const cat of group.categories) {
-        map.set(cat.name.toLowerCase().trim(), cat.name);
+        map.set(cat.id, cat.name);
       }
     }
     return map;
   }, [categoryGroups]);
 
-  // Resolve a Riseup category to an app category name (direct or via mapping)
+  // Build Riseup category name → budget category name lookup from DB mapping
+  const riseupToCategoryName = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const rc of riseupCategories) {
+      if (rc.budgetCategoryId) {
+        const catName = categoryById.get(rc.budgetCategoryId);
+        if (catName) {
+          map.set(rc.name.trim(), catName);
+        }
+      }
+    }
+    return map;
+  }, [riseupCategories, categoryById]);
+
+  // Resolve a Riseup category to an app category name via DB mapping
   const resolveCategory = (riseupCategory: string | null): string | null => {
     if (!riseupCategory) return null;
-    const lower = riseupCategory.toLowerCase().trim();
-    // Direct name match
-    if (categoryByName.has(lower)) return categoryByName.get(lower)!;
-    // Hebrew→English mapping
-    const englishName = RISEUP_CATEGORY_MAP[riseupCategory.trim()];
-    if (englishName && categoryByName.has(englishName.toLowerCase().trim())) {
-      return categoryByName.get(englishName.toLowerCase().trim())!;
-    }
-    return null;
+    return riseupToCategoryName.get(riseupCategory.trim()) ?? null;
   };
 
   const payeeSet = useMemo(() => {

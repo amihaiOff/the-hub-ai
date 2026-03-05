@@ -93,6 +93,7 @@ export const createPayeeSchema = z.object({
 export const updatePayeeSchema = z.object({
   name: nonEmptyString('Payee name cannot be empty').optional(),
   categoryId: z.string().nullable().optional(),
+  recategorizeTransactions: z.boolean().optional(),
 });
 
 // ============================================
@@ -237,6 +238,19 @@ export const summaryQuerySchema = z.object({
 });
 
 // ============================================
+// Analysis Schema
+// ============================================
+
+export const analysisQuerySchema = z
+  .object({
+    startDate: dateStringSchema,
+    endDate: dateStringSchema,
+  })
+  .refine((data) => new Date(data.endDate) >= new Date(data.startDate), {
+    message: 'endDate must be on or after startDate',
+  });
+
+// ============================================
 // Type Exports
 // ============================================
 
@@ -267,3 +281,4 @@ export type ImportTransactionInput = z.infer<typeof importTransactionSchema>;
 export type ImportBulkInput = z.infer<typeof importBulkSchema>;
 
 export type SummaryQuery = z.infer<typeof summaryQuerySchema>;
+export type AnalysisQuery = z.infer<typeof analysisQuerySchema>;

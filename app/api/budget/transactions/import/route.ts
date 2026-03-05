@@ -3,15 +3,15 @@ import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { importBulkSchema } from '@/lib/validations/budget';
 import { getFirstZodError } from '@/lib/validations/common';
-import { RISEUP_CATEGORY_MAP } from '@/lib/utils/riseup-csv-parser';
 
 /**
  * POST /api/budget/transactions/import
  * Import transactions from Riseup CSV with payee resolution and category matching.
  *
  * - Resolves payees by name (case-insensitive), creates new ones for unknowns
- * - Matches Riseup categories → app categories by name (case-insensitive)
- * - Falls back to payee's default category if no category name match
+ * - Auto-creates new Riseup categories from CSV (skips deleted ones)
+ * - Matches Riseup categories → app categories via DB mapping
+ * - Falls back to payee's default category if no mapping
  * - Detects duplicates: transactionDate + payeeName.toLowerCase() + amountIls
  * - Creates transactions one-by-one (Neon compatibility)
  */
@@ -48,16 +48,45 @@ export async function POST(request: NextRequest) {
       payeeLookup.set(p.name.toLowerCase().trim(), { id: p.id, categoryId: p.categoryId });
     }
 
-    // Fetch all categories for the household (for category name matching)
-    const existingCategories = await prisma.budgetCategory.findMany({
+    // Fetch all Riseup categories for DB-driven mapping
+    const riseupCategories = await prisma.riseupCategory.findMany({
       where: { householdId },
-      select: { id: true, name: true },
+      select: { name: true, budgetCategoryId: true, isDeleted: true },
     });
 
-    // Build case-insensitive category name lookup
-    const categoryByName = new Map<string, string>();
-    for (const c of existingCategories) {
-      categoryByName.set(c.name.toLowerCase().trim(), c.id);
+    // Build Riseup category → budget category ID lookup
+    const riseupMapping = new Map<string, string | null>();
+    const knownRiseupNames = new Set<string>();
+    for (const rc of riseupCategories) {
+      riseupMapping.set(rc.name.trim(), rc.budgetCategoryId);
+      knownRiseupNames.add(rc.name.trim());
+    }
+    const deletedRiseupNames = new Set(
+      riseupCategories.filter((rc) => rc.isDeleted).map((rc) => rc.name.trim())
+    );
+
+    // Collect unique Riseup categories from this import batch to auto-add
+    const newRiseupCategoryNames = new Set<string>();
+    for (const tx of transactions) {
+      if (tx.riseupCategory) {
+        const name = tx.riseupCategory.trim();
+        if (name && !knownRiseupNames.has(name) && !deletedRiseupNames.has(name)) {
+          newRiseupCategoryNames.add(name);
+        }
+      }
+    }
+
+    // Auto-create new Riseup categories
+    for (const name of newRiseupCategoryNames) {
+      try {
+        await prisma.riseupCategory.create({
+          data: { name, householdId },
+        });
+        knownRiseupNames.add(name);
+        riseupMapping.set(name, null); // No mapping yet
+      } catch {
+        // Ignore unique constraint violations (concurrent imports)
+      }
     }
 
     // Fetch existing transactions for duplicate detection
@@ -128,20 +157,22 @@ export async function POST(request: NextRequest) {
         payeeLookup.set(payeeNameLower, payeeInfo);
       }
 
-      // Resolve category:
-      // 1. Try direct name match (Riseup category → app category)
-      // 2. Try Hebrew→English mapping from RISEUP_CATEGORY_MAP
-      // 3. Fall back to payee's default category
+      // Resolve category via DB-driven Riseup mapping, then payee default
       let categoryId: string | null = null;
       if (tx.riseupCategory) {
-        const riseupCatLower = tx.riseupCategory.toLowerCase().trim();
-        // Direct name match
-        categoryId = categoryByName.get(riseupCatLower) ?? null;
-        // Hebrew→English mapping
-        if (!categoryId) {
-          const englishName = RISEUP_CATEGORY_MAP[tx.riseupCategory.trim()];
-          if (englishName) {
-            categoryId = categoryByName.get(englishName.toLowerCase().trim()) ?? null;
+        const riseupName = tx.riseupCategory.trim();
+        categoryId = riseupMapping.get(riseupName) ?? null;
+
+        // Set payee default category from Riseup mapping if payee has no default yet
+        if (categoryId && !payeeInfo.categoryId) {
+          try {
+            await prisma.budgetPayee.update({
+              where: { id: payeeInfo.id },
+              data: { categoryId },
+            });
+            payeeInfo.categoryId = categoryId;
+          } catch (err) {
+            console.warn('Failed to set payee default category:', err);
           }
         }
       }

@@ -19,6 +19,10 @@ jest.mock('@/lib/db', () => ({
     budgetCategory: {
       findFirst: jest.fn(),
     },
+    budgetTransaction: {
+      updateMany: jest.fn(),
+    },
+    $transaction: jest.fn(),
   },
 }));
 
@@ -469,6 +473,135 @@ describe('Payees API', () => {
 
       expect(response.status).toBe(401);
       expect(data.error).toBe('Unauthorized');
+    });
+
+    it('should recategorize all transactions when recategorizeTransactions is true', async () => {
+      const mockExisting = {
+        id: 'payee-1',
+        name: 'Payee',
+        categoryId: null,
+        householdId: 'household-1',
+      };
+      const mockCategory = {
+        id: 'cat-1',
+        name: 'Groceries',
+        householdId: 'household-1',
+      };
+      const mockUpdated = {
+        id: 'payee-1',
+        name: 'Payee',
+        categoryId: 'cat-1',
+        householdId: 'household-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        category: { id: 'cat-1', name: 'Groceries' },
+        _count: { transactions: 5 },
+      };
+
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetPayee.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
+      (mockPrisma.budgetCategory.findFirst as jest.Mock).mockResolvedValueOnce(mockCategory);
+      (mockPrisma.$transaction as jest.Mock).mockResolvedValueOnce([{}, { count: 5 }]);
+      (mockPrisma.budgetPayee.findUnique as jest.Mock).mockResolvedValueOnce(mockUpdated);
+
+      const request = new NextRequest('http://localhost:3000/api/budget/payees/payee-1', {
+        method: 'PUT',
+        body: JSON.stringify({ categoryId: 'cat-1', recategorizeTransactions: true }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'payee-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.data.recategorizedCount).toBe(5);
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+    });
+
+    it('should NOT recategorize transactions when recategorizeTransactions is false', async () => {
+      const mockExisting = {
+        id: 'payee-1',
+        name: 'Payee',
+        categoryId: null,
+        householdId: 'household-1',
+      };
+      const mockCategory = {
+        id: 'cat-1',
+        name: 'Groceries',
+        householdId: 'household-1',
+      };
+      const mockUpdated = {
+        id: 'payee-1',
+        name: 'Payee',
+        categoryId: 'cat-1',
+        householdId: 'household-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        category: { id: 'cat-1', name: 'Groceries' },
+        _count: { transactions: 5 },
+      };
+
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetPayee.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
+      (mockPrisma.budgetCategory.findFirst as jest.Mock).mockResolvedValueOnce(mockCategory);
+      (mockPrisma.budgetPayee.update as jest.Mock).mockResolvedValueOnce({});
+      (mockPrisma.budgetPayee.findUnique as jest.Mock).mockResolvedValueOnce(mockUpdated);
+
+      const request = new NextRequest('http://localhost:3000/api/budget/payees/payee-1', {
+        method: 'PUT',
+        body: JSON.stringify({ categoryId: 'cat-1', recategorizeTransactions: false }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'payee-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.data.recategorizedCount).toBe(0);
+      expect(mockPrisma.budgetTransaction.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('should NOT recategorize transactions when recategorizeTransactions is omitted', async () => {
+      const mockExisting = {
+        id: 'payee-1',
+        name: 'Payee',
+        categoryId: null,
+        householdId: 'household-1',
+      };
+      const mockCategory = {
+        id: 'cat-1',
+        name: 'Groceries',
+        householdId: 'household-1',
+      };
+      const mockUpdated = {
+        id: 'payee-1',
+        name: 'Payee',
+        categoryId: 'cat-1',
+        householdId: 'household-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        category: { id: 'cat-1', name: 'Groceries' },
+        _count: { transactions: 5 },
+      };
+
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetPayee.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
+      (mockPrisma.budgetCategory.findFirst as jest.Mock).mockResolvedValueOnce(mockCategory);
+      (mockPrisma.budgetPayee.update as jest.Mock).mockResolvedValueOnce({});
+      (mockPrisma.budgetPayee.findUnique as jest.Mock).mockResolvedValueOnce(mockUpdated);
+
+      const request = new NextRequest('http://localhost:3000/api/budget/payees/payee-1', {
+        method: 'PUT',
+        body: JSON.stringify({ categoryId: 'cat-1' }),
+      });
+
+      const response = await PUT(request, { params: Promise.resolve({ id: 'payee-1' }) });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.data.recategorizedCount).toBe(0);
+      expect(mockPrisma.budgetTransaction.updateMany).not.toHaveBeenCalled();
     });
 
     it('should return 400 for duplicate name', async () => {

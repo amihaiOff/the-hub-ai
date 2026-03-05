@@ -53,62 +53,6 @@ const HEADER_MAP: Record<string, string> = {
   'סכום מקורי': 'originalAmount',
 };
 
-/**
- * Mapping from Riseup Hebrew category names to app English category names.
- * Used both in the CSV parser (to enrich parsed data) and on the server
- * (as a fallback when direct name matching fails).
- */
-export const RISEUP_CATEGORY_MAP: Record<string, string> = {
-  // → Groceries
-  סופר: 'Groceries',
-  מכולת: 'Groceries',
-
-  // → Utilities
-  חשמל: 'Utilities',
-  מים: 'Utilities',
-  גז: 'Utilities',
-  ארנונה: 'Utilities',
-
-  // → Transportation
-  דלק: 'Transportation',
-  רכב: 'Transportation',
-  'תחבצ כביש 6 מוניות וחניה': 'Transportation',
-
-  // → Health & Medical
-  פארמה: 'Health & Medical',
-
-  // → Dining Out
-  'אוכל בחוץ': 'Dining Out',
-
-  // → Entertainment
-  פנאי: 'Entertainment',
-
-  // → Shopping
-  'ביגוד והנעלה': 'Shopping',
-  כללי: 'Shopping',
-
-  // → Subscriptions
-  דיגיטל: 'Subscriptions',
-  תקשורת: 'Subscriptions',
-
-  // → Investments
-  'חסכון קבוע': 'Investments',
-  'חסכון חד פעמי': 'Investments',
-
-  // Categories that map to Insurance (may not exist in app yet)
-  ביטוח: 'Insurance',
-
-  // Categories that map to Education (may not exist in app yet)
-  חינוך: 'Education',
-
-  // Categories that map to Housing (may not exist in app yet)
-  דיור: 'Housing',
-
-  // Categories we intentionally skip mapping (user-specific or meta):
-  // הכנסות קבועות, הכנסות משתנות, הוצאות לא תזרימיות, הכנסות לא תזרימיות,
-  // תשלומים, העברות, עמלות, תקציב הודיה, תקציב עמיחי, RiseUp, etc.
-};
-
 function stripBom(text: string): string {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
 }
