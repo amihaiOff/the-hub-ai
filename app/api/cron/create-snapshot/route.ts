@@ -37,20 +37,50 @@ export async function GET(request: NextRequest) {
     const rates = await fetchExchangeRates();
 
     const snapshots = [];
+    const today = new Date();
+    // Normalize to date-only (midnight UTC) for the snapshot date
+    const snapshotDate = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
 
     for (const household of households) {
       const profileIds = household.members.map((m) => m.profileId);
 
       // Calculate net worth for this household
-      const netWorth = await calculateHouseholdNetWorth(profileIds, rates);
+      const breakdown = await calculateHouseholdNetWorth(profileIds, rates);
+
+      // Find all users in this household and persist a snapshot for each
+      const memberUserIds = household.members
+        .map((m) => m.profile?.userId)
+        .filter((id): id is string => id != null);
+
+      for (const memberId of memberUserIds) {
+        await prisma.netWorthSnapshot.upsert({
+          where: {
+            userId_date: { userId: memberId, date: snapshotDate },
+          },
+          update: {
+            netWorth: breakdown.netWorth,
+            portfolio: breakdown.portfolio,
+            pension: breakdown.pension,
+            assets: breakdown.assets,
+          },
+          create: {
+            userId: memberId,
+            date: snapshotDate,
+            netWorth: breakdown.netWorth,
+            portfolio: breakdown.portfolio,
+            pension: breakdown.pension,
+            assets: breakdown.assets,
+          },
+        });
+      }
 
       snapshots.push({
         householdId: household.id,
         householdName: household.name,
-        netWorth,
+        netWorth: breakdown.netWorth,
       });
 
-      console.log(`Snapshot for ${household.name}: ${netWorth.toFixed(2)}`);
+      console.log(`Snapshot for ${household.name}: ${breakdown.netWorth.toFixed(2)}`);
     }
 
     // Also create snapshot for users without households (legacy)
@@ -69,11 +99,32 @@ export async function GET(request: NextRequest) {
 
     for (const user of usersWithoutHousehold) {
       if (user.profile) {
-        const netWorth = await calculateHouseholdNetWorth([user.profile.id], rates);
+        const breakdown = await calculateHouseholdNetWorth([user.profile.id], rates);
+
+        await prisma.netWorthSnapshot.upsert({
+          where: {
+            userId_date: { userId: user.id, date: snapshotDate },
+          },
+          update: {
+            netWorth: breakdown.netWorth,
+            portfolio: breakdown.portfolio,
+            pension: breakdown.pension,
+            assets: breakdown.assets,
+          },
+          create: {
+            userId: user.id,
+            date: snapshotDate,
+            netWorth: breakdown.netWorth,
+            portfolio: breakdown.portfolio,
+            pension: breakdown.pension,
+            assets: breakdown.assets,
+          },
+        });
+
         snapshots.push({
           userId: user.id,
           userName: user.name || user.email,
-          netWorth,
+          netWorth: breakdown.netWorth,
         });
       }
     }
@@ -93,14 +144,24 @@ export async function GET(request: NextRequest) {
   }
 }
 
+interface NetWorthBreakdown {
+  portfolio: number;
+  pension: number;
+  assets: number;
+  netWorth: number;
+}
+
 /**
  * Calculate total net worth for a set of profiles (in ILS)
+ * Returns breakdown by category for snapshot storage
  */
 async function calculateHouseholdNetWorth(
   profileIds: string[],
   rates: ExchangeRates | null
-): Promise<number> {
-  let totalNetWorth = 0;
+): Promise<NetWorthBreakdown> {
+  let portfolioTotal = 0;
+  let pensionTotal = 0;
+  let assetsTotal = 0;
 
   // 1. Stock portfolio value
   const stockAccounts = await prisma.stockAccount.findMany({
@@ -133,7 +194,7 @@ async function calculateHouseholdNetWorth(
         // Price is in the stock's native currency; convert via the price currency rate
         const priceCurrencyRate =
           rates?.[priceResult.currency.toUpperCase() as keyof ExchangeRates] || accountRate;
-        totalNetWorth += holding.quantity.toNumber() * priceResult.price * priceCurrencyRate;
+        portfolioTotal += holding.quantity.toNumber() * priceResult.price * priceCurrencyRate;
       }
     }
   }
@@ -150,7 +211,7 @@ async function calculateHouseholdNetWorth(
   });
 
   for (const account of pensionAccounts) {
-    totalNetWorth += account.currentValue.toNumber();
+    pensionTotal += account.currentValue.toNumber();
   }
 
   // 3. Misc assets (positive for assets, negative for debts)
@@ -165,8 +226,13 @@ async function calculateHouseholdNetWorth(
   });
 
   for (const asset of miscAssets) {
-    totalNetWorth += asset.currentValue.toNumber();
+    assetsTotal += asset.currentValue.toNumber();
   }
 
-  return totalNetWorth;
+  return {
+    portfolio: portfolioTotal,
+    pension: pensionTotal,
+    assets: assetsTotal,
+    netWorth: portfolioTotal + pensionTotal + assetsTotal,
+  };
 }

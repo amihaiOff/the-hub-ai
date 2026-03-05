@@ -352,6 +352,26 @@ enum PaymentMethod {
   other
 }
 
+// Riseup Categories - known categories from Riseup CSV imports
+// Each can be mapped to a budget category; deleted ones won't be re-added on import
+model RiseupCategory {
+  id               String          @id @default(cuid())
+  name             String // Hebrew category name from Riseup
+  isDeleted        Boolean         @default(false) @map("is_deleted")
+  budgetCategoryId String?         @map("budget_category_id")
+  householdId      String          @map("household_id")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  budgetCategory BudgetCategory? @relation(fields: [budgetCategoryId], references: [id], onDelete: SetNull)
+
+  @@unique([householdId, name]) // One entry per Riseup category per household
+  @@index([householdId])
+  @@index([budgetCategoryId])
+  @@map("riseup_categories")
+}
+
 // Budget Category Groups - organize categories into logical groups
 model BudgetCategoryGroup {
   id          String   @id @default(cuid())
@@ -383,9 +403,10 @@ model BudgetCategory {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  group        BudgetCategoryGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  transactions BudgetTransaction[]
-  payees       BudgetPayee[]       // Payees with this as default category
+  group              BudgetCategoryGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  transactions       BudgetTransaction[]
+  payees             BudgetPayee[]       // Payees with this as default category
+  riseupCategories   RiseupCategory[]    // Riseup categories mapped to this category
 
   @@unique([groupId, name]) // Unique category names per group
   @@index([householdId])

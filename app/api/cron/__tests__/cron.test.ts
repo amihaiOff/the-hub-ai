@@ -25,6 +25,9 @@ jest.mock('@/lib/db', () => ({
     miscAsset: {
       findMany: jest.fn(),
     },
+    netWorthSnapshot: {
+      upsert: jest.fn(),
+    },
   },
 }));
 
