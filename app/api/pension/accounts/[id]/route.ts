@@ -113,8 +113,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    // Update the account
-    const account = await prisma.pensionAccount.update({
+    // Update the account (avoid include for Neon serverless compatibility)
+    await prisma.pensionAccount.update({
       where: { id },
       data: {
         ...(providerName !== undefined && { providerName }),
@@ -124,6 +124,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         ...(feeFromDeposit !== undefined && { feeFromDeposit }),
         ...(feeFromTotal !== undefined && { feeFromTotal }),
       },
+    });
+
+    const account = await prisma.pensionAccount.findUniqueOrThrow({
+      where: { id },
       include: {
         deposits: {
           orderBy: { salaryMonth: 'desc' },

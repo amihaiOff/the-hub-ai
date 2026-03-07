@@ -72,12 +72,18 @@ export async function POST(request: NextRequest) {
     const toCreate = uniqueNames.filter((n) => !knownNames.has(n));
     const existingCount = uniqueNames.length - toCreate.length;
 
-    // Create new categories in a single batch
-    const result = await prisma.riseupCategory.createMany({
-      data: toCreate.map((name) => ({ name, householdId })),
-      skipDuplicates: true,
-    });
-    const created = result.count;
+    // Create new categories one by one (Neon compatibility - createMany has issues)
+    let created = 0;
+    for (const name of toCreate) {
+      try {
+        await prisma.riseupCategory.create({
+          data: { name, householdId },
+        });
+        created++;
+      } catch {
+        // Skip duplicates (concurrent requests)
+      }
+    }
 
     return NextResponse.json({ success: true, data: { created, existing: existingCount } });
   } catch (error) {

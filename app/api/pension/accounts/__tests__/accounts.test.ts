@@ -12,6 +12,7 @@ jest.mock('@/lib/db', () => ({
       create: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
     },
@@ -402,7 +403,10 @@ describe('Pension Accounts API', () => {
 
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
       (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(existingAccount);
-      (mockPrisma.pensionAccount.update as jest.Mock).mockResolvedValueOnce(updatedAccount);
+      (mockPrisma.pensionAccount.update as jest.Mock).mockResolvedValueOnce({});
+      (mockPrisma.pensionAccount.findUniqueOrThrow as jest.Mock).mockResolvedValueOnce(
+        updatedAccount
+      );
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
         method: 'PUT',
