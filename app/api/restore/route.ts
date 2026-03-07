@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import JSZip from 'jszip';
-import { HouseholdRole, PensionAccountType, MiscAssetType } from '@prisma/client';
+import {
+  HouseholdRole,
+  PensionAccountType,
+  MiscAssetType,
+  TransactionType,
+  TransactionSource,
+  PaymentMethod,
+} from '@prisma/client';
 
 // Extend timeout for restore operations (Neon serverless can be slow)
 export const maxDuration = 60;
@@ -49,8 +56,9 @@ export async function POST(request: NextRequest) {
 
     const metadata: BackupMetadata = JSON.parse(await metadataFile.async('string'));
 
-    // Check schema version compatibility
-    if (metadata.schemaVersion !== '1.0') {
+    // Check schema version compatibility (accept 1.0 and 1.1)
+    const supportedVersions = ['1.0', '1.1'];
+    if (!supportedVersions.includes(metadata.schemaVersion)) {
       return NextResponse.json(
         { success: false, error: `Unsupported schema version: ${metadata.schemaVersion}` },
         { status: 400 }
@@ -85,12 +93,34 @@ export async function POST(request: NextRequest) {
     const miscAssetOwners = await parseFile<Record<string, unknown>>('misc_asset_owners.json');
     const netWorthSnapshots = await parseFile<Record<string, unknown>>('net_worth_snapshots.json');
 
+    // Budget tables (present in schema version 1.1+, empty for 1.0 backups)
+    const budgetCategoryGroups = await parseFile<Record<string, unknown>>(
+      'budget_category_groups.json'
+    );
+    const budgetCategories = await parseFile<Record<string, unknown>>('budget_categories.json');
+    const budgetPayees = await parseFile<Record<string, unknown>>('budget_payees.json');
+    const budgetTags = await parseFile<Record<string, unknown>>('budget_tags.json');
+    const budgetTransactions = await parseFile<Record<string, unknown>>('budget_transactions.json');
+    const budgetTransactionTags = await parseFile<Record<string, unknown>>(
+      'budget_transaction_tags.json'
+    );
+    const riseupCategories = await parseFile<Record<string, unknown>>('riseup_categories.json');
+
     // Execute operations sequentially without transaction
     // Neon serverless doesn't support long-running transactions well
     // If restore fails midway, database may be in partial state - user should retry
 
     // Delete all existing data in reverse order of dependencies
     console.log('Deleting existing data...');
+    // Budget tables (children first)
+    await prisma.budgetTransactionTag.deleteMany();
+    await prisma.budgetTransaction.deleteMany();
+    await prisma.budgetPayee.deleteMany();
+    await prisma.riseupCategory.deleteMany();
+    await prisma.budgetCategory.deleteMany();
+    await prisma.budgetCategoryGroup.deleteMany();
+    await prisma.budgetTag.deleteMany();
+    // Original tables
     await prisma.netWorthSnapshot.deleteMany();
     await prisma.stockPriceHistory.deleteMany();
     await prisma.stockHolding.deleteMany();
@@ -306,6 +336,137 @@ export async function POST(request: NextRequest) {
           pension: nws.pension as number,
           assets: nws.assets as number,
           createdAt: new Date(nws.createdAt as string),
+        },
+      });
+    }
+
+    // 15. Budget Category Groups
+    for (const bcg of budgetCategoryGroups) {
+      await prisma.budgetCategoryGroup.create({
+        data: {
+          id: bcg.id as string,
+          name: bcg.name as string,
+          sortOrder: bcg.sortOrder as number,
+          householdId: bcg.householdId as string,
+          createdAt: new Date(bcg.createdAt as string),
+          updatedAt: new Date(bcg.updatedAt as string),
+        },
+      });
+    }
+
+    // 16. Budget Categories
+    for (const bc of budgetCategories) {
+      await prisma.budgetCategory.create({
+        data: {
+          id: bc.id as string,
+          name: bc.name as string,
+          groupId: bc.groupId as string,
+          budget: bc.budget != null ? (bc.budget as string) : null,
+          isMust: bc.isMust as boolean,
+          sortOrder: bc.sortOrder as number,
+          householdId: bc.householdId as string,
+          createdAt: new Date(bc.createdAt as string),
+          updatedAt: new Date(bc.updatedAt as string),
+        },
+      });
+    }
+
+    // 17. Budget Payees
+    for (const bp of budgetPayees) {
+      await prisma.budgetPayee.create({
+        data: {
+          id: bp.id as string,
+          name: bp.name as string,
+          categoryId: (bp.categoryId as string | null) ?? null,
+          householdId: bp.householdId as string,
+          createdAt: new Date(bp.createdAt as string),
+          updatedAt: new Date(bp.updatedAt as string),
+        },
+      });
+    }
+
+    // 18. Budget Tags
+    for (const bt of budgetTags) {
+      await prisma.budgetTag.create({
+        data: {
+          id: bt.id as string,
+          name: bt.name as string,
+          color: bt.color as string,
+          householdId: bt.householdId as string,
+          createdAt: new Date(bt.createdAt as string),
+          updatedAt: new Date(bt.updatedAt as string),
+        },
+      });
+    }
+
+    // 19. Riseup Categories
+    for (const rc of riseupCategories) {
+      await prisma.riseupCategory.create({
+        data: {
+          id: rc.id as string,
+          name: rc.name as string,
+          isDeleted: rc.isDeleted as boolean,
+          budgetCategoryId: (rc.budgetCategoryId as string | null) ?? null,
+          householdId: rc.householdId as string,
+          createdAt: new Date(rc.createdAt as string),
+          updatedAt: new Date(rc.updatedAt as string),
+        },
+      });
+    }
+
+    // 20. Budget Transactions (insert without originalTransactionId first, then update)
+    const transactionsWithOriginal: { id: string; originalTransactionId: string }[] = [];
+    for (const btx of budgetTransactions) {
+      if (btx.originalTransactionId) {
+        transactionsWithOriginal.push({
+          id: btx.id as string,
+          originalTransactionId: btx.originalTransactionId as string,
+        });
+      }
+      await prisma.budgetTransaction.create({
+        data: {
+          id: btx.id as string,
+          type: btx.type as TransactionType,
+          transactionDate: new Date(btx.transactionDate as string),
+          paymentDate: btx.paymentDate ? new Date(btx.paymentDate as string) : null,
+          amountIls: btx.amountIls as string,
+          currency: btx.currency as string,
+          amountOriginal: btx.amountOriginal as string,
+          categoryId: (btx.categoryId as string | null) ?? null,
+          payeeId: (btx.payeeId as string | null) ?? null,
+          paymentMethod: btx.paymentMethod as PaymentMethod,
+          paymentNumber: (btx.paymentNumber as number | null) ?? null,
+          totalPayments: (btx.totalPayments as number | null) ?? null,
+          notes: (btx.notes as string | null) ?? null,
+          source: btx.source as TransactionSource,
+          isRecurring: btx.isRecurring as boolean,
+          isSplit: btx.isSplit as boolean,
+          // originalTransactionId set in second pass to handle self-references
+          paymentIdentifier: (btx.paymentIdentifier as string | null) ?? null,
+          excludedFromFlow: btx.excludedFromFlow as boolean,
+          profileId: (btx.profileId as string | null) ?? null,
+          householdId: btx.householdId as string,
+          createdAt: new Date(btx.createdAt as string),
+          updatedAt: new Date(btx.updatedAt as string),
+        },
+      });
+    }
+
+    // Update transactions that have originalTransactionId (split children)
+    for (const ref of transactionsWithOriginal) {
+      await prisma.budgetTransaction.update({
+        where: { id: ref.id },
+        data: { originalTransactionId: ref.originalTransactionId },
+      });
+    }
+
+    // 21. Budget Transaction Tags
+    for (const btt of budgetTransactionTags) {
+      await prisma.budgetTransactionTag.create({
+        data: {
+          id: btt.id as string,
+          transactionId: btt.transactionId as string,
+          tagId: btt.tagId as string,
         },
       });
     }

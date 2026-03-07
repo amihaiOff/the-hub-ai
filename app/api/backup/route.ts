@@ -34,6 +34,13 @@ export async function GET() {
       miscAssets,
       miscAssetOwners,
       netWorthSnapshots,
+      budgetCategoryGroups,
+      budgetCategories,
+      budgetPayees,
+      budgetTags,
+      budgetTransactions,
+      budgetTransactionTags,
+      riseupCategories,
     ] = await Promise.all([
       prisma.user.findMany(),
       prisma.profile.findMany(),
@@ -49,12 +56,19 @@ export async function GET() {
       prisma.miscAsset.findMany(),
       prisma.miscAssetOwner.findMany(),
       prisma.netWorthSnapshot.findMany(),
+      prisma.budgetCategoryGroup.findMany(),
+      prisma.budgetCategory.findMany(),
+      prisma.budgetPayee.findMany(),
+      prisma.budgetTag.findMany(),
+      prisma.budgetTransaction.findMany(),
+      prisma.budgetTransactionTag.findMany(),
+      prisma.riseupCategory.findMany(),
     ]);
 
     // Create backup metadata
     const metadata = {
       backupDate: new Date().toISOString(),
-      schemaVersion: '1.0',
+      schemaVersion: '1.1',
       createdBy: user.email,
       counts: {
         users: users.length,
@@ -71,6 +85,13 @@ export async function GET() {
         miscAssets: miscAssets.length,
         miscAssetOwners: miscAssetOwners.length,
         netWorthSnapshots: netWorthSnapshots.length,
+        budgetCategoryGroups: budgetCategoryGroups.length,
+        budgetCategories: budgetCategories.length,
+        budgetPayees: budgetPayees.length,
+        budgetTags: budgetTags.length,
+        budgetTransactions: budgetTransactions.length,
+        budgetTransactionTags: budgetTransactionTags.length,
+        riseupCategories: riseupCategories.length,
       },
     };
 
@@ -99,6 +120,19 @@ export async function GET() {
     zip.file('misc_assets.json', JSON.stringify(miscAssets, jsonSerializer, 2));
     zip.file('misc_asset_owners.json', JSON.stringify(miscAssetOwners, jsonSerializer, 2));
     zip.file('net_worth_snapshots.json', JSON.stringify(netWorthSnapshots, jsonSerializer, 2));
+    zip.file(
+      'budget_category_groups.json',
+      JSON.stringify(budgetCategoryGroups, jsonSerializer, 2)
+    );
+    zip.file('budget_categories.json', JSON.stringify(budgetCategories, jsonSerializer, 2));
+    zip.file('budget_payees.json', JSON.stringify(budgetPayees, jsonSerializer, 2));
+    zip.file('budget_tags.json', JSON.stringify(budgetTags, jsonSerializer, 2));
+    zip.file('budget_transactions.json', JSON.stringify(budgetTransactions, jsonSerializer, 2));
+    zip.file(
+      'budget_transaction_tags.json',
+      JSON.stringify(budgetTransactionTags, jsonSerializer, 2)
+    );
+    zip.file('riseup_categories.json', JSON.stringify(riseupCategories, jsonSerializer, 2));
 
     // Generate ZIP as Blob
     const zipBlob = await zip.generateAsync({ type: 'blob' });

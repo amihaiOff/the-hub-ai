@@ -43,6 +43,13 @@ const mockPrisma = {
   miscAsset: createMockFns('miscAsset'),
   miscAssetOwner: createMockFns('miscAssetOwner'),
   netWorthSnapshot: createMockFns('netWorthSnapshot'),
+  budgetCategoryGroup: createMockFns('budgetCategoryGroup'),
+  budgetCategory: createMockFns('budgetCategory'),
+  budgetPayee: createMockFns('budgetPayee'),
+  budgetTag: createMockFns('budgetTag'),
+  budgetTransaction: { ...createMockFns('budgetTransaction'), update: jest.fn() },
+  budgetTransactionTag: createMockFns('budgetTransactionTag'),
+  riseupCategory: createMockFns('riseupCategory'),
 };
 
 jest.mock('@/lib/db', () => ({
@@ -86,6 +93,13 @@ async function createBackupZip(
     misc_assets: [],
     misc_asset_owners: [],
     net_worth_snapshots: [],
+    budget_category_groups: [],
+    budget_categories: [],
+    budget_payees: [],
+    budget_tags: [],
+    budget_transactions: [],
+    budget_transaction_tags: [],
+    riseup_categories: [],
     ...data,
   };
 
@@ -535,6 +549,24 @@ describe('Restore API', () => {
       expect(netWorthIndex).toBeLessThan(userIndex);
       expect(stockHoldingIndex).toBeLessThan(stockAccountIndex);
       expect(stockAccountOwnerIndex).toBeLessThan(stockAccountIndex);
+
+      // Budget tables: children deleted before parents
+      const budgetTransactionTagIndex = deleteOps.indexOf('delete:budgetTransactionTag');
+      const budgetTransactionIndex = deleteOps.indexOf('delete:budgetTransaction');
+      const budgetPayeeIndex = deleteOps.indexOf('delete:budgetPayee');
+      const budgetCategoryIndex = deleteOps.indexOf('delete:budgetCategory');
+      const budgetCategoryGroupIndex = deleteOps.indexOf('delete:budgetCategoryGroup');
+      const riseupCategoryIndex = deleteOps.indexOf('delete:riseupCategory');
+
+      expect(budgetTransactionTagIndex).toBeLessThan(budgetTransactionIndex);
+      expect(budgetTransactionIndex).toBeLessThan(budgetCategoryIndex);
+      expect(budgetPayeeIndex).toBeLessThan(budgetCategoryIndex);
+      expect(riseupCategoryIndex).toBeLessThan(budgetCategoryIndex);
+      expect(budgetCategoryIndex).toBeLessThan(budgetCategoryGroupIndex);
+
+      // budgetTransactionTag depends on budgetTag
+      const budgetTagDeleteIndex = deleteOps.indexOf('delete:budgetTag');
+      expect(budgetTransactionTagIndex).toBeLessThan(budgetTagDeleteIndex);
     });
 
     it('should insert data in correct order to respect foreign keys', async () => {
@@ -611,6 +643,88 @@ describe('Restore API', () => {
             updatedAt: '2024-01-01T00:00:00.000Z',
           },
         ],
+        budget_category_groups: [
+          {
+            id: 'group-1',
+            name: 'Housing',
+            sortOrder: 0,
+            householdId: 'household-1',
+            createdAt: '2024-01-01T00:00:00.000Z',
+            updatedAt: '2024-01-01T00:00:00.000Z',
+          },
+        ],
+        budget_categories: [
+          {
+            id: 'cat-1',
+            name: 'Rent',
+            groupId: 'group-1',
+            budget: '5000',
+            isMust: true,
+            sortOrder: 0,
+            householdId: 'household-1',
+            createdAt: '2024-01-01T00:00:00.000Z',
+            updatedAt: '2024-01-01T00:00:00.000Z',
+          },
+        ],
+        budget_payees: [
+          {
+            id: 'payee-1',
+            name: 'Landlord',
+            categoryId: 'cat-1',
+            householdId: 'household-1',
+            createdAt: '2024-01-01T00:00:00.000Z',
+            updatedAt: '2024-01-01T00:00:00.000Z',
+          },
+        ],
+        budget_tags: [
+          {
+            id: 'tag-1',
+            name: 'Fixed',
+            color: '#3B82F6',
+            householdId: 'household-1',
+            createdAt: '2024-01-01T00:00:00.000Z',
+            updatedAt: '2024-01-01T00:00:00.000Z',
+          },
+        ],
+        riseup_categories: [
+          {
+            id: 'riseup-1',
+            name: 'שכירות',
+            isDeleted: false,
+            budgetCategoryId: 'cat-1',
+            householdId: 'household-1',
+            createdAt: '2024-01-01T00:00:00.000Z',
+            updatedAt: '2024-01-01T00:00:00.000Z',
+          },
+        ],
+        budget_transactions: [
+          {
+            id: 'tx-1',
+            type: 'expense',
+            transactionDate: '2024-01-15',
+            paymentDate: null,
+            amountIls: '5000',
+            currency: 'ILS',
+            amountOriginal: '5000',
+            categoryId: 'cat-1',
+            payeeId: 'payee-1',
+            paymentMethod: 'bank_transfer',
+            paymentNumber: null,
+            totalPayments: null,
+            notes: null,
+            source: 'manual',
+            isRecurring: true,
+            isSplit: false,
+            originalTransactionId: null,
+            paymentIdentifier: null,
+            excludedFromFlow: false,
+            profileId: 'profile-1',
+            householdId: 'household-1',
+            createdAt: '2024-01-15T00:00:00.000Z',
+            updatedAt: '2024-01-15T00:00:00.000Z',
+          },
+        ],
+        budget_transaction_tags: [{ id: 'tt-1', transactionId: 'tx-1', tagId: 'tag-1' }],
       };
 
       const blob = await createBackupZip(metadata, data);
@@ -640,6 +754,24 @@ describe('Restore API', () => {
       expect(householdIndex).toBeLessThan(householdMemberIndex);
       expect(stockAccountIndex).toBeLessThan(stockAccountOwnerIndex);
       expect(stockAccountIndex).toBeLessThan(stockHoldingIndex);
+
+      // Budget: parents inserted before children
+      const budgetCategoryGroupIndex = createOps.indexOf('create:budgetCategoryGroup');
+      const budgetCategoryIndex = createOps.indexOf('create:budgetCategory');
+      const budgetPayeeIndex = createOps.indexOf('create:budgetPayee');
+      const budgetTransactionIndex = createOps.indexOf('create:budgetTransaction');
+      const budgetTransactionTagIndex = createOps.indexOf('create:budgetTransactionTag');
+      const riseupCategoryIndex = createOps.indexOf('create:riseupCategory');
+
+      expect(budgetCategoryGroupIndex).toBeLessThan(budgetCategoryIndex);
+      expect(budgetCategoryIndex).toBeLessThan(budgetPayeeIndex);
+      expect(budgetCategoryIndex).toBeLessThan(riseupCategoryIndex);
+      expect(budgetCategoryIndex).toBeLessThan(budgetTransactionIndex);
+      expect(budgetTransactionIndex).toBeLessThan(budgetTransactionTagIndex);
+
+      // budgetTag must be inserted before budgetTransactionTag
+      const budgetTagIndex = createOps.indexOf('create:budgetTag');
+      expect(budgetTagIndex).toBeLessThan(budgetTransactionTagIndex);
     });
   });
 });

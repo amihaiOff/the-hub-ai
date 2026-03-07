@@ -30,6 +30,13 @@ jest.mock('@/lib/db', () => ({
     miscAsset: { findMany: jest.fn() },
     miscAssetOwner: { findMany: jest.fn() },
     netWorthSnapshot: { findMany: jest.fn() },
+    budgetCategoryGroup: { findMany: jest.fn() },
+    budgetCategory: { findMany: jest.fn() },
+    budgetPayee: { findMany: jest.fn() },
+    budgetTag: { findMany: jest.fn() },
+    budgetTransaction: { findMany: jest.fn() },
+    budgetTransactionTag: { findMany: jest.fn() },
+    riseupCategory: { findMany: jest.fn() },
   },
 }));
 
@@ -198,6 +205,89 @@ describe('Backup API', () => {
         },
       ];
 
+      const mockBudgetCategoryGroups = [
+        {
+          id: 'group-1',
+          name: 'Housing',
+          sortOrder: 0,
+          householdId: 'household-1',
+          createdAt: new Date('2024-01-01'),
+          updatedAt: new Date('2024-01-01'),
+        },
+      ];
+      const mockBudgetCategories = [
+        {
+          id: 'cat-1',
+          name: 'Rent',
+          groupId: 'group-1',
+          budget: createDecimal(5000),
+          isMust: true,
+          sortOrder: 0,
+          householdId: 'household-1',
+          createdAt: new Date('2024-01-01'),
+          updatedAt: new Date('2024-01-01'),
+        },
+      ];
+      const mockBudgetPayees = [
+        {
+          id: 'payee-1',
+          name: 'Landlord',
+          categoryId: 'cat-1',
+          householdId: 'household-1',
+          createdAt: new Date('2024-01-01'),
+          updatedAt: new Date('2024-01-01'),
+        },
+      ];
+      const mockBudgetTags = [
+        {
+          id: 'tag-1',
+          name: 'Fixed',
+          color: '#3B82F6',
+          householdId: 'household-1',
+          createdAt: new Date('2024-01-01'),
+          updatedAt: new Date('2024-01-01'),
+        },
+      ];
+      const mockBudgetTransactions = [
+        {
+          id: 'tx-1',
+          type: 'expense',
+          transactionDate: new Date('2024-01-15'),
+          paymentDate: null,
+          amountIls: createDecimal(5000),
+          currency: 'ILS',
+          amountOriginal: createDecimal(5000),
+          categoryId: 'cat-1',
+          payeeId: 'payee-1',
+          paymentMethod: 'bank_transfer',
+          paymentNumber: null,
+          totalPayments: null,
+          notes: null,
+          source: 'manual',
+          isRecurring: true,
+          isSplit: false,
+          originalTransactionId: null,
+          paymentIdentifier: null,
+          excludedFromFlow: false,
+          profileId: 'profile-1',
+          householdId: 'household-1',
+          createdAt: new Date('2024-01-15'),
+          updatedAt: new Date('2024-01-15'),
+        },
+      ];
+      const mockBudgetTransactionTags = [{ id: 'tt-1', transactionId: 'tx-1', tagId: 'tag-1' }];
+      const mockRiseupCategories = [
+        {
+          id: 'riseup-1',
+          name: 'שכירות',
+          isDeleted: false,
+          budgetCategoryId: 'cat-1',
+          householdId: 'household-1',
+          createdAt: new Date('2024-01-01'),
+          updatedAt: new Date('2024-01-01'),
+        },
+      ];
+
       // Set up all mocks
       (mockPrisma.user.findMany as jest.Mock).mockResolvedValueOnce(mockUsers);
       (mockPrisma.profile.findMany as jest.Mock).mockResolvedValueOnce(mockProfiles);
@@ -223,6 +313,19 @@ describe('Backup API', () => {
       (mockPrisma.netWorthSnapshot.findMany as jest.Mock).mockResolvedValueOnce(
         mockNetWorthSnapshots
       );
+      (mockPrisma.budgetCategoryGroup.findMany as jest.Mock).mockResolvedValueOnce(
+        mockBudgetCategoryGroups
+      );
+      (mockPrisma.budgetCategory.findMany as jest.Mock).mockResolvedValueOnce(mockBudgetCategories);
+      (mockPrisma.budgetPayee.findMany as jest.Mock).mockResolvedValueOnce(mockBudgetPayees);
+      (mockPrisma.budgetTag.findMany as jest.Mock).mockResolvedValueOnce(mockBudgetTags);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce(
+        mockBudgetTransactions
+      );
+      (mockPrisma.budgetTransactionTag.findMany as jest.Mock).mockResolvedValueOnce(
+        mockBudgetTransactionTags
+      );
+      (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce(mockRiseupCategories);
 
       const response = await GET();
 
@@ -254,11 +357,18 @@ describe('Backup API', () => {
       expect(zip.file('misc_assets.json')).not.toBeNull();
       expect(zip.file('misc_asset_owners.json')).not.toBeNull();
       expect(zip.file('net_worth_snapshots.json')).not.toBeNull();
+      expect(zip.file('budget_category_groups.json')).not.toBeNull();
+      expect(zip.file('budget_categories.json')).not.toBeNull();
+      expect(zip.file('budget_payees.json')).not.toBeNull();
+      expect(zip.file('budget_tags.json')).not.toBeNull();
+      expect(zip.file('budget_transactions.json')).not.toBeNull();
+      expect(zip.file('budget_transaction_tags.json')).not.toBeNull();
+      expect(zip.file('riseup_categories.json')).not.toBeNull();
 
       // Verify metadata content
       const metadataContent = await zip.file('metadata.json')!.async('string');
       const metadata = JSON.parse(metadataContent);
-      expect(metadata.schemaVersion).toBe('1.0');
+      expect(metadata.schemaVersion).toBe('1.1');
       expect(metadata.createdBy).toBe('test@example.com');
       expect(metadata.counts).toEqual({
         users: 1,
@@ -275,6 +385,13 @@ describe('Backup API', () => {
         miscAssets: 1,
         miscAssetOwners: 1,
         netWorthSnapshots: 1,
+        budgetCategoryGroups: 1,
+        budgetCategories: 1,
+        budgetPayees: 1,
+        budgetTags: 1,
+        budgetTransactions: 1,
+        budgetTransactionTags: 1,
+        riseupCategories: 1,
       });
 
       // Verify data files contain correct data
@@ -309,6 +426,13 @@ describe('Backup API', () => {
       (mockPrisma.miscAsset.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.netWorthSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetCategoryGroup.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetPayee.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetTag.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetTransactionTag.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const response = await GET();
 
@@ -370,6 +494,13 @@ describe('Backup API', () => {
       (mockPrisma.miscAsset.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.netWorthSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetCategoryGroup.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetPayee.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetTag.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetTransactionTag.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const response = await GET();
       const blob = await response.blob();
