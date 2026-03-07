@@ -22,6 +22,7 @@ interface TransactionTableProps {
   payees: BudgetPayee[];
   tags: BudgetTag[];
   isLoading?: boolean;
+  isLoadingMore?: boolean;
   hasMore?: boolean;
   onLoadMore?: () => void;
 }
@@ -32,6 +33,7 @@ export function TransactionTable({
   payees,
   tags,
   isLoading,
+  isLoadingMore,
   hasMore,
   onLoadMore,
 }: TransactionTableProps) {
@@ -148,8 +150,8 @@ export function TransactionTable({
         {/* Load More */}
         {hasMore && (
           <div className="border-t p-4 text-center">
-            <Button variant="outline" onClick={onLoadMore} disabled={isLoading}>
-              {isLoading ? (
+            <Button variant="outline" onClick={onLoadMore} disabled={isLoadingMore}>
+              {isLoadingMore ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Loading...

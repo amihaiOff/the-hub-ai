@@ -77,12 +77,19 @@ export function PayeeCategoryPrompt({
             </DialogDescription>
           </DialogHeader>
           {errorBanner}
-          <DialogFooter>
-            <Button variant="outline" onClick={onClose}>
-              No
-            </Button>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
             <Button onClick={() => handleSetDefault(false)} disabled={updatePayee.isPending}>
               Yes, set default
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleSetDefault(true)}
+              disabled={updatePayee.isPending}
+            >
+              Yes, set & re-categorize all
+            </Button>
+            <Button variant="ghost" onClick={onClose}>
+              No
             </Button>
           </DialogFooter>
         </DialogContent>

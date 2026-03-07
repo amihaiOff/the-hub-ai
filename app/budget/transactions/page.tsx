@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus, Upload, AlertCircle } from 'lucide-react';
 import {
-  useTransactions,
+  useTransactionsPaginated,
   useCategoryGroups,
   usePayees,
   useTags,
@@ -24,7 +24,8 @@ export default function TransactionsPage() {
   const [showImportCsv, setShowImportCsv] = useState(false);
   const [filters, setFilters] = useState<FilterType>({});
 
-  const { data: transactions = [], isLoading, error } = useTransactions(filters);
+  const { transactions, total, hasMore, loadMore, isLoading, isLoadingMore, error } =
+    useTransactionsPaginated(filters);
   const { data: categoryGroups = [] } = useCategoryGroups();
   const { data: payees = [] } = usePayees();
   const { data: tags = [] } = useTags();
@@ -83,7 +84,13 @@ export default function TransactionsPage() {
 
       {/* Transaction Count */}
       <div className="text-muted-foreground text-sm">
-        {isLoading ? 'Loading...' : `${transactions.length} transactions`}
+        {isLoading
+          ? 'Loading...'
+          : filters.searchQuery
+            ? `${transactions.length} transactions`
+            : total > transactions.length
+              ? `${transactions.length} of ${total} transactions`
+              : `${transactions.length} transactions`}
       </div>
 
       {/* Transaction Table */}
@@ -93,6 +100,9 @@ export default function TransactionsPage() {
         payees={payees}
         tags={tags}
         isLoading={isLoading}
+        isLoadingMore={isLoadingMore}
+        hasMore={hasMore}
+        onLoadMore={() => loadMore()}
       />
 
       {/* Add Transaction Dialog */}
