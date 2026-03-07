@@ -231,8 +231,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Build update data
-    const updateData: Prisma.BudgetTransactionUpdateInput = {};
+    // Build update data (use UncheckedUpdateInput for direct scalar FK assignment,
+    // avoiding connect/disconnect which is incompatible with Neon's poolQueryViaFetch)
+    const updateData: Prisma.BudgetTransactionUncheckedUpdateInput = {};
     if (data.type !== undefined) updateData.type = data.type;
     if (data.transactionDate !== undefined)
       updateData.transactionDate = new Date(data.transactionDate);
@@ -241,12 +242,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (data.amountIls !== undefined) updateData.amountIls = data.amountIls;
     if (data.currency !== undefined) updateData.currency = data.currency;
     if (data.amountOriginal !== undefined) updateData.amountOriginal = data.amountOriginal;
-    if (data.categoryId !== undefined)
-      updateData.category = data.categoryId
-        ? { connect: { id: data.categoryId } }
-        : { disconnect: true };
-    if (data.payeeId !== undefined)
-      updateData.payee = data.payeeId ? { connect: { id: data.payeeId } } : { disconnect: true };
+    if (data.categoryId !== undefined) updateData.categoryId = data.categoryId ?? null;
+    if (data.payeeId !== undefined) updateData.payeeId = data.payeeId ?? null;
     if (data.paymentMethod !== undefined) updateData.paymentMethod = data.paymentMethod;
     if (data.paymentNumber !== undefined) updateData.paymentNumber = data.paymentNumber;
     if (data.totalPayments !== undefined) updateData.totalPayments = data.totalPayments;
@@ -255,10 +252,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (data.isRecurring !== undefined) updateData.isRecurring = data.isRecurring;
     if (data.paymentIdentifier !== undefined) updateData.paymentIdentifier = data.paymentIdentifier;
     if (data.excludedFromFlow !== undefined) updateData.excludedFromFlow = data.excludedFromFlow;
-    if (data.profileId !== undefined)
-      updateData.profile = data.profileId
-        ? { connect: { id: data.profileId } }
-        : { disconnect: true };
+    if (data.profileId !== undefined) updateData.profileId = data.profileId ?? null;
 
     // Update transaction
     await prisma.budgetTransaction.update({
