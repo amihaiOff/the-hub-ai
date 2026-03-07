@@ -108,20 +108,29 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const shouldRecategorize = recategorizeTransactions && categoryId;
 
     if (shouldRecategorize) {
-      const [, recategorizeResult] = await prisma.$transaction([
-        prisma.budgetPayee.update({
-          where: { id },
-          data: {
-            ...(name !== undefined && { name }),
-            ...(categoryId !== undefined && { categoryId }),
-          },
-        }),
-        prisma.budgetTransaction.updateMany({
-          where: { payeeId: id, householdId },
+      // Sequential queries for Neon serverless compatibility (no $transaction)
+      await prisma.budgetPayee.update({
+        where: { id },
+        data: {
+          ...(name !== undefined && { name }),
+          ...(categoryId !== undefined && { categoryId }),
+        },
+      });
+
+      // Find and individually update transactions for this payee
+      const transactionsToUpdate = await prisma.budgetTransaction.findMany({
+        where: { payeeId: id, householdId },
+        select: { id: true },
+      });
+
+      for (const tx of transactionsToUpdate) {
+        await prisma.budgetTransaction.update({
+          where: { id: tx.id },
           data: { categoryId },
-        }),
-      ]);
-      recategorizedCount = recategorizeResult.count;
+        });
+      }
+
+      recategorizedCount = transactionsToUpdate.length;
     } else {
       await prisma.budgetPayee.update({
         where: { id },

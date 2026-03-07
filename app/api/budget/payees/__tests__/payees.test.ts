@@ -20,9 +20,9 @@ jest.mock('@/lib/db', () => ({
       findFirst: jest.fn(),
     },
     budgetTransaction: {
-      updateMany: jest.fn(),
+      findMany: jest.fn(),
+      update: jest.fn(),
     },
-    $transaction: jest.fn(),
   },
 }));
 
@@ -501,7 +501,15 @@ describe('Payees API', () => {
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       (mockPrisma.budgetPayee.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
       (mockPrisma.budgetCategory.findFirst as jest.Mock).mockResolvedValueOnce(mockCategory);
-      (mockPrisma.$transaction as jest.Mock).mockResolvedValueOnce([{}, { count: 5 }]);
+      (mockPrisma.budgetPayee.update as jest.Mock).mockResolvedValueOnce({});
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
+        { id: 'tx-1' },
+        { id: 'tx-2' },
+        { id: 'tx-3' },
+        { id: 'tx-4' },
+        { id: 'tx-5' },
+      ]);
+      (mockPrisma.budgetTransaction.update as jest.Mock).mockResolvedValue({});
       (mockPrisma.budgetPayee.findUnique as jest.Mock).mockResolvedValueOnce(mockUpdated);
 
       const request = new NextRequest('http://localhost:3000/api/budget/payees/payee-1', {
@@ -515,7 +523,7 @@ describe('Payees API', () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.data.recategorizedCount).toBe(5);
-      expect(mockPrisma.$transaction).toHaveBeenCalled();
+      expect(mockPrisma.budgetTransaction.update).toHaveBeenCalledTimes(5);
     });
 
     it('should NOT recategorize transactions when recategorizeTransactions is false', async () => {
@@ -558,7 +566,7 @@ describe('Payees API', () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.data.recategorizedCount).toBe(0);
-      expect(mockPrisma.budgetTransaction.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.budgetTransaction.findMany).not.toHaveBeenCalled();
     });
 
     it('should NOT recategorize transactions when recategorizeTransactions is omitted', async () => {
@@ -601,7 +609,7 @@ describe('Payees API', () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.data.recategorizedCount).toBe(0);
-      expect(mockPrisma.budgetTransaction.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.budgetTransaction.findMany).not.toHaveBeenCalled();
     });
 
     it('should return 400 for duplicate name', async () => {
