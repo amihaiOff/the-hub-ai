@@ -420,7 +420,7 @@ describe('TransactionRow', () => {
   });
 
   describe('Category dropdown', () => {
-    it('should render two category select triggers (desktop and mobile)', () => {
+    it('should render a category select trigger', () => {
       const transaction = createMockTransaction();
       render(
         <table>
@@ -431,7 +431,7 @@ describe('TransactionRow', () => {
       );
       // Radix Select uses combobox role for the trigger
       const triggers = screen.getAllByRole('combobox');
-      expect(triggers).toHaveLength(2);
+      expect(triggers).toHaveLength(1);
     });
 
     it('should show current category name in the trigger', () => {
@@ -444,7 +444,7 @@ describe('TransactionRow', () => {
         </table>
       );
       // Category cat-3 is "Groceries" in our mock data
-      expect(screen.getAllByText('Groceries')).toHaveLength(2);
+      expect(screen.getByText('Groceries')).toBeInTheDocument();
     });
 
     it('should show "Uncategorized" when no category is selected for expense', () => {
@@ -456,8 +456,7 @@ describe('TransactionRow', () => {
           </tbody>
         </table>
       );
-      // Both triggers should show "Uncategorized"
-      expect(screen.getAllByText('Uncategorized')).toHaveLength(2);
+      expect(screen.getByText('Uncategorized')).toBeInTheDocument();
     });
 
     it('should show "Income" when no category is selected for income', () => {
@@ -469,7 +468,7 @@ describe('TransactionRow', () => {
           </tbody>
         </table>
       );
-      expect(screen.getAllByText('Income')).toHaveLength(2);
+      expect(screen.getByText('Income')).toBeInTheDocument();
     });
 
     it('should have correct aria-label for accessibility', () => {
@@ -481,14 +480,13 @@ describe('TransactionRow', () => {
           </tbody>
         </table>
       );
-      const triggers = screen.getAllByRole('combobox');
-      expect(triggers[0]).toHaveAttribute('aria-label', 'Select category for Test Payee');
-      expect(triggers[1]).toHaveAttribute('aria-label', 'Select category for Test Payee');
+      const trigger = screen.getByRole('combobox');
+      expect(trigger).toHaveAttribute('aria-label', 'Select category for Test Payee');
     });
   });
 
   describe('Pending state during mutation', () => {
-    it('should disable dropdowns when mutation is pending', () => {
+    it('should disable dropdown when mutation is pending', () => {
       mockUseUpdateTransaction.mockReturnValue({
         mutate: mockMutate,
         isPending: true,
@@ -516,9 +514,8 @@ describe('TransactionRow', () => {
           </tbody>
         </table>
       );
-      const triggers = screen.getAllByRole('combobox');
-      expect(triggers[0]).toBeDisabled();
-      expect(triggers[1]).toBeDisabled();
+      const trigger = screen.getByRole('combobox');
+      expect(trigger).toBeDisabled();
     });
 
     it('should not be disabled when mutation is not pending', () => {
@@ -530,9 +527,8 @@ describe('TransactionRow', () => {
           </tbody>
         </table>
       );
-      const triggers = screen.getAllByRole('combobox');
-      expect(triggers[0]).not.toBeDisabled();
-      expect(triggers[1]).not.toBeDisabled();
+      const trigger = screen.getByRole('combobox');
+      expect(trigger).not.toBeDisabled();
     });
   });
 

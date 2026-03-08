@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2 } from 'lucide-react';
 import {
@@ -8,12 +8,28 @@ import {
   type BudgetCategoryGroup,
   type BudgetPayee,
   type BudgetTag,
+  formatDate,
 } from '@/lib/utils/budget';
-import { TransactionRow } from './transaction-row';
+import { TransactionRow, TransactionRowMobile } from './transaction-row';
 import { BulkActionsBar } from './bulk-actions-bar';
 import { EditTransactionDialog } from './edit-transaction-dialog';
 import { SplitTransactionDialog } from './split-transaction-dialog';
 import { useDeleteTransaction } from '@/lib/hooks/use-budget';
+
+function groupTransactionsByDate(transactions: BudgetTransaction[]) {
+  const groups: { date: string; transactions: BudgetTransaction[] }[] = [];
+  let currentDate = '';
+  for (const t of transactions) {
+    const date = t.transactionDate.slice(0, 10);
+    if (date !== currentDate) {
+      currentDate = date;
+      groups.push({ date, transactions: [t] });
+    } else {
+      groups[groups.length - 1].transactions.push(t);
+    }
+  }
+  return groups;
+}
 
 interface TransactionTableProps {
   transactions: BudgetTransaction[];
@@ -34,6 +50,7 @@ export function TransactionTable({
   const [editingTransaction, setEditingTransaction] = useState<BudgetTransaction | null>(null);
   const [splittingTransaction, setSplittingTransaction] = useState<BudgetTransaction | null>(null);
   const deleteTransaction = useDeleteTransaction();
+  const dateGroups = useMemo(() => groupTransactionsByDate(transactions), [transactions]);
 
   const allSelected = transactions.length > 0 && selectedIds.size === transactions.length;
   const someSelected = selectedIds.size > 0 && selectedIds.size < transactions.length;
@@ -89,55 +106,91 @@ export function TransactionTable({
 
   return (
     <div className="relative">
-      <div className="lg:border-border/40 lg:bg-card/80 lg:shadow-glow overflow-hidden lg:rounded-3xl lg:border lg:py-6 lg:backdrop-blur-xl">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-muted/50 border-b">
-              <tr>
-                <th className="w-10 px-2 py-3 text-left sm:px-4">
-                  <Checkbox
-                    checked={allSelected ? true : someSelected ? 'indeterminate' : false}
-                    onCheckedChange={toggleSelectAll}
-                    aria-label="Select all"
-                  />
-                </th>
-                <th className="text-muted-foreground hidden px-2 py-3 text-left text-xs font-medium tracking-wider uppercase sm:table-cell sm:px-4">
-                  Date
-                </th>
-                <th className="text-muted-foreground px-2 py-3 text-left text-xs font-medium tracking-wider uppercase sm:px-4">
-                  Payee
-                </th>
-                <th className="text-muted-foreground hidden px-2 py-3 text-left text-xs font-medium tracking-wider uppercase sm:table-cell sm:px-4">
-                  Category
-                </th>
-                <th className="text-muted-foreground hidden px-2 py-3 text-left text-xs font-medium tracking-wider uppercase lg:table-cell lg:px-4">
-                  Tags
-                </th>
-                <th className="text-muted-foreground px-2 py-3 text-right text-xs font-medium tracking-wider uppercase sm:px-4">
-                  Amount
-                </th>
-                <th className="w-10 px-2 py-3 sm:px-4">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.map((transaction) => (
-                <TransactionRow
-                  key={transaction.id}
-                  transaction={transaction}
-                  categoryGroups={categoryGroups}
-                  payees={payees}
-                  tags={tags}
-                  isSelected={selectedIds.has(transaction.id)}
-                  onSelect={(selected) => toggleSelect(transaction.id, selected)}
-                  onEdit={() => setEditingTransaction(transaction)}
-                  onDelete={() => handleDelete(transaction.id)}
-                  onSplit={() => setSplittingTransaction(transaction)}
+      {/* Mobile: grouped by date */}
+      <div className="sm:hidden">
+        {dateGroups.map((group, groupIndex) => (
+          <div key={group.date}>
+            <div className="text-muted-foreground bg-muted/30 flex items-center gap-2 border-b px-2 py-1.5 text-xs font-medium">
+              {groupIndex === 0 && (
+                <Checkbox
+                  checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                  onCheckedChange={toggleSelectAll}
+                  aria-label="Select all"
+                  className="h-3.5 w-3.5"
                 />
-              ))}
-            </tbody>
-          </table>
+              )}
+              {formatDate(group.date)}
+            </div>
+            {group.transactions.map((transaction) => (
+              <TransactionRowMobile
+                key={transaction.id}
+                transaction={transaction}
+                categoryGroups={categoryGroups}
+                payees={payees}
+                tags={tags}
+                isSelected={selectedIds.has(transaction.id)}
+                onSelect={(selected) => toggleSelect(transaction.id, selected)}
+                onEdit={() => setEditingTransaction(transaction)}
+                onDelete={() => handleDelete(transaction.id)}
+                onSplit={() => setSplittingTransaction(transaction)}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop: table layout */}
+      <div className="hidden sm:block">
+        <div className="lg:border-border/40 lg:bg-card/80 lg:shadow-glow overflow-hidden lg:rounded-3xl lg:border lg:py-6 lg:backdrop-blur-xl">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-muted/50 border-b">
+                <tr>
+                  <th className="w-10 px-4 py-3 text-left">
+                    <Checkbox
+                      checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Select all"
+                    />
+                  </th>
+                  <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wider uppercase">
+                    Date
+                  </th>
+                  <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wider uppercase">
+                    Payee
+                  </th>
+                  <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wider uppercase">
+                    Category
+                  </th>
+                  <th className="text-muted-foreground hidden px-4 py-3 text-left text-xs font-medium tracking-wider uppercase lg:table-cell">
+                    Tags
+                  </th>
+                  <th className="text-muted-foreground px-4 py-3 text-right text-xs font-medium tracking-wider uppercase">
+                    Amount
+                  </th>
+                  <th className="w-10 px-4 py-3">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.map((transaction) => (
+                  <TransactionRow
+                    key={transaction.id}
+                    transaction={transaction}
+                    categoryGroups={categoryGroups}
+                    payees={payees}
+                    tags={tags}
+                    isSelected={selectedIds.has(transaction.id)}
+                    onSelect={(selected) => toggleSelect(transaction.id, selected)}
+                    onEdit={() => setEditingTransaction(transaction)}
+                    onDelete={() => handleDelete(transaction.id)}
+                    onSplit={() => setSplittingTransaction(transaction)}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
