@@ -28,6 +28,7 @@ import {
   useTags,
 } from '@/lib/hooks/use-budget';
 import { cn } from '@/lib/utils';
+import { CategorySelect } from './category-select';
 
 interface AddTransactionDialogProps {
   open: boolean;
@@ -153,26 +154,12 @@ export function AddTransactionDialog({
             {/* Category */}
             {type === 'expense' && (
               <div className="grid gap-2">
-                <Label htmlFor="category">Category</Label>
-                <Select value={categoryId} onValueChange={setCategoryId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categoryGroups.map((group) => (
-                      <div key={group.id}>
-                        <div className="text-muted-foreground px-2 py-1.5 text-xs font-semibold">
-                          {group.name}
-                        </div>
-                        {group.categories.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </SelectItem>
-                        ))}
-                      </div>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Category</Label>
+                <CategorySelect
+                  value={categoryId}
+                  onValueChange={setCategoryId}
+                  categoryGroups={categoryGroups}
+                />
               </div>
             )}
 

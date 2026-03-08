@@ -29,6 +29,7 @@ import {
 } from '@/lib/hooks/use-budget';
 import { type BudgetTransaction } from '@/lib/utils/budget';
 import { cn } from '@/lib/utils';
+import { CategorySelect } from './category-select';
 
 interface EditTransactionDialogProps {
   transaction: BudgetTransaction | null;
@@ -145,30 +146,14 @@ function EditTransactionForm({
         {/* Category */}
         {type === 'expense' && (
           <div className="grid gap-2">
-            <Label htmlFor="edit-category">Category</Label>
-            <Select
-              value={categoryId || '__none__'}
-              onValueChange={(v) => setCategoryId(v === '__none__' ? '' : v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">Uncategorized</SelectItem>
-                {categoryGroups.map((group) => (
-                  <div key={group.id}>
-                    <div className="text-muted-foreground px-2 py-1.5 text-xs font-semibold">
-                      {group.name}
-                    </div>
-                    {group.categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </div>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Category</Label>
+            <CategorySelect
+              value={categoryId}
+              onValueChange={setCategoryId}
+              categoryGroups={categoryGroups}
+              allowNone
+              noneLabel="Uncategorized"
+            />
           </div>
         )}
 

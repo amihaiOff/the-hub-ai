@@ -18,6 +18,7 @@ import {
   usePayees,
   useTags,
 } from '@/lib/hooks/use-budget';
+import { CategorySelect } from './category-select';
 
 interface TransactionFiltersProps {
   filters: FilterType;
@@ -35,8 +36,6 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
     filters.payeeId,
     filters.tagId,
     filters.type,
-    filters.startDate,
-    filters.endDate,
   ].filter(Boolean).length;
 
   const clearFilters = () => {
@@ -46,8 +45,6 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
       payeeId: undefined,
       tagId: undefined,
       type: undefined,
-      startDate: undefined,
-      endDate: undefined,
     });
   };
 
@@ -115,34 +112,19 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
             {/* Category */}
             <div className="grid gap-2">
               <label className="text-sm font-medium">Category</label>
-              <Select
-                value={filters.categoryId || 'all'}
+              <CategorySelect
+                value={filters.categoryId || ''}
                 onValueChange={(value) =>
                   onFiltersChange({
                     ...filters,
-                    categoryId: value === 'all' ? undefined : value,
+                    categoryId: value || undefined,
                   })
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All categories</SelectItem>
-                  {categoryGroups.map((group) => (
-                    <div key={group.id}>
-                      <div className="text-muted-foreground px-2 py-1.5 text-xs font-semibold">
-                        {group.name}
-                      </div>
-                      {group.categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
-                    </div>
-                  ))}
-                </SelectContent>
-              </Select>
+                categoryGroups={categoryGroups}
+                allowNone
+                noneLabel="All categories"
+                placeholder="All categories"
+              />
             </div>
 
             {/* Payee */}
@@ -202,29 +184,6 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Date Range */}
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Date Range</label>
-              <div className="flex gap-2">
-                <Input
-                  type="date"
-                  value={filters.startDate || ''}
-                  onChange={(e) =>
-                    onFiltersChange({ ...filters, startDate: e.target.value || undefined })
-                  }
-                  placeholder="From"
-                />
-                <Input
-                  type="date"
-                  value={filters.endDate || ''}
-                  onChange={(e) =>
-                    onFiltersChange({ ...filters, endDate: e.target.value || undefined })
-                  }
-                  placeholder="To"
-                />
-              </div>
-            </div>
           </div>
         </PopoverContent>
       </Popover>
@@ -261,12 +220,6 @@ export function ActiveFilterBadges({ filters, onRemoveFilter }: ActiveFilterBadg
   if (filters.tagId) {
     const tag = tags.find((t) => t.id === filters.tagId);
     badges.push({ key: 'tagId', label: `Tag: ${tag?.name || 'Unknown'}` });
-  }
-  if (filters.startDate) {
-    badges.push({ key: 'startDate', label: `From: ${filters.startDate}` });
-  }
-  if (filters.endDate) {
-    badges.push({ key: 'endDate', label: `To: ${filters.endDate}` });
   }
 
   if (badges.length === 0) return null;

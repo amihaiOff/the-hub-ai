@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import {
   type BudgetTransaction,
@@ -22,9 +21,6 @@ interface TransactionTableProps {
   payees: BudgetPayee[];
   tags: BudgetTag[];
   isLoading?: boolean;
-  isLoadingMore?: boolean;
-  hasMore?: boolean;
-  onLoadMore?: () => void;
 }
 
 export function TransactionTable({
@@ -33,9 +29,6 @@ export function TransactionTable({
   payees,
   tags,
   isLoading,
-  isLoadingMore,
-  hasMore,
-  onLoadMore,
 }: TransactionTableProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingTransaction, setEditingTransaction] = useState<BudgetTransaction | null>(null);
@@ -146,22 +139,6 @@ export function TransactionTable({
             </tbody>
           </table>
         </div>
-
-        {/* Load More */}
-        {hasMore && (
-          <div className="border-t p-4 text-center">
-            <Button variant="outline" onClick={onLoadMore} disabled={isLoadingMore}>
-              {isLoadingMore ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                'Load More'
-              )}
-            </Button>
-          </div>
-        )}
       </div>
 
       {/* Bulk Actions Bar */}

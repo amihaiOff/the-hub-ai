@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useCallback } from 'react';
 import {
   type BudgetTransaction,
@@ -93,8 +93,6 @@ export interface TransactionFilters {
   tagId?: string;
   type?: 'income' | 'expense';
   searchQuery?: string;
-  startDate?: string;
-  endDate?: string;
 }
 
 // API helper function
@@ -147,13 +145,12 @@ export function useTransactions(filters?: TransactionFilters) {
     queryFn: async (): Promise<BudgetTransaction[]> => {
       const params = new URLSearchParams();
 
+      params.set('limit', '1000');
       if (filters?.month) params.set('month', filters.month);
       if (filters?.categoryId) params.set('categoryId', filters.categoryId);
       if (filters?.payeeId) params.set('payeeId', filters.payeeId);
       if (filters?.tagId) params.set('tagIds', filters.tagId);
       if (filters?.type) params.set('type', filters.type);
-      if (filters?.startDate) params.set('startDate', filters.startDate);
-      if (filters?.endDate) params.set('endDate', filters.endDate);
 
       const response = await fetchApi<PaginatedResponse<BudgetTransaction>>(
         `/api/budget/transactions?${params.toString()}`
@@ -175,67 +172,6 @@ export function useTransactions(filters?: TransactionFilters) {
       return result;
     },
   });
-}
-
-/**
- * Hook to fetch transactions with infinite scroll pagination
- */
-export function useTransactionsPaginated(filters?: TransactionFilters) {
-  const PAGE_SIZE = 100;
-
-  const infiniteQuery = useInfiniteQuery({
-    queryKey: [...budgetKeys.transactions(filters), 'paginated'],
-    queryFn: async ({ pageParam = 0 }): Promise<PaginatedResponse<BudgetTransaction>> => {
-      const params = new URLSearchParams();
-
-      if (filters?.month) params.set('month', filters.month);
-      if (filters?.categoryId) params.set('categoryId', filters.categoryId);
-      if (filters?.payeeId) params.set('payeeId', filters.payeeId);
-      if (filters?.tagId) params.set('tagIds', filters.tagId);
-      if (filters?.type) params.set('type', filters.type);
-      if (filters?.startDate) params.set('startDate', filters.startDate);
-      if (filters?.endDate) params.set('endDate', filters.endDate);
-      params.set('limit', String(PAGE_SIZE));
-      params.set('offset', String(pageParam));
-
-      return fetchApi<PaginatedResponse<BudgetTransaction>>(
-        `/api/budget/transactions?${params.toString()}`
-      );
-    },
-    initialPageParam: 0,
-    getNextPageParam: (lastPage) =>
-      lastPage.pagination.hasMore
-        ? lastPage.pagination.offset + lastPage.pagination.limit
-        : undefined,
-  });
-
-  let allTransactions: BudgetTransaction[] = [];
-  if (infiniteQuery.data) {
-    allTransactions = infiniteQuery.data.pages.flatMap((page) => page.items);
-
-    if (filters?.searchQuery) {
-      const query = filters.searchQuery.toLowerCase();
-      allTransactions = allTransactions.filter(
-        (tx) =>
-          tx.notes?.toLowerCase().includes(query) ||
-          (tx as BudgetTransaction & { payeeName?: string }).payeeName
-            ?.toLowerCase()
-            .includes(query)
-      );
-    }
-  }
-
-  const total = infiniteQuery.data?.pages[0]?.pagination.total ?? 0;
-
-  return {
-    transactions: allTransactions,
-    total,
-    hasMore: infiniteQuery.hasNextPage ?? false,
-    loadMore: infiniteQuery.fetchNextPage,
-    isLoading: infiniteQuery.isLoading,
-    isLoadingMore: infiniteQuery.isFetchingNextPage,
-    error: infiniteQuery.error,
-  };
 }
 
 /**

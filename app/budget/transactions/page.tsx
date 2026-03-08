@@ -5,27 +5,33 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus, Upload, AlertCircle } from 'lucide-react';
 import {
-  useTransactionsPaginated,
+  useTransactions,
   useCategoryGroups,
   usePayees,
   useTags,
   type TransactionFilters as FilterType,
 } from '@/lib/hooks/use-budget';
+import { getCurrentMonth } from '@/lib/utils/budget';
 import {
   TransactionTable,
   AddTransactionDialog,
   TransactionFilters,
   ActiveFilterBadges,
   ImportCsvDialog,
+  MonthSelector,
 } from '@/components/budget';
 
 export default function TransactionsPage() {
   const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [showImportCsv, setShowImportCsv] = useState(false);
   const [filters, setFilters] = useState<FilterType>({});
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
 
-  const { transactions, total, hasMore, loadMore, isLoading, isLoadingMore, error } =
-    useTransactionsPaginated(filters);
+  const {
+    data: transactions = [],
+    isLoading,
+    error,
+  } = useTransactions({ ...filters, month: selectedMonth });
   const { data: categoryGroups = [] } = useCategoryGroups();
   const { data: payees = [] } = usePayees();
   const { data: tags = [] } = useTags();
@@ -37,9 +43,12 @@ export default function TransactionsPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">Transactions</h1>
-        <p className="text-muted-foreground text-sm">View and manage all your transactions</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">Transactions</h1>
+          <p className="text-muted-foreground text-sm">View and manage all your transactions</p>
+        </div>
+        <MonthSelector selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
       </div>
 
       {/* Error State */}
@@ -84,13 +93,7 @@ export default function TransactionsPage() {
 
       {/* Transaction Count */}
       <div className="text-muted-foreground text-sm">
-        {isLoading
-          ? 'Loading...'
-          : filters.searchQuery
-            ? `${transactions.length} transactions`
-            : total > transactions.length
-              ? `${transactions.length} of ${total} transactions`
-              : `${transactions.length} transactions`}
+        {isLoading ? 'Loading...' : `${transactions.length} transactions`}
       </div>
 
       {/* Transaction Table */}
@@ -100,9 +103,6 @@ export default function TransactionsPage() {
         payees={payees}
         tags={tags}
         isLoading={isLoading}
-        isLoadingMore={isLoadingMore}
-        hasMore={hasMore}
-        onLoadMore={() => loadMore()}
       />
 
       {/* Add Transaction Dialog */}
