@@ -28,6 +28,8 @@ import {
   useRiseupCategories,
   useCreateRiseupCategories,
   useDeleteRiseupCategory,
+  useSavings,
+  useAddSavingsEntry,
 } from '../use-budget';
 
 // Mock fetch globally
@@ -104,6 +106,10 @@ describe('Budget Hooks', () => {
         'uncategorizedCount',
         '2026-03',
       ]);
+    });
+
+    it('should generate correct savings key', () => {
+      expect(budgetKeys.savings()).toEqual(['budget', 'savings']);
     });
   });
 
@@ -776,6 +782,101 @@ describe('Budget Hooks', () => {
           body: JSON.stringify({ id: 'rc-1' }),
         })
       );
+    });
+  });
+
+  describe('useSavings', () => {
+    it('should fetch savings data successfully', async () => {
+      const mockSavingsData = {
+        categoryId: 'cat-savings-1',
+        years: [
+          {
+            year: 2025,
+            total: 5000,
+            months: [
+              { month: '2025-01', amount: 2000 },
+              { month: '2025-02', amount: 1500 },
+              { month: '2025-03', amount: 1500 },
+            ],
+          },
+        ],
+      };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: mockSavingsData }),
+      });
+
+      const { result } = renderHook(() => useSavings(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(result.current.data).toEqual(mockSavingsData);
+      expect(mockFetch).toHaveBeenCalledWith('/api/budget/savings', expect.any(Object));
+    });
+
+    it('should handle API error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'Failed to fetch savings' }),
+      });
+
+      const { result } = renderHook(() => useSavings(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+    });
+
+    it('should return empty years array when no savings data', async () => {
+      const mockEmptyData = { categoryId: 'cat-savings-1', years: [] };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: mockEmptyData }),
+      });
+
+      const { result } = renderHook(() => useSavings(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(result.current.data?.years).toEqual([]);
+    });
+  });
+
+  describe('useAddSavingsEntry', () => {
+    it('should create a savings entry with month and amount', async () => {
+      const mockResult = { id: 'tx-new', month: '2025-03', amount: 3000 };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: mockResult }),
+      });
+
+      const { result } = renderHook(() => useAddSavingsEntry(), {
+        wrapper: createWrapper(),
+      });
+
+      result.current.mutate({ month: '2025-03', amount: 3000 });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(result.current.data).toEqual(mockResult);
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/budget/savings',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ month: '2025-03', amount: 3000 }),
+        })
+      );
+    });
+
+    it('should handle creation error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'Validation failed' }),
+      });
+
+      const { result } = renderHook(() => useAddSavingsEntry(), {
+        wrapper: createWrapper(),
+      });
+
+      result.current.mutate({ month: '2025-03', amount: -100 });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
     });
   });
 });
