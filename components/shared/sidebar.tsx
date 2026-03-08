@@ -5,12 +5,21 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useUser } from '@/lib/hooks/use-auth';
+import { useUncategorizedCount } from '@/lib/hooks/use-budget';
 import { LogOut, LogIn, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { navItems, settingsItem, type NavItem } from '@/lib/constants/navigation';
 
-function NavItemComponent({ item, pathname }: { item: NavItem; pathname: string }) {
+function NavItemComponent({
+  item,
+  pathname,
+  uncategorizedCount = 0,
+}: {
+  item: NavItem;
+  pathname: string;
+  uncategorizedCount?: number;
+}) {
   const hasSubItems = item.subItems && item.subItems.length > 0;
   const isParentActive = pathname.startsWith(item.href) && item.href !== '/';
   const isExactActive = pathname === item.href;
@@ -51,6 +60,7 @@ function NavItemComponent({ item, pathname }: { item: NavItem; pathname: string 
             {item.subItems!.map((subItem) => {
               const isSubActive = pathname === subItem.href;
               const SubIcon = subItem.icon;
+              const showBadge = subItem.href === '/budget/transactions' && uncategorizedCount > 0;
               return (
                 <Link
                   key={subItem.href}
@@ -64,7 +74,8 @@ function NavItemComponent({ item, pathname }: { item: NavItem; pathname: string 
                   )}
                 >
                   <SubIcon className="h-4 w-4" />
-                  {subItem.label}
+                  <span className="flex-1">{subItem.label}</span>
+                  {showBadge && <span className="bg-destructive h-2 w-2 rounded-full" />}
                 </Link>
               );
             })}
@@ -94,6 +105,8 @@ function NavItemComponent({ item, pathname }: { item: NavItem; pathname: string 
 export function Sidebar() {
   const pathname = usePathname();
   const user = useUser();
+  const { data: countData } = useUncategorizedCount();
+  const uncategorizedCount = countData?.uncategorized ?? 0;
 
   return (
     <aside className="border-sidebar-border/30 bg-sidebar/95 fixed top-0 left-0 hidden h-screen w-64 border-r backdrop-blur-xl lg:block">
@@ -111,7 +124,12 @@ export function Sidebar() {
         {/* Navigation */}
         <nav className="flex-1 space-y-1 p-4">
           {navItems.map((item) => (
-            <NavItemComponent key={item.href} item={item} pathname={pathname} />
+            <NavItemComponent
+              key={item.href}
+              item={item}
+              pathname={pathname}
+              uncategorizedCount={uncategorizedCount}
+            />
           ))}
         </nav>
 

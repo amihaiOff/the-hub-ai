@@ -11,6 +11,7 @@ import {
   Tags,
   Users,
   BarChart3,
+  PiggyBank,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -43,6 +44,7 @@ export const navItems: NavItem[] = [
       { href: '/budget/tags', label: 'Tags', icon: Tags },
       { href: '/budget/payees', label: 'Payees', icon: Users },
       { href: '/budget/analysis', label: 'Analysis', icon: BarChart3 },
+      { href: '/budget/savings', label: 'Savings', icon: PiggyBank },
     ],
   },
 ];

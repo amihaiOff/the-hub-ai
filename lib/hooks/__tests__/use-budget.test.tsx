@@ -23,6 +23,7 @@ import {
   useDeleteCategory,
   useExpandedGroups,
   useExpandedCategories,
+  useUncategorizedCount,
   riseupCategoryKeys,
   useRiseupCategories,
   useCreateRiseupCategories,
@@ -94,6 +95,15 @@ describe('Budget Hooks', () => {
 
     it('should generate correct tags key', () => {
       expect(budgetKeys.tags()).toEqual(['budget', 'tags']);
+    });
+
+    it('should generate correct uncategorizedCount key', () => {
+      expect(budgetKeys.uncategorizedCount()).toEqual(['budget', 'uncategorizedCount', undefined]);
+      expect(budgetKeys.uncategorizedCount('2026-03')).toEqual([
+        'budget',
+        'uncategorizedCount',
+        '2026-03',
+      ]);
     });
   });
 
@@ -499,6 +509,66 @@ describe('Budget Hooks', () => {
         expect.objectContaining({
           method: 'DELETE',
         })
+      );
+    });
+  });
+
+  describe('useUncategorizedCount', () => {
+    it('should fetch uncategorized count successfully', async () => {
+      const mockCountData = { uncategorized: 15 };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: mockCountData }),
+      });
+
+      const { result } = renderHook(() => useUncategorizedCount(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(result.current.data).toEqual({ uncategorized: 15 });
+      expect(mockFetch).toHaveBeenCalledWith('/api/budget/transactions/counts', expect.any(Object));
+    });
+
+    it('should return zero uncategorized count', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: { uncategorized: 0 } }),
+      });
+
+      const { result } = renderHook(() => useUncategorizedCount(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(result.current.data).toEqual({ uncategorized: 0 });
+    });
+
+    it('should handle API error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'Failed to fetch counts' }),
+      });
+
+      const { result } = renderHook(() => useUncategorizedCount(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+    });
+
+    it('should pass month query param when provided', async () => {
+      const mockCountData = { uncategorized: 3 };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: mockCountData }),
+      });
+
+      const { result } = renderHook(() => useUncategorizedCount('2026-03'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(result.current.data).toEqual({ uncategorized: 3 });
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/budget/transactions/counts?month=2026-03',
+        expect.any(Object)
       );
     });
   });

@@ -9,6 +9,7 @@ import {
   useCategoryGroups,
   usePayees,
   useTags,
+  useUncategorizedCount,
   type TransactionFilters as FilterType,
 } from '@/lib/hooks/use-budget';
 import { getCurrentMonth } from '@/lib/utils/budget';
@@ -35,6 +36,7 @@ export default function TransactionsPage() {
   const { data: categoryGroups = [] } = useCategoryGroups();
   const { data: payees = [] } = usePayees();
   const { data: tags = [] } = useTags();
+  const { data: countData } = useUncategorizedCount(selectedMonth);
 
   const handleRemoveFilter = (key: keyof FilterType) => {
     setFilters((prev) => ({ ...prev, [key]: undefined }));
@@ -92,8 +94,15 @@ export default function TransactionsPage() {
       <ActiveFilterBadges filters={filters} onRemoveFilter={handleRemoveFilter} />
 
       {/* Transaction Count */}
-      <div className="text-muted-foreground text-sm">
-        {isLoading ? 'Loading...' : `${transactions.length} transactions`}
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">
+          {isLoading ? 'Loading...' : `${transactions.length} transactions`}
+        </span>
+        {!isLoading && (countData?.uncategorized ?? 0) > 0 && (
+          <span className="text-destructive font-medium">
+            {countData?.uncategorized} uncategorized
+          </span>
+        )}
       </div>
 
       {/* Transaction Table */}

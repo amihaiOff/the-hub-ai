@@ -83,6 +83,8 @@ export const budgetKeys = {
   tags: () => [...budgetKeys.all, 'tags'] as const,
   analysis: (startDate: string, endDate: string) =>
     [...budgetKeys.all, 'analysis', startDate, endDate] as const,
+  uncategorizedCount: (month?: string) => [...budgetKeys.all, 'uncategorizedCount', month] as const,
+  savings: () => [...budgetKeys.all, 'savings'] as const,
 };
 
 // Filter types
@@ -221,6 +223,23 @@ export function useBudgetAnalysis(startDate: string, endDate: string) {
         `/api/budget/analysis?startDate=${startDate}&endDate=${endDate}`
       );
     },
+  });
+}
+
+/**
+ * Hook to fetch count of uncategorized transactions.
+ * Pass a month (YYYY-MM) to scope to that month, or omit for all-time.
+ */
+export function useUncategorizedCount(month?: string) {
+  const url = month
+    ? `/api/budget/transactions/counts?month=${month}`
+    : '/api/budget/transactions/counts';
+  return useQuery({
+    queryKey: budgetKeys.uncategorizedCount(month),
+    queryFn: async (): Promise<{ uncategorized: number }> => {
+      return fetchApi<{ uncategorized: number }>(url);
+    },
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -708,6 +727,48 @@ export function useImportTransactions() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.all });
       queryClient.invalidateQueries({ queryKey: riseupCategoryKeys.all });
+    },
+  });
+}
+
+// Savings types and hooks
+export interface SavingsMonth {
+  month: string;
+  amount: number;
+}
+
+export interface SavingsYear {
+  year: number;
+  total: number;
+  months: SavingsMonth[];
+}
+
+export interface SavingsData {
+  categoryId: string;
+  years: SavingsYear[];
+}
+
+export function useSavings() {
+  return useQuery({
+    queryKey: budgetKeys.savings(),
+    queryFn: async (): Promise<SavingsData> => {
+      return fetchApi<SavingsData>('/api/budget/savings');
+    },
+  });
+}
+
+export function useAddSavingsEntry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { month: string; amount: number }) => {
+      return fetchApi<{ id: string; month: string; amount: number }>('/api/budget/savings', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
     },
   });
 }

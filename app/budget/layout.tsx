@@ -4,11 +4,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { navItems } from '@/lib/constants/navigation';
+import { useUncategorizedCount } from '@/lib/hooks/use-budget';
 
 const budgetNavItems = navItems.find((item) => item.href === '/budget')?.subItems ?? [];
 
 export default function BudgetLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { data: countData } = useUncategorizedCount();
+  const uncategorizedCount = countData?.uncategorized ?? 0;
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] flex-col">
@@ -22,6 +25,7 @@ export default function BudgetLayout({ children }: { children: React.ReactNode }
             const isActive =
               pathname === item.href ||
               (item.href === '/budget/dashboard' && pathname === '/budget');
+            const showBadge = item.href === '/budget/transactions' && uncategorizedCount > 0;
             return (
               <Link
                 key={item.href}
@@ -31,7 +35,12 @@ export default function BudgetLayout({ children }: { children: React.ReactNode }
                   isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                <item.icon className={cn('h-5 w-5', isActive && 'text-primary')} />
+                <span className="relative">
+                  <item.icon className={cn('h-5 w-5', isActive && 'text-primary')} />
+                  {showBadge && (
+                    <span className="bg-destructive absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full" />
+                  )}
+                </span>
                 <span className="font-medium">{item.label}</span>
               </Link>
             );
