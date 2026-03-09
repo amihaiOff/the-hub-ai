@@ -1,41 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
+import { Prisma } from '@prisma/client';
+
+/**
+ * Look up the "Savings" category for a household (read-only).
+ */
+async function findSavingsCategory(householdId: string) {
+  return prisma.budgetCategory.findFirst({
+    where: { householdId, name: 'Savings' },
+    select: { id: true },
+  });
+}
 
 /**
  * Find or auto-create the "Savings" category for a household.
  * Creates a "Savings" category group with a single "Savings" category (no budget).
+ * Handles race conditions via unique constraint catch + retry.
  */
 async function getOrCreateSavingsCategory(householdId: string) {
-  // Look up existing category by name
-  const existing = await prisma.budgetCategory.findFirst({
-    where: {
-      householdId,
-      name: 'Savings',
-    },
-    select: { id: true },
-  });
-
+  const existing = await findSavingsCategory(householdId);
   if (existing) return existing.id;
 
-  // Create group + category
-  const group = await prisma.budgetCategoryGroup.create({
-    data: {
-      name: 'Savings',
-      householdId,
-      sortOrder: 999,
-    },
-  });
+  try {
+    const group = await prisma.budgetCategoryGroup.create({
+      data: { name: 'Savings', householdId, sortOrder: 999 },
+    });
 
-  const category = await prisma.budgetCategory.create({
-    data: {
-      name: 'Savings',
-      groupId: group.id,
-      householdId,
-    },
-  });
+    const category = await prisma.budgetCategory.create({
+      data: { name: 'Savings', groupId: group.id, householdId },
+    });
 
-  return category.id;
+    return category.id;
+  } catch (error) {
+    // Handle race condition — another request created it first
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const retried = await findSavingsCategory(householdId);
+      if (retried) return retried.id;
+    }
+    throw error;
+  }
 }
 
 /**
@@ -50,7 +54,16 @@ export async function GET() {
     }
 
     const householdId = context.activeHousehold.id;
-    const categoryId = await getOrCreateSavingsCategory(householdId);
+
+    // Read-only lookup — don't create category on GET
+    const existing = await findSavingsCategory(householdId);
+    if (!existing) {
+      return NextResponse.json({
+        success: true,
+        data: { categoryId: null, years: [] },
+      });
+    }
+    const categoryId = existing.id;
 
     const transactions = await prisma.budgetTransaction.findMany({
       where: {
@@ -154,9 +167,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (amount == null || typeof amount !== 'number' || amount <= 0) {
+    if (amount == null || typeof amount !== 'number' || amount <= 0 || amount > 999999999) {
       return NextResponse.json(
-        { success: false, error: 'amount must be a positive number' },
+        { success: false, error: 'amount must be a positive number (max 999,999,999)' },
         { status: 400 }
       );
     }

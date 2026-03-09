@@ -138,31 +138,20 @@ describe('Budget Savings API', () => {
         expect(mockPrisma.budgetCategory.create).not.toHaveBeenCalled();
       });
 
-      it('should auto-create savings category and group when not exists', async () => {
+      it('should return empty result when no savings category exists (no auto-create on GET)', async () => {
         mockGetCurrentContext.mockResolvedValueOnce(mockContext);
-        mockSavingsCategoryCreated('cat-savings-new', 'group-savings-new');
-        (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+        (mockPrisma.budgetCategory.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
         const response = await GET();
         const data = await response.json();
 
         expect(response.status).toBe(200);
         expect(data.success).toBe(true);
-        expect(data.data.categoryId).toBe('cat-savings-new');
-        expect(mockPrisma.budgetCategoryGroup.create).toHaveBeenCalledWith({
-          data: {
-            name: 'Savings',
-            householdId: 'household-1',
-            sortOrder: 999,
-          },
-        });
-        expect(mockPrisma.budgetCategory.create).toHaveBeenCalledWith({
-          data: {
-            name: 'Savings',
-            groupId: 'group-savings-new',
-            householdId: 'household-1',
-          },
-        });
+        expect(data.data.categoryId).toBeNull();
+        expect(data.data.years).toEqual([]);
+        // Should NOT create anything
+        expect(mockPrisma.budgetCategoryGroup.create).not.toHaveBeenCalled();
+        expect(mockPrisma.budgetCategory.create).not.toHaveBeenCalled();
       });
     });
 
@@ -552,7 +541,7 @@ describe('Budget Savings API', () => {
         const data = await response.json();
 
         expect(response.status).toBe(400);
-        expect(data.error).toBe('amount must be a positive number');
+        expect(data.error).toBe('amount must be a positive number (max 999,999,999)');
       });
 
       it('should reject zero amount', async () => {
@@ -563,7 +552,7 @@ describe('Budget Savings API', () => {
         const data = await response.json();
 
         expect(response.status).toBe(400);
-        expect(data.error).toBe('amount must be a positive number');
+        expect(data.error).toBe('amount must be a positive number (max 999,999,999)');
       });
 
       it('should reject negative amount', async () => {
@@ -574,7 +563,7 @@ describe('Budget Savings API', () => {
         const data = await response.json();
 
         expect(response.status).toBe(400);
-        expect(data.error).toBe('amount must be a positive number');
+        expect(data.error).toBe('amount must be a positive number (max 999,999,999)');
       });
 
       it('should reject non-number amount', async () => {
@@ -585,7 +574,7 @@ describe('Budget Savings API', () => {
         const data = await response.json();
 
         expect(response.status).toBe(400);
-        expect(data.error).toBe('amount must be a positive number');
+        expect(data.error).toBe('amount must be a positive number (max 999,999,999)');
       });
 
       it('should accept positive decimal amount', async () => {

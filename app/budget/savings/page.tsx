@@ -14,7 +14,7 @@ import {
 import { Plus, Loader2, AlertCircle, PiggyBank } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useSavings, useAddSavingsEntry } from '@/lib/hooks/use-budget';
-import { formatCurrencyILS, getCurrentMonth } from '@/lib/utils/budget';
+import { formatCurrencyILS, formatMonth, getCurrentMonth } from '@/lib/utils/budget';
 
 export default function SavingsPage() {
   const { data, isLoading, error } = useSavings();
@@ -25,7 +25,7 @@ export default function SavingsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const numAmount = parseFloat(amount);
+    const numAmount = Math.round(parseFloat(amount) * 100) / 100;
     if (!month || isNaN(numAmount) || numAmount <= 0) return;
 
     try {
@@ -33,16 +33,8 @@ export default function SavingsPage() {
       setOpen(false);
       setAmount('');
     } catch {
-      // Error handled by mutation
+      // Error shown inline via addEntry.isError
     }
-  };
-
-  const monthLabel = (monthKey: string) => {
-    const [year, m] = monthKey.split('-').map(Number);
-    return new Date(year, m - 1).toLocaleDateString('en-US', {
-      month: 'long',
-      year: 'numeric',
-    });
   };
 
   return (
@@ -88,6 +80,11 @@ export default function SavingsPage() {
                   required
                 />
               </div>
+              {addEntry.isError && (
+                <p className="text-destructive text-sm">
+                  {addEntry.error instanceof Error ? addEntry.error.message : 'Failed to add entry'}
+                </p>
+              )}
               <Button type="submit" className="w-full" disabled={addEntry.isPending}>
                 {addEntry.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Add Entry
@@ -152,7 +149,7 @@ export default function SavingsPage() {
                     className="border-border/10 flex items-center justify-between border-b px-4 py-2.5 last:border-b-0 lg:px-6"
                   >
                     <span className="text-muted-foreground text-sm">
-                      {monthLabel(monthData.month)}
+                      {formatMonth(monthData.month)}
                     </span>
                     <span className="text-sm tabular-nums">
                       {monthData.amount === 0 ? (
