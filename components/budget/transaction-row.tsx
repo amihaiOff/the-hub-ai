@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -198,6 +199,39 @@ function TransactionActions({
   );
 }
 
+function TagDot({ tag }: { tag: BudgetTag }) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    document.addEventListener('scroll', close, { capture: true, passive: true });
+    document.addEventListener('pointerdown', close);
+    return () => {
+      document.removeEventListener('scroll', close, { capture: true });
+      document.removeEventListener('pointerdown', close);
+    };
+  }, [open]);
+
+  return (
+    <Tooltip open={open} onOpenChange={setOpen}>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="-m-1.5 inline-flex h-2.5 w-2.5 shrink-0 items-center justify-center rounded-full p-1.5"
+          style={{ backgroundColor: tag.color }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen((prev) => !prev);
+          }}
+          aria-label={tag.name}
+        />
+      </TooltipTrigger>
+      <TooltipContent>{tag.name}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 // --- Desktop row ---
 
 export function TransactionRow({
@@ -319,6 +353,7 @@ export function TransactionRowMobile({
   transaction,
   categoryGroups,
   payees,
+  tags,
   isSelected,
   onSelect,
   onEdit,
@@ -326,6 +361,7 @@ export function TransactionRowMobile({
   onSplit,
 }: TransactionRowProps) {
   const payeeName = getPayeeName(transaction.payeeId, payees);
+  const transactionTags = tags.filter((t) => transaction.tagIds.includes(t.id));
   const isIncome = transaction.type === 'income';
   const { updateTransaction, promptState, setPromptState, handleCategoryChange } =
     useCategoryChange(transaction, categoryGroups, payees);
@@ -344,7 +380,12 @@ export function TransactionRowMobile({
 
         {/* Left: Payee + Notes */}
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">{payeeName}</div>
+          <div className="flex items-center gap-2.5">
+            <span className="truncate text-sm font-medium">{payeeName}</span>
+            {transactionTags.map((tag) => (
+              <TagDot key={tag.id} tag={tag} />
+            ))}
+          </div>
           {transaction.notes && (
             <div className="text-muted-foreground truncate text-xs">{transaction.notes}</div>
           )}
