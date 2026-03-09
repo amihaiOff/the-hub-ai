@@ -281,6 +281,7 @@ export async function POST(request: NextRequest) {
           currentValue: pa.currentValue as number,
           feeFromDeposit: pa.feeFromDeposit as number,
           feeFromTotal: pa.feeFromTotal as number,
+          accountNumber: (pa.accountNumber as string | null) ?? null,
           userId: pa.userId as string | null,
           createdAt: new Date(pa.createdAt as string),
           updatedAt: new Date(pa.updatedAt as string),

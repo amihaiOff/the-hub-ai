@@ -19,7 +19,10 @@ export default function BudgetLayout({ children }: { children: React.ReactNode }
       <main className="flex-1 p-4 pb-20 lg:p-6 lg:pb-6">{children}</main>
 
       {/* Mobile Bottom Tab Bar - only show on mobile since desktop has sidebar */}
-      <nav className="border-border/20 bg-background/95 fixed right-0 bottom-0 left-0 z-50 border-t backdrop-blur-lg lg:hidden">
+      <nav
+        aria-label="Budget navigation"
+        className="border-border/20 bg-background/95 fixed right-0 bottom-0 left-0 z-50 border-t backdrop-blur-lg lg:hidden"
+      >
         <div className="flex h-16 items-center justify-around">
           {budgetNavItems.map((item) => {
             const isActive =
@@ -30,6 +33,7 @@ export default function BudgetLayout({ children }: { children: React.ReactNode }
               <Link
                 key={item.href}
                 href={item.href}
+                aria-label={item.label}
                 className={cn(
                   'flex items-center justify-center px-3 py-2 transition-colors',
                   isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
