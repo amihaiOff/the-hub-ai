@@ -31,7 +31,7 @@ export default function BudgetLayout({ children }: { children: React.ReactNode }
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex flex-col items-center justify-center gap-1 px-3 py-2 text-xs transition-colors',
+                  'flex items-center justify-center px-3 py-2 transition-colors',
                   isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
                 )}
               >
@@ -41,7 +41,6 @@ export default function BudgetLayout({ children }: { children: React.ReactNode }
                     <span className="bg-destructive absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full" />
                   )}
                 </span>
-                <span className="font-medium">{item.label}</span>
               </Link>
             );
           })}

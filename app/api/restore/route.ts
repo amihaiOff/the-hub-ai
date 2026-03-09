@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
       'stock_account_owners.json'
     );
     const stockHoldings = await parseFile<Record<string, unknown>>('stock_holdings.json');
+    const stockAccountCash = await parseFile<Record<string, unknown>>('stock_account_cash.json');
     const stockPriceHistory = await parseFile<Record<string, unknown>>('stock_price_history.json');
     const pensionAccounts = await parseFile<Record<string, unknown>>('pension_accounts.json');
     const pensionAccountOwners = await parseFile<Record<string, unknown>>(
@@ -91,6 +92,7 @@ export async function POST(request: NextRequest) {
     const pensionDeposits = await parseFile<Record<string, unknown>>('pension_deposits.json');
     const miscAssets = await parseFile<Record<string, unknown>>('misc_assets.json');
     const miscAssetOwners = await parseFile<Record<string, unknown>>('misc_asset_owners.json');
+    const mortgageTracks = await parseFile<Record<string, unknown>>('mortgage_tracks.json');
     const netWorthSnapshots = await parseFile<Record<string, unknown>>('net_worth_snapshots.json');
 
     // Budget tables (present in schema version 1.1+, empty for 1.0 backups)
@@ -123,12 +125,14 @@ export async function POST(request: NextRequest) {
     // Original tables
     await prisma.netWorthSnapshot.deleteMany();
     await prisma.stockPriceHistory.deleteMany();
+    await prisma.stockAccountCash.deleteMany();
     await prisma.stockHolding.deleteMany();
     await prisma.stockAccountOwner.deleteMany();
     await prisma.stockAccount.deleteMany();
     await prisma.pensionDeposit.deleteMany();
     await prisma.pensionAccountOwner.deleteMany();
     await prisma.pensionAccount.deleteMany();
+    await prisma.mortgageTrack.deleteMany();
     await prisma.miscAssetOwner.deleteMany();
     await prisma.miscAsset.deleteMany();
     await prisma.householdMember.deleteMany();
@@ -229,6 +233,8 @@ export async function POST(request: NextRequest) {
         data: {
           id: sh.id as string,
           symbol: sh.symbol as string,
+          name: (sh.name as string | null) ?? null,
+          taseSymbol: (sh.taseSymbol as string | null) ?? null,
           quantity: sh.quantity as number,
           avgCostBasis: sh.avgCostBasis as number,
           accountId: sh.accountId as string,
@@ -238,7 +244,21 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 8. Stock Price History
+    // 8. Stock Account Cash
+    for (const sac of stockAccountCash) {
+      await prisma.stockAccountCash.create({
+        data: {
+          id: sac.id as string,
+          accountId: sac.accountId as string,
+          currency: sac.currency as string,
+          amount: sac.amount as string,
+          createdAt: new Date(sac.createdAt as string),
+          updatedAt: new Date(sac.updatedAt as string),
+        },
+      });
+    }
+
+    // 9. Stock Price History
     for (const sph of stockPriceHistory) {
       await prisma.stockPriceHistory.create({
         data: {
@@ -324,7 +344,25 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 14. Net Worth Snapshots
+    // 14. Mortgage Tracks
+    for (const mt of mortgageTracks) {
+      await prisma.mortgageTrack.create({
+        data: {
+          id: mt.id as string,
+          mortgageId: mt.mortgageId as string,
+          name: mt.name as string,
+          amount: mt.amount as string,
+          interestRate: mt.interestRate as string,
+          monthlyPayment: mt.monthlyPayment != null ? (mt.monthlyPayment as string) : null,
+          maturityDate: mt.maturityDate ? new Date(mt.maturityDate as string) : null,
+          sortOrder: mt.sortOrder as number,
+          createdAt: new Date(mt.createdAt as string),
+          updatedAt: new Date(mt.updatedAt as string),
+        },
+      });
+    }
+
+    // 15. Net Worth Snapshots
     for (const nws of netWorthSnapshots) {
       await prisma.netWorthSnapshot.create({
         data: {

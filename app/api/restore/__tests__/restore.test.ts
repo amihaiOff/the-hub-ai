@@ -36,12 +36,14 @@ const mockPrisma = {
   stockAccount: createMockFns('stockAccount'),
   stockAccountOwner: createMockFns('stockAccountOwner'),
   stockHolding: createMockFns('stockHolding'),
+  stockAccountCash: createMockFns('stockAccountCash'),
   stockPriceHistory: createMockFns('stockPriceHistory'),
   pensionAccount: createMockFns('pensionAccount'),
   pensionAccountOwner: createMockFns('pensionAccountOwner'),
   pensionDeposit: createMockFns('pensionDeposit'),
   miscAsset: createMockFns('miscAsset'),
   miscAssetOwner: createMockFns('miscAssetOwner'),
+  mortgageTrack: createMockFns('mortgageTrack'),
   netWorthSnapshot: createMockFns('netWorthSnapshot'),
   budgetCategoryGroup: createMockFns('budgetCategoryGroup'),
   budgetCategory: createMockFns('budgetCategory'),
@@ -86,12 +88,14 @@ async function createBackupZip(
     stock_accounts: [],
     stock_account_owners: [],
     stock_holdings: [],
+    stock_account_cash: [],
     stock_price_history: [],
     pension_accounts: [],
     pension_account_owners: [],
     pension_deposits: [],
     misc_assets: [],
     misc_asset_owners: [],
+    mortgage_tracks: [],
     net_worth_snapshots: [],
     budget_category_groups: [],
     budget_categories: [],
@@ -542,13 +546,18 @@ describe('Restore API', () => {
       // Verify children are deleted before parents
       const netWorthIndex = deleteOps.indexOf('delete:netWorthSnapshot');
       const stockHoldingIndex = deleteOps.indexOf('delete:stockHolding');
+      const stockAccountCashIndex = deleteOps.indexOf('delete:stockAccountCash');
       const stockAccountOwnerIndex = deleteOps.indexOf('delete:stockAccountOwner');
       const stockAccountIndex = deleteOps.indexOf('delete:stockAccount');
+      const mortgageTrackIndex = deleteOps.indexOf('delete:mortgageTrack');
+      const miscAssetIndex = deleteOps.indexOf('delete:miscAsset');
       const userIndex = deleteOps.indexOf('delete:user');
 
       expect(netWorthIndex).toBeLessThan(userIndex);
       expect(stockHoldingIndex).toBeLessThan(stockAccountIndex);
+      expect(stockAccountCashIndex).toBeLessThan(stockAccountIndex);
       expect(stockAccountOwnerIndex).toBeLessThan(stockAccountIndex);
+      expect(mortgageTrackIndex).toBeLessThan(miscAssetIndex);
 
       // Budget tables: children deleted before parents
       const budgetTransactionTagIndex = deleteOps.indexOf('delete:budgetTransactionTag');
@@ -754,6 +763,12 @@ describe('Restore API', () => {
       expect(householdIndex).toBeLessThan(householdMemberIndex);
       expect(stockAccountIndex).toBeLessThan(stockAccountOwnerIndex);
       expect(stockAccountIndex).toBeLessThan(stockHoldingIndex);
+
+      // Stock account cash after stock account
+      const stockAccountCashIndex = createOps.indexOf('create:stockAccountCash');
+      if (stockAccountCashIndex >= 0) {
+        expect(stockAccountIndex).toBeLessThan(stockAccountCashIndex);
+      }
 
       // Budget: parents inserted before children
       const budgetCategoryGroupIndex = createOps.indexOf('create:budgetCategoryGroup');

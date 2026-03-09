@@ -23,12 +23,14 @@ jest.mock('@/lib/db', () => ({
     stockAccount: { findMany: jest.fn() },
     stockAccountOwner: { findMany: jest.fn() },
     stockHolding: { findMany: jest.fn() },
+    stockAccountCash: { findMany: jest.fn() },
     stockPriceHistory: { findMany: jest.fn() },
     pensionAccount: { findMany: jest.fn() },
     pensionAccountOwner: { findMany: jest.fn() },
     pensionDeposit: { findMany: jest.fn() },
     miscAsset: { findMany: jest.fn() },
     miscAssetOwner: { findMany: jest.fn() },
+    mortgageTrack: { findMany: jest.fn() },
     netWorthSnapshot: { findMany: jest.fn() },
     budgetCategoryGroup: { findMany: jest.fn() },
     budgetCategory: { findMany: jest.fn() },
@@ -300,6 +302,7 @@ describe('Backup API', () => {
         mockStockAccountOwners
       );
       (mockPrisma.stockHolding.findMany as jest.Mock).mockResolvedValueOnce(mockStockHoldings);
+      (mockPrisma.stockAccountCash.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.stockPriceHistory.findMany as jest.Mock).mockResolvedValueOnce(
         mockStockPriceHistory
       );
@@ -310,6 +313,7 @@ describe('Backup API', () => {
       (mockPrisma.pensionDeposit.findMany as jest.Mock).mockResolvedValueOnce(mockPensionDeposits);
       (mockPrisma.miscAsset.findMany as jest.Mock).mockResolvedValueOnce(mockMiscAssets);
       (mockPrisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce(mockMiscAssetOwners);
+      (mockPrisma.mortgageTrack.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.netWorthSnapshot.findMany as jest.Mock).mockResolvedValueOnce(
         mockNetWorthSnapshots
       );
@@ -350,12 +354,14 @@ describe('Backup API', () => {
       expect(zip.file('stock_accounts.json')).not.toBeNull();
       expect(zip.file('stock_account_owners.json')).not.toBeNull();
       expect(zip.file('stock_holdings.json')).not.toBeNull();
+      expect(zip.file('stock_account_cash.json')).not.toBeNull();
       expect(zip.file('stock_price_history.json')).not.toBeNull();
       expect(zip.file('pension_accounts.json')).not.toBeNull();
       expect(zip.file('pension_account_owners.json')).not.toBeNull();
       expect(zip.file('pension_deposits.json')).not.toBeNull();
       expect(zip.file('misc_assets.json')).not.toBeNull();
       expect(zip.file('misc_asset_owners.json')).not.toBeNull();
+      expect(zip.file('mortgage_tracks.json')).not.toBeNull();
       expect(zip.file('net_worth_snapshots.json')).not.toBeNull();
       expect(zip.file('budget_category_groups.json')).not.toBeNull();
       expect(zip.file('budget_categories.json')).not.toBeNull();
@@ -378,12 +384,14 @@ describe('Backup API', () => {
         stockAccounts: 1,
         stockAccountOwners: 1,
         stockHoldings: 1,
+        stockAccountCash: 0,
         stockPriceHistory: 1,
         pensionAccounts: 1,
         pensionAccountOwners: 1,
         pensionDeposits: 1,
         miscAssets: 1,
         miscAssetOwners: 1,
+        mortgageTracks: 0,
         netWorthSnapshots: 1,
         budgetCategoryGroups: 1,
         budgetCategories: 1,
@@ -419,12 +427,14 @@ describe('Backup API', () => {
       (mockPrisma.stockAccount.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.stockHolding.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.stockAccountCash.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.stockPriceHistory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.pensionAccount.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.pensionAccountOwner.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.pensionDeposit.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.miscAsset.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.mortgageTrack.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.netWorthSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.budgetCategoryGroup.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.budgetCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
@@ -487,12 +497,14 @@ describe('Backup API', () => {
           updatedAt: new Date(),
         },
       ]);
+      (mockPrisma.stockAccountCash.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.stockPriceHistory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.pensionAccount.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.pensionAccountOwner.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.pensionDeposit.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.miscAsset.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.miscAssetOwner.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.mortgageTrack.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.netWorthSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.budgetCategoryGroup.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.budgetCategory.findMany as jest.Mock).mockResolvedValueOnce([]);

@@ -27,12 +27,14 @@ export async function GET() {
       stockAccounts,
       stockAccountOwners,
       stockHoldings,
+      stockAccountCash,
       stockPriceHistory,
       pensionAccounts,
       pensionAccountOwners,
       pensionDeposits,
       miscAssets,
       miscAssetOwners,
+      mortgageTracks,
       netWorthSnapshots,
       budgetCategoryGroups,
       budgetCategories,
@@ -49,12 +51,14 @@ export async function GET() {
       prisma.stockAccount.findMany(),
       prisma.stockAccountOwner.findMany(),
       prisma.stockHolding.findMany(),
+      prisma.stockAccountCash.findMany(),
       prisma.stockPriceHistory.findMany(),
       prisma.pensionAccount.findMany(),
       prisma.pensionAccountOwner.findMany(),
       prisma.pensionDeposit.findMany(),
       prisma.miscAsset.findMany(),
       prisma.miscAssetOwner.findMany(),
+      prisma.mortgageTrack.findMany(),
       prisma.netWorthSnapshot.findMany(),
       prisma.budgetCategoryGroup.findMany(),
       prisma.budgetCategory.findMany(),
@@ -78,12 +82,14 @@ export async function GET() {
         stockAccounts: stockAccounts.length,
         stockAccountOwners: stockAccountOwners.length,
         stockHoldings: stockHoldings.length,
+        stockAccountCash: stockAccountCash.length,
         stockPriceHistory: stockPriceHistory.length,
         pensionAccounts: pensionAccounts.length,
         pensionAccountOwners: pensionAccountOwners.length,
         pensionDeposits: pensionDeposits.length,
         miscAssets: miscAssets.length,
         miscAssetOwners: miscAssetOwners.length,
+        mortgageTracks: mortgageTracks.length,
         netWorthSnapshots: netWorthSnapshots.length,
         budgetCategoryGroups: budgetCategoryGroups.length,
         budgetCategories: budgetCategories.length,
@@ -110,6 +116,7 @@ export async function GET() {
     zip.file('stock_accounts.json', JSON.stringify(stockAccounts, jsonSerializer, 2));
     zip.file('stock_account_owners.json', JSON.stringify(stockAccountOwners, jsonSerializer, 2));
     zip.file('stock_holdings.json', JSON.stringify(stockHoldings, jsonSerializer, 2));
+    zip.file('stock_account_cash.json', JSON.stringify(stockAccountCash, jsonSerializer, 2));
     zip.file('stock_price_history.json', JSON.stringify(stockPriceHistory, jsonSerializer, 2));
     zip.file('pension_accounts.json', JSON.stringify(pensionAccounts, jsonSerializer, 2));
     zip.file(
@@ -119,6 +126,7 @@ export async function GET() {
     zip.file('pension_deposits.json', JSON.stringify(pensionDeposits, jsonSerializer, 2));
     zip.file('misc_assets.json', JSON.stringify(miscAssets, jsonSerializer, 2));
     zip.file('misc_asset_owners.json', JSON.stringify(miscAssetOwners, jsonSerializer, 2));
+    zip.file('mortgage_tracks.json', JSON.stringify(mortgageTracks, jsonSerializer, 2));
     zip.file('net_worth_snapshots.json', JSON.stringify(netWorthSnapshots, jsonSerializer, 2));
     zip.file(
       'budget_category_groups.json',
