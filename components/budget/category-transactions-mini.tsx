@@ -1,5 +1,8 @@
 'use client';
 
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   type BudgetTransaction,
   type BudgetPayee,
@@ -8,12 +11,16 @@ import {
   getPayeeName,
 } from '@/lib/utils/budget';
 
+const PAGE_SIZE = 10;
+
 interface CategoryTransactionsMiniProps {
   transactions: BudgetTransaction[];
   payees: BudgetPayee[];
 }
 
 export function CategoryTransactionsMini({ transactions, payees }: CategoryTransactionsMiniProps) {
+  const [page, setPage] = useState(0);
+
   if (transactions.length === 0) {
     return (
       <div className="text-muted-foreground py-4 text-center text-sm">
@@ -22,10 +29,12 @@ export function CategoryTransactionsMini({ transactions, payees }: CategoryTrans
     );
   }
 
-  // Sort by date descending and limit to 5
-  const sortedTransactions = [...transactions]
-    .sort((a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime())
-    .slice(0, 5);
+  const sortedTransactions = [...transactions].sort(
+    (a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime()
+  );
+
+  const totalPages = Math.ceil(sortedTransactions.length / PAGE_SIZE);
+  const pageTransactions = sortedTransactions.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
     <div className="overflow-x-auto">
@@ -50,7 +59,7 @@ export function CategoryTransactionsMini({ transactions, payees }: CategoryTrans
           </tr>
         </thead>
         <tbody>
-          {sortedTransactions.map((tx) => (
+          {pageTransactions.map((tx) => (
             <tr key={tx.id} className="hover:bg-muted/30">
               <td className="text-muted-foreground py-1 pr-4 tabular-nums">
                 {formatDate(tx.transactionDate)}
@@ -80,10 +89,29 @@ export function CategoryTransactionsMini({ transactions, payees }: CategoryTrans
         </tbody>
       </table>
 
-      {/* Show more indicator */}
-      {transactions.length > 5 && (
-        <div className="text-muted-foreground mt-2 text-center text-xs">
-          +{transactions.length - 5} more transactions
+      {totalPages > 1 && (
+        <div className="mt-2 flex items-center justify-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setPage((p) => p - 1)}
+            disabled={page === 0}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-muted-foreground text-xs tabular-nums">
+            {page + 1} / {totalPages}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setPage((p) => p + 1)}
+            disabled={page === totalPages - 1}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
       )}
     </div>

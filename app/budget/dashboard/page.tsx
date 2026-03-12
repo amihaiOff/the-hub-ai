@@ -93,9 +93,11 @@ function CategoryTableRow({
   onToggleExpand,
   selectedMonth,
 }: CategoryRowProps) {
+  const isSavings = category.groupName === 'Savings';
   const status = getBudgetStatus(category.budgeted, category.spent);
-  const availableColor =
-    status === 'overspent'
+  const availableColor = isSavings
+    ? 'text-green-500'
+    : status === 'overspent'
       ? 'text-red-500'
       : status === 'funded'
         ? 'text-green-500'
@@ -103,8 +105,8 @@ function CategoryTableRow({
           ? 'text-yellow-500'
           : 'text-muted-foreground';
 
-  const spentPercent =
-    category.budgeted > 0 ? Math.round((category.spent / category.budgeted) * 100) : 0;
+  const displayAvailable = isSavings ? category.spent : category.available;
+  const spent = category.budgeted - category.available;
 
   return (
     <>
@@ -155,13 +157,14 @@ function CategoryTableRow({
         {/* Available */}
         <td className="w-20 py-2.5 pr-3 pl-2 text-right sm:w-24">
           <span className={cn('text-sm font-medium tabular-nums', availableColor)}>
-            {formatCurrencyILS(category.available)}
+            {formatCurrencyILS(displayAvailable)}
           </span>
-          {/* Mobile: spent/budget with percentage */}
-          <div className="text-muted-foreground text-[10px] tabular-nums lg:hidden">
-            {formatCurrencyILS(category.spent)}/{formatCurrencyILS(category.budgeted)}
-            {category.budgeted > 0 && <span className="ml-0.5">({spentPercent}%)</span>}
-          </div>
+          {/* Mobile: spent amount (no currency, no percentage) */}
+          {!isSavings && spent > 0 && (
+            <div className="text-muted-foreground text-[10px] tabular-nums lg:hidden">
+              {spent.toLocaleString('he-IL')} used
+            </div>
+          )}
         </td>
       </tr>
       {/* Expanded Transactions */}
@@ -204,9 +207,11 @@ function SortableGroupRow({
     transition,
   };
 
+  const isGroupSavings = group.name === 'Savings';
   const groupStatus = getBudgetStatus(group.totalBudgeted, group.totalSpent);
-  const groupAvailableColor =
-    groupStatus === 'overspent'
+  const groupAvailableColor = isGroupSavings
+    ? 'text-green-500'
+    : groupStatus === 'overspent'
       ? 'text-red-500'
       : groupStatus === 'funded'
         ? 'text-green-500'
@@ -214,8 +219,8 @@ function SortableGroupRow({
           ? 'text-yellow-500'
           : 'text-muted-foreground';
 
-  const groupSpentPercent =
-    group.totalBudgeted > 0 ? Math.round((group.totalSpent / group.totalBudgeted) * 100) : 0;
+  const groupDisplayAvailable = isGroupSavings ? group.totalSpent : group.totalAvailable;
+  const groupSpent = group.totalBudgeted - group.totalAvailable;
 
   return (
     <Fragment>
@@ -279,12 +284,13 @@ function SortableGroupRow({
         </td>
         <td className="py-3 pr-3 pl-2 text-right" onClick={onToggleExpand}>
           <span className={cn('font-semibold tabular-nums', groupAvailableColor)}>
-            {formatCurrencyILS(group.totalAvailable)}
+            {formatCurrencyILS(groupDisplayAvailable)}
           </span>
-          <div className="text-muted-foreground text-[10px] tabular-nums lg:hidden">
-            {formatCurrencyILS(group.totalSpent)}/{formatCurrencyILS(group.totalBudgeted)}
-            {group.totalBudgeted > 0 && <span className="ml-0.5">({groupSpentPercent}%)</span>}
-          </div>
+          {!isGroupSavings && groupSpent > 0 && (
+            <div className="text-muted-foreground text-[10px] tabular-nums lg:hidden">
+              {groupSpent.toLocaleString('he-IL')} used
+            </div>
+          )}
         </td>
       </tr>
 
@@ -355,11 +361,8 @@ export default function BudgetDashboardPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Monthly Budget</h1>
-          <p className="text-muted-foreground text-sm">Track your spending against your budget</p>
-        </div>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Monthly Budget</h1>
         <MonthSelector selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
       </div>
 

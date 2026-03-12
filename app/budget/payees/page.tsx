@@ -29,12 +29,7 @@ export default function PayeesPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">Payees</h1>
-          <p className="text-muted-foreground text-sm">Manage payees and set default categories</p>
-        </div>
-      </div>
+      <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Payees</h1>
 
       {/* Error State */}
       {error && (

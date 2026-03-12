@@ -46,10 +46,7 @@ export default function TransactionsPage() {
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">Transactions</h1>
-          <p className="text-muted-foreground text-sm">View and manage all your transactions</p>
-        </div>
+        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Transactions</h1>
         <MonthSelector selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
       </div>
 

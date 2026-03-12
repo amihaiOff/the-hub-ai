@@ -3,7 +3,7 @@
  * Tests table format rendering, transaction display, and sorting
  */
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import type { BudgetTransaction, BudgetPayee } from '@/lib/utils/budget';
 
 // Mock the budget utilities
@@ -222,9 +222,9 @@ describe('CategoryTransactionsMini', () => {
     });
   });
 
-  describe('Transaction limiting', () => {
-    it('should limit to 5 transactions', () => {
-      const transactions = Array.from({ length: 10 }, (_, i) =>
+  describe('Pagination', () => {
+    it('should show 10 transactions per page', () => {
+      const transactions = Array.from({ length: 15 }, (_, i) =>
         createMockTransaction({
           id: `tx-${i}`,
           transactionDate: `2024-06-${String(i + 1).padStart(2, '0')}`,
@@ -233,11 +233,11 @@ describe('CategoryTransactionsMini', () => {
       render(<CategoryTransactionsMini transactions={transactions} payees={mockPayees} />);
 
       const rows = screen.getAllByRole('row').slice(1); // Skip header
-      expect(rows).toHaveLength(5);
+      expect(rows).toHaveLength(10);
     });
 
-    it('should show "more transactions" indicator when more than 5', () => {
-      const transactions = Array.from({ length: 8 }, (_, i) =>
+    it('should show pagination controls when more than 10 transactions', () => {
+      const transactions = Array.from({ length: 15 }, (_, i) =>
         createMockTransaction({
           id: `tx-${i}`,
           transactionDate: `2024-06-${String(i + 1).padStart(2, '0')}`,
@@ -245,11 +245,11 @@ describe('CategoryTransactionsMini', () => {
       );
       render(<CategoryTransactionsMini transactions={transactions} payees={mockPayees} />);
 
-      expect(screen.getByText('+3 more transactions')).toBeInTheDocument();
+      expect(screen.getByText('1 / 2')).toBeInTheDocument();
     });
 
-    it('should not show "more" indicator when exactly 5 transactions', () => {
-      const transactions = Array.from({ length: 5 }, (_, i) =>
+    it('should not show pagination when 10 or fewer transactions', () => {
+      const transactions = Array.from({ length: 10 }, (_, i) =>
         createMockTransaction({
           id: `tx-${i}`,
           transactionDate: `2024-06-${String(i + 1).padStart(2, '0')}`,
@@ -257,11 +257,11 @@ describe('CategoryTransactionsMini', () => {
       );
       render(<CategoryTransactionsMini transactions={transactions} payees={mockPayees} />);
 
-      expect(screen.queryByText(/more transactions/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/\d+ \/ \d+/)).not.toBeInTheDocument();
     });
 
-    it('should not show "more" indicator when fewer than 5 transactions', () => {
-      const transactions = Array.from({ length: 3 }, (_, i) =>
+    it('should navigate to next page', () => {
+      const transactions = Array.from({ length: 15 }, (_, i) =>
         createMockTransaction({
           id: `tx-${i}`,
           transactionDate: `2024-06-${String(i + 1).padStart(2, '0')}`,
@@ -269,7 +269,14 @@ describe('CategoryTransactionsMini', () => {
       );
       render(<CategoryTransactionsMini transactions={transactions} payees={mockPayees} />);
 
-      expect(screen.queryByText(/more transactions/)).not.toBeInTheDocument();
+      expect(screen.getAllByRole('row').slice(1)).toHaveLength(10);
+
+      // Click the next page button (last button in pagination)
+      const buttons = screen.getAllByRole('button');
+      fireEvent.click(buttons[buttons.length - 1]);
+
+      expect(screen.getAllByRole('row').slice(1)).toHaveLength(5);
+      expect(screen.getByText('2 / 2')).toBeInTheDocument();
     });
   });
 

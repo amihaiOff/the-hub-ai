@@ -136,12 +136,7 @@ export default function CategoriesPage() {
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">Categories</h1>
-          <p className="text-muted-foreground text-sm">
-            Organize your spending into categories and groups
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Categories</h1>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setShowAddGroup(true)}>
             <Plus className="mr-1.5 h-4 w-4" />

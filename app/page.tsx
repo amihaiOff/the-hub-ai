@@ -34,10 +34,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Dashboard</h1>
-          <p className="text-muted-foreground">Your financial overview at a glance</p>
-        </div>
+        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Dashboard</h1>
         <CurrencySelector
           currency={displayCurrency}
           onCurrencyChange={setDisplayCurrency}

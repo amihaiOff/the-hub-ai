@@ -22,10 +22,7 @@ function PortfolioContent() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Stock Portfolio</h1>
-        <p className="text-muted-foreground">Manage your stock holdings and brokerage accounts</p>
-      </div>
+      <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Stock Portfolio</h1>
 
       {/* Error State */}
       {error && (

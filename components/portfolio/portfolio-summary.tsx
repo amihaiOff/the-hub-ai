@@ -1,10 +1,9 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, TrendingDown, DollarSign, PieChart } from 'lucide-react';
 import { formatPercent } from '@/lib/utils/portfolio';
 import { useCurrency } from '@/lib/contexts/currency-context';
 import { convertToILS, formatCurrency } from '@/lib/hooks/use-exchange-rates';
+import { cn } from '@/lib/utils';
 
 interface PortfolioSummaryProps {
   totalValue: number;
@@ -26,98 +25,86 @@ export function PortfolioSummary({
   const { formatValue, rates } = useCurrency();
   const isPositive = totalGainLoss >= 0;
 
-  // Get ILS values if rates are available (uses shared utility)
   const ilsValue = rates ? convertToILS(totalValue, baseCurrency, rates) : null;
   const ilsGainLoss = rates ? convertToILS(totalGainLoss, baseCurrency, rates) : null;
 
   return (
-    <div className="grid grid-cols-3 gap-2 sm:gap-4">
-      <Card className="p-2 sm:p-0">
-        <CardHeader className="hidden flex-row items-center justify-between space-y-0 pb-2 sm:flex">
-          <CardTitle className="text-sm font-medium">Total Value</CardTitle>
-          <DollarSign className="text-muted-foreground h-4 w-4" />
-        </CardHeader>
-        <CardContent className="p-0 text-center sm:p-6 sm:pt-0">
-          {isLoading ? (
-            <div className="bg-muted mx-auto h-6 w-16 animate-pulse rounded sm:h-8 sm:w-32" />
-          ) : (
-            <>
-              <p className="text-muted-foreground mb-0.5 text-[10px] sm:hidden">Total Value</p>
-              <div className="text-sm font-bold tabular-nums sm:text-2xl">
-                {formatValue(totalValue, baseCurrency)}
-              </div>
-              {ilsValue !== null && baseCurrency !== 'ILS' && (
-                <p className="text-muted-foreground text-[10px] tabular-nums sm:text-xs">
-                  {formatCurrency(ilsValue, 'ILS')}
-                </p>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="p-2 sm:p-0">
-        <CardHeader className="hidden flex-row items-center justify-between space-y-0 pb-2 sm:flex">
-          <CardTitle className="text-sm font-medium">Total Gain/Loss</CardTitle>
-          {isPositive ? (
-            <TrendingUp className="h-4 w-4 text-green-500" />
-          ) : (
-            <TrendingDown className="h-4 w-4 text-red-500" />
-          )}
-        </CardHeader>
-        <CardContent className="p-0 text-center sm:p-6 sm:pt-0">
-          {isLoading ? (
-            <div className="bg-muted mx-auto h-6 w-16 animate-pulse rounded sm:h-8 sm:w-32" />
-          ) : (
-            <>
-              <p className="text-muted-foreground mb-0.5 text-[10px] sm:hidden">Gain/Loss</p>
-              <div
-                className={`text-sm font-bold tabular-nums sm:text-2xl ${
-                  isPositive ? 'text-green-500' : 'text-red-500'
-                }`}
-              >
-                {isPositive ? '+' : ''}
-                {formatValue(totalGainLoss, baseCurrency)}
-              </div>
-              <div className="flex flex-col items-center sm:flex-row sm:justify-center sm:gap-2">
-                {ilsGainLoss !== null && baseCurrency !== 'ILS' && (
-                  <span
-                    className={`text-[10px] tabular-nums sm:text-xs ${isPositive ? 'text-green-500/70' : 'text-red-500/70'}`}
-                  >
-                    {isPositive ? '+' : ''}
-                    {formatCurrency(ilsGainLoss, 'ILS')}
-                  </span>
-                )}
-                <span
-                  className={`text-[10px] sm:text-xs ${isPositive ? 'text-green-500' : 'text-red-500'}`}
-                >
-                  {formatPercent(totalGainLossPercent)}
-                </span>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="p-2 sm:p-0">
-        <CardHeader className="hidden flex-row items-center justify-between space-y-0 pb-2 sm:flex">
-          <CardTitle className="text-sm font-medium">Holdings</CardTitle>
-          <PieChart className="text-muted-foreground h-4 w-4" />
-        </CardHeader>
-        <CardContent className="p-0 text-center sm:p-6 sm:pt-0">
-          {isLoading ? (
-            <div className="bg-muted mx-auto h-6 w-10 animate-pulse rounded sm:h-8 sm:w-16" />
-          ) : (
-            <>
-              <p className="text-muted-foreground mb-0.5 text-[10px] sm:hidden">Holdings</p>
-              <div className="text-sm font-bold tabular-nums sm:text-2xl">{totalHoldings}</div>
-              <p className="text-muted-foreground hidden text-[10px] sm:block sm:text-xs">
-                Unique stocks
+    <div className="bg-card/80 flex items-center divide-x rounded-xl border px-1 py-3 sm:py-4">
+      {/* Total Value */}
+      <div className="flex-1 text-center">
+        <p className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase sm:text-xs">
+          Value
+        </p>
+        {isLoading ? (
+          <div className="bg-muted mx-auto mt-1 h-5 w-14 animate-pulse rounded sm:h-7 sm:w-20" />
+        ) : (
+          <>
+            <p className="mt-0.5 text-base font-bold tabular-nums sm:text-xl">
+              {formatValue(totalValue, baseCurrency)}
+            </p>
+            {ilsValue !== null && baseCurrency !== 'ILS' && (
+              <p className="text-muted-foreground text-[10px] tabular-nums sm:text-xs">
+                {formatCurrency(ilsValue, 'ILS')}
               </p>
-            </>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Gain/Loss */}
+      <div className="flex-1 text-center">
+        <p className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase sm:text-xs">
+          Gain/Loss
+        </p>
+        {isLoading ? (
+          <div className="bg-muted mx-auto mt-1 h-5 w-14 animate-pulse rounded sm:h-7 sm:w-20" />
+        ) : (
+          <>
+            <p
+              className={cn(
+                'mt-0.5 text-base font-bold tabular-nums sm:text-xl',
+                isPositive ? 'text-green-500' : 'text-red-500'
+              )}
+            >
+              {isPositive ? '+' : ''}
+              {formatValue(totalGainLoss, baseCurrency)}
+            </p>
+            <div className="flex items-center justify-center gap-1">
+              {ilsGainLoss !== null && baseCurrency !== 'ILS' && (
+                <span
+                  className={cn(
+                    'text-[10px] tabular-nums sm:text-xs',
+                    isPositive ? 'text-green-500/70' : 'text-red-500/70'
+                  )}
+                >
+                  {isPositive ? '+' : ''}
+                  {formatCurrency(ilsGainLoss, 'ILS')}
+                </span>
+              )}
+              <span
+                className={cn(
+                  'text-[10px] sm:text-xs',
+                  isPositive ? 'text-green-500' : 'text-red-500'
+                )}
+              >
+                {formatPercent(totalGainLossPercent)}
+              </span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Holdings */}
+      <div className="flex-1 text-center">
+        <p className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase sm:text-xs">
+          Holdings
+        </p>
+        {isLoading ? (
+          <div className="bg-muted mx-auto mt-1 h-5 w-10 animate-pulse rounded sm:h-7 sm:w-14" />
+        ) : (
+          <p className="mt-0.5 text-base font-bold tabular-nums sm:text-xl">{totalHoldings}</p>
+        )}
+      </div>
     </div>
   );
 }

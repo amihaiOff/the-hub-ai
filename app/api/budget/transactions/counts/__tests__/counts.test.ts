@@ -113,6 +113,7 @@ describe('Transaction Counts API', () => {
         where: {
           householdId: 'household-1',
           categoryId: null,
+          tags: { none: {} },
         },
       });
     });
@@ -130,6 +131,7 @@ describe('Transaction Counts API', () => {
         where: {
           householdId: 'household-1',
           categoryId: null,
+          tags: { none: {} },
           transactionDate: {
             gte: new Date(2026, 2, 1),
             lt: new Date(2026, 3, 1),
@@ -151,6 +153,7 @@ describe('Transaction Counts API', () => {
         where: {
           householdId: 'household-1',
           categoryId: null,
+          tags: { none: {} },
           transactionDate: {
             gte: new Date(2025, 11, 1),
             lt: new Date(2026, 0, 1),
@@ -172,6 +175,7 @@ describe('Transaction Counts API', () => {
         where: {
           householdId: 'household-1',
           categoryId: null,
+          tags: { none: {} },
           transactionDate: {
             gte: new Date(2026, 0, 1),
             lt: new Date(2026, 1, 1),
@@ -214,6 +218,7 @@ describe('Transaction Counts API', () => {
         where: {
           householdId: 'household-99',
           categoryId: null,
+          tags: { none: {} },
         },
       });
     });

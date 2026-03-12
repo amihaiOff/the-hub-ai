@@ -10,10 +10,7 @@ export default function AssetsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Misc Assets & Debt</h1>
-        <p className="text-muted-foreground">Track bank deposits, loans, mortgages, and savings</p>
-      </div>
+      <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Misc Assets & Debt</h1>
 
       {/* Error State */}
       {error && (
