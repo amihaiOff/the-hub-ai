@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -63,6 +63,20 @@ export default function SavingsPage() {
       deleteEntry.mutate(monthKey);
     }
   };
+
+  const yearlySummary = useMemo(() => {
+    if (!data || data.years.length === 0) return null;
+    const grandTotal = data.years.reduce((sum, y) => sum + y.total, 0);
+    const rows = data.years.map((y) => {
+      const monthsWithEntries = y.months.filter((m) => m.hasEntries).length;
+      return {
+        year: y.year,
+        total: y.total,
+        avg: monthsWithEntries > 0 ? y.total / monthsWithEntries : 0,
+      };
+    });
+    return { rows, grandTotal };
+  }, [data]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,6 +177,44 @@ export default function SavingsPage() {
             <Plus className="mr-1.5 h-4 w-4" />
             Add your first entry
           </Button>
+        </div>
+      )}
+
+      {/* Yearly Summary */}
+      {!isLoading && yearlySummary && (
+        <div className="lg:border-border/40 lg:bg-card/80 lg:shadow-glow lg:rounded-3xl lg:border lg:py-6 lg:backdrop-blur-xl">
+          {/* Header row */}
+          <div className="bg-muted/50 flex items-center px-4 py-2.5 lg:px-6">
+            <span className="flex-1 text-xs font-medium tracking-wider uppercase">Year</span>
+            <span className="w-28 text-right text-xs font-medium tracking-wider uppercase">
+              Total
+            </span>
+            <span className="w-28 text-right text-xs font-medium tracking-wider uppercase">
+              Monthly Avg
+            </span>
+          </div>
+          {yearlySummary.rows.map((row) => (
+            <div
+              key={row.year}
+              className="border-border/10 flex items-center border-b px-4 py-2.5 last:border-b-0 lg:px-6"
+            >
+              <span className="flex-1 text-sm font-medium">{row.year}</span>
+              <span className="w-28 text-right text-sm tabular-nums">
+                {formatCurrencyILS(row.total)}
+              </span>
+              <span className="text-muted-foreground w-28 text-right text-sm tabular-nums">
+                {row.avg > 0 ? formatCurrencyILS(Math.round(row.avg)) : '\u2014'}
+              </span>
+            </div>
+          ))}
+          {/* Grand total */}
+          <div className="bg-muted/30 flex items-center px-4 py-2.5 lg:px-6">
+            <span className="flex-1 text-sm font-bold">Total</span>
+            <span className="w-28 text-right text-sm font-bold tabular-nums">
+              {formatCurrencyILS(yearlySummary.grandTotal)}
+            </span>
+            <span className="w-28" />
+          </div>
         </div>
       )}
 
