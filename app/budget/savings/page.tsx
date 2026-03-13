@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,60 +11,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Plus, Loader2, AlertCircle, PiggyBank, Trash2, ChevronRight } from 'lucide-react';
+import { Plus, Loader2, AlertCircle, PiggyBank } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  useSavings,
-  useAddSavingsEntry,
-  useUpdateSavingsEntry,
-  useDeleteSavingsEntry,
-} from '@/lib/hooks/use-budget';
+import { useSavings, useAddSavingsEntry } from '@/lib/hooks/use-budget';
 import { formatCurrencyILS, formatMonth, getCurrentMonth } from '@/lib/utils/budget';
 
 export default function SavingsPage() {
   const { data, isLoading, error } = useSavings();
   const addEntry = useAddSavingsEntry();
-  const updateEntry = useUpdateSavingsEntry();
-  const deleteEntry = useDeleteSavingsEntry();
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState(getCurrentMonth());
   const [amount, setAmount] = useState('');
 
-  const [expandedYear, setExpandedYear] = useState<number | null>(null);
-
-  // Inline edit state
-  const [editingMonth, setEditingMonth] = useState<string | null>(null);
-  const [editingValue, setEditingValue] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
-  const cancelledRef = useRef(false);
-
-  useEffect(() => {
-    if (editingMonth && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [editingMonth]);
-
-  const handleEditSave = (monthKey: string) => {
-    if (cancelledRef.current) {
-      cancelledRef.current = false;
-      return;
-    }
-    const value = editingValue.trim();
-    const num = Number(value);
-    if (!value || isNaN(num) || num <= 0) {
-      setEditingMonth(null);
-      return;
-    }
-    updateEntry.mutate({ month: monthKey, amount: Math.round(num * 100) / 100 });
-    setEditingMonth(null);
-  };
-
-  const handleDelete = (monthKey: string) => {
-    if (window.confirm(`Delete savings entry for ${formatMonth(monthKey)}?`)) {
-      deleteEntry.mutate(monthKey);
-    }
-  };
+  const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set());
 
   const yearlySummary = useMemo(() => {
     if (!data || data.years.length === 0) return null;
@@ -197,7 +156,7 @@ export default function SavingsPage() {
           </div>
 
           {yearlySummary.rows.map((row) => {
-            const isExpanded = expandedYear === row.year;
+            const isExpanded = expandedYears.has(row.year);
             const yearData = data.years.find((y) => y.year === row.year);
 
             return (
@@ -205,14 +164,16 @@ export default function SavingsPage() {
                 {/* Year row */}
                 <div
                   className="border-border/10 hover:bg-muted/20 flex cursor-pointer items-center border-b px-4 py-2.5 transition-colors lg:px-6"
-                  onClick={() => setExpandedYear(isExpanded ? null : row.year)}
+                  onClick={() => {
+                    setExpandedYears((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(row.year)) next.delete(row.year);
+                      else next.add(row.year);
+                      return next;
+                    });
+                  }}
                 >
-                  <div className="flex flex-1 items-center gap-2">
-                    <ChevronRight
-                      className={`text-muted-foreground h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                    />
-                    <span className="text-sm font-medium">{row.year}</span>
-                  </div>
+                  <span className="flex-1 text-sm font-medium">{row.year}</span>
                   <span className="w-28 text-right text-sm tabular-nums">
                     {formatCurrencyILS(row.total)}
                   </span>
@@ -232,52 +193,13 @@ export default function SavingsPage() {
                         <span className="text-muted-foreground text-sm">
                           {formatMonth(monthData.month)}
                         </span>
-                        <div className="flex items-center gap-2">
-                          {editingMonth === monthData.month ? (
-                            <input
-                              ref={inputRef}
-                              type="number"
-                              step="0.01"
-                              aria-label={`Edit savings for ${formatMonth(monthData.month)}`}
-                              value={editingValue}
-                              onChange={(e) => setEditingValue(e.target.value)}
-                              onBlur={() => handleEditSave(monthData.month)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') e.currentTarget.blur();
-                                if (e.key === 'Escape') {
-                                  cancelledRef.current = true;
-                                  setEditingMonth(null);
-                                }
-                              }}
-                              className="w-28 [appearance:textfield] bg-transparent text-right text-sm tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                            />
+                        <span className="text-sm tabular-nums">
+                          {monthData.amount === 0 ? (
+                            <span className="text-muted-foreground/50">&mdash;</span>
                           ) : (
-                            <span
-                              className={`text-sm tabular-nums ${monthData.hasEntries ? 'cursor-pointer hover:underline' : ''}`}
-                              onClick={() => {
-                                if (monthData.hasEntries) {
-                                  setEditingMonth(monthData.month);
-                                  setEditingValue(String(monthData.amount));
-                                }
-                              }}
-                            >
-                              {monthData.amount === 0 ? (
-                                <span className="text-muted-foreground/50">&mdash;</span>
-                              ) : (
-                                formatCurrencyILS(monthData.amount)
-                              )}
-                            </span>
+                            formatCurrencyILS(monthData.amount)
                           )}
-                          {monthData.hasEntries && editingMonth !== monthData.month && (
-                            <button
-                              onClick={() => handleDelete(monthData.month)}
-                              aria-label={`Delete savings for ${formatMonth(monthData.month)}`}
-                              className="text-muted-foreground/50 hover:text-destructive transition-colors"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
+                        </span>
                       </div>
                     ))}
                   </div>
