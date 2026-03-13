@@ -60,9 +60,9 @@ export default function SavingsPage() {
         <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Savings</h1>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-1.5 h-4 w-4" />
-              Add Entry
+            <Button variant="ghost" size="icon" className="sm:w-auto sm:px-4 sm:py-2">
+              <Plus className="h-5 w-5 sm:mr-1.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Add Entry</span>
             </Button>
           </DialogTrigger>
           <DialogContent>

@@ -142,7 +142,7 @@ export default function CategoriesPage() {
             <Plus className="mr-1.5 h-4 w-4" />
             Add Group
           </Button>
-          <Button onClick={() => setShowAddCategory(true)}>
+          <Button variant="outline" onClick={() => setShowAddCategory(true)}>
             <Plus className="mr-1.5 h-4 w-4" />
             Add Category
           </Button>
@@ -184,16 +184,22 @@ export default function CategoriesPage() {
           </Button>
         </div>
       ) : (
-        <div className="border-border/40 bg-card/80 shadow-glow overflow-hidden rounded-3xl border py-6 backdrop-blur-xl">
+        <div className="lg:border-border/40 lg:bg-card/80 lg:shadow-glow overflow-hidden lg:rounded-3xl lg:border lg:py-6 lg:backdrop-blur-xl">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="bg-muted/50 border-b">
-                  <th className="px-4 py-3 text-left text-sm font-medium">Name</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">Riseup</th>
-                  <th className="w-20 px-2 py-3 text-center text-sm font-medium">Essential</th>
-                  <th className="w-32 px-4 py-3 text-right text-sm font-medium">Budget</th>
-                  <th className="w-10 px-2 py-3"></th>
+                  <th className="px-2 py-2 text-left text-sm font-medium sm:px-4 sm:py-3">Name</th>
+                  <th className="px-2 py-2 text-left text-sm font-medium sm:px-4 sm:py-3">
+                    Riseup
+                  </th>
+                  <th className="w-16 px-1 py-2 text-center text-sm font-medium sm:w-20 sm:px-2 sm:py-3">
+                    Essential
+                  </th>
+                  <th className="w-24 px-2 py-2 text-right text-sm font-medium sm:w-32 sm:px-4 sm:py-3">
+                    Budget
+                  </th>
+                  <th className="w-8 px-1 py-2 sm:w-10 sm:px-2 sm:py-3"></th>
                 </tr>
               </thead>
               <tbody>
@@ -201,23 +207,22 @@ export default function CategoriesPage() {
                   <Fragment key={group.id}>
                     {/* Group Row */}
                     <tr className="bg-muted/30 hover:bg-muted/50 border-b">
-                      <td className="px-4 py-4">
-                        <span className="text-base font-semibold">{group.name}</span>
-                        <span className="text-muted-foreground ml-2 text-sm">
-                          ({group.categories.length}{' '}
-                          {group.categories.length === 1 ? 'category' : 'categories'})
+                      <td className="px-2 py-3 sm:px-4 sm:py-4">
+                        <span className="text-sm font-semibold sm:text-base">{group.name}</span>
+                        <span className="text-muted-foreground ml-1 text-xs sm:ml-2 sm:text-sm">
+                          ({group.categories.length})
                         </span>
                       </td>
-                      <td className="px-4 py-4"></td>
-                      <td className="px-2 py-4"></td>
-                      <td className="px-4 py-4 text-right">
+                      <td className="px-2 py-3 sm:px-4 sm:py-4"></td>
+                      <td className="px-1 py-3 sm:px-2 sm:py-4"></td>
+                      <td className="px-2 py-3 text-right sm:px-4 sm:py-4">
                         <span className="text-muted-foreground text-sm tabular-nums">
                           {formatCurrencyILS(
                             group.categories.reduce((sum, cat) => sum + (cat.budget || 0), 0)
                           )}
                         </span>
                       </td>
-                      <td className="px-2 py-4 text-right">
+                      <td className="px-1 py-3 text-right sm:px-2 sm:py-4">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -244,7 +249,7 @@ export default function CategoriesPage() {
                     {/* Category Rows */}
                     {group.categories.length === 0 ? (
                       <tr key={`empty-${group.id}`} className="border-b">
-                        <td colSpan={5} className="px-4 py-3 pl-8">
+                        <td colSpan={5} className="px-2 py-2 pl-6 sm:px-4 sm:py-3 sm:pl-8">
                           <p className="text-muted-foreground text-sm italic">
                             No categories in this group
                           </p>
@@ -260,12 +265,12 @@ export default function CategoriesPage() {
                             className="hover:bg-muted/30 border-b transition-colors"
                           >
                             {/* Name */}
-                            <td className="px-4 py-3 pl-8">
-                              <span className="font-medium">{category.name}</span>
+                            <td className="px-2 py-2 pl-6 sm:px-4 sm:py-3 sm:pl-8">
+                              <span className="text-sm font-medium">{category.name}</span>
                             </td>
 
                             {/* Riseup Mapping */}
-                            <td className="px-4 py-3">
+                            <td className="px-2 py-2 sm:px-4 sm:py-3">
                               <div className="flex flex-wrap items-center gap-1">
                                 {mapped.map((rc) => (
                                   <Badge
@@ -293,12 +298,21 @@ export default function CategoriesPage() {
                                     <SelectTrigger
                                       aria-label={`Map Riseup category to ${category.name}`}
                                       className={cn(
-                                        'h-auto w-auto max-w-[160px] min-w-[100px] border-0 bg-transparent px-1 py-1 text-xs shadow-none',
+                                        'h-auto w-auto border-0 bg-transparent px-1 py-1 text-xs shadow-none',
                                         'hover:bg-muted/50 focus:ring-0 focus:ring-offset-0',
-                                        'text-muted-foreground italic'
+                                        'text-muted-foreground italic',
+                                        'min-w-0 sm:max-w-[160px] sm:min-w-[100px]',
+                                        '[&>svg.opacity-50]:hidden'
                                       )}
                                     >
-                                      <SelectValue placeholder="+ Add mapping" />
+                                      <SelectValue
+                                        placeholder={
+                                          <>
+                                            <Plus className="h-3.5 w-3.5" />
+                                            <span className="hidden sm:inline">Add mapping</span>
+                                          </>
+                                        }
+                                      />
                                     </SelectTrigger>
                                     <SelectContent>
                                       {unmappedRiseupCategories.map((rc) => (
@@ -313,7 +327,7 @@ export default function CategoriesPage() {
                             </td>
 
                             {/* Essential */}
-                            <td className="px-2 py-3 text-center">
+                            <td className="px-1 py-2 text-center sm:px-2 sm:py-3">
                               <Checkbox
                                 checked={category.isMust}
                                 onCheckedChange={() =>
@@ -325,7 +339,7 @@ export default function CategoriesPage() {
 
                             {/* Budget */}
                             <td
-                              className="w-32 px-4 py-3 text-right"
+                              className="w-24 px-2 py-2 text-right sm:w-32 sm:px-4 sm:py-3"
                               onClick={() => {
                                 if (editingBudgetId !== category.id) {
                                   setEditingBudgetId(category.id);
@@ -363,7 +377,7 @@ export default function CategoriesPage() {
                             </td>
 
                             {/* Actions */}
-                            <td className="px-2 py-3 text-right">
+                            <td className="px-1 py-2 text-right sm:px-2 sm:py-3">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="icon" className="h-8 w-8">
