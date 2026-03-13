@@ -3,6 +3,33 @@ import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+function validateMonth(month: unknown): string | null {
+  if (!month || typeof month !== 'string' || !MONTH_RE.test(month)) return null;
+  return month;
+}
+
+function validateAmount(amount: unknown): number | null {
+  if (
+    amount == null ||
+    typeof amount !== 'number' ||
+    !isFinite(amount) ||
+    amount <= 0 ||
+    amount > 999999999
+  )
+    return null;
+  return amount;
+}
+
+function parseMonthDates(month: string) {
+  const [year, mon] = month.split('-').map(Number);
+  return {
+    startDate: new Date(year, mon - 1, 1),
+    endDate: new Date(year, mon, 1),
+  };
+}
+
 /**
  * Look up the "Savings" category for a household (read-only).
  */
@@ -89,6 +116,9 @@ export async function GET() {
       monthlyMap.set(key, (monthlyMap.get(key) ?? 0) + toCents(tx.amountIls));
     }
 
+    // Track which months have real transactions
+    const monthsWithEntries = new Set(monthlyMap.keys());
+
     // Fill missing months from first savings month to current month
     if (monthlyMap.size > 0) {
       const keys = Array.from(monthlyMap.keys()).sort();
@@ -107,11 +137,14 @@ export async function GET() {
     }
 
     // Group by year
-    const yearMap = new Map<number, { month: string; amountCents: number }[]>();
+    const yearMap = new Map<
+      number,
+      { month: string; amountCents: number; hasEntries: boolean }[]
+    >();
     for (const [key, amountCents] of monthlyMap) {
       const year = parseInt(key.split('-')[0]);
       if (!yearMap.has(year)) yearMap.set(year, []);
-      yearMap.get(year)!.push({ month: key, amountCents });
+      yearMap.get(year)!.push({ month: key, amountCents, hasEntries: monthsWithEntries.has(key) });
     }
 
     // Build response: years desc, months Jan→Dec within each year
@@ -126,6 +159,7 @@ export async function GET() {
           months: months.map((m) => ({
             month: m.month,
             amount: fromCents(m.amountCents),
+            hasEntries: m.hasEntries,
           })),
         };
       });
@@ -158,16 +192,18 @@ export async function POST(request: NextRequest) {
     const householdId = context.activeHousehold.id;
     const body = await request.json();
 
-    const { month, amount } = body as { month?: string; amount?: number };
+    const { month: rawMonth, amount: rawAmount } = body as { month?: string; amount?: number };
 
-    if (!month || typeof month !== 'string' || !/^\d{4}-\d{2}$/.test(month)) {
+    const month = validateMonth(rawMonth);
+    if (!month) {
       return NextResponse.json(
         { success: false, error: 'month is required (YYYY-MM format)' },
         { status: 400 }
       );
     }
 
-    if (amount == null || typeof amount !== 'number' || amount <= 0 || amount > 999999999) {
+    const amount = validateAmount(rawAmount);
+    if (!amount) {
       return NextResponse.json(
         { success: false, error: 'amount must be a positive number (max 999,999,999)' },
         { status: 400 }
@@ -175,11 +211,12 @@ export async function POST(request: NextRequest) {
     }
 
     const categoryId = await getOrCreateSavingsCategory(householdId);
+    const { startDate } = parseMonthDates(month);
 
     const transaction = await prisma.budgetTransaction.create({
       data: {
         type: 'expense',
-        transactionDate: new Date(`${month}-01`),
+        transactionDate: startDate,
         amountIls: amount,
         amountOriginal: amount,
         currency: 'ILS',
@@ -201,6 +238,143 @@ export async function POST(request: NextRequest) {
     console.error('Error creating savings entry:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to create savings entry' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PUT /api/budget/savings
+ * Update a month's savings (replaces all transactions for that month with one)
+ * Body: { month: "YYYY-MM", amount: number }
+ */
+export async function PUT(request: NextRequest) {
+  try {
+    const context = await getCurrentContext();
+    if (!context) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const householdId = context.activeHousehold.id;
+    const body = await request.json();
+    const { month: rawMonth, amount: rawAmount } = body as { month?: string; amount?: number };
+
+    const month = validateMonth(rawMonth);
+    if (!month) {
+      return NextResponse.json(
+        { success: false, error: 'month is required (YYYY-MM format)' },
+        { status: 400 }
+      );
+    }
+
+    const amount = validateAmount(rawAmount);
+    if (!amount) {
+      return NextResponse.json(
+        { success: false, error: 'amount must be a positive number (max 999,999,999)' },
+        { status: 400 }
+      );
+    }
+
+    const existing = await findSavingsCategory(householdId);
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: 'No savings category found' },
+        { status: 404 }
+      );
+    }
+    const categoryId = existing.id;
+
+    const { startDate, endDate } = parseMonthDates(month);
+
+    // Atomic delete + create to prevent data loss on partial failure
+    const transaction = await prisma.$transaction(async (tx) => {
+      await tx.budgetTransaction.deleteMany({
+        where: {
+          householdId,
+          categoryId,
+          transactionDate: { gte: startDate, lt: endDate },
+        },
+      });
+
+      return tx.budgetTransaction.create({
+        data: {
+          type: 'expense',
+          transactionDate: startDate,
+          amountIls: amount,
+          amountOriginal: amount,
+          currency: 'ILS',
+          categoryId,
+          source: 'manual',
+          householdId,
+        },
+      });
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: transaction.id,
+        month,
+        amount: Number(transaction.amountIls),
+      },
+    });
+  } catch (error) {
+    console.error('Error updating savings entry:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to update savings entry' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/budget/savings
+ * Delete all savings transactions for a given month
+ * Body: { month: "YYYY-MM" }
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const context = await getCurrentContext();
+    if (!context) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const householdId = context.activeHousehold.id;
+    const body = await request.json();
+    const { month: rawMonth } = body as { month?: string };
+
+    const month = validateMonth(rawMonth);
+    if (!month) {
+      return NextResponse.json(
+        { success: false, error: 'month is required (YYYY-MM format)' },
+        { status: 400 }
+      );
+    }
+
+    const existing = await findSavingsCategory(householdId);
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: 'No savings category found' },
+        { status: 404 }
+      );
+    }
+    const categoryId = existing.id;
+
+    const { startDate, endDate } = parseMonthDates(month);
+
+    await prisma.budgetTransaction.deleteMany({
+      where: {
+        householdId,
+        categoryId,
+        transactionDate: { gte: startDate, lt: endDate },
+      },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting savings entry:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to delete savings entry' },
       { status: 500 }
     );
   }

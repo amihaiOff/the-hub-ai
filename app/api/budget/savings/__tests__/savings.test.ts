@@ -3,28 +3,41 @@
  * Tests savings CRUD operations with authentication and data aggregation.
  *
  * The savings endpoint:
- * - GET: Returns monthly savings data grouped by year, with missing months filled
+ * - GET: Returns monthly savings data grouped by year, with missing months filled (hasEntries flag)
  * - POST: Creates a savings transaction with month/amount validation
+ * - PUT: Updates (replaces) all savings transactions for a given month
+ * - DELETE: Removes all savings transactions for a given month
  */
 
 import { NextRequest } from 'next/server';
 
 // Mock Prisma client
-jest.mock('@/lib/db', () => ({
-  prisma: {
-    budgetCategory: {
-      findFirst: jest.fn(),
-      create: jest.fn(),
-    },
-    budgetCategoryGroup: {
-      create: jest.fn(),
-    },
+jest.mock('@/lib/db', () => {
+  const txProxy = {
     budgetTransaction: {
-      findMany: jest.fn(),
+      deleteMany: jest.fn(),
       create: jest.fn(),
     },
-  },
-}));
+  };
+  return {
+    prisma: {
+      budgetCategory: {
+        findFirst: jest.fn(),
+        create: jest.fn(),
+      },
+      budgetCategoryGroup: {
+        create: jest.fn(),
+      },
+      budgetTransaction: {
+        findMany: jest.fn(),
+        create: jest.fn(),
+        deleteMany: jest.fn(),
+      },
+      $transaction: jest.fn((cb: (tx: typeof txProxy) => Promise<unknown>) => cb(txProxy)),
+      __txProxy: txProxy,
+    },
+  };
+});
 
 // Mock auth utilities
 jest.mock('@/lib/auth-utils', () => ({
@@ -33,7 +46,7 @@ jest.mock('@/lib/auth-utils', () => ({
 
 import { prisma } from '@/lib/db';
 import { getCurrentContext } from '@/lib/auth-utils';
-import { GET, POST } from '../route';
+import { GET, POST, PUT, DELETE } from '../route';
 
 const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
@@ -71,6 +84,13 @@ describe('Budget Savings API', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    // Re-setup $transaction to call the callback with the tx proxy after resetAllMocks
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const txProxy = (mockPrisma as any).__txProxy;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (mockPrisma as any).$transaction.mockImplementation(
+      (cb: (tx: typeof txProxy) => Promise<unknown>) => cb(txProxy)
+    );
   });
 
   // ========================================
@@ -242,16 +262,36 @@ describe('Budget Savings API', () => {
         // 2025 year should have Jan, Feb (filled 0), Mar
         const year2025 = data.data.years[0];
         expect(year2025.months).toHaveLength(3);
-        expect(year2025.months[0]).toEqual({ month: '2025-01', amount: 2000 });
-        expect(year2025.months[1]).toEqual({ month: '2025-02', amount: 0 });
-        expect(year2025.months[2]).toEqual({ month: '2025-03', amount: 1500 });
+        expect(year2025.months[0]).toEqual({
+          month: '2025-01',
+          amount: 2000,
+          hasEntries: true,
+        });
+        expect(year2025.months[1]).toEqual({
+          month: '2025-02',
+          amount: 0,
+          hasEntries: false,
+        });
+        expect(year2025.months[2]).toEqual({
+          month: '2025-03',
+          amount: 1500,
+          hasEntries: true,
+        });
         expect(year2025.total).toBe(3500);
 
         // 2024 year should have Nov, Dec (filled 0)
         const year2024 = data.data.years[1];
         expect(year2024.months).toHaveLength(2);
-        expect(year2024.months[0]).toEqual({ month: '2024-11', amount: 3000 });
-        expect(year2024.months[1]).toEqual({ month: '2024-12', amount: 0 });
+        expect(year2024.months[0]).toEqual({
+          month: '2024-11',
+          amount: 3000,
+          hasEntries: true,
+        });
+        expect(year2024.months[1]).toEqual({
+          month: '2024-12',
+          amount: 0,
+          hasEntries: false,
+        });
         expect(year2024.total).toBe(3000);
       });
     });
@@ -281,9 +321,9 @@ describe('Budget Savings API', () => {
 
         const year2025 = data.data.years[0];
         expect(year2025.months).toHaveLength(3); // Jan, Feb, Mar
-        expect(year2025.months[0]).toEqual({ month: '2025-01', amount: 1000 });
-        expect(year2025.months[1]).toEqual({ month: '2025-02', amount: 0 });
-        expect(year2025.months[2]).toEqual({ month: '2025-03', amount: 0 });
+        expect(year2025.months[0]).toEqual({ month: '2025-01', amount: 1000, hasEntries: true });
+        expect(year2025.months[1]).toEqual({ month: '2025-02', amount: 0, hasEntries: false });
+        expect(year2025.months[2]).toEqual({ month: '2025-03', amount: 0, hasEntries: false });
       });
 
       it('should not fill months before first savings month', async () => {
@@ -309,7 +349,11 @@ describe('Budget Savings API', () => {
 
         // Should only have March - no Jan or Feb since first savings month is March
         expect(data.data.years[0].months).toHaveLength(1);
-        expect(data.data.years[0].months[0]).toEqual({ month: '2025-03', amount: 500 });
+        expect(data.data.years[0].months[0]).toEqual({
+          month: '2025-03',
+          amount: 500,
+          hasEntries: true,
+        });
       });
     });
 
@@ -636,7 +680,7 @@ describe('Budget Savings API', () => {
         expect(mockPrisma.budgetTransaction.create).toHaveBeenCalledWith({
           data: {
             type: 'expense',
-            transactionDate: new Date('2025-03-01'),
+            transactionDate: new Date(2025, 2, 1),
             amountIls: 5000,
             amountOriginal: 5000,
             currency: 'ILS',
@@ -670,7 +714,7 @@ describe('Budget Savings API', () => {
         expect(response.status).toBe(200);
 
         const createCall = (mockPrisma.budgetTransaction.create as jest.Mock).mock.calls[0][0];
-        expect(createCall.data.transactionDate).toEqual(new Date('2025-12-01'));
+        expect(createCall.data.transactionDate).toEqual(new Date(2025, 11, 1));
       });
 
       it('should auto-create savings category if it does not exist on POST', async () => {
@@ -728,6 +772,217 @@ describe('Budget Savings API', () => {
         expect(data.success).toBe(false);
         expect(data.error).toBe('Failed to create savings entry');
       });
+    });
+  });
+
+  // ========================================
+  // PUT /api/budget/savings
+  // ========================================
+
+  describe('PUT /api/budget/savings', () => {
+    function createRequest(body: unknown): NextRequest {
+      return new NextRequest('http://localhost:3000/api/budget/savings', {
+        method: 'PUT',
+        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    it('should return 401 when not authenticated', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(null);
+
+      const request = createRequest({ month: '2025-03', amount: 2000 });
+      const response = await PUT(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(data.success).toBe(false);
+    });
+
+    it('should reject invalid month format', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+
+      const request = createRequest({ month: '2025-3', amount: 1000 });
+      const response = await PUT(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toBe('month is required (YYYY-MM format)');
+    });
+
+    it('should reject invalid amount', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+
+      const request = createRequest({ month: '2025-03', amount: -100 });
+      const response = await PUT(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toBe('amount must be a positive number (max 999,999,999)');
+    });
+
+    it('should return 404 when no savings category exists', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetCategory.findFirst as jest.Mock).mockResolvedValueOnce(null);
+
+      const request = createRequest({ month: '2025-03', amount: 1000 });
+      const response = await PUT(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(data.error).toBe('No savings category found');
+    });
+
+    it('should delete existing transactions and create a new one atomically', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      mockSavingsCategoryExists('cat-savings-1');
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const txProxy = (mockPrisma as any).__txProxy;
+      (txProxy.budgetTransaction.deleteMany as jest.Mock).mockResolvedValueOnce({ count: 2 });
+
+      const mockTransaction = {
+        id: 'tx-updated',
+        type: 'expense',
+        transactionDate: new Date('2025-03-01'),
+        amountIls: 3000,
+        amountOriginal: 3000,
+        currency: 'ILS',
+        categoryId: 'cat-savings-1',
+        source: 'manual',
+        householdId: 'household-1',
+      };
+      (txProxy.budgetTransaction.create as jest.Mock).mockResolvedValueOnce(mockTransaction);
+
+      const request = createRequest({ month: '2025-03', amount: 3000 });
+      const response = await PUT(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.data.id).toBe('tx-updated');
+      expect(data.data.amount).toBe(3000);
+
+      // Verify $transaction was used
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((mockPrisma as any).$transaction).toHaveBeenCalled();
+
+      // Verify deleteMany was called with correct date range via tx proxy
+      expect(txProxy.budgetTransaction.deleteMany).toHaveBeenCalledWith({
+        where: {
+          householdId: 'household-1',
+          categoryId: 'cat-savings-1',
+          transactionDate: {
+            gte: new Date(2025, 2, 1),
+            lt: new Date(2025, 3, 1),
+          },
+        },
+      });
+    });
+
+    it('should return 500 when database fails', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      mockSavingsCategoryExists('cat-savings-1');
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const txProxy = (mockPrisma as any).__txProxy;
+      (txProxy.budgetTransaction.deleteMany as jest.Mock).mockRejectedValueOnce(
+        new Error('DB error')
+      );
+
+      const request = createRequest({ month: '2025-03', amount: 1000 });
+      const response = await PUT(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data.error).toBe('Failed to update savings entry');
+    });
+  });
+
+  // ========================================
+  // DELETE /api/budget/savings
+  // ========================================
+
+  describe('DELETE /api/budget/savings', () => {
+    function createRequest(body: unknown): NextRequest {
+      return new NextRequest('http://localhost:3000/api/budget/savings', {
+        method: 'DELETE',
+        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    it('should return 401 when not authenticated', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(null);
+
+      const request = createRequest({ month: '2025-03' });
+      const response = await DELETE(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(data.success).toBe(false);
+    });
+
+    it('should reject invalid month format', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+
+      const request = createRequest({ month: 'bad' });
+      const response = await DELETE(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toBe('month is required (YYYY-MM format)');
+    });
+
+    it('should return 404 when no savings category exists', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetCategory.findFirst as jest.Mock).mockResolvedValueOnce(null);
+
+      const request = createRequest({ month: '2025-03' });
+      const response = await DELETE(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(data.error).toBe('No savings category found');
+    });
+
+    it('should delete all transactions for the given month', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      mockSavingsCategoryExists('cat-savings-1');
+      (mockPrisma.budgetTransaction.deleteMany as jest.Mock).mockResolvedValueOnce({ count: 3 });
+
+      const request = createRequest({ month: '2025-06' });
+      const response = await DELETE(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+
+      expect(mockPrisma.budgetTransaction.deleteMany).toHaveBeenCalledWith({
+        where: {
+          householdId: 'household-1',
+          categoryId: 'cat-savings-1',
+          transactionDate: {
+            gte: new Date(2025, 5, 1),
+            lt: new Date(2025, 6, 1),
+          },
+        },
+      });
+    });
+
+    it('should return 500 when database fails', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      mockSavingsCategoryExists('cat-savings-1');
+      (mockPrisma.budgetTransaction.deleteMany as jest.Mock).mockRejectedValueOnce(
+        new Error('DB error')
+      );
+
+      const request = createRequest({ month: '2025-03' });
+      const response = await DELETE(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data.error).toBe('Failed to delete savings entry');
     });
   });
 });

@@ -738,6 +738,7 @@ export function useImportTransactions() {
 export interface SavingsMonth {
   month: string;
   amount: number;
+  hasEntries: boolean;
 }
 
 export interface SavingsYear {
@@ -768,6 +769,38 @@ export function useAddSavingsEntry() {
       return fetchApi<{ id: string; month: string; amount: number }>('/api/budget/savings', {
         method: 'POST',
         body: JSON.stringify(input),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+    },
+  });
+}
+
+export function useUpdateSavingsEntry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { month: string; amount: number }) => {
+      return fetchApi<{ id: string; month: string; amount: number }>('/api/budget/savings', {
+        method: 'PUT',
+        body: JSON.stringify(input),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+    },
+  });
+}
+
+export function useDeleteSavingsEntry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (month: string) => {
+      return fetchApi<{ success: boolean }>('/api/budget/savings', {
+        method: 'DELETE',
+        body: JSON.stringify({ month }),
       });
     },
     onSuccess: () => {

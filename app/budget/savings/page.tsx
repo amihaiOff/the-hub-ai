@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,17 +11,58 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Plus, Loader2, AlertCircle, PiggyBank } from 'lucide-react';
+import { Plus, Loader2, AlertCircle, PiggyBank, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { useSavings, useAddSavingsEntry } from '@/lib/hooks/use-budget';
+import {
+  useSavings,
+  useAddSavingsEntry,
+  useUpdateSavingsEntry,
+  useDeleteSavingsEntry,
+} from '@/lib/hooks/use-budget';
 import { formatCurrencyILS, formatMonth, getCurrentMonth } from '@/lib/utils/budget';
 
 export default function SavingsPage() {
   const { data, isLoading, error } = useSavings();
   const addEntry = useAddSavingsEntry();
+  const updateEntry = useUpdateSavingsEntry();
+  const deleteEntry = useDeleteSavingsEntry();
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState(getCurrentMonth());
   const [amount, setAmount] = useState('');
+
+  // Inline edit state
+  const [editingMonth, setEditingMonth] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+  const cancelledRef = useRef(false);
+
+  useEffect(() => {
+    if (editingMonth && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editingMonth]);
+
+  const handleEditSave = (monthKey: string) => {
+    if (cancelledRef.current) {
+      cancelledRef.current = false;
+      return;
+    }
+    const value = editingValue.trim();
+    const num = Number(value);
+    if (!value || isNaN(num) || num <= 0) {
+      setEditingMonth(null);
+      return;
+    }
+    updateEntry.mutate({ month: monthKey, amount: Math.round(num * 100) / 100 });
+    setEditingMonth(null);
+  };
+
+  const handleDelete = (monthKey: string) => {
+    if (window.confirm(`Delete savings entry for ${formatMonth(monthKey)}?`)) {
+      deleteEntry.mutate(monthKey);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,13 +189,52 @@ export default function SavingsPage() {
                     <span className="text-muted-foreground text-sm">
                       {formatMonth(monthData.month)}
                     </span>
-                    <span className="text-sm tabular-nums">
-                      {monthData.amount === 0 ? (
-                        <span className="text-muted-foreground/50">&mdash;</span>
+                    <div className="flex items-center gap-2">
+                      {editingMonth === monthData.month ? (
+                        <input
+                          ref={inputRef}
+                          type="number"
+                          step="0.01"
+                          aria-label={`Edit savings for ${formatMonth(monthData.month)}`}
+                          value={editingValue}
+                          onChange={(e) => setEditingValue(e.target.value)}
+                          onBlur={() => handleEditSave(monthData.month)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') e.currentTarget.blur();
+                            if (e.key === 'Escape') {
+                              cancelledRef.current = true;
+                              setEditingMonth(null);
+                            }
+                          }}
+                          className="w-28 [appearance:textfield] bg-transparent text-right text-sm tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        />
                       ) : (
-                        formatCurrencyILS(monthData.amount)
+                        <span
+                          className={`text-sm tabular-nums ${monthData.hasEntries ? 'cursor-pointer hover:underline' : ''}`}
+                          onClick={() => {
+                            if (monthData.hasEntries) {
+                              setEditingMonth(monthData.month);
+                              setEditingValue(String(monthData.amount));
+                            }
+                          }}
+                        >
+                          {monthData.amount === 0 ? (
+                            <span className="text-muted-foreground/50">&mdash;</span>
+                          ) : (
+                            formatCurrencyILS(monthData.amount)
+                          )}
+                        </span>
                       )}
-                    </span>
+                      {monthData.hasEntries && editingMonth !== monthData.month && (
+                        <button
+                          onClick={() => handleDelete(monthData.month)}
+                          aria-label={`Delete savings for ${formatMonth(monthData.month)}`}
+                          className="text-muted-foreground/50 hover:text-destructive transition-colors"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
