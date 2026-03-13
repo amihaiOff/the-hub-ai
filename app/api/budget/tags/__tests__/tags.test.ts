@@ -77,6 +77,10 @@ describe('Tags API', () => {
           createdAt: new Date(),
           updatedAt: new Date(),
           _count: { transactionTags: 5 },
+          transactionTags: [
+            { transaction: { amountIls: 100, type: 'expense' } },
+            { transaction: { amountIls: 200, type: 'expense' } },
+          ],
         },
         {
           id: 'tag-2',
@@ -86,6 +90,7 @@ describe('Tags API', () => {
           createdAt: new Date(),
           updatedAt: new Date(),
           _count: { transactionTags: 3 },
+          transactionTags: [{ transaction: { amountIls: 50, type: 'expense' } }],
         },
       ];
 
@@ -284,6 +289,10 @@ describe('Tags API', () => {
         color: '#ff0000',
         householdId: 'household-1',
         _count: { transactionTags: 2 },
+        transactionTags: [
+          { transaction: { amountIls: 100, type: 'expense' } },
+          { transaction: { amountIls: 200, type: 'expense' } },
+        ],
       };
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);

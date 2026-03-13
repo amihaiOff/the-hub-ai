@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils';
 const TABS = [
   { href: '/budget/analysis', label: 'Overall' },
   { href: '/budget/analysis/categories', label: 'Categories' },
-  { href: '/budget/analysis/tags', label: 'Tags' },
 ];
 
 export function AnalysisTabBar() {

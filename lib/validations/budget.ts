@@ -172,6 +172,7 @@ export const transactionFiltersSchema = z.object({
   tagIds: z.array(z.string()).optional(),
   source: transactionSourceSchema.optional(),
   paymentMethod: paymentMethodSchema.optional(),
+  uncategorized: z.boolean().optional(),
   limit: z.number().int().positive().max(1000).optional().default(100),
   offset: z.number().int().nonnegative().optional().default(0),
 });

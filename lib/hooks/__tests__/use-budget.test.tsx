@@ -184,6 +184,66 @@ describe('Budget Hooks', () => {
       expect(result.current.data).toEqual(mockTransactions.items);
     });
 
+    it('should pass uncategorized=true param when filter is set', async () => {
+      const mockTransactions = {
+        items: [{ id: 'tx-1', amountIls: 100 }],
+        pagination: { total: 1, limit: 1000, offset: 0, hasMore: false },
+      };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: mockTransactions }),
+      });
+
+      const { result } = renderHook(() => useTransactions({ uncategorized: true }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('uncategorized=true'),
+        expect.any(Object)
+      );
+    });
+
+    it('should not pass uncategorized param when filter is false or undefined', async () => {
+      const mockTransactions = {
+        items: [],
+        pagination: { total: 0, limit: 1000, offset: 0, hasMore: false },
+      };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: mockTransactions }),
+      });
+
+      const { result } = renderHook(() => useTransactions({ uncategorized: false }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      const fetchUrl = mockFetch.mock.calls[0][0] as string;
+      expect(fetchUrl).not.toContain('uncategorized');
+    });
+
+    it('should combine uncategorized with month filter', async () => {
+      const mockTransactions = {
+        items: [],
+        pagination: { total: 0, limit: 1000, offset: 0, hasMore: false },
+      };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: mockTransactions }),
+      });
+
+      const { result } = renderHook(
+        () => useTransactions({ month: '2024-06', uncategorized: true }),
+        {
+          wrapper: createWrapper(),
+        }
+      );
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      const fetchUrl = mockFetch.mock.calls[0][0] as string;
+      expect(fetchUrl).toContain('month=2024-06');
+      expect(fetchUrl).toContain('uncategorized=true');
+    });
+
     it('should apply client-side search filtering', async () => {
       const mockTransactions = {
         items: [

@@ -195,6 +195,99 @@ describe('Transactions API', () => {
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to fetch transactions');
     });
+
+    it('should filter uncategorized transactions (no category and no tags)', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTransaction.count as jest.Mock).mockResolvedValueOnce(0);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/budget/transactions?uncategorized=true'
+      );
+      await GET(request);
+
+      expect(mockPrisma.budgetTransaction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            householdId: 'household-1',
+            categoryId: null,
+            tags: { none: {} },
+          }),
+        })
+      );
+    });
+
+    it('should ignore uncategorized param when not "true"', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTransaction.count as jest.Mock).mockResolvedValueOnce(0);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/budget/transactions?uncategorized=false'
+      );
+      await GET(request);
+
+      // categoryId should NOT be null since uncategorized was not "true"
+      const callArgs = (mockPrisma.budgetTransaction.findMany as jest.Mock).mock.calls[0][0];
+      expect(callArgs.where.categoryId).toBeUndefined();
+    });
+
+    it('should combine uncategorized filter with month filter', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTransaction.count as jest.Mock).mockResolvedValueOnce(3);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/budget/transactions?uncategorized=true&month=2024-06'
+      );
+      await GET(request);
+
+      expect(mockPrisma.budgetTransaction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            householdId: 'household-1',
+            categoryId: null,
+            tags: { none: {} },
+            transactionDate: {
+              gte: expect.any(Date),
+              lte: expect.any(Date),
+            },
+          }),
+        })
+      );
+    });
+
+    it('should apply uncategorized filter even when tagIds param is present', async () => {
+      // When both uncategorized=true and tagIds are provided, the uncategorized filter
+      // sets categoryId=null and tags={none:{}}, then tagIds filter may also apply.
+      // In practice, the UI never sends both simultaneously.
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTransaction.count as jest.Mock).mockResolvedValueOnce(0);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/budget/transactions?uncategorized=true&tagIds=tag-1'
+      );
+      await GET(request);
+
+      const callArgs = (mockPrisma.budgetTransaction.findMany as jest.Mock).mock.calls[0][0];
+      expect(callArgs.where.categoryId).toBeNull();
+    });
+
+    it('should override categoryId when uncategorized is true', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTransaction.count as jest.Mock).mockResolvedValueOnce(0);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/budget/transactions?uncategorized=true&categoryId=cat-1'
+      );
+      await GET(request);
+
+      // uncategorized filter is applied AFTER categoryId, so categoryId should be null
+      const callArgs = (mockPrisma.budgetTransaction.findMany as jest.Mock).mock.calls[0][0];
+      expect(callArgs.where.categoryId).toBeNull();
+    });
   });
 
   describe('POST /api/budget/transactions', () => {

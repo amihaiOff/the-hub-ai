@@ -83,6 +83,7 @@ const mockTags: BudgetTag[] = [
     name: 'Essential',
     color: '#EF4444',
     transactionCount: 25,
+    totalSpent: 5200,
     householdId: 'hh-1',
   },
   {
@@ -90,6 +91,7 @@ const mockTags: BudgetTag[] = [
     name: 'Fun',
     color: '#8B5CF6',
     transactionCount: 18,
+    totalSpent: 3400,
     householdId: 'hh-1',
   },
   {
@@ -97,6 +99,7 @@ const mockTags: BudgetTag[] = [
     name: 'Work',
     color: '#10B981',
     transactionCount: 5,
+    totalSpent: 900,
     householdId: 'hh-1',
   },
 ];

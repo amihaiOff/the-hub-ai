@@ -99,6 +99,7 @@ export async function GET(request: NextRequest) {
     if (searchParams.get('tagIds')) {
       filterParams.tagIds = searchParams.get('tagIds')!.split(',');
     }
+    if (searchParams.get('uncategorized') === 'true') filterParams.uncategorized = true;
 
     const validation = transactionFiltersSchema.safeParse(filterParams);
 
@@ -142,19 +143,24 @@ export async function GET(request: NextRequest) {
 
     // Other filters
     if (filters.type) where.type = filters.type;
-    if (filters.categoryId) where.categoryId = filters.categoryId;
     if (filters.payeeId) where.payeeId = filters.payeeId;
     if (filters.profileId) where.profileId = filters.profileId;
     if (filters.source) where.source = filters.source;
     if (filters.paymentMethod) where.paymentMethod = filters.paymentMethod;
 
-    // Tag filter (matches ANY of the specified tags)
-    if (filters.tagIds && filters.tagIds.length > 0) {
-      where.tags = {
-        some: {
-          tagId: { in: filters.tagIds },
-        },
-      };
+    // Uncategorized filter takes precedence over categoryId and tagIds
+    if (filters.uncategorized) {
+      where.categoryId = null;
+      where.tags = { none: {} };
+    } else {
+      if (filters.categoryId) where.categoryId = filters.categoryId;
+      if (filters.tagIds && filters.tagIds.length > 0) {
+        where.tags = {
+          some: {
+            tagId: { in: filters.tagIds },
+          },
+        };
+      }
     }
 
     // Get total count for pagination

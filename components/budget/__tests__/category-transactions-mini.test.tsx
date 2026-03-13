@@ -112,12 +112,7 @@ describe('CategoryTransactionsMini', () => {
       const transactions = [createMockTransaction()];
       render(<CategoryTransactionsMini transactions={transactions} payees={mockPayees} />);
 
-      // Method column should have responsive hiding
-      const methodHeader = screen.getByText('Method');
-      expect(methodHeader.closest('th')?.className).toContain('hidden');
-      expect(methodHeader.closest('th')?.className).toContain('sm:table-cell');
-
-      // Notes column should also have responsive hiding
+      // Notes column should have responsive hiding
       const notesHeader = screen.getByText('Notes');
       expect(notesHeader.closest('th')?.className).toContain('hidden');
       expect(notesHeader.closest('th')?.className).toContain('lg:table-cell');
@@ -168,25 +163,6 @@ describe('CategoryTransactionsMini', () => {
       expect(amountCell?.querySelector('.text-green-500')).toBeInTheDocument();
     });
 
-    it('should display payment method', () => {
-      const transactions = [createMockTransaction({ paymentMethod: 'credit_card' })];
-      render(<CategoryTransactionsMini transactions={transactions} payees={mockPayees} />);
-
-      expect(screen.getByText('credit_card')).toBeInTheDocument();
-    });
-
-    it('should display installment info when present', () => {
-      const transactions = [
-        createMockTransaction({
-          paymentNumber: 2,
-          totalPayments: 6,
-        }),
-      ];
-      render(<CategoryTransactionsMini transactions={transactions} payees={mockPayees} />);
-
-      expect(screen.getByText('(2/6)')).toBeInTheDocument();
-    });
-
     it('should display notes when present', () => {
       const transactions = [createMockTransaction({ notes: 'Weekly groceries' })];
       render(<CategoryTransactionsMini transactions={transactions} payees={mockPayees} />);
@@ -200,8 +176,8 @@ describe('CategoryTransactionsMini', () => {
         <CategoryTransactionsMini transactions={transactions} payees={mockPayees} />
       );
 
-      // Find the notes cell (4th td in the row)
-      const notesCell = container.querySelector('tbody tr td:nth-child(4)');
+      // Find the notes cell (3rd td in the row)
+      const notesCell = container.querySelector('tbody tr td:nth-child(3)');
       expect(notesCell?.textContent).toBe('\u2014'); // em dash
     });
   });

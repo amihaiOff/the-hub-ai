@@ -142,17 +142,8 @@ function CategoryTableRow({
             budgeted={category.budgeted}
             spent={category.spent}
             selectedMonth={selectedMonth}
+            showStats={false}
           />
-        </td>
-        {/* Spent / Budget */}
-        <td className="hidden w-28 px-2 py-2.5 text-right lg:table-cell">
-          <span className="text-muted-foreground text-xs tabular-nums">
-            {formatCurrencyILS(category.spent)}
-          </span>
-          <span className="text-muted-foreground/40 mx-0.5 text-xs">/</span>
-          <span className="text-muted-foreground/60 text-xs tabular-nums">
-            {formatCurrencyILS(category.budgeted)}
-          </span>
         </td>
         {/* Available */}
         <td className="w-20 py-2.5 pr-3 pl-2 text-right sm:w-24">
@@ -170,7 +161,7 @@ function CategoryTableRow({
       {/* Expanded Transactions */}
       {isExpanded && (
         <tr className="border-b">
-          <td colSpan={4} className="bg-muted/20 px-4 py-2.5 pl-12">
+          <td colSpan={3} className="bg-muted/20 px-4 py-2.5 pl-12">
             <CategoryTransactionsMini transactions={category.transactions} payees={payees} />
           </td>
         </tr>
@@ -271,16 +262,8 @@ function SortableGroupRow({
             budgeted={group.totalBudgeted}
             spent={group.totalSpent}
             selectedMonth={selectedMonth}
+            showStats={false}
           />
-        </td>
-        <td className="hidden w-28 px-2 py-3 text-right lg:table-cell" onClick={onToggleExpand}>
-          <span className="text-muted-foreground text-xs tabular-nums">
-            {formatCurrencyILS(group.totalSpent)}
-          </span>
-          <span className="text-muted-foreground/40 mx-0.5 text-xs">/</span>
-          <span className="text-muted-foreground/60 text-xs tabular-nums">
-            {formatCurrencyILS(group.totalBudgeted)}
-          </span>
         </td>
         <td className="py-3 pr-3 pl-2 text-right" onClick={onToggleExpand}>
           <span className={cn('font-semibold tabular-nums', groupAvailableColor)}>
@@ -429,9 +412,6 @@ export default function BudgetDashboardPage() {
                       </th>
                       <th className="hidden px-2 py-2.5 text-left font-medium sm:table-cell">
                         Progress
-                      </th>
-                      <th className="hidden w-28 px-2 py-2.5 text-right font-medium lg:table-cell">
-                        Spent/Budget
                       </th>
                       <th className="w-20 py-2.5 pr-3 pl-2 text-right font-medium sm:w-24">
                         Available

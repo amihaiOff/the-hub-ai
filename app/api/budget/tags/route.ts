@@ -23,20 +23,35 @@ export async function GET() {
         _count: {
           select: { transactionTags: true },
         },
+        transactionTags: {
+          select: {
+            transaction: {
+              select: { amountIls: true, type: true },
+            },
+          },
+        },
       },
       orderBy: { name: 'asc' },
     });
 
     // Transform to match frontend interface
-    const transformedTags = tags.map((tag) => ({
-      id: tag.id,
-      name: tag.name,
-      color: tag.color,
-      transactionCount: tag._count.transactionTags,
-      householdId: tag.householdId,
-      createdAt: tag.createdAt,
-      updatedAt: tag.updatedAt,
-    }));
+    const transformedTags = tags.map((tag) => {
+      const totalSpent = tag.transactionTags.reduce((sum, tt) => {
+        const amount = Number(tt.transaction.amountIls);
+        return sum + (tt.transaction.type === 'income' ? -amount : amount);
+      }, 0);
+
+      return {
+        id: tag.id,
+        name: tag.name,
+        color: tag.color,
+        transactionCount: tag._count.transactionTags,
+        totalSpent,
+        householdId: tag.householdId,
+        createdAt: tag.createdAt,
+        updatedAt: tag.updatedAt,
+      };
+    });
 
     return NextResponse.json({
       success: true,
@@ -88,6 +103,7 @@ export async function POST(request: NextRequest) {
         name: tag.name,
         color: tag.color,
         transactionCount: 0,
+        totalSpent: 0,
         householdId: tag.householdId,
         createdAt: tag.createdAt,
         updatedAt: tag.updatedAt,
@@ -201,8 +217,20 @@ export async function PUT(request: NextRequest) {
         _count: {
           select: { transactionTags: true },
         },
+        transactionTags: {
+          select: {
+            transaction: {
+              select: { amountIls: true, type: true },
+            },
+          },
+        },
       },
     });
+
+    const totalSpent = updatedTag!.transactionTags.reduce((sum, tt) => {
+      const amount = Number(tt.transaction.amountIls);
+      return sum + (tt.transaction.type === 'income' ? -amount : amount);
+    }, 0);
 
     return NextResponse.json({
       success: true,
@@ -211,6 +239,7 @@ export async function PUT(request: NextRequest) {
         name: updatedTag!.name,
         color: updatedTag!.color,
         transactionCount: updatedTag!._count.transactionTags,
+        totalSpent,
         householdId: updatedTag!.householdId,
         mergedCount: sourceTagIds.length,
       },

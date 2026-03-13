@@ -95,6 +95,7 @@ export interface TransactionFilters {
   tagId?: string;
   type?: 'income' | 'expense';
   searchQuery?: string;
+  uncategorized?: boolean;
 }
 
 // API helper function
@@ -144,6 +145,7 @@ export function useBudgetMonthSummary(month: string) {
 export function useTransactions(filters?: TransactionFilters) {
   return useQuery({
     queryKey: budgetKeys.transactions(filters),
+    enabled: filters !== undefined,
     queryFn: async (): Promise<BudgetTransaction[]> => {
       const params = new URLSearchParams();
 
@@ -153,6 +155,7 @@ export function useTransactions(filters?: TransactionFilters) {
       if (filters?.payeeId) params.set('payeeId', filters.payeeId);
       if (filters?.tagId) params.set('tagIds', filters.tagId);
       if (filters?.type) params.set('type', filters.type);
+      if (filters?.uncategorized) params.set('uncategorized', 'true');
 
       const response = await fetchApi<PaginatedResponse<BudgetTransaction>>(
         `/api/budget/transactions?${params.toString()}`

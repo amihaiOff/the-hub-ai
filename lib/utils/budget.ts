@@ -64,6 +64,7 @@ export interface BudgetTag {
   name: string;
   color: string;
   transactionCount: number;
+  totalSpent: number;
   householdId: string;
 }
 
@@ -774,6 +775,7 @@ export const MOCK_TAGS: BudgetTag[] = [
     name: 'Essential',
     color: '#EF4444',
     transactionCount: 25,
+    totalSpent: 5200,
     householdId: MOCK_HOUSEHOLD_ID,
   },
   {
@@ -781,6 +783,7 @@ export const MOCK_TAGS: BudgetTag[] = [
     name: 'Fun',
     color: '#8B5CF6',
     transactionCount: 18,
+    totalSpent: 3400,
     householdId: MOCK_HOUSEHOLD_ID,
   },
   {
@@ -788,6 +791,7 @@ export const MOCK_TAGS: BudgetTag[] = [
     name: 'Subscription',
     color: '#3B82F6',
     transactionCount: 5,
+    totalSpent: 450,
     householdId: MOCK_HOUSEHOLD_ID,
   },
   {
@@ -795,6 +799,7 @@ export const MOCK_TAGS: BudgetTag[] = [
     name: 'One-time',
     color: '#F59E0B',
     transactionCount: 8,
+    totalSpent: 1800,
     householdId: MOCK_HOUSEHOLD_ID,
   },
   {
@@ -802,6 +807,7 @@ export const MOCK_TAGS: BudgetTag[] = [
     name: 'Work Related',
     color: '#10B981',
     transactionCount: 3,
+    totalSpent: 900,
     householdId: MOCK_HOUSEHOLD_ID,
   },
 ];

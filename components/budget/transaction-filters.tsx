@@ -36,6 +36,7 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
     filters.payeeId,
     filters.tagId,
     filters.type,
+    filters.uncategorized,
   ].filter(Boolean).length;
 
   const clearFilters = () => {
@@ -45,6 +46,7 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
       payeeId: undefined,
       tagId: undefined,
       type: undefined,
+      uncategorized: undefined,
     });
   };
 
@@ -220,6 +222,9 @@ export function ActiveFilterBadges({ filters, onRemoveFilter }: ActiveFilterBadg
   if (filters.tagId) {
     const tag = tags.find((t) => t.id === filters.tagId);
     badges.push({ key: 'tagId', label: `Tag: ${tag?.name || 'Unknown'}` });
+  }
+  if (filters.uncategorized) {
+    badges.push({ key: 'uncategorized', label: 'Uncategorized' });
   }
 
   if (badges.length === 0) return null;

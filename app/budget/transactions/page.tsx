@@ -96,9 +96,18 @@ export default function TransactionsPage() {
           {isLoading ? 'Loading...' : `${transactions.length} transactions`}
         </span>
         {!isLoading && (countData?.uncategorized ?? 0) > 0 && (
-          <span className="text-destructive font-medium">
+          <button
+            className="text-destructive hover:text-destructive/80 font-medium underline-offset-2 hover:underline"
+            onClick={() =>
+              setFilters((prev) =>
+                prev.uncategorized
+                  ? { ...prev, uncategorized: undefined }
+                  : { ...prev, uncategorized: true }
+              )
+            }
+          >
             {countData?.uncategorized} uncategorized
-          </span>
+          </button>
         )}
       </div>
 
