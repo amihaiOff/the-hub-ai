@@ -10,10 +10,15 @@ import {
   type BudgetTag,
   formatDate,
 } from '@/lib/utils/budget';
-import { TransactionRow, TransactionRowMobile } from './transaction-row';
+import {
+  TransactionRow,
+  TransactionRowMobile,
+  type PayeeCategoryPromptData,
+} from './transaction-row';
 import { BulkActionsBar } from './bulk-actions-bar';
 import { EditTransactionDialog } from './edit-transaction-dialog';
 import { SplitTransactionDialog } from './split-transaction-dialog';
+import { PayeeCategoryPrompt } from './payee-category-prompt';
 import { useDeleteTransaction } from '@/lib/hooks/use-budget';
 
 function groupTransactionsByDate(transactions: BudgetTransaction[]) {
@@ -49,6 +54,9 @@ export function TransactionTable({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingTransaction, setEditingTransaction] = useState<BudgetTransaction | null>(null);
   const [splittingTransaction, setSplittingTransaction] = useState<BudgetTransaction | null>(null);
+  const [payeeCategoryPrompt, setPayeeCategoryPrompt] = useState<PayeeCategoryPromptData | null>(
+    null
+  );
   const deleteTransaction = useDeleteTransaction();
   const dateGroups = useMemo(() => groupTransactionsByDate(transactions), [transactions]);
 
@@ -133,6 +141,7 @@ export function TransactionTable({
                 onEdit={() => setEditingTransaction(transaction)}
                 onDelete={() => handleDelete(transaction.id)}
                 onSplit={() => setSplittingTransaction(transaction)}
+                onPromptPayeeCategory={setPayeeCategoryPrompt}
               />
             ))}
           </div>
@@ -186,6 +195,7 @@ export function TransactionTable({
                     onEdit={() => setEditingTransaction(transaction)}
                     onDelete={() => handleDelete(transaction.id)}
                     onSplit={() => setSplittingTransaction(transaction)}
+                    onPromptPayeeCategory={setPayeeCategoryPrompt}
                   />
                 ))}
               </tbody>
@@ -216,6 +226,19 @@ export function TransactionTable({
         open={!!splittingTransaction}
         onOpenChange={(open) => !open && setSplittingTransaction(null)}
       />
+
+      {/* Payee Category Prompt - lifted here so it survives row unmount */}
+      {payeeCategoryPrompt && (
+        <PayeeCategoryPrompt
+          open={!!payeeCategoryPrompt}
+          onClose={() => setPayeeCategoryPrompt(null)}
+          payeeId={payeeCategoryPrompt.payeeId}
+          payeeName={payeeCategoryPrompt.payeeName}
+          categoryId={payeeCategoryPrompt.categoryId}
+          categoryName={payeeCategoryPrompt.categoryName}
+          oldDefaultCategoryName={payeeCategoryPrompt.oldDefaultCategoryName}
+        />
+      )}
     </div>
   );
 }

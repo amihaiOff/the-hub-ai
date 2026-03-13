@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
@@ -32,7 +32,13 @@ import {
   getPayeeName,
 } from '@/lib/utils/budget';
 import { useUpdateTransaction } from '@/lib/hooks/use-budget';
-import { PayeeCategoryPrompt } from './payee-category-prompt';
+export interface PayeeCategoryPromptData {
+  categoryId: string;
+  categoryName: string;
+  payeeId: string;
+  payeeName: string;
+  oldDefaultCategoryName: string | null;
+}
 
 export interface TransactionRowProps {
   transaction: BudgetTransaction;
@@ -44,6 +50,7 @@ export interface TransactionRowProps {
   onEdit: () => void;
   onDelete: () => void;
   onSplit: () => void;
+  onPromptPayeeCategory: (data: PayeeCategoryPromptData) => void;
 }
 
 // --- Shared hooks & sub-components ---
@@ -51,17 +58,10 @@ export interface TransactionRowProps {
 function useCategoryChange(
   transaction: BudgetTransaction,
   categoryGroups: BudgetCategoryGroup[],
-  payees: BudgetPayee[]
+  payees: BudgetPayee[],
+  onPromptPayeeCategory: (data: PayeeCategoryPromptData) => void
 ) {
   const updateTransaction = useUpdateTransaction();
-
-  const [promptState, setPromptState] = useState<{
-    categoryId: string;
-    categoryName: string;
-    payeeId: string;
-    payeeName: string;
-    oldDefaultCategoryName: string | null;
-  } | null>(null);
 
   const getCategoryName = (categoryId: string): string => {
     for (const group of categoryGroups) {
@@ -85,7 +85,7 @@ function useCategoryChange(
           if (!payee) return;
           if (payee.categoryId === newCategoryId) return;
           const oldDefaultName = payee.categoryId ? getCategoryName(payee.categoryId) : null;
-          setPromptState({
+          onPromptPayeeCategory({
             categoryId: newCategoryId,
             categoryName: getCategoryName(newCategoryId),
             payeeId: payee.id,
@@ -100,7 +100,7 @@ function useCategoryChange(
     );
   };
 
-  return { updateTransaction, promptState, setPromptState, handleCategoryChange };
+  return { updateTransaction, handleCategoryChange };
 }
 
 function CategorySelect({
@@ -244,106 +244,93 @@ export function TransactionRow({
   onEdit,
   onDelete,
   onSplit,
+  onPromptPayeeCategory,
 }: TransactionRowProps) {
   const payeeName = getPayeeName(transaction.payeeId, payees);
   const transactionTags = tags.filter((t) => transaction.tagIds.includes(t.id));
   const isIncome = transaction.type === 'income';
-  const { updateTransaction, promptState, setPromptState, handleCategoryChange } =
-    useCategoryChange(transaction, categoryGroups, payees);
+  const { updateTransaction, handleCategoryChange } = useCategoryChange(
+    transaction,
+    categoryGroups,
+    payees,
+    onPromptPayeeCategory
+  );
 
   return (
-    <>
-      <tr className="hover:bg-muted/50 border-b transition-colors">
-        {/* Checkbox */}
-        <td className="w-10 px-4 py-2">
-          <Checkbox
-            checked={isSelected}
-            onCheckedChange={onSelect}
-            aria-label="Select transaction"
-          />
-        </td>
+    <tr className="hover:bg-muted/50 border-b transition-colors">
+      {/* Checkbox */}
+      <td className="w-10 px-4 py-2">
+        <Checkbox checked={isSelected} onCheckedChange={onSelect} aria-label="Select transaction" />
+      </td>
 
-        {/* Date */}
-        <td className="text-muted-foreground px-4 py-2 text-sm whitespace-nowrap tabular-nums">
-          {formatDate(transaction.transactionDate)}
-        </td>
+      {/* Date */}
+      <td className="text-muted-foreground px-4 py-2 text-sm whitespace-nowrap tabular-nums">
+        {formatDate(transaction.transactionDate)}
+      </td>
 
-        {/* Payee */}
-        <td className="px-4 py-2">
-          <div className="truncate font-medium">{payeeName}</div>
-          {transaction.notes && (
-            <div className="text-muted-foreground truncate text-xs">{transaction.notes}</div>
+      {/* Payee */}
+      <td className="px-4 py-2">
+        <div className="truncate font-medium">{payeeName}</div>
+        {transaction.notes && (
+          <div className="text-muted-foreground truncate text-xs">{transaction.notes}</div>
+        )}
+      </td>
+
+      {/* Category */}
+      <td className="px-4 py-2">
+        <CategorySelect
+          transaction={transaction}
+          categoryGroups={categoryGroups}
+          payeeName={payeeName}
+          isIncome={isIncome}
+          isPending={updateTransaction.isPending}
+          onCategoryChange={handleCategoryChange}
+          triggerClassName={cn(
+            'h-auto w-full max-w-[180px] border-0 bg-transparent px-1 py-1 text-sm shadow-none',
+            'hover:bg-muted/50 focus:ring-0 focus:ring-offset-0',
+            !transaction.categoryId && 'text-muted-foreground'
           )}
-        </td>
-
-        {/* Category */}
-        <td className="px-4 py-2">
-          <CategorySelect
-            transaction={transaction}
-            categoryGroups={categoryGroups}
-            payeeName={payeeName}
-            isIncome={isIncome}
-            isPending={updateTransaction.isPending}
-            onCategoryChange={handleCategoryChange}
-            triggerClassName={cn(
-              'h-auto w-full max-w-[180px] border-0 bg-transparent px-1 py-1 text-sm shadow-none',
-              'hover:bg-muted/50 focus:ring-0 focus:ring-offset-0',
-              !transaction.categoryId && 'text-muted-foreground'
-            )}
-          />
-        </td>
-
-        {/* Tags */}
-        <td className="hidden px-2 py-2 lg:table-cell lg:px-4">
-          <div className="flex flex-wrap gap-1">
-            {transactionTags.slice(0, 2).map((tag) => (
-              <span
-                key={tag.id}
-                className="rounded-full px-2 py-0.5 text-xs text-white"
-                style={{ backgroundColor: tag.color }}
-              >
-                {tag.name}
-              </span>
-            ))}
-            {transactionTags.length > 2 && (
-              <span className="text-muted-foreground text-xs">+{transactionTags.length - 2}</span>
-            )}
-          </div>
-        </td>
-
-        {/* Amount */}
-        <td className="px-4 py-2 text-right whitespace-nowrap">
-          <span className={cn('font-medium tabular-nums', isIncome ? 'text-green-500' : '')}>
-            {isIncome ? '+' : '-'}
-            {formatCurrencyILS(transaction.amountIls)}
-          </span>
-        </td>
-
-        {/* Actions */}
-        <td className="w-10 px-4 py-2">
-          <TransactionActions
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onSplit={onSplit}
-            isSplit={transaction.isSplit}
-            buttonClassName="h-8 w-8"
-            iconClassName="h-4 w-4"
-          />
-        </td>
-      </tr>
-
-      {promptState && (
-        <PayeeCategoryPrompt
-          open={!!promptState}
-          onClose={() => setPromptState(null)}
-          payeeId={promptState.payeeId}
-          payeeName={promptState.payeeName}
-          categoryId={promptState.categoryId}
-          categoryName={promptState.categoryName}
-          oldDefaultCategoryName={promptState.oldDefaultCategoryName}
         />
-      )}
-    </>
+      </td>
+
+      {/* Tags */}
+      <td className="hidden px-2 py-2 lg:table-cell lg:px-4">
+        <div className="flex flex-wrap gap-1">
+          {transactionTags.slice(0, 2).map((tag) => (
+            <span
+              key={tag.id}
+              className="rounded-full px-2 py-0.5 text-xs text-white"
+              style={{ backgroundColor: tag.color }}
+            >
+              {tag.name}
+            </span>
+          ))}
+          {transactionTags.length > 2 && (
+            <span className="text-muted-foreground text-xs">+{transactionTags.length - 2}</span>
+          )}
+        </div>
+      </td>
+
+      {/* Amount */}
+      <td className="px-4 py-2 text-right whitespace-nowrap">
+        <span className={cn('font-medium tabular-nums', isIncome ? 'text-green-500' : '')}>
+          {isIncome ? '+' : '-'}
+          {formatCurrencyILS(transaction.amountIls)}
+        </span>
+      </td>
+
+      {/* Actions */}
+      <td className="w-10 px-4 py-2">
+        <TransactionActions
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onSplit={onSplit}
+          isSplit={transaction.isSplit}
+          buttonClassName="h-8 w-8"
+          iconClassName="h-4 w-4"
+        />
+      </td>
+    </tr>
   );
 }
 
@@ -359,86 +346,71 @@ export function TransactionRowMobile({
   onEdit,
   onDelete,
   onSplit,
+  onPromptPayeeCategory,
 }: TransactionRowProps) {
   const payeeName = getPayeeName(transaction.payeeId, payees);
   const transactionTags = tags.filter((t) => transaction.tagIds.includes(t.id));
   const isIncome = transaction.type === 'income';
-  const { updateTransaction, promptState, setPromptState, handleCategoryChange } =
-    useCategoryChange(transaction, categoryGroups, payees);
+  const { updateTransaction, handleCategoryChange } = useCategoryChange(
+    transaction,
+    categoryGroups,
+    payees,
+    onPromptPayeeCategory
+  );
 
   return (
-    <>
-      <div className="border-border/40 flex items-start gap-2 border-b px-2 py-1.5">
-        {/* Checkbox */}
-        <div className="flex shrink-0 items-center self-center">
-          <Checkbox
-            checked={isSelected}
-            onCheckedChange={onSelect}
-            aria-label="Select transaction"
-          />
-        </div>
-
-        {/* Left: Payee + Notes */}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2.5">
-            <span className="truncate text-sm font-medium">{payeeName}</span>
-            {transactionTags.map((tag) => (
-              <TagDot key={tag.id} tag={tag} />
-            ))}
-          </div>
-          {transaction.notes && (
-            <div className="text-muted-foreground truncate text-xs">{transaction.notes}</div>
-          )}
-        </div>
-
-        {/* Right: Amount + Category */}
-        <div className="flex shrink-0 flex-col items-end">
-          <span
-            className={cn('text-sm font-medium tabular-nums', isIncome ? 'text-green-500' : '')}
-          >
-            {isIncome ? '+' : '-'}
-            {formatCurrencyILS(transaction.amountIls)}
-          </span>
-          <CategorySelect
-            transaction={transaction}
-            categoryGroups={categoryGroups}
-            payeeName={payeeName}
-            isIncome={isIncome}
-            isPending={updateTransaction.isPending}
-            onCategoryChange={handleCategoryChange}
-            align="end"
-            triggerClassName={cn(
-              'h-auto w-auto max-w-[120px] justify-end border-0 bg-transparent px-0 py-0 text-xs shadow-none',
-              'hover:bg-muted/50 focus:ring-0 focus:ring-offset-0',
-              'text-muted-foreground'
-            )}
-          />
-        </div>
-
-        {/* Actions */}
-        <div className="flex shrink-0 items-center pt-0.5">
-          <TransactionActions
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onSplit={onSplit}
-            isSplit={transaction.isSplit}
-            buttonClassName="h-7 w-7"
-            iconClassName="h-3.5 w-3.5"
-          />
-        </div>
+    <div className="border-border/40 flex items-start gap-2 border-b px-2 py-1.5">
+      {/* Checkbox */}
+      <div className="flex shrink-0 items-center self-center">
+        <Checkbox checked={isSelected} onCheckedChange={onSelect} aria-label="Select transaction" />
       </div>
 
-      {promptState && (
-        <PayeeCategoryPrompt
-          open={!!promptState}
-          onClose={() => setPromptState(null)}
-          payeeId={promptState.payeeId}
-          payeeName={promptState.payeeName}
-          categoryId={promptState.categoryId}
-          categoryName={promptState.categoryName}
-          oldDefaultCategoryName={promptState.oldDefaultCategoryName}
+      {/* Left: Payee + Notes */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2.5">
+          <span className="truncate text-sm font-medium">{payeeName}</span>
+          {transactionTags.map((tag) => (
+            <TagDot key={tag.id} tag={tag} />
+          ))}
+        </div>
+        {transaction.notes && (
+          <div className="text-muted-foreground truncate text-xs">{transaction.notes}</div>
+        )}
+      </div>
+
+      {/* Right: Amount + Category */}
+      <div className="flex shrink-0 flex-col items-end">
+        <span className={cn('text-sm font-medium tabular-nums', isIncome ? 'text-green-500' : '')}>
+          {isIncome ? '+' : '-'}
+          {formatCurrencyILS(transaction.amountIls)}
+        </span>
+        <CategorySelect
+          transaction={transaction}
+          categoryGroups={categoryGroups}
+          payeeName={payeeName}
+          isIncome={isIncome}
+          isPending={updateTransaction.isPending}
+          onCategoryChange={handleCategoryChange}
+          align="end"
+          triggerClassName={cn(
+            'h-auto w-auto max-w-[120px] justify-end border-0 bg-transparent px-0 py-0 text-xs shadow-none',
+            'hover:bg-muted/50 focus:ring-0 focus:ring-offset-0',
+            'text-muted-foreground'
+          )}
         />
-      )}
-    </>
+      </div>
+
+      {/* Actions */}
+      <div className="flex shrink-0 items-center pt-0.5">
+        <TransactionActions
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onSplit={onSplit}
+          isSplit={transaction.isSplit}
+          buttonClassName="h-7 w-7"
+          iconClassName="h-3.5 w-3.5"
+        />
+      </div>
+    </div>
   );
 }

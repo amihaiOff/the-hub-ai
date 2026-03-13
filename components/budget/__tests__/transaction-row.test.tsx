@@ -196,6 +196,7 @@ const defaultProps = {
   onEdit: jest.fn(),
   onDelete: jest.fn(),
   onSplit: jest.fn(),
+  onPromptPayeeCategory: jest.fn(),
 };
 
 describe('TransactionRow', () => {
