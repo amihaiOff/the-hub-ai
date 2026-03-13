@@ -56,12 +56,16 @@ export default function SavingsPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Savings</h1>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="sm:w-auto sm:px-4 sm:py-2">
-              <Plus className="h-5 w-5 sm:mr-1.5 sm:h-4 sm:w-4" />
+            <Button
+              variant="outline"
+              size="icon"
+              className="!h-6 !min-h-0 !w-6 !min-w-0 rounded-full sm:!h-auto sm:!w-auto sm:rounded-md sm:px-4 sm:py-2"
+            >
+              <Plus className="!h-3 !w-3 sm:mr-1.5 sm:!h-4 sm:!w-4" />
               <span className="hidden sm:inline">Add Entry</span>
             </Button>
           </DialogTrigger>

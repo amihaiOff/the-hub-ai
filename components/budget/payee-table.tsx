@@ -89,23 +89,23 @@ export function PayeeTable({
       <table className="w-full">
         <thead className="bg-muted/50 border-b">
           <tr>
-            <th className="w-10 px-2 py-3 text-left sm:px-4">
+            <th className="w-8 px-1 py-2 text-left sm:w-10 sm:px-2 sm:py-3">
               <Checkbox
                 checked={allSelected ? true : someSelected ? 'indeterminate' : false}
                 onCheckedChange={toggleSelectAll}
                 aria-label="Select all"
               />
             </th>
-            <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wider uppercase">
-              Payee Name
+            <th className="text-muted-foreground px-2 py-2 text-left text-xs font-medium tracking-wider uppercase sm:px-4 sm:py-3">
+              Payee
             </th>
-            <th className="text-muted-foreground px-4 py-3 text-left text-xs font-medium tracking-wider uppercase">
-              Default Category
+            <th className="text-muted-foreground px-2 py-2 text-left text-xs font-medium tracking-wider uppercase sm:px-4 sm:py-3">
+              Category
             </th>
-            <th className="text-muted-foreground hidden px-4 py-3 text-right text-xs font-medium tracking-wider uppercase sm:table-cell">
-              Transactions
+            <th className="text-muted-foreground hidden px-2 py-2 text-right text-xs font-medium tracking-wider uppercase sm:table-cell sm:px-4 sm:py-3">
+              Txns
             </th>
-            <th className="w-10 px-2 py-3">
+            <th className="w-8 px-1 py-2 sm:w-10 sm:px-2 sm:py-3">
               <span className="sr-only">Actions</span>
             </th>
           </tr>
@@ -113,20 +113,20 @@ export function PayeeTable({
         <tbody className="divide-y">
           {payees.map((payee) => (
             <tr key={payee.id} className="hover:bg-muted/50 transition-colors">
-              <td className="px-2 py-3 sm:px-4">
+              <td className="px-1 py-2 sm:px-2 sm:py-3">
                 <Checkbox
                   checked={selectedIds.has(payee.id)}
                   onCheckedChange={(checked) => toggleSelect(payee.id, !!checked)}
                   aria-label={`Select ${payee.name}`}
                 />
               </td>
-              <td className="px-4 py-3">
-                <span className="font-medium">{payee.name}</span>
+              <td className="px-2 py-2 sm:px-4 sm:py-3">
+                <span className="text-sm font-medium">{payee.name}</span>
                 <div className="text-muted-foreground text-xs sm:hidden">
-                  {payee.transactionCount} transaction{payee.transactionCount !== 1 ? 's' : ''}
+                  {payee.transactionCount} txn{payee.transactionCount !== 1 ? 's' : ''}
                 </div>
               </td>
-              <td className="px-4 py-3">
+              <td className="px-2 py-2 sm:px-4 sm:py-3">
                 <Select
                   value={payee.categoryId || '__none__'}
                   onValueChange={(value) => handleCategoryChange(payee.id, value)}
@@ -135,7 +135,7 @@ export function PayeeTable({
                   <SelectTrigger
                     aria-label={`Select default category for ${payee.name}`}
                     className={cn(
-                      'h-auto w-full max-w-[180px] border-0 bg-transparent px-1 py-1 text-sm shadow-none',
+                      'h-auto w-full max-w-[140px] border-0 bg-transparent px-1 py-1 text-sm whitespace-normal shadow-none sm:max-w-[180px]',
                       'hover:bg-muted/50 focus:ring-0 focus:ring-offset-0',
                       !payee.categoryId && 'text-muted-foreground italic'
                     )}
@@ -165,10 +165,10 @@ export function PayeeTable({
                   </SelectContent>
                 </Select>
               </td>
-              <td className="hidden px-4 py-3 text-right tabular-nums sm:table-cell">
+              <td className="hidden px-2 py-2 text-right tabular-nums sm:table-cell sm:px-4 sm:py-3">
                 {payee.transactionCount}
               </td>
-              <td className="px-2 py-3">
+              <td className="px-1 py-2 sm:px-2 sm:py-3">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8">
