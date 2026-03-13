@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Plus, Loader2, AlertCircle, PiggyBank, Trash2 } from 'lucide-react';
+import { Plus, Loader2, AlertCircle, PiggyBank, Trash2, ChevronRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   useSavings,
@@ -29,6 +29,8 @@ export default function SavingsPage() {
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState(getCurrentMonth());
   const [amount, setAmount] = useState('');
+
+  const [expandedYear, setExpandedYear] = useState<number | null>(null);
 
   // Inline edit state
   const [editingMonth, setEditingMonth] = useState<string | null>(null);
@@ -180,8 +182,8 @@ export default function SavingsPage() {
         </div>
       )}
 
-      {/* Yearly Summary */}
-      {!isLoading && yearlySummary && (
+      {/* Savings Table */}
+      {!isLoading && yearlySummary && data && (
         <div className="lg:border-border/40 lg:bg-card/80 lg:shadow-glow lg:rounded-3xl lg:border lg:py-6 lg:backdrop-blur-xl">
           {/* Header row */}
           <div className="bg-muted/50 flex items-center px-4 py-2.5 lg:px-6">
@@ -193,20 +195,97 @@ export default function SavingsPage() {
               Monthly Avg
             </span>
           </div>
-          {yearlySummary.rows.map((row) => (
-            <div
-              key={row.year}
-              className="border-border/10 flex items-center border-b px-4 py-2.5 last:border-b-0 lg:px-6"
-            >
-              <span className="flex-1 text-sm font-medium">{row.year}</span>
-              <span className="w-28 text-right text-sm tabular-nums">
-                {formatCurrencyILS(row.total)}
-              </span>
-              <span className="text-muted-foreground w-28 text-right text-sm tabular-nums">
-                {row.avg > 0 ? formatCurrencyILS(Math.round(row.avg)) : '\u2014'}
-              </span>
-            </div>
-          ))}
+
+          {yearlySummary.rows.map((row) => {
+            const isExpanded = expandedYear === row.year;
+            const yearData = data.years.find((y) => y.year === row.year);
+
+            return (
+              <div key={row.year}>
+                {/* Year row */}
+                <div
+                  className="border-border/10 hover:bg-muted/20 flex cursor-pointer items-center border-b px-4 py-2.5 transition-colors lg:px-6"
+                  onClick={() => setExpandedYear(isExpanded ? null : row.year)}
+                >
+                  <div className="flex flex-1 items-center gap-2">
+                    <ChevronRight
+                      className={`text-muted-foreground h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                    />
+                    <span className="text-sm font-medium">{row.year}</span>
+                  </div>
+                  <span className="w-28 text-right text-sm tabular-nums">
+                    {formatCurrencyILS(row.total)}
+                  </span>
+                  <span className="text-muted-foreground w-28 text-right text-sm tabular-nums">
+                    {row.avg > 0 ? formatCurrencyILS(Math.round(row.avg)) : '\u2014'}
+                  </span>
+                </div>
+
+                {/* Expanded month rows */}
+                {isExpanded && yearData && (
+                  <div className="bg-muted/5">
+                    {yearData.months.map((monthData) => (
+                      <div
+                        key={monthData.month}
+                        className="border-border/10 flex items-center justify-between border-b py-2 pr-4 pl-10 last:border-b-0 lg:pr-6 lg:pl-12"
+                      >
+                        <span className="text-muted-foreground text-sm">
+                          {formatMonth(monthData.month)}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {editingMonth === monthData.month ? (
+                            <input
+                              ref={inputRef}
+                              type="number"
+                              step="0.01"
+                              aria-label={`Edit savings for ${formatMonth(monthData.month)}`}
+                              value={editingValue}
+                              onChange={(e) => setEditingValue(e.target.value)}
+                              onBlur={() => handleEditSave(monthData.month)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.currentTarget.blur();
+                                if (e.key === 'Escape') {
+                                  cancelledRef.current = true;
+                                  setEditingMonth(null);
+                                }
+                              }}
+                              className="w-28 [appearance:textfield] bg-transparent text-right text-sm tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            />
+                          ) : (
+                            <span
+                              className={`text-sm tabular-nums ${monthData.hasEntries ? 'cursor-pointer hover:underline' : ''}`}
+                              onClick={() => {
+                                if (monthData.hasEntries) {
+                                  setEditingMonth(monthData.month);
+                                  setEditingValue(String(monthData.amount));
+                                }
+                              }}
+                            >
+                              {monthData.amount === 0 ? (
+                                <span className="text-muted-foreground/50">&mdash;</span>
+                              ) : (
+                                formatCurrencyILS(monthData.amount)
+                              )}
+                            </span>
+                          )}
+                          {monthData.hasEntries && editingMonth !== monthData.month && (
+                            <button
+                              onClick={() => handleDelete(monthData.month)}
+                              aria-label={`Delete savings for ${formatMonth(monthData.month)}`}
+                              className="text-muted-foreground/50 hover:text-destructive transition-colors"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
           {/* Grand total */}
           <div className="bg-muted/30 flex items-center px-4 py-2.5 lg:px-6">
             <span className="flex-1 text-sm font-bold">Total</span>
@@ -214,83 +293,6 @@ export default function SavingsPage() {
               {formatCurrencyILS(yearlySummary.grandTotal)}
             </span>
             <span className="w-28" />
-          </div>
-        </div>
-      )}
-
-      {/* Year-Grouped Table */}
-      {!isLoading && data && data.years.length > 0 && (
-        <div className="lg:border-border/40 lg:bg-card/80 lg:shadow-glow lg:rounded-3xl lg:border lg:py-6 lg:backdrop-blur-xl">
-          <div className="space-y-0">
-            {data.years.map((yearData) => (
-              <div key={yearData.year}>
-                {/* Year Header */}
-                <div className="bg-muted/30 flex items-center justify-between px-4 py-3 lg:px-6">
-                  <span className="text-sm font-bold">{yearData.year}</span>
-                  <span className="text-sm font-bold tabular-nums">
-                    {formatCurrencyILS(yearData.total)}
-                  </span>
-                </div>
-
-                {/* Month Rows */}
-                {yearData.months.map((monthData) => (
-                  <div
-                    key={monthData.month}
-                    className="border-border/10 flex items-center justify-between border-b px-4 py-2.5 last:border-b-0 lg:px-6"
-                  >
-                    <span className="text-muted-foreground text-sm">
-                      {formatMonth(monthData.month)}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {editingMonth === monthData.month ? (
-                        <input
-                          ref={inputRef}
-                          type="number"
-                          step="0.01"
-                          aria-label={`Edit savings for ${formatMonth(monthData.month)}`}
-                          value={editingValue}
-                          onChange={(e) => setEditingValue(e.target.value)}
-                          onBlur={() => handleEditSave(monthData.month)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') e.currentTarget.blur();
-                            if (e.key === 'Escape') {
-                              cancelledRef.current = true;
-                              setEditingMonth(null);
-                            }
-                          }}
-                          className="w-28 [appearance:textfield] bg-transparent text-right text-sm tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                        />
-                      ) : (
-                        <span
-                          className={`text-sm tabular-nums ${monthData.hasEntries ? 'cursor-pointer hover:underline' : ''}`}
-                          onClick={() => {
-                            if (monthData.hasEntries) {
-                              setEditingMonth(monthData.month);
-                              setEditingValue(String(monthData.amount));
-                            }
-                          }}
-                        >
-                          {monthData.amount === 0 ? (
-                            <span className="text-muted-foreground/50">&mdash;</span>
-                          ) : (
-                            formatCurrencyILS(monthData.amount)
-                          )}
-                        </span>
-                      )}
-                      {monthData.hasEntries && editingMonth !== monthData.month && (
-                        <button
-                          onClick={() => handleDelete(monthData.month)}
-                          aria-label={`Delete savings for ${formatMonth(monthData.month)}`}
-                          className="text-muted-foreground/50 hover:text-destructive transition-colors"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
           </div>
         </div>
       )}
