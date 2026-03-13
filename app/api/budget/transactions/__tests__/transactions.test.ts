@@ -196,7 +196,7 @@ describe('Transactions API', () => {
       expect(data.error).toBe('Failed to fetch transactions');
     });
 
-    it('should filter uncategorized transactions (no category and no tags)', async () => {
+    it('should filter uncategorized transactions (no category and no tags, expenses only)', async () => {
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       (mockPrisma.budgetTransaction.count as jest.Mock).mockResolvedValueOnce(0);
       (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
@@ -211,6 +211,7 @@ describe('Transactions API', () => {
           where: expect.objectContaining({
             householdId: 'household-1',
             categoryId: null,
+            type: 'expense',
             tags: { none: {} },
           }),
         })
@@ -247,6 +248,7 @@ describe('Transactions API', () => {
           where: expect.objectContaining({
             householdId: 'household-1',
             categoryId: null,
+            type: 'expense',
             tags: { none: {} },
             transactionDate: {
               gte: expect.any(Date),
@@ -272,6 +274,7 @@ describe('Transactions API', () => {
 
       const callArgs = (mockPrisma.budgetTransaction.findMany as jest.Mock).mock.calls[0][0];
       expect(callArgs.where.categoryId).toBeNull();
+      expect(callArgs.where.type).toBe('expense');
     });
 
     it('should override categoryId when uncategorized is true', async () => {
@@ -287,6 +290,7 @@ describe('Transactions API', () => {
       // uncategorized filter is applied AFTER categoryId, so categoryId should be null
       const callArgs = (mockPrisma.budgetTransaction.findMany as jest.Mock).mock.calls[0][0];
       expect(callArgs.where.categoryId).toBeNull();
+      expect(callArgs.where.type).toBe('expense');
     });
   });
 

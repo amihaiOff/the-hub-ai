@@ -16,11 +16,13 @@ export async function GET(request: NextRequest) {
     const where: {
       householdId: string;
       categoryId: null;
+      type: 'expense';
       tags?: { none: Record<string, never> };
       transactionDate?: { gte: Date; lt: Date };
     } = {
       householdId,
       categoryId: null,
+      type: 'expense',
       tags: { none: {} },
     };
 

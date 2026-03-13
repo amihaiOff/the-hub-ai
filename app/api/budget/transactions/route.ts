@@ -149,9 +149,11 @@ export async function GET(request: NextRequest) {
     if (filters.paymentMethod) where.paymentMethod = filters.paymentMethod;
 
     // Uncategorized filter takes precedence over categoryId and tagIds
+    // Income transactions are never considered uncategorized
     if (filters.uncategorized) {
       where.categoryId = null;
       where.tags = { none: {} };
+      where.type = 'expense';
     } else {
       if (filters.categoryId) where.categoryId = filters.categoryId;
       if (filters.tagIds && filters.tagIds.length > 0) {
