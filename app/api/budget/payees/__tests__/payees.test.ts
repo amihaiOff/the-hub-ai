@@ -79,6 +79,7 @@ describe('Payees API', () => {
           createdAt: new Date(),
           updatedAt: new Date(),
           category: { id: 'cat-1', name: 'Groceries' },
+          _count: { transactions: 5 },
         },
         {
           id: 'payee-2',
@@ -88,6 +89,7 @@ describe('Payees API', () => {
           createdAt: new Date(),
           updatedAt: new Date(),
           category: null,
+          _count: { transactions: 0 },
         },
       ];
 
@@ -102,7 +104,9 @@ describe('Payees API', () => {
       expect(data.data).toHaveLength(2);
       expect(data.data[0].name).toBe('Grocery Store');
       expect(data.data[0].categoryName).toBe('Groceries');
+      expect(data.data[0].transactionCount).toBe(5);
       expect(data.data[1].categoryName).toBeNull();
+      expect(data.data[1].transactionCount).toBe(0);
     });
 
     it('should return 401 when not authenticated', async () => {
@@ -299,6 +303,7 @@ describe('Payees API', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         category: { id: 'cat-1', name: 'Groceries' },
+        _count: { transactions: 5 },
       };
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
@@ -312,6 +317,7 @@ describe('Payees API', () => {
       expect(data.success).toBe(true);
       expect(data.data.id).toBe('payee-1');
       expect(data.data.categoryName).toBe('Groceries');
+      expect(data.data.transactionCount).toBe(5);
     });
 
     it('should return 404 when payee not found', async () => {
@@ -354,6 +360,7 @@ describe('Payees API', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         category: null,
+        _count: { transactions: 3 },
       };
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
@@ -394,6 +401,7 @@ describe('Payees API', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         category: { id: 'cat-1', name: 'Groceries' },
+        _count: { transactions: 3 },
       };
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
@@ -489,6 +497,7 @@ describe('Payees API', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         category: { id: 'cat-1', name: 'Groceries' },
+        _count: { transactions: 5 },
       };
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
@@ -539,6 +548,7 @@ describe('Payees API', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         category: { id: 'cat-1', name: 'Groceries' },
+        _count: { transactions: 3 },
       };
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
@@ -581,6 +591,7 @@ describe('Payees API', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         category: { id: 'cat-1', name: 'Groceries' },
+        _count: { transactions: 3 },
       };
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);

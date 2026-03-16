@@ -56,6 +56,7 @@ export interface BudgetPayee {
   name: string;
   categoryId: string | null;
   categoryName?: string | null;
+  transactionCount: number;
   householdId: string;
 }
 
@@ -764,61 +765,70 @@ export const MOCK_PAYEES: BudgetPayee[] = [
     id: 'payee-1',
     name: 'Shufersal',
     categoryId: 'cat-6',
-
+    transactionCount: 24,
     householdId: MOCK_HOUSEHOLD_ID,
   },
   {
     id: 'payee-2',
     name: 'Rami Levy',
     categoryId: 'cat-6',
+    transactionCount: 18,
     householdId: MOCK_HOUSEHOLD_ID,
   },
   {
     id: 'payee-3',
     name: 'Sonol',
     categoryId: 'cat-7',
+    transactionCount: 12,
     householdId: MOCK_HOUSEHOLD_ID,
   },
   {
     id: 'payee-4',
     name: 'Israel Electric Corp',
     categoryId: 'cat-2',
+    transactionCount: 6,
     householdId: MOCK_HOUSEHOLD_ID,
   },
   {
     id: 'payee-5',
     name: 'Mekorot (Water)',
     categoryId: 'cat-3',
+    transactionCount: 6,
     householdId: MOCK_HOUSEHOLD_ID,
   },
   {
     id: 'payee-6',
     name: 'Partner Communications',
     categoryId: 'cat-4',
+    transactionCount: 6,
     householdId: MOCK_HOUSEHOLD_ID,
   },
   {
     id: 'payee-7',
     name: 'Netflix',
     categoryId: 'cat-9',
+    transactionCount: 6,
     householdId: MOCK_HOUSEHOLD_ID,
   },
   {
     id: 'payee-8',
     name: 'Wolt',
     categoryId: 'cat-8',
+    transactionCount: 15,
     householdId: MOCK_HOUSEHOLD_ID,
   },
   {
     id: 'payee-9',
     name: 'Landlord',
     categoryId: 'cat-1',
+    transactionCount: 6,
     householdId: MOCK_HOUSEHOLD_ID,
   },
   {
     id: 'payee-10',
     name: 'Employer - Salary',
     categoryId: null,
+    transactionCount: 6,
     householdId: MOCK_HOUSEHOLD_ID,
   },
 ];

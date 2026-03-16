@@ -39,12 +39,14 @@ const mockPayees: BudgetPayee[] = [
     id: 'payee-1',
     name: 'Supermarket A',
     categoryId: 'cat-1',
+    transactionCount: 10,
     householdId: 'hh-1',
   },
   {
     id: 'payee-2',
     name: 'Gas Station',
     categoryId: 'cat-2',
+    transactionCount: 5,
     householdId: 'hh-1',
   },
 ];
