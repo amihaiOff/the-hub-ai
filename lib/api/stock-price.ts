@@ -330,6 +330,10 @@ export async function getStockPrices(symbols: string[]): Promise<Map<string, Sto
         results.set(batch[j], { symbol: batch[j], error: 'Failed to fetch price' });
       }
     }
+    // Small delay between batches to avoid rate limiting
+    if (i + BATCH_SIZE < symbolsToFetch.length) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
   }
 
   return results;

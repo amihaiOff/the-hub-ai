@@ -674,6 +674,8 @@ export function useApplyPayeeCategoryRule() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.payeeCategoryRules() });
       queryClient.invalidateQueries({ queryKey: budgetKeys.payees() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.uncategorizedCount() });
     },
   });
 }
