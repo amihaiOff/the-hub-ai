@@ -43,6 +43,7 @@ export async function GET() {
       budgetTransactions,
       budgetTransactionTags,
       riseupCategories,
+      payeeCategoryRules,
     ] = await Promise.all([
       prisma.user.findMany(),
       prisma.profile.findMany(),
@@ -67,12 +68,13 @@ export async function GET() {
       prisma.budgetTransaction.findMany(),
       prisma.budgetTransactionTag.findMany(),
       prisma.riseupCategory.findMany(),
+      prisma.payeeCategoryRule.findMany(),
     ]);
 
     // Create backup metadata
     const metadata = {
       backupDate: new Date().toISOString(),
-      schemaVersion: '1.1',
+      schemaVersion: '1.2',
       createdBy: user.email,
       counts: {
         users: users.length,
@@ -98,6 +100,7 @@ export async function GET() {
         budgetTransactions: budgetTransactions.length,
         budgetTransactionTags: budgetTransactionTags.length,
         riseupCategories: riseupCategories.length,
+        payeeCategoryRules: payeeCategoryRules.length,
       },
     };
 
@@ -141,6 +144,7 @@ export async function GET() {
       JSON.stringify(budgetTransactionTags, jsonSerializer, 2)
     );
     zip.file('riseup_categories.json', JSON.stringify(riseupCategories, jsonSerializer, 2));
+    zip.file('payee_category_rules.json', JSON.stringify(payeeCategoryRules, jsonSerializer, 2));
 
     // Generate ZIP as Blob
     const zipBlob = await zip.generateAsync({ type: 'blob' });

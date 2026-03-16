@@ -39,6 +39,7 @@ jest.mock('@/lib/db', () => ({
     budgetTransaction: { findMany: jest.fn() },
     budgetTransactionTag: { findMany: jest.fn() },
     riseupCategory: { findMany: jest.fn() },
+    payeeCategoryRule: { findMany: jest.fn() },
   },
 }));
 
@@ -330,6 +331,7 @@ describe('Backup API', () => {
         mockBudgetTransactionTags
       );
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce(mockRiseupCategories);
+      (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const response = await GET();
 
@@ -370,11 +372,12 @@ describe('Backup API', () => {
       expect(zip.file('budget_transactions.json')).not.toBeNull();
       expect(zip.file('budget_transaction_tags.json')).not.toBeNull();
       expect(zip.file('riseup_categories.json')).not.toBeNull();
+      expect(zip.file('payee_category_rules.json')).not.toBeNull();
 
       // Verify metadata content
       const metadataContent = await zip.file('metadata.json')!.async('string');
       const metadata = JSON.parse(metadataContent);
-      expect(metadata.schemaVersion).toBe('1.1');
+      expect(metadata.schemaVersion).toBe('1.2');
       expect(metadata.createdBy).toBe('test@example.com');
       expect(metadata.counts).toEqual({
         users: 1,
@@ -400,6 +403,7 @@ describe('Backup API', () => {
         budgetTransactions: 1,
         budgetTransactionTags: 1,
         riseupCategories: 1,
+        payeeCategoryRules: 0,
       });
 
       // Verify data files contain correct data
@@ -443,6 +447,7 @@ describe('Backup API', () => {
       (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.budgetTransactionTag.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const response = await GET();
 
@@ -513,6 +518,7 @@ describe('Backup API', () => {
       (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.budgetTransactionTag.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const response = await GET();
       const blob = await response.blob();

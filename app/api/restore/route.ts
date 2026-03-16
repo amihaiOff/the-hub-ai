@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     const metadata: BackupMetadata = JSON.parse(await metadataFile.async('string'));
 
     // Check schema version compatibility (accept 1.0 and 1.1)
-    const supportedVersions = ['1.0', '1.1'];
+    const supportedVersions = ['1.0', '1.1', '1.2'];
     if (!supportedVersions.includes(metadata.schemaVersion)) {
       return NextResponse.json(
         { success: false, error: `Unsupported schema version: ${metadata.schemaVersion}` },
@@ -107,6 +107,9 @@ export async function POST(request: NextRequest) {
       'budget_transaction_tags.json'
     );
     const riseupCategories = await parseFile<Record<string, unknown>>('riseup_categories.json');
+    const payeeCategoryRules = await parseFile<Record<string, unknown>>(
+      'payee_category_rules.json'
+    );
 
     // Execute operations sequentially without transaction
     // Neon serverless doesn't support long-running transactions well
@@ -117,6 +120,7 @@ export async function POST(request: NextRequest) {
     // Budget tables (children first)
     await prisma.budgetTransactionTag.deleteMany();
     await prisma.budgetTransaction.deleteMany();
+    await prisma.payeeCategoryRule.deleteMany();
     await prisma.budgetPayee.deleteMany();
     await prisma.riseupCategory.deleteMany();
     await prisma.budgetCategory.deleteMany();
@@ -406,6 +410,24 @@ export async function POST(request: NextRequest) {
           householdId: bc.householdId as string,
           createdAt: new Date(bc.createdAt as string),
           updatedAt: new Date(bc.updatedAt as string),
+        },
+      });
+    }
+
+    // 16b. Payee Category Rules (after categories, before payees)
+    for (const pcr of payeeCategoryRules) {
+      await prisma.payeeCategoryRule.create({
+        data: {
+          id: pcr.id as string,
+          name: pcr.name as string,
+          operator: pcr.operator as string,
+          value: pcr.value as string,
+          categoryId: pcr.categoryId as string,
+          sortOrder: pcr.sortOrder as number,
+          isActive: pcr.isActive as boolean,
+          householdId: pcr.householdId as string,
+          createdAt: new Date(pcr.createdAt as string),
+          updatedAt: new Date(pcr.updatedAt as string),
         },
       });
     }

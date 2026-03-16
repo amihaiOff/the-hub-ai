@@ -9,6 +9,7 @@ import {
   type BudgetPayee,
   type BudgetTag,
   type BudgetMonthSummary,
+  type PayeeCategoryRule,
   getCurrentMonth,
 } from '@/lib/utils/budget';
 
@@ -85,6 +86,7 @@ export const budgetKeys = {
     [...budgetKeys.all, 'analysis', startDate, endDate] as const,
   uncategorizedCount: (month?: string) => [...budgetKeys.all, 'uncategorizedCount', month] as const,
   savings: () => [...budgetKeys.all, 'savings'] as const,
+  payeeCategoryRules: () => [...budgetKeys.all, 'payeeCategoryRules'] as const,
 };
 
 // Filter types
@@ -541,6 +543,99 @@ export function useDeletePayee() {
       await fetchApi<{ id: string }>(`/api/budget/payees/${id}`, {
         method: 'DELETE',
       });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+    },
+  });
+}
+
+// Payee Category Rule hooks
+export function usePayeeCategoryRules() {
+  return useQuery({
+    queryKey: budgetKeys.payeeCategoryRules(),
+    queryFn: async (): Promise<PayeeCategoryRule[]> => {
+      return fetchApi<PayeeCategoryRule[]>('/api/budget/payee-rules');
+    },
+  });
+}
+
+interface CreatePayeeCategoryRuleInput {
+  name: string;
+  operator: string;
+  value: string;
+  categoryId: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+interface UpdatePayeeCategoryRuleInput {
+  id: string;
+  name?: string;
+  operator?: string;
+  value?: string;
+  categoryId?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export function useCreatePayeeCategoryRule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: CreatePayeeCategoryRuleInput): Promise<PayeeCategoryRule> => {
+      return fetchApi<PayeeCategoryRule>('/api/budget/payee-rules', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+    },
+  });
+}
+
+export function useUpdatePayeeCategoryRule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: UpdatePayeeCategoryRuleInput): Promise<PayeeCategoryRule> => {
+      const { id, ...data } = input;
+      return fetchApi<PayeeCategoryRule>(`/api/budget/payee-rules/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+    },
+  });
+}
+
+export function useDeletePayeeCategoryRule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      await fetchApi<{ id: string }>(`/api/budget/payee-rules/${id}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+    },
+  });
+}
+
+export function useApplyPayeeCategoryRule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (ruleId: string): Promise<{ matched: number; total: number }> => {
+      return fetchApi<{ matched: number; total: number }>(
+        `/api/budget/payee-rules/${ruleId}/apply`,
+        { method: 'POST' }
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.all });

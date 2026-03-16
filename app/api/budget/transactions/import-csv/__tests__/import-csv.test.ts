@@ -29,6 +29,9 @@ jest.mock('@/lib/db', () => ({
       findMany: jest.fn(),
       create: jest.fn(),
     },
+    payeeCategoryRule: {
+      findMany: jest.fn(),
+    },
   },
 }));
 
@@ -37,11 +40,19 @@ jest.mock('@/lib/auth-utils', () => ({
   getCurrentContext: jest.fn(),
 }));
 
+jest.mock('@/lib/auth-api-key', () => ({
+  getHouseholdIdFromApiKey: jest.fn(),
+}));
+
 import { prisma } from '@/lib/db';
 import { getCurrentContext } from '@/lib/auth-utils';
+import { getHouseholdIdFromApiKey } from '@/lib/auth-api-key';
 import { POST } from '../route';
 
 const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
+const mockGetHouseholdIdFromApiKey = getHouseholdIdFromApiKey as jest.MockedFunction<
+  typeof getHouseholdIdFromApiKey
+>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 
 // Valid Riseup CSV with Hebrew headers
@@ -157,6 +168,8 @@ describe('Import CSV API', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    // Payee category rules are fetched first in importTransactions — default to empty
+    (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValue([]);
   });
 
   // ==========================================
@@ -164,6 +177,7 @@ describe('Import CSV API', () => {
   // ==========================================
   it('should return 401 when not authenticated', async () => {
     mockGetCurrentContext.mockResolvedValueOnce(null);
+    mockGetHouseholdIdFromApiKey.mockResolvedValueOnce(null);
 
     const csv = makeCsv(makeCsvRow());
     const request = makeFormDataRequest(makeFile(csv));
@@ -173,6 +187,32 @@ describe('Import CSV API', () => {
 
     expect(response.status).toBe(401);
     expect(data.error).toBe('Unauthorized');
+  });
+
+  it('should authenticate via API key when session auth fails', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(null);
+    mockGetHouseholdIdFromApiKey.mockResolvedValueOnce('household-1');
+
+    (mockPrisma.budgetPayee.findMany as jest.Mock).mockResolvedValueOnce([
+      { id: 'payee-1', name: 'Test Store', categoryId: null },
+    ]);
+    (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
+    (mockPrisma.riseupCategory.create as jest.Mock).mockResolvedValueOnce({
+      id: 'rc-1',
+      name: 'מזון',
+    });
+    (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+    (mockPrisma.budgetTransaction.create as jest.Mock).mockResolvedValueOnce({ id: 'tx-1' });
+
+    const csv = makeCsv(makeCsvRow());
+    const request = makeFormDataRequest(makeFile(csv));
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.data.created).toBe(1);
   });
 
   // ==========================================

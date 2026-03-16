@@ -205,6 +205,30 @@ export const createSplitSchema = z.object({
 });
 
 // ============================================
+// Payee Category Rule Schemas
+// ============================================
+
+export const ruleOperatorSchema = z.enum(['contains', 'starts_with', 'ends_with', 'equals']);
+
+export const createPayeeCategoryRuleSchema = z.object({
+  name: nonEmptyString('Rule name is required').max(200),
+  operator: ruleOperatorSchema,
+  value: nonEmptyString('Match value is required').max(200),
+  categoryId: nonEmptyString('Category is required'),
+  sortOrder: z.number().int().optional(),
+  isActive: z.boolean().optional().default(true),
+});
+
+export const updatePayeeCategoryRuleSchema = z.object({
+  name: nonEmptyString('Rule name cannot be empty').optional(),
+  operator: ruleOperatorSchema.optional(),
+  value: nonEmptyString('Match value cannot be empty').optional(),
+  categoryId: nonEmptyString('Category cannot be empty').optional(),
+  sortOrder: z.number().int().optional(),
+  isActive: z.boolean().optional(),
+});
+
+// ============================================
 // Import Schemas (Riseup CSV)
 // ============================================
 
@@ -277,6 +301,9 @@ export type BulkTransactionInput = z.infer<typeof bulkTransactionSchema>;
 export type BulkCategorizeInput = z.infer<typeof bulkCategorizeSchema>;
 export type BulkDeleteInput = z.infer<typeof bulkDeleteSchema>;
 export type CreateSplitInput = z.infer<typeof createSplitSchema>;
+
+export type CreatePayeeCategoryRuleInput = z.infer<typeof createPayeeCategoryRuleSchema>;
+export type UpdatePayeeCategoryRuleInput = z.infer<typeof updatePayeeCategoryRuleSchema>;
 
 export type ImportTransactionInput = z.infer<typeof importTransactionSchema>;
 export type ImportBulkInput = z.infer<typeof importBulkSchema>;

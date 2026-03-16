@@ -31,3 +31,8 @@ export { MergeTagsDialog } from './merge-tags-dialog';
 export { PayeeTable } from './payee-table';
 export { EditPayeeDialog } from './edit-payee-dialog';
 export { PayeeCategoryPrompt } from './payee-category-prompt';
+
+// Payee rule components
+export { PayeeRulesTable } from './payee-rules-table';
+export { AddPayeeRuleDialog } from './add-payee-rule-dialog';
+export { EditPayeeRuleDialog } from './edit-payee-rule-dialog';

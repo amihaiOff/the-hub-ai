@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import type { ImportTransactionInput } from '@/lib/validations/budget';
+import { findMatchingRule } from '@/lib/utils/budget';
 
 export interface ImportResult {
   created: number;
@@ -23,6 +24,13 @@ export async function importTransactions(
   if (transactions.length === 0) {
     return { created: 0, duplicatesSkipped: 0, payeesCreated: [] };
   }
+  // Fetch active payee category rules for auto-categorization of new payees
+  const payeeCategoryRules = await prisma.payeeCategoryRule.findMany({
+    where: { householdId, isActive: true },
+    orderBy: { sortOrder: 'asc' },
+    select: { operator: true, value: true, categoryId: true, isActive: true },
+  });
+
   // Fetch all existing payees for the household
   const existingPayees = await prisma.budgetPayee.findMany({
     where: { householdId },
@@ -142,6 +150,22 @@ export async function importTransactions(
         }
       }
       payeeLookup.set(payeeNameLower, payeeInfo);
+
+      // Apply payee category rules to newly created payees without a category
+      if (!payeeInfo.categoryId && payeeCategoryRules.length > 0) {
+        const matched = findMatchingRule(payeeCategoryRules, tx.payeeName.trim());
+        if (matched) {
+          try {
+            await prisma.budgetPayee.update({
+              where: { id: payeeInfo.id },
+              data: { categoryId: matched.categoryId },
+            });
+            payeeInfo.categoryId = matched.categoryId;
+          } catch (err) {
+            console.warn('Failed to apply payee category rule:', err);
+          }
+        }
+      }
     }
 
     // Resolve category via DB-driven Riseup mapping, then payee default

@@ -98,6 +98,69 @@ export interface CategoryGroupSummary {
   categories: CategorySpending[];
 }
 
+// Payee Category Rules
+export type RuleOperator = 'contains' | 'starts_with' | 'ends_with' | 'equals';
+
+export interface PayeeCategoryRule {
+  id: string;
+  name: string;
+  operator: RuleOperator;
+  value: string;
+  categoryId: string;
+  categoryName?: string;
+  sortOrder: number;
+  isActive: boolean;
+  householdId: string;
+}
+
+export const RULE_OPERATOR_LABELS: Record<RuleOperator, string> = {
+  contains: 'Contains',
+  starts_with: 'Starts with',
+  ends_with: 'Ends with',
+  equals: 'Equals',
+};
+
+/**
+ * Check if a payee name matches a rule (case-insensitive).
+ */
+export function matchesPayeeRule(
+  payeeName: string,
+  operator: RuleOperator,
+  value: string
+): boolean {
+  const name = payeeName.toLowerCase();
+  const val = value.toLowerCase();
+  switch (operator) {
+    case 'contains':
+      return name.includes(val);
+    case 'starts_with':
+      return name.startsWith(val);
+    case 'ends_with':
+      return name.endsWith(val);
+    case 'equals':
+      return name === val;
+    default:
+      return false;
+  }
+}
+
+/**
+ * Find the first matching active rule for a payee name (by sortOrder).
+ * Rules must be pre-sorted by sortOrder ascending.
+ */
+export function findMatchingRule(
+  rules: { operator: string; value: string; categoryId: string; isActive: boolean }[],
+  payeeName: string
+): { categoryId: string } | null {
+  for (const rule of rules) {
+    if (!rule.isActive) continue;
+    if (matchesPayeeRule(payeeName, rule.operator as RuleOperator, rule.value)) {
+      return { categoryId: rule.categoryId };
+    }
+  }
+  return null;
+}
+
 // Progress bar status based on YNAB style
 export type BudgetStatus = 'funded' | 'underfunded' | 'overspent' | 'zero';
 

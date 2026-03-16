@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentContext } from '@/lib/auth-utils';
+import { getHouseholdIdFromApiKey } from '@/lib/auth-api-key';
 import { parseRiseupCSV } from '@/lib/utils/riseup-csv-parser';
 import { importBulkSchema } from '@/lib/validations/budget';
 import { importTransactions } from '@/lib/utils/import-transactions';
@@ -10,15 +11,30 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
  * POST /api/budget/transactions/import-csv
  * Accept a Riseup CSV file upload (multipart/form-data), parse it server-side,
  * and import the transactions. Enables programmatic uploads without the UI.
+ *
+ * Auth: session cookie OR `Authorization: Bearer <API_SECRET>` header.
  */
 export async function POST(request: NextRequest) {
   try {
-    const context = await getCurrentContext();
-    if (!context) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    // Try session auth first, then API key
+    let householdId: string | null = null;
+
+    try {
+      const context = await getCurrentContext();
+      if (context) {
+        householdId = context.activeHousehold.id;
+      }
+    } catch {
+      // Session auth failed (e.g. DB error), will try API key
     }
 
-    const householdId = context.activeHousehold.id;
+    if (!householdId) {
+      householdId = await getHouseholdIdFromApiKey(request);
+    }
+
+    if (!householdId) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
 
     // Parse multipart form data
     let formData: FormData;

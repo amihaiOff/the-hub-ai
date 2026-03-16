@@ -44,6 +44,40 @@
 
 ## Auto categorization rules
 
+**Purpose:** Automatically set default categories for new payees based on name pattern matching.
+
+### Payee Category Rules
+
+Rules live on the Payees page in a tabbed UI (Payees / Rules tabs). Each rule has:
+
+- **Name** — human-readable label (e.g., "Supermarkets")
+- **Operator** — `contains`, `starts_with`, `ends_with`, `equals` (all case-insensitive)
+- **Value** — the string to match against payee names
+- **Category** — the target budget category to assign
+- **Sort Order** — priority (lower number = higher priority, first match wins)
+- **Active** — toggle to enable/disable without deleting
+
+### How rules apply
+
+1. During CSV import, when a new payee is created and has no default category, active rules are checked in sort order
+2. The first matching rule sets the payee's default category
+3. Once a payee has a default category, all future transactions from that payee use it automatically
+
+### Categorization priority during import
+
+1. Riseup category → budget category mapping (existing)
+2. Payee category rules (auto-set payee default)
+3. Payee default category fallback (existing)
+4. null (uncategorized)
+
+### Bulk Apply
+
+"Apply to Existing" button runs all active rules against existing payees that have no default category, reporting how many were matched.
+
+### Backup/Restore
+
+Payee category rules are included in backup ZIP (`payee_category_rules.json`) and restored with the rest of the data (schema version 1.2+).
+
 ## Batch categorization operations
 
 ## Edge cases

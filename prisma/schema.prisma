@@ -82,6 +82,7 @@ model Household {
   // Budget module relations
   budgetCategoryGroups BudgetCategoryGroup[]
   riseupCategories     RiseupCategory[]
+  payeeCategoryRules   PayeeCategoryRule[]
 
   @@map("households")
 }
@@ -405,10 +406,11 @@ model BudgetCategory {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  group              BudgetCategoryGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  group              BudgetCategoryGroup  @relation(fields: [groupId], references: [id], onDelete: Cascade)
   transactions       BudgetTransaction[]
-  payees             BudgetPayee[]       // Payees with this as default category
-  riseupCategories   RiseupCategory[]    // Riseup categories mapped to this category
+  payees             BudgetPayee[]        // Payees with this as default category
+  riseupCategories   RiseupCategory[]     // Riseup categories mapped to this category
+  payeeCategoryRules PayeeCategoryRule[]  // Rules that auto-assign this category
 
   @@unique([groupId, name]) // Unique category names per group
   @@index([householdId])
@@ -494,6 +496,28 @@ model BudgetTransaction {
   @@index([profileId])
   @@index([originalTransactionId])
   @@map("budget_transactions")
+}
+
+// Payee Category Rules - auto-categorize payees by name pattern matching
+model PayeeCategoryRule {
+  id          String   @id @default(cuid())
+  name        String // Human-readable rule name (e.g., "Supermarkets")
+  operator    String // Match operator: contains, starts_with, ends_with, equals
+  value       String // Match value (e.g., "spotify")
+  categoryId  String   @map("category_id")
+  sortOrder   Int      @default(0) @map("sort_order") // Priority order (lower = higher priority)
+  isActive    Boolean  @default(true) @map("is_active")
+  householdId String   @map("household_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  category  BudgetCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  household Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@index([categoryId])
+  @@map("payee_category_rules")
 }
 
 // Junction table for transaction tags (many-to-many)

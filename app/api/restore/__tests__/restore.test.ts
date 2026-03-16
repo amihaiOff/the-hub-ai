@@ -52,6 +52,7 @@ const mockPrisma = {
   budgetTransaction: { ...createMockFns('budgetTransaction'), update: jest.fn() },
   budgetTransactionTag: createMockFns('budgetTransactionTag'),
   riseupCategory: createMockFns('riseupCategory'),
+  payeeCategoryRule: createMockFns('payeeCategoryRule'),
 };
 
 jest.mock('@/lib/db', () => ({
@@ -563,6 +564,7 @@ describe('Restore API', () => {
       const budgetTransactionTagIndex = deleteOps.indexOf('delete:budgetTransactionTag');
       const budgetTransactionIndex = deleteOps.indexOf('delete:budgetTransaction');
       const budgetPayeeIndex = deleteOps.indexOf('delete:budgetPayee');
+      const payeeCategoryRuleIndex = deleteOps.indexOf('delete:payeeCategoryRule');
       const budgetCategoryIndex = deleteOps.indexOf('delete:budgetCategory');
       const budgetCategoryGroupIndex = deleteOps.indexOf('delete:budgetCategoryGroup');
       const riseupCategoryIndex = deleteOps.indexOf('delete:riseupCategory');
@@ -570,6 +572,7 @@ describe('Restore API', () => {
       expect(budgetTransactionTagIndex).toBeLessThan(budgetTransactionIndex);
       expect(budgetTransactionIndex).toBeLessThan(budgetCategoryIndex);
       expect(budgetPayeeIndex).toBeLessThan(budgetCategoryIndex);
+      expect(payeeCategoryRuleIndex).toBeLessThan(budgetCategoryIndex);
       expect(riseupCategoryIndex).toBeLessThan(budgetCategoryIndex);
       expect(budgetCategoryIndex).toBeLessThan(budgetCategoryGroupIndex);
 

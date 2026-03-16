@@ -32,6 +32,9 @@ jest.mock('@/lib/db', () => ({
     budgetCategory: {
       findFirst: jest.fn(),
     },
+    payeeCategoryRule: {
+      findMany: jest.fn(),
+    },
   },
 }));
 
@@ -90,6 +93,8 @@ describe('Import Transactions API', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    // Payee category rules are fetched first in importTransactions — default to empty
+    (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValue([]);
   });
 
   it('should return 401 when not authenticated', async () => {
