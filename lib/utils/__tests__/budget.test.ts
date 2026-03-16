@@ -450,14 +450,12 @@ describe('Budget Utility Functions', () => {
         id: 'p-1',
         name: 'Supermarket A',
         categoryId: null,
-        transactionCount: 10,
         householdId: 'hh-1',
       },
       {
         id: 'p-2',
         name: 'Gas Station',
         categoryId: 'cat-1',
-        transactionCount: 5,
         householdId: 'hh-1',
       },
     ];
@@ -658,9 +656,7 @@ describe('Budget Utility Functions', () => {
           expect(payee).toHaveProperty('id');
           expect(payee).toHaveProperty('name');
           expect(payee).toHaveProperty('categoryId');
-          expect(payee).toHaveProperty('transactionCount');
           expect(payee).toHaveProperty('householdId');
-          expect(typeof payee.transactionCount).toBe('number');
         });
       });
 

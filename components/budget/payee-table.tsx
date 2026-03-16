@@ -102,9 +102,6 @@ export function PayeeTable({
             <th className="text-muted-foreground px-2 py-2 text-left text-xs font-medium tracking-wider uppercase sm:px-4 sm:py-3">
               Category
             </th>
-            <th className="text-muted-foreground hidden px-2 py-2 text-right text-xs font-medium tracking-wider uppercase sm:table-cell sm:px-4 sm:py-3">
-              Txns
-            </th>
             <th className="w-8 px-1 py-2 sm:w-10 sm:px-2 sm:py-3">
               <span className="sr-only">Actions</span>
             </th>
@@ -122,9 +119,6 @@ export function PayeeTable({
               </td>
               <td className="px-2 py-2 sm:px-4 sm:py-3">
                 <span className="text-sm font-medium">{payee.name}</span>
-                <div className="text-muted-foreground text-xs sm:hidden">
-                  {payee.transactionCount} txn{payee.transactionCount !== 1 ? 's' : ''}
-                </div>
               </td>
               <td className="px-2 py-2 sm:px-4 sm:py-3">
                 <Select
@@ -164,9 +158,6 @@ export function PayeeTable({
                     ))}
                   </SelectContent>
                 </Select>
-              </td>
-              <td className="hidden px-2 py-2 text-right tabular-nums sm:table-cell sm:px-4 sm:py-3">
-                {payee.transactionCount}
               </td>
               <td className="px-1 py-2 sm:px-2 sm:py-3">
                 <DropdownMenu>

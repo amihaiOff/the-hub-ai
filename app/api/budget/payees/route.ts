@@ -23,9 +23,6 @@ export async function GET() {
         category: {
           select: { id: true, name: true },
         },
-        _count: {
-          select: { transactions: true },
-        },
       },
       orderBy: { name: 'asc' },
     });
@@ -36,7 +33,6 @@ export async function GET() {
       name: payee.name,
       categoryId: payee.categoryId,
       categoryName: payee.category?.name ?? null,
-      transactionCount: payee._count.transactions,
       householdId: payee.householdId,
       createdAt: payee.createdAt,
       updatedAt: payee.updatedAt,
@@ -105,7 +101,6 @@ export async function POST(request: NextRequest) {
         name: payee.name,
         categoryId: payee.categoryId,
         categoryName,
-        transactionCount: 0,
         householdId: payee.householdId,
         createdAt: payee.createdAt,
         updatedAt: payee.updatedAt,

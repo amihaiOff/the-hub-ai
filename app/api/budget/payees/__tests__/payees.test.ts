@@ -69,7 +69,7 @@ describe('Payees API', () => {
   });
 
   describe('GET /api/budget/payees', () => {
-    it('should return all payees with transaction counts', async () => {
+    it('should return all payees', async () => {
       const mockPayees = [
         {
           id: 'payee-1',
@@ -79,7 +79,6 @@ describe('Payees API', () => {
           createdAt: new Date(),
           updatedAt: new Date(),
           category: { id: 'cat-1', name: 'Groceries' },
-          _count: { transactions: 5 },
         },
         {
           id: 'payee-2',
@@ -89,7 +88,6 @@ describe('Payees API', () => {
           createdAt: new Date(),
           updatedAt: new Date(),
           category: null,
-          _count: { transactions: 2 },
         },
       ];
 
@@ -104,7 +102,6 @@ describe('Payees API', () => {
       expect(data.data).toHaveLength(2);
       expect(data.data[0].name).toBe('Grocery Store');
       expect(data.data[0].categoryName).toBe('Groceries');
-      expect(data.data[0].transactionCount).toBe(5);
       expect(data.data[1].categoryName).toBeNull();
     });
 
@@ -172,7 +169,7 @@ describe('Payees API', () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.data.name).toBe('New Payee');
-      expect(data.data.transactionCount).toBe(0);
+      expect(data.data.categoryName).toBeNull();
     });
 
     it('should create a payee with default category', async () => {
@@ -302,7 +299,6 @@ describe('Payees API', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         category: { id: 'cat-1', name: 'Groceries' },
-        _count: { transactions: 5 },
       };
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
@@ -315,7 +311,7 @@ describe('Payees API', () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.data.id).toBe('payee-1');
-      expect(data.data.transactionCount).toBe(5);
+      expect(data.data.categoryName).toBe('Groceries');
     });
 
     it('should return 404 when payee not found', async () => {
@@ -358,7 +354,6 @@ describe('Payees API', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         category: null,
-        _count: { transactions: 3 },
       };
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
@@ -399,7 +394,6 @@ describe('Payees API', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         category: { id: 'cat-1', name: 'Groceries' },
-        _count: { transactions: 0 },
       };
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
@@ -495,7 +489,6 @@ describe('Payees API', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         category: { id: 'cat-1', name: 'Groceries' },
-        _count: { transactions: 5 },
       };
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
@@ -546,7 +539,6 @@ describe('Payees API', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         category: { id: 'cat-1', name: 'Groceries' },
-        _count: { transactions: 5 },
       };
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
@@ -589,7 +581,6 @@ describe('Payees API', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         category: { id: 'cat-1', name: 'Groceries' },
-        _count: { transactions: 5 },
       };
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
