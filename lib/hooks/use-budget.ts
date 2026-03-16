@@ -190,6 +190,7 @@ export function useCategoryGroups() {
     queryFn: async (): Promise<BudgetCategoryGroup[]> => {
       return fetchApi<BudgetCategoryGroup[]>('/api/budget/category-groups');
     },
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -202,6 +203,7 @@ export function usePayees() {
     queryFn: async (): Promise<BudgetPayee[]> => {
       return fetchApi<BudgetPayee[]>('/api/budget/payees');
     },
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -214,6 +216,7 @@ export function useTags() {
     queryFn: async (): Promise<BudgetTag[]> => {
       return fetchApi<BudgetTag[]>('/api/budget/tags');
     },
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -329,7 +332,11 @@ export function useCreateTransaction() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
+      queryClient.invalidateQueries({ queryKey: ['budget', 'month'] });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.uncategorizedCount() });
+      queryClient.invalidateQueries({ queryKey: ['budget', 'analysis'] });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
     },
   });
 }
@@ -346,7 +353,11 @@ export function useUpdateTransaction() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
+      queryClient.invalidateQueries({ queryKey: ['budget', 'month'] });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.uncategorizedCount() });
+      queryClient.invalidateQueries({ queryKey: ['budget', 'analysis'] });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
     },
   });
 }
@@ -361,7 +372,11 @@ export function useDeleteTransaction() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
+      queryClient.invalidateQueries({ queryKey: ['budget', 'month'] });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.uncategorizedCount() });
+      queryClient.invalidateQueries({ queryKey: ['budget', 'analysis'] });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
     },
   });
 }
@@ -377,7 +392,11 @@ export function useBulkDeleteTransactions() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
+      queryClient.invalidateQueries({ queryKey: ['budget', 'month'] });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.uncategorizedCount() });
+      queryClient.invalidateQueries({ queryKey: ['budget', 'analysis'] });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
     },
   });
 }
@@ -399,7 +418,11 @@ export function useBulkCategorizeTransactions() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
+      queryClient.invalidateQueries({ queryKey: ['budget', 'month'] });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.uncategorizedCount() });
+      queryClient.invalidateQueries({ queryKey: ['budget', 'analysis'] });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
     },
   });
 }
@@ -416,7 +439,8 @@ export function useCreateCategory() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.categoryGroups() });
+      queryClient.invalidateQueries({ queryKey: ['budget', 'month'] });
     },
   });
 }
@@ -433,7 +457,8 @@ export function useUpdateCategory() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.categoryGroups() });
+      queryClient.invalidateQueries({ queryKey: ['budget', 'month'] });
     },
   });
 }
@@ -448,7 +473,8 @@ export function useDeleteCategory() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.categoryGroups() });
+      queryClient.invalidateQueries({ queryKey: ['budget', 'month'] });
     },
   });
 }
@@ -465,7 +491,8 @@ export function useCreateCategoryGroup() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.categoryGroups() });
+      queryClient.invalidateQueries({ queryKey: ['budget', 'month'] });
     },
   });
 }
@@ -480,7 +507,8 @@ export function useDeleteCategoryGroup() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.categoryGroups() });
+      queryClient.invalidateQueries({ queryKey: ['budget', 'month'] });
     },
   });
 }
@@ -496,7 +524,8 @@ export function useReorderCategoryGroups() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.categoryGroups() });
+      queryClient.invalidateQueries({ queryKey: ['budget', 'month'] });
     },
   });
 }
@@ -513,7 +542,8 @@ export function useCreatePayee() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.payees() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
     },
   });
 }
@@ -530,7 +560,8 @@ export function useUpdatePayee() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.payees() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
     },
   });
 }
@@ -545,18 +576,21 @@ export function useDeletePayee() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.payees() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
     },
   });
 }
 
 // Payee Category Rule hooks
-export function usePayeeCategoryRules() {
+export function usePayeeCategoryRules(enabled = true) {
   return useQuery({
     queryKey: budgetKeys.payeeCategoryRules(),
     queryFn: async (): Promise<PayeeCategoryRule[]> => {
       return fetchApi<PayeeCategoryRule[]>('/api/budget/payee-rules');
     },
+    staleTime: 5 * 60 * 1000,
+    enabled,
   });
 }
 
@@ -590,7 +624,7 @@ export function useCreatePayeeCategoryRule() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.payeeCategoryRules() });
     },
   });
 }
@@ -607,7 +641,7 @@ export function useUpdatePayeeCategoryRule() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.payeeCategoryRules() });
     },
   });
 }
@@ -622,7 +656,7 @@ export function useDeletePayeeCategoryRule() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.payeeCategoryRules() });
     },
   });
 }
@@ -638,7 +672,8 @@ export function useApplyPayeeCategoryRule() {
       );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.payeeCategoryRules() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.payees() });
     },
   });
 }
@@ -655,7 +690,8 @@ export function useCreateTag() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.tags() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
     },
   });
 }
@@ -672,7 +708,8 @@ export function useUpdateTag() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.tags() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
     },
   });
 }
@@ -687,7 +724,8 @@ export function useDeleteTag() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.tags() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
     },
   });
 }
@@ -703,7 +741,8 @@ export function useMergeTags() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.tags() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
     },
   });
 }
@@ -748,7 +787,6 @@ export function useUpdateRiseupCategoryMapping() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: riseupCategoryKeys.all });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
     },
   });
 }
@@ -867,7 +905,7 @@ export function useAddSavingsEntry() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
     },
   });
 }
@@ -883,7 +921,7 @@ export function useUpdateSavingsEntry() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
     },
   });
 }
@@ -899,7 +937,7 @@ export function useDeleteSavingsEntry() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
     },
   });
 }

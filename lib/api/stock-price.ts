@@ -316,15 +316,19 @@ export async function getStockPrices(symbols: string[]): Promise<Map<string, Sto
     }
   }
 
-  // Fetch remaining symbols from API
+  // Fetch remaining symbols from API in parallel batches
   // Yahoo Finance (primary) has more lenient rate limits than Alpha Vantage
-  for (const symbol of symbolsToFetch) {
-    const result = await getStockPrice(symbol);
-    results.set(symbol, result);
-
-    // Small delay to be respectful to the API
-    if (symbolsToFetch.indexOf(symbol) < symbolsToFetch.length - 1) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
+  const BATCH_SIZE = 3;
+  for (let i = 0; i < symbolsToFetch.length; i += BATCH_SIZE) {
+    const batch = symbolsToFetch.slice(i, i + BATCH_SIZE);
+    const batchResults = await Promise.allSettled(batch.map((symbol) => getStockPrice(symbol)));
+    for (let j = 0; j < batch.length; j++) {
+      const result = batchResults[j];
+      if (result.status === 'fulfilled') {
+        results.set(batch[j], result.value);
+      } else {
+        results.set(batch[j], { symbol: batch[j], error: 'Failed to fetch price' });
+      }
     }
   }
 

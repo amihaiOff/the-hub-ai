@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { ChevronDown, ChevronRight, Building2, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,6 +44,29 @@ export function AccountCard({ account }: AccountCardProps) {
   const alternateCurrency = nativeCurrency === 'ILS' ? 'USD' : 'ILS';
   const displayCurrency = showInAlternate ? alternateCurrency : nativeCurrency;
 
+  // Memoize Intl.NumberFormat instances to avoid recreating on every call
+  const nativeFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(nativeCurrency === 'ILS' ? 'he-IL' : 'en-US', {
+        style: 'currency',
+        currency: nativeCurrency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+    [nativeCurrency]
+  );
+
+  const alternateFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(alternateCurrency === 'ILS' ? 'he-IL' : 'en-US', {
+        style: 'currency',
+        currency: alternateCurrency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+    [alternateCurrency]
+  );
+
   // Format value in the selected display currency
   // Note: rates are TO ILS (e.g., rates.USD = 3.18 means 1 USD = 3.18 ILS)
   const formatDisplayValue = useCallback(
@@ -58,22 +81,12 @@ export function AccountCard({ account }: AccountCardProps) {
           const rate = rates[nativeCurrency as keyof typeof rates] || rates.USD || 1;
           convertedValue = value * rate;
         }
-        return new Intl.NumberFormat(alternateCurrency === 'ILS' ? 'he-IL' : 'en-US', {
-          style: 'currency',
-          currency: alternateCurrency,
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }).format(convertedValue);
+        return alternateFormatter.format(convertedValue);
       }
 
-      return new Intl.NumberFormat(nativeCurrency === 'ILS' ? 'he-IL' : 'en-US', {
-        style: 'currency',
-        currency: nativeCurrency,
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(value);
+      return nativeFormatter.format(value);
     },
-    [showInAlternate, rates, nativeCurrency, alternateCurrency]
+    [showInAlternate, rates, nativeCurrency, alternateCurrency, nativeFormatter, alternateFormatter]
   );
 
   const toggleDisabled = isLoadingRates || !!ratesError;

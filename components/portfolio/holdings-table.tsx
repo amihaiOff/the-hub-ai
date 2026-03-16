@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useMemo, useRef } from 'react';
 import { MoreVertical, Pencil, Trash2, TrendingUp, ChevronDown } from 'lucide-react';
 import {
   Table,
@@ -321,15 +321,35 @@ export function HoldingsTable({
   // Use displayCurrency if provided, otherwise use baseCurrency
   const effectiveDisplayCurrency = displayCurrency || baseCurrency;
 
+  // Memoize Intl.NumberFormat instances to avoid recreating on every call
+  const displayFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(effectiveDisplayCurrency === 'ILS' ? 'he-IL' : 'en-US', {
+        style: 'currency',
+        currency: effectiveDisplayCurrency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+    [effectiveDisplayCurrency]
+  );
+
+  // Cache for original currency formatters (varies per holding currency)
+  const currencyFormattersRef = useRef(new Map<string, Intl.NumberFormat>());
+
   // Format a value in its original currency (for the parenthetical display of foreign prices)
   const formatOriginalCurrency = useCallback((value: number, currency: string): string => {
-    const locale = currency === 'ILS' ? 'he-IL' : 'en-US';
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
+    let formatter = currencyFormattersRef.current.get(currency);
+    if (!formatter) {
+      const locale = currency === 'ILS' ? 'he-IL' : 'en-US';
+      formatter = new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      currencyFormattersRef.current.set(currency, formatter);
+    }
+    return formatter.format(value);
   }, []);
 
   // Convert and format a value from baseCurrency to displayCurrency
@@ -357,17 +377,12 @@ export function HoldingsTable({
           convertedValue = displayRate > 0 ? (value * baseRate) / displayRate : value;
         }
 
-        return new Intl.NumberFormat(effectiveDisplayCurrency === 'ILS' ? 'he-IL' : 'en-US', {
-          style: 'currency',
-          currency: effectiveDisplayCurrency,
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }).format(convertedValue);
+        return displayFormatter.format(convertedValue);
       }
 
       return formatValue(value, baseCurrency);
     },
-    [effectiveDisplayCurrency, baseCurrency, rates, formatValue]
+    [effectiveDisplayCurrency, baseCurrency, rates, formatValue, displayFormatter]
   );
 
   if (holdings.length === 0) {

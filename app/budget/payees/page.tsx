@@ -31,7 +31,9 @@ export default function PayeesPage() {
 
   const { data: payees = [], isLoading, error } = usePayees();
   const { data: categoryGroups = [] } = useCategoryGroups();
-  const { data: rules = [], isLoading: isLoadingRules } = usePayeeCategoryRules();
+  const { data: rules = [], isLoading: isLoadingRules } = usePayeeCategoryRules(
+    activeTab === 'rules'
+  );
   const deletePayee = useDeletePayee();
   const deleteRule = useDeletePayeeCategoryRule();
 

@@ -234,6 +234,7 @@ export function usePortfolio() {
   return useQuery({
     queryKey: ['portfolio'],
     queryFn: fetchPortfolio,
+    staleTime: 5 * 60 * 1000,
   });
 }
 
