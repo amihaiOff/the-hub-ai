@@ -76,15 +76,18 @@ export interface AnalysisData {
 export const budgetKeys = {
   all: ['budget'] as const,
   monthSummary: (month: string) => [...budgetKeys.all, 'month', month] as const,
+  allTransactions: () => [...budgetKeys.all, 'transactions'] as const,
   transactions: (filters?: TransactionFilters) =>
     [...budgetKeys.all, 'transactions', filters] as const,
   categories: () => [...budgetKeys.all, 'categories'] as const,
   categoryGroups: () => [...budgetKeys.all, 'categoryGroups'] as const,
   payees: () => [...budgetKeys.all, 'payees'] as const,
   tags: () => [...budgetKeys.all, 'tags'] as const,
-  analysis: (startDate: string, endDate: string) =>
+  analysis: () => [...budgetKeys.all, 'analysis'] as const,
+  analysisRange: (startDate: string, endDate: string) =>
     [...budgetKeys.all, 'analysis', startDate, endDate] as const,
-  uncategorizedCount: (month?: string) => [...budgetKeys.all, 'uncategorizedCount', month] as const,
+  allUncategorizedCounts: () => [...budgetKeys.all, 'uncategorizedCount'] as const,
+  uncategorizedCount: (month: string) => [...budgetKeys.all, 'uncategorizedCount', month] as const,
   savings: () => [...budgetKeys.all, 'savings'] as const,
   payeeCategoryRules: () => [...budgetKeys.all, 'payeeCategoryRules'] as const,
 };
@@ -225,7 +228,7 @@ export function useTags() {
  */
 export function useBudgetAnalysis(startDate: string, endDate: string) {
   return useQuery({
-    queryKey: budgetKeys.analysis(startDate, endDate),
+    queryKey: budgetKeys.analysisRange(startDate, endDate),
     queryFn: async (): Promise<AnalysisData> => {
       return fetchApi<AnalysisData>(
         `/api/budget/analysis?startDate=${startDate}&endDate=${endDate}`
@@ -243,7 +246,7 @@ export function useUncategorizedCount(month?: string) {
     ? `/api/budget/transactions/counts?month=${month}`
     : '/api/budget/transactions/counts';
   return useQuery({
-    queryKey: budgetKeys.uncategorizedCount(month),
+    queryKey: month ? budgetKeys.uncategorizedCount(month) : budgetKeys.allUncategorizedCounts(),
     queryFn: async (): Promise<{ uncategorized: number }> => {
       return fetchApi<{ uncategorized: number }>(url);
     },
@@ -332,10 +335,10 @@ export function useCreateTransaction() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
       queryClient.invalidateQueries({ queryKey: ['budget', 'month'] });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.uncategorizedCount() });
-      queryClient.invalidateQueries({ queryKey: ['budget', 'analysis'] });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allUncategorizedCounts() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.analysis() });
       queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
     },
   });
@@ -353,10 +356,10 @@ export function useUpdateTransaction() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
       queryClient.invalidateQueries({ queryKey: ['budget', 'month'] });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.uncategorizedCount() });
-      queryClient.invalidateQueries({ queryKey: ['budget', 'analysis'] });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allUncategorizedCounts() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.analysis() });
       queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
     },
   });
@@ -372,10 +375,10 @@ export function useDeleteTransaction() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
       queryClient.invalidateQueries({ queryKey: ['budget', 'month'] });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.uncategorizedCount() });
-      queryClient.invalidateQueries({ queryKey: ['budget', 'analysis'] });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allUncategorizedCounts() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.analysis() });
       queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
     },
   });
@@ -392,10 +395,10 @@ export function useBulkDeleteTransactions() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
       queryClient.invalidateQueries({ queryKey: ['budget', 'month'] });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.uncategorizedCount() });
-      queryClient.invalidateQueries({ queryKey: ['budget', 'analysis'] });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allUncategorizedCounts() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.analysis() });
       queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
     },
   });
@@ -418,10 +421,10 @@ export function useBulkCategorizeTransactions() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
       queryClient.invalidateQueries({ queryKey: ['budget', 'month'] });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.uncategorizedCount() });
-      queryClient.invalidateQueries({ queryKey: ['budget', 'analysis'] });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allUncategorizedCounts() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.analysis() });
       queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
     },
   });
@@ -543,7 +546,7 @@ export function useCreatePayee() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.payees() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
     },
   });
 }
@@ -561,7 +564,7 @@ export function useUpdatePayee() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.payees() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
     },
   });
 }
@@ -577,7 +580,7 @@ export function useDeletePayee() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.payees() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
     },
   });
 }
@@ -674,8 +677,8 @@ export function useApplyPayeeCategoryRule() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.payeeCategoryRules() });
       queryClient.invalidateQueries({ queryKey: budgetKeys.payees() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.uncategorizedCount() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allUncategorizedCounts() });
     },
   });
 }
@@ -693,7 +696,7 @@ export function useCreateTag() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.tags() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
     },
   });
 }
@@ -711,7 +714,7 @@ export function useUpdateTag() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.tags() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
     },
   });
 }
@@ -727,7 +730,7 @@ export function useDeleteTag() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.tags() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
     },
   });
 }
@@ -744,7 +747,7 @@ export function useMergeTags() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: budgetKeys.tags() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.transactions() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
     },
   });
 }

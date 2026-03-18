@@ -28,6 +28,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         category: {
           select: { id: true, name: true },
         },
+        _count: {
+          select: { transactions: true },
+        },
       },
     });
 
@@ -42,6 +45,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         name: payee.name,
         categoryId: payee.categoryId,
         categoryName: payee.category?.name ?? null,
+        transactionCount: payee._count.transactions,
         householdId: payee.householdId,
         createdAt: payee.createdAt,
         updatedAt: payee.updatedAt,
@@ -143,6 +147,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         category: {
           select: { id: true, name: true },
         },
+        _count: {
+          select: { transactions: true },
+        },
       },
     });
 
@@ -153,6 +160,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         name: payee!.name,
         categoryId: payee!.categoryId,
         categoryName: payee!.category?.name ?? null,
+        transactionCount: payee!._count.transactions,
         householdId: payee!.householdId,
         createdAt: payee!.createdAt,
         updatedAt: payee!.updatedAt,

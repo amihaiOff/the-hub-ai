@@ -74,8 +74,8 @@ describe('Budget Hooks', () => {
       expect(budgetKeys.monthSummary('2024-06')).toEqual(['budget', 'month', '2024-06']);
     });
 
-    it('should generate correct transactions key without filters', () => {
-      expect(budgetKeys.transactions()).toEqual(['budget', 'transactions', undefined]);
+    it('should generate correct allTransactions key for invalidation', () => {
+      expect(budgetKeys.allTransactions()).toEqual(['budget', 'transactions']);
     });
 
     it('should generate correct transactions key with filters', () => {
@@ -99,8 +99,8 @@ describe('Budget Hooks', () => {
       expect(budgetKeys.tags()).toEqual(['budget', 'tags']);
     });
 
-    it('should generate correct uncategorizedCount key', () => {
-      expect(budgetKeys.uncategorizedCount()).toEqual(['budget', 'uncategorizedCount', undefined]);
+    it('should generate correct uncategorizedCount keys', () => {
+      expect(budgetKeys.allUncategorizedCounts()).toEqual(['budget', 'uncategorizedCount']);
       expect(budgetKeys.uncategorizedCount('2026-03')).toEqual([
         'budget',
         'uncategorizedCount',
