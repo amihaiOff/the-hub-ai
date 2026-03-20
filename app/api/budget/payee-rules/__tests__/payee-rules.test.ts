@@ -23,6 +23,9 @@ jest.mock('@/lib/db', () => ({
       update: jest.fn(),
       updateMany: jest.fn(),
     },
+    budgetTransaction: {
+      updateMany: jest.fn(),
+    },
   },
 }));
 
@@ -280,7 +283,7 @@ describe('Payee Category Rules API', () => {
       const data = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.data).toEqual({ matched: 0, total: 0 });
+      expect(data.data).toEqual({ matched: 0, total: 0, transactionsUpdated: 0 });
     });
 
     it('should apply rules to uncategorized payees', async () => {
@@ -293,6 +296,7 @@ describe('Payee Category Rules API', () => {
         { id: 'payee-2', name: 'Unknown Store' },
       ]);
       (mockPrisma.budgetPayee.updateMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
+      (mockPrisma.budgetTransaction.updateMany as jest.Mock).mockResolvedValueOnce({ count: 3 });
 
       const response = await APPLY_BULK();
       const data = await response.json();
@@ -300,8 +304,13 @@ describe('Payee Category Rules API', () => {
       expect(response.status).toBe(200);
       expect(data.data.matched).toBe(1);
       expect(data.data.total).toBe(2);
+      expect(data.data.transactionsUpdated).toBe(3);
       expect(mockPrisma.budgetPayee.updateMany).toHaveBeenCalledWith({
-        where: { id: { in: ['payee-1'] } },
+        where: { id: { in: ['payee-1'] }, householdId: 'household-1' },
+        data: { categoryId: 'cat-1' },
+      });
+      expect(mockPrisma.budgetTransaction.updateMany).toHaveBeenCalledWith({
+        where: { payeeId: { in: ['payee-1'] }, householdId: 'household-1' },
         data: { categoryId: 'cat-1' },
       });
     });
@@ -344,6 +353,7 @@ describe('Payee Category Rules API', () => {
         { id: 'payee-2', name: 'Unknown Store' },
       ]);
       (mockPrisma.budgetPayee.updateMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
+      (mockPrisma.budgetTransaction.updateMany as jest.Mock).mockResolvedValueOnce({ count: 5 });
 
       const response = await APPLY_SINGLE(makeRequest(), {
         params: Promise.resolve({ id: 'rule-1' }),
@@ -353,8 +363,13 @@ describe('Payee Category Rules API', () => {
       expect(response.status).toBe(200);
       expect(data.data.matched).toBe(1);
       expect(data.data.total).toBe(2);
+      expect(data.data.transactionsUpdated).toBe(5);
       expect(mockPrisma.budgetPayee.updateMany).toHaveBeenCalledWith({
-        where: { id: { in: ['payee-1'] } },
+        where: { id: { in: ['payee-1'] }, householdId: 'household-1' },
+        data: { categoryId: 'cat-1' },
+      });
+      expect(mockPrisma.budgetTransaction.updateMany).toHaveBeenCalledWith({
+        where: { payeeId: { in: ['payee-1'] }, householdId: 'household-1' },
         data: { categoryId: 'cat-1' },
       });
     });

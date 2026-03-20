@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { HoldingsTable } from './holdings-table';
 import { CashBalancesSection } from './cash-balances-section';
+import { AccountSparkline } from './account-sparkline';
 import { AddHoldingDialog } from './add-holding-dialog';
 import { EditAccountDialog } from './edit-account-dialog';
 import { DeleteConfirmDialog } from './delete-confirm-dialog';
@@ -139,43 +140,15 @@ export function AccountCard({ account }: AccountCardProps) {
             </div>
           </div>
 
-          {/* Row 2: Currency toggle (left) + Action buttons (right) */}
+          {/* Row 2: Sparkline (left) + Action buttons & currency toggle (right) */}
           <div className="border-border/50 mt-3 flex items-center justify-between border-t pt-3">
-            {/* Currency toggle */}
-            <div
-              role="group"
-              aria-label="Display currency"
-              className="bg-muted/50 flex items-center gap-0.5 rounded-md border p-0.5"
-            >
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowInAlternate(false)}
-                aria-pressed={!showInAlternate}
-                className={cn(
-                  'h-8 px-3 text-xs font-medium sm:h-6 sm:px-2',
-                  !showInAlternate ? 'bg-background shadow-sm' : 'hover:bg-transparent'
-                )}
-              >
-                {getCurrencySymbol(nativeCurrency)}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowInAlternate(true)}
-                disabled={toggleDisabled}
-                aria-pressed={showInAlternate}
-                className={cn(
-                  'h-8 px-3 text-xs font-medium sm:h-6 sm:px-2',
-                  showInAlternate ? 'bg-background shadow-sm' : 'hover:bg-transparent',
-                  toggleDisabled && 'cursor-not-allowed opacity-50'
-                )}
-              >
-                {getCurrencySymbol(alternateCurrency)}
-              </Button>
-            </div>
+            {/* Sparkline */}
+            <AccountSparkline
+              currentValue={account.totalValue}
+              totalGainLoss={account.totalGainLoss}
+            />
 
-            {/* Action buttons */}
+            {/* Action buttons + Currency toggle */}
             <div className="flex items-center gap-1">
               <AddHoldingDialog
                 accountId={account.id}
@@ -204,6 +177,39 @@ export function AccountCard({ account }: AccountCardProps) {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              {/* Currency toggle */}
+              <div
+                role="group"
+                aria-label="Display currency"
+                className="bg-muted/50 ml-1 flex items-center gap-0.5 rounded-md border p-0.5"
+              >
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowInAlternate(false)}
+                  aria-pressed={!showInAlternate}
+                  className={cn(
+                    'h-8 px-3 text-xs font-medium sm:h-6 sm:px-2',
+                    !showInAlternate ? 'bg-background shadow-sm' : 'hover:bg-transparent'
+                  )}
+                >
+                  {getCurrencySymbol(nativeCurrency)}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowInAlternate(true)}
+                  disabled={toggleDisabled}
+                  aria-pressed={showInAlternate}
+                  className={cn(
+                    'h-8 px-3 text-xs font-medium sm:h-6 sm:px-2',
+                    showInAlternate ? 'bg-background shadow-sm' : 'hover:bg-transparent',
+                    toggleDisabled && 'cursor-not-allowed opacity-50'
+                  )}
+                >
+                  {getCurrencySymbol(alternateCurrency)}
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -227,12 +233,6 @@ export function AccountCard({ account }: AccountCardProps) {
         </CardHeader>
         <CollapsibleContent>
           <CardContent className="pt-0">
-            <div className="mb-4">
-              <div className="text-muted-foreground text-sm">
-                {account.holdings.length} holding{account.holdings.length !== 1 ? 's' : ''}
-                {account.totalCash > 0 && ` + cash`}
-              </div>
-            </div>
             <HoldingsTable
               holdings={account.holdings}
               baseCurrency={nativeCurrency}

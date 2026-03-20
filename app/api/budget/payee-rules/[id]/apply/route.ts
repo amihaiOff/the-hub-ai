@@ -5,8 +5,8 @@ import { matchesPayeeRule, type RuleOperator } from '@/lib/utils/budget';
 
 /**
  * POST /api/budget/payee-rules/[id]/apply
- * Apply a single rule to existing uncategorized payees.
- * Returns count of matched and total uncategorized payees.
+ * Apply a single rule to existing payees and their transactions.
+ * Updates payee default category AND re-categorizes existing transactions.
  */
 export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -28,30 +28,43 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ success: false, error: 'Rule not found' }, { status: 404 });
     }
 
-    // Fetch payees without a default category
-    const uncategorizedPayees = await prisma.budgetPayee.findMany({
-      where: { householdId, categoryId: null },
+    if (!rule.isActive) {
+      return NextResponse.json({ success: false, error: 'Rule is not active' }, { status: 400 });
+    }
+
+    // Fetch all payees (not just uncategorized) to match against
+    const allPayees = await prisma.budgetPayee.findMany({
+      where: { householdId },
       select: { id: true, name: true },
     });
 
     // Find payees matching this rule
     const matchedIds: string[] = [];
-    for (const payee of uncategorizedPayees) {
+    for (const payee of allPayees) {
       if (matchesPayeeRule(payee.name, rule.operator as RuleOperator, rule.value)) {
         matchedIds.push(payee.id);
       }
     }
 
+    let transactionsUpdated = 0;
     if (matchedIds.length > 0) {
+      // Update payee default categories
       await prisma.budgetPayee.updateMany({
-        where: { id: { in: matchedIds } },
+        where: { id: { in: matchedIds }, householdId },
         data: { categoryId: rule.categoryId },
       });
+
+      // Also update existing transactions for matched payees
+      const txResult = await prisma.budgetTransaction.updateMany({
+        where: { payeeId: { in: matchedIds }, householdId },
+        data: { categoryId: rule.categoryId },
+      });
+      transactionsUpdated = txResult.count;
     }
 
     return NextResponse.json({
       success: true,
-      data: { matched: matchedIds.length, total: uncategorizedPayees.length },
+      data: { matched: matchedIds.length, total: allPayees.length, transactionsUpdated },
     });
   } catch (error) {
     console.error('Error applying payee category rule:', error);

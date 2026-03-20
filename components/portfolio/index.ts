@@ -9,6 +9,7 @@ export { PortfolioSummary } from './portfolio-summary';
 export { HoldingsTable } from './holdings-table';
 export { CashBalancesSection } from './cash-balances-section';
 export { AccountCard } from './account-card';
+export { AccountSparkline } from './account-sparkline';
 export { AllocationChart } from './allocation-chart';
 export { CurrencyToggle } from './currency-toggle';
 export { PortfolioGainsChart } from './portfolio-gains-chart';
