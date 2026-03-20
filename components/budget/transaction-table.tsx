@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   type BudgetTransaction,
   type BudgetCategoryGroup,
@@ -52,6 +53,7 @@ export function TransactionTable({
   isLoading,
 }: TransactionTableProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [mobileSelectionMode, setMobileSelectionMode] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<BudgetTransaction | null>(null);
   const [splittingTransaction, setSplittingTransaction] = useState<BudgetTransaction | null>(null);
   const [payeeCategoryPrompt, setPayeeCategoryPrompt] = useState<PayeeCategoryPromptData | null>(
@@ -82,6 +84,17 @@ export function TransactionTable({
       return next;
     });
   };
+
+  // Long-press on a mobile row enters selection mode and selects that row
+  const handleMobileLongPress = useCallback((id: string) => {
+    setMobileSelectionMode(true);
+    setSelectedIds(new Set([id]));
+  }, []);
+
+  const exitMobileSelectionMode = useCallback(() => {
+    setMobileSelectionMode(false);
+    setSelectedIds(new Set());
+  }, []);
 
   const handleDelete = async (id: string) => {
     if (confirm('Delete this transaction?')) {
@@ -116,18 +129,24 @@ export function TransactionTable({
     <div className="relative">
       {/* Mobile: grouped by date */}
       <div className="sm:hidden">
-        {dateGroups.map((group, groupIndex) => (
+        {/* Selection mode header */}
+        {mobileSelectionMode && (
+          <div className="bg-primary/10 border-border/40 sticky top-0 z-10 flex items-center justify-between border-b px-3 py-2">
+            <span className="text-sm font-medium">{selectedIds.size} selected</span>
+            <Button variant="ghost" size="sm" onClick={exitMobileSelectionMode}>
+              <X className="mr-1 h-4 w-4" />
+              Cancel
+            </Button>
+          </div>
+        )}
+        {dateGroups.map((group) => (
           <div key={group.date}>
-            <div className="text-muted-foreground bg-muted/30 flex items-center gap-2 border-b px-2 py-1.5 text-xs font-medium">
-              {groupIndex === 0 && (
-                <Checkbox
-                  checked={allSelected ? true : someSelected ? 'indeterminate' : false}
-                  onCheckedChange={toggleSelectAll}
-                  aria-label="Select all"
-                  className="h-3.5 w-3.5"
-                />
-              )}
-              {formatDate(group.date)}
+            <div className="flex items-center gap-3 px-4 py-2.5">
+              <div className="bg-border h-px flex-1" />
+              <span className="text-muted-foreground border-border shrink-0 rounded-full border px-3 py-0.5 text-xs font-medium">
+                {formatDate(group.date)}
+              </span>
+              <div className="bg-border h-px flex-1" />
             </div>
             {group.transactions.map((transaction) => (
               <TransactionRowMobile
@@ -137,7 +156,9 @@ export function TransactionTable({
                 payees={payees}
                 tags={tags}
                 isSelected={selectedIds.has(transaction.id)}
+                selectionMode={mobileSelectionMode}
                 onSelect={(selected) => toggleSelect(transaction.id, selected)}
+                onLongPress={() => handleMobileLongPress(transaction.id)}
                 onEdit={() => setEditingTransaction(transaction)}
                 onDelete={() => handleDelete(transaction.id)}
                 onSplit={() => setSplittingTransaction(transaction)}
@@ -209,7 +230,7 @@ export function TransactionTable({
         <BulkActionsBar
           selectedCount={selectedIds.size}
           selectedIds={Array.from(selectedIds)}
-          onClearSelection={() => setSelectedIds(new Set())}
+          onClearSelection={exitMobileSelectionMode}
         />
       )}
 

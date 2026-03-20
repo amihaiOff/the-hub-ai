@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
@@ -46,7 +46,9 @@ export interface TransactionRowProps {
   payees: BudgetPayee[];
   tags: BudgetTag[];
   isSelected: boolean;
+  selectionMode?: boolean;
   onSelect: (selected: boolean) => void;
+  onLongPress?: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onSplit: () => void;
@@ -342,7 +344,9 @@ export function TransactionRowMobile({
   payees,
   tags,
   isSelected,
+  selectionMode,
   onSelect,
+  onLongPress,
   onEdit,
   onDelete,
   onSplit,
@@ -358,13 +362,48 @@ export function TransactionRowMobile({
     onPromptPayeeCategory
   );
 
-  return (
-    <div className="border-border/40 flex items-start gap-2 border-b px-2 py-1.5">
-      {/* Checkbox */}
-      <div className="flex shrink-0 items-center self-center">
-        <Checkbox checked={isSelected} onCheckedChange={onSelect} aria-label="Select transaction" />
-      </div>
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didLongPress = useRef(false);
 
+  const handleTouchStart = () => {
+    didLongPress.current = false;
+    longPressTimer.current = setTimeout(() => {
+      didLongPress.current = true;
+      onLongPress?.();
+    }, 500);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    // In selection mode, a normal tap toggles selection
+    if (selectionMode && !didLongPress.current) {
+      onSelect(!isSelected);
+    }
+  };
+
+  const handleTouchMove = () => {
+    // Cancel long press if finger moves (scrolling)
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  return (
+    <div
+      className={cn(
+        'border-border/40 flex items-start gap-2 border-b px-2 py-1.5 transition-colors duration-150',
+        isSelected && 'bg-primary/10',
+        selectionMode && 'select-none'
+      )}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchMove={handleTouchMove}
+      onContextMenu={(e) => e.preventDefault()}
+    >
       {/* Left: Payee + Notes */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2.5">
@@ -400,17 +439,19 @@ export function TransactionRowMobile({
         />
       </div>
 
-      {/* Actions */}
-      <div className="flex shrink-0 items-center pt-0.5">
-        <TransactionActions
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onSplit={onSplit}
-          isSplit={transaction.isSplit}
-          buttonClassName="h-7 w-7"
-          iconClassName="h-3.5 w-3.5"
-        />
-      </div>
+      {/* Actions - hidden during selection mode */}
+      {!selectionMode && (
+        <div className="flex shrink-0 items-center pt-0.5">
+          <TransactionActions
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onSplit={onSplit}
+            isSplit={transaction.isSplit}
+            buttonClassName="h-7 w-7"
+            iconClassName="h-3.5 w-3.5"
+          />
+        </div>
+      )}
     </div>
   );
 }
