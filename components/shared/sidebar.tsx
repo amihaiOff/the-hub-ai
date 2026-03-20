@@ -43,7 +43,7 @@ function NavItemComponent({
         <button
           onClick={handleToggle}
           className={cn(
-            'flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
+            'flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
             isParentActive
               ? 'bg-sidebar-accent/50 text-sidebar-foreground'
               : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
@@ -69,7 +69,7 @@ function NavItemComponent({
                   className={cn(
                     'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-all',
                     isSubActive
-                      ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-glow-sm'
+                      ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                       : 'text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
                   )}
                 >
@@ -90,9 +90,9 @@ function NavItemComponent({
       href={item.href}
       aria-current={isActive ? 'page' : undefined}
       className={cn(
-        'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
+        'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
         isActive
-          ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-glow-sm'
+          ? 'bg-sidebar-accent text-sidebar-accent-foreground'
           : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
       )}
     >
@@ -109,7 +109,7 @@ export function Sidebar() {
   const uncategorizedCount = countData?.uncategorized ?? 0;
 
   return (
-    <aside className="border-sidebar-border/30 bg-sidebar/95 fixed top-0 left-0 hidden h-screen w-64 border-r backdrop-blur-xl lg:block">
+    <aside className="border-sidebar-border/30 bg-sidebar fixed top-0 left-0 hidden h-screen w-64 border-r lg:block">
       <div className="flex h-full flex-col">
         {/* Logo */}
         <div className="border-sidebar-border/30 flex h-16 items-center border-b px-6">
@@ -143,9 +143,9 @@ export function Sidebar() {
                 href={settingsItem.href}
                 aria-current={isActive ? 'page' : undefined}
                 className={cn(
-                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
                   isActive
-                    ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-glow-sm'
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                     : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
                 )}
               >

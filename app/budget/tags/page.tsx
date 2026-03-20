@@ -84,7 +84,7 @@ export default function TagsPage() {
 
       {/* Tags List */}
       {!isLoading && (
-        <div className="lg:border-border/40 lg:bg-card/80 lg:shadow-glow lg:rounded-3xl lg:border lg:py-6 lg:backdrop-blur-xl">
+        <div className="lg:border-border lg:bg-card lg:rounded-lg lg:border lg:py-6">
           <h2 className="px-0 pb-4 text-lg font-semibold lg:px-6">All Tags</h2>
           <div className="lg:px-6">
             <TagList

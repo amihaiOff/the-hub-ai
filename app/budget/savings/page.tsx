@@ -147,7 +147,7 @@ export default function SavingsPage() {
 
       {/* Savings Table */}
       {!isLoading && yearlySummary && data && (
-        <div className="lg:border-border/40 lg:bg-card/80 lg:shadow-glow lg:rounded-3xl lg:border lg:py-6 lg:backdrop-blur-xl">
+        <div className="lg:border-border lg:bg-card lg:rounded-lg lg:border lg:py-6">
           {/* Header row */}
           <div className="bg-muted/50 flex items-center px-4 py-2.5 lg:px-6">
             <span className="flex-1 text-xs font-medium tracking-wider uppercase">Year</span>

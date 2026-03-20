@@ -150,7 +150,7 @@ export function TransactionTable({
 
       {/* Desktop: table layout */}
       <div className="hidden sm:block">
-        <div className="lg:border-border/40 lg:bg-card/80 lg:shadow-glow overflow-hidden lg:rounded-3xl lg:border lg:py-6 lg:backdrop-blur-xl">
+        <div className="lg:border-border lg:bg-card overflow-hidden lg:rounded-lg lg:border lg:py-6">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-muted/50 border-b">

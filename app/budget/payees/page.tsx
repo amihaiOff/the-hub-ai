@@ -118,7 +118,7 @@ export default function PayeesPage() {
 
           {/* Payees Table */}
           {!isLoading && (
-            <div className="lg:border-border/40 lg:bg-card/80 lg:shadow-glow lg:rounded-3xl lg:border lg:py-6 lg:backdrop-blur-xl">
+            <div className="lg:border-border lg:bg-card lg:rounded-lg lg:border lg:py-6">
               <h2 className="px-0 pb-4 text-lg font-semibold lg:px-6">
                 All Payees
                 {filteredPayees.length !== payees.length && (
@@ -157,7 +157,7 @@ export default function PayeesPage() {
 
           {/* Rules Table */}
           {!isLoadingRules && (
-            <div className="lg:border-border/40 lg:bg-card/80 lg:shadow-glow lg:rounded-3xl lg:border lg:py-6 lg:backdrop-blur-xl">
+            <div className="lg:border-border lg:bg-card lg:rounded-lg lg:border lg:py-6">
               <h2 className="px-0 pb-4 text-lg font-semibold lg:px-6">
                 Categorization Rules
                 <span className="text-muted-foreground ml-2 text-sm font-normal">

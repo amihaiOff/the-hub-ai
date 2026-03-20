@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Manrope } from 'next/font/google';
 import { Suspense } from 'react';
 import './globals.css';
 import { AppShell } from '@/components/shared';
@@ -9,6 +9,11 @@ import { HouseholdProvider } from '@/lib/contexts/household-context';
 
 const inter = Inter({
   variable: '--font-inter',
+  subsets: ['latin'],
+});
+
+const manrope = Manrope({
+  variable: '--font-manrope',
   subsets: ['latin'],
 });
 
@@ -32,7 +37,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} ${manrope.variable} font-sans antialiased`}>
         <SessionProvider>
           <QueryProvider>
             <Suspense fallback={<LoadingFallback />}>

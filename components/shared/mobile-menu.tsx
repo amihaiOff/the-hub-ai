@@ -57,9 +57,9 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
                   onClick={handleNavClick}
                   aria-current={isActive ? 'page' : undefined}
                   className={cn(
-                    'flex items-center gap-3 rounded-xl px-3 py-3 text-base font-medium transition-all',
+                    'flex items-center gap-3 rounded-lg px-3 py-3 text-base font-medium transition-all',
                     isActive
-                      ? 'bg-accent text-accent-foreground shadow-glow-sm'
+                      ? 'bg-accent text-accent-foreground'
                       : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
                   )}
                 >
@@ -81,9 +81,9 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
                   onClick={handleNavClick}
                   aria-current={isActive ? 'page' : undefined}
                   className={cn(
-                    'flex items-center gap-3 rounded-xl px-3 py-3 text-base font-medium transition-all',
+                    'flex items-center gap-3 rounded-lg px-3 py-3 text-base font-medium transition-all',
                     isActive
-                      ? 'bg-accent text-accent-foreground shadow-glow-sm'
+                      ? 'bg-accent text-accent-foreground'
                       : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
                   )}
                 >
