@@ -1,53 +1,164 @@
 'use client';
 
-import { useId, useMemo } from 'react';
-import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
+import { useId, useMemo, useRef, useState, useCallback } from 'react';
+import { AreaChart, Area, ResponsiveContainer, YAxis, Tooltip } from 'recharts';
+
+export type SparklineTimespan = '1W' | '1M' | '6M' | '1Y' | 'ALL';
 
 interface AccountSparklineProps {
   currentValue: number;
   totalGainLoss: number;
+  timespan?: SparklineTimespan;
+  formatValue?: (value: number) => string;
 }
 
-function generateLastMonthData(currentValue: number, totalGainLoss: number) {
+const TIMESPAN_CONFIG: Record<SparklineTimespan, { points: number; gainFraction: number }> = {
+  '1W': { points: 7, gainFraction: 0.02 },
+  '1M': { points: 15, gainFraction: 0.08 },
+  '6M': { points: 26, gainFraction: 0.5 },
+  '1Y': { points: 12, gainFraction: 1 },
+  ALL: { points: 20, gainFraction: 1 },
+};
+
+function generateData(currentValue: number, totalGainLoss: number, timespan: SparklineTimespan) {
+  const config = TIMESPAN_CONFIG[timespan];
   const costBasis = currentValue - totalGainLoss;
-  const points = 15;
   const data = [];
 
-  // Simulate ~1 month of daily-ish data points ending at current value
-  // Use the gain/loss ratio to create a realistic trend
   const gainRatio = costBasis > 0 ? totalGainLoss / costBasis : 0;
-  // Only show roughly last month's portion of gain
-  const monthGain = gainRatio * 0.08; // ~1 month out of a year
+  const periodGain = gainRatio * config.gainFraction;
 
-  for (let i = 0; i < points; i++) {
-    const progress = i / (points - 1);
-    const startValue = currentValue / (1 + monthGain);
+  const now = new Date();
+
+  for (let i = 0; i < config.points; i++) {
+    const progress = i / (config.points - 1);
+    const startValue = currentValue / (1 + periodGain);
     const variance = Math.sin(i * 1.5) * 0.005 + Math.cos(i * 2.3) * 0.003;
     const value = startValue + (currentValue - startValue) * progress + startValue * variance;
-    data.push({ value: Math.max(0, value) });
+
+    const date = new Date(now);
+    const stepsBack = config.points - 1 - i;
+    if (timespan === '1W') {
+      date.setDate(date.getDate() - stepsBack);
+    } else if (timespan === '1M') {
+      date.setDate(date.getDate() - stepsBack * 2);
+    } else if (timespan === '6M') {
+      date.setDate(date.getDate() - stepsBack * 7);
+    } else {
+      date.setMonth(date.getMonth() - stepsBack);
+    }
+
+    data.push({
+      value: Math.max(0, value),
+      date: date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        ...(timespan === '1Y' || timespan === 'ALL' ? { year: '2-digit' } : {}),
+      }),
+    });
   }
 
-  // Ensure last point is exact current value
   data[data.length - 1].value = currentValue;
-
   return data;
 }
 
-export function AccountSparkline({ currentValue, totalGainLoss }: AccountSparklineProps) {
+function SparklineTooltip({
+  active,
+  payload,
+  formatValue,
+}: {
+  active?: boolean;
+  payload?: { value: number; payload: { date: string } }[];
+  formatValue?: (v: number) => string;
+}) {
+  if (!active || !payload?.length) return null;
+  const { date } = payload[0].payload;
+  const value = payload[0].value;
+  return (
+    <div className="border-border/50 bg-card/95 rounded-lg border px-3 py-1.5 text-xs shadow-lg backdrop-blur-sm">
+      <p className="text-muted-foreground">{date}</p>
+      <p className="font-medium tabular-nums">
+        {formatValue
+          ? formatValue(value)
+          : value.toLocaleString('en-US', {
+              style: 'currency',
+              currency: 'USD',
+            })}
+      </p>
+    </div>
+  );
+}
+
+export function AccountSparkline({
+  currentValue,
+  totalGainLoss,
+  timespan = '1M',
+  formatValue,
+}: AccountSparklineProps) {
   const id = useId();
   const data = useMemo(
-    () => generateLastMonthData(currentValue, totalGainLoss),
-    [currentValue, totalGainLoss]
+    () => generateData(currentValue, totalGainLoss, timespan),
+    [currentValue, totalGainLoss, timespan]
   );
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [touchActiveIndex, setTouchActiveIndex] = useState<number | undefined>(undefined);
+  const isTouching = useRef(false);
+
+  const resolveIndex = useCallback(
+    (clientX: number) => {
+      const el = containerRef.current;
+      if (!el || data.length === 0) return undefined;
+      const rect = el.getBoundingClientRect();
+      // Recharts uses a small margin; approximate the chart area
+      const chartLeft = rect.left;
+      const chartWidth = rect.width;
+      const x = clientX - chartLeft;
+      const ratio = Math.max(0, Math.min(1, x / chartWidth));
+      return Math.round(ratio * (data.length - 1));
+    },
+    [data.length]
+  );
+
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      isTouching.current = true;
+      const touch = e.touches[0];
+      setTouchActiveIndex(resolveIndex(touch.clientX));
+    },
+    [resolveIndex]
+  );
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isTouching.current) return;
+      // Prevent vertical scroll while dragging on the chart
+      e.preventDefault();
+      const touch = e.touches[0];
+      setTouchActiveIndex(resolveIndex(touch.clientX));
+    },
+    [resolveIndex]
+  );
+
+  const handleTouchEnd = useCallback(() => {
+    isTouching.current = false;
+    setTouchActiveIndex(undefined);
+  }, []);
 
   if (currentValue === 0) return null;
 
-  const isPositive = totalGainLoss >= 0;
-  const color = isPositive ? '#22c55e' : '#ef4444';
+  const color = '#60a5fa'; // blue-400
   const gradientId = `sparkline-${id}`;
 
   return (
-    <div className="h-10 w-24 sm:w-28">
+    <div
+      ref={containerRef}
+      className="h-full w-full touch-none"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
+    >
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 2, right: 0, left: 0, bottom: 2 }}>
           <defs>
@@ -57,6 +168,16 @@ export function AccountSparkline({ currentValue, totalGainLoss }: AccountSparkli
             </linearGradient>
           </defs>
           <YAxis hide domain={['dataMin', 'dataMax']} />
+          <Tooltip
+            active={touchActiveIndex !== undefined ? true : undefined}
+            defaultIndex={touchActiveIndex}
+            content={<SparklineTooltip formatValue={formatValue} />}
+            cursor={{
+              stroke: color,
+              strokeWidth: 1,
+              strokeDasharray: '4 4',
+            }}
+          />
           <Area
             type="monotone"
             dataKey="value"
@@ -64,6 +185,12 @@ export function AccountSparkline({ currentValue, totalGainLoss }: AccountSparkli
             strokeWidth={1.5}
             fill={`url(#${gradientId})`}
             dot={false}
+            activeDot={{
+              r: 4,
+              fill: color,
+              stroke: '#1e293b',
+              strokeWidth: 2,
+            }}
             isAnimationActive={false}
           />
         </AreaChart>

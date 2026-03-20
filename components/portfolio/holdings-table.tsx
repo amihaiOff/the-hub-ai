@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState, useMemo, useRef } from 'react';
-import { MoreVertical, Pencil, Trash2, TrendingUp, ChevronDown } from 'lucide-react';
+import { Pencil, Trash2, TrendingUp, ChevronDown } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -10,15 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { EditHoldingDialog } from './edit-holding-dialog';
 import { DeleteConfirmDialog } from './delete-confirm-dialog';
@@ -77,6 +69,9 @@ function MobileHoldingCard({
               isExpanded && 'rotate-180'
             )}
           />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-700/80">
+            <span className="text-sm font-bold text-blue-400">{holding.symbol.charAt(0)}</span>
+          </div>
           <div className="flex flex-col">
             <span className="font-medium">{holding.symbol}</span>
             {holding.name && (
@@ -186,31 +181,33 @@ function DesktopHoldingRow({
   holding,
   formatDisplayValue,
   formatOriginalCurrency,
-  onDelete,
-}: HoldingRowProps) {
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+}: Omit<HoldingRowProps, 'onDelete'>) {
   const isPositive = holding.gainLoss >= 0;
 
   // Check if this holding has an original price in a different currency (for display purposes)
   const hasOriginalPrice = holding.originalPrice !== undefined && holding.originalPriceCurrency;
 
-  const hasTooltipContent = Boolean(holding.name || holding.taseSymbol);
+  const hasTooltipContent = Boolean(holding.taseSymbol);
 
   const symbolCellContent = (
-    <div className="flex cursor-default flex-col">
-      <span className="font-medium">{holding.symbol}</span>
-      {holding.name && (
-        <span className="text-muted-foreground/70 max-w-[80px] truncate text-xs sm:max-w-[100px]">
-          {holding.name}
-        </span>
-      )}
+    <div className="flex cursor-default items-center gap-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-700/80">
+        <span className="text-base font-bold text-blue-400">{holding.symbol.charAt(0)}</span>
+      </div>
+      <div className="flex flex-col">
+        <span className="text-base font-bold">{holding.symbol}</span>
+        {holding.name && (
+          <span className="text-muted-foreground/70 max-w-[140px] truncate text-xs">
+            {holding.name}
+          </span>
+        )}
+      </div>
     </div>
   );
 
   return (
-    <TableRow className="hidden sm:table-row">
-      <TableCell>
+    <TableRow className="border-border/50 hidden border-b sm:table-row">
+      <TableCell className="py-5">
         {hasTooltipContent ? (
           <Tooltip>
             <TooltipTrigger asChild>{symbolCellContent}</TooltipTrigger>
@@ -227,11 +224,13 @@ function DesktopHoldingRow({
           symbolCellContent
         )}
       </TableCell>
-      <TableCell className="text-right tabular-nums">{formatQuantity(holding.quantity)}</TableCell>
-      <TableCell className="text-right tabular-nums">
+      <TableCell className="py-5 text-center font-mono tabular-nums">
+        {formatQuantity(holding.quantity)}
+      </TableCell>
+      <TableCell className="py-5 text-right font-mono tabular-nums">
         {formatDisplayValue(holding.avgCostBasis)}
       </TableCell>
-      <TableCell className="text-right tabular-nums">
+      <TableCell className="py-5 text-right font-mono tabular-nums">
         {hasOriginalPrice ? (
           <span>
             {formatDisplayValue(holding.currentPrice)}
@@ -248,63 +247,18 @@ function DesktopHoldingRow({
           formatDisplayValue(holding.currentPrice)
         )}
       </TableCell>
-      <TableCell className="text-right font-medium tabular-nums">
+      <TableCell className="py-5 text-right text-base font-bold tabular-nums">
         {formatDisplayValue(holding.currentValue)}
       </TableCell>
-      <TableCell className="hidden text-right md:table-cell">
-        <div className="flex flex-col items-end" dir="ltr">
-          <Badge
-            variant="outline"
-            className={
-              isPositive ? 'border-green-500/50 text-green-500' : 'border-red-500/50 text-red-500'
-            }
-          >
-            {isPositive ? '+' : ''}
-            {formatDisplayValue(holding.gainLoss)}
-          </Badge>
-          <span className={`text-xs ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-            {formatPercent(holding.gainLossPercent)}
-          </span>
-        </div>
-      </TableCell>
-      <TableCell>
-        <div className="flex items-center justify-end">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" className="text-muted-foreground">
-                <MoreVertical className="h-4 w-4" />
-                <span className="sr-only">Holding options</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit holding
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => setShowDeleteDialog(true)}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete holding
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <EditHoldingDialog
-            holdingId={holding.id}
-            holding={holding}
-            open={showEditDialog}
-            onOpenChange={setShowEditDialog}
-          />
-          <DeleteConfirmDialog
-            title={`Delete ${holding.symbol}?`}
-            description={`This will remove ${holding.symbol} from your account. This action cannot be undone.`}
-            onConfirm={onDelete}
-            open={showDeleteDialog}
-            onOpenChange={setShowDeleteDialog}
-          />
-        </div>
+      <TableCell className="hidden py-5 text-right md:table-cell">
+        <span
+          className={cn(
+            'text-sm font-medium tabular-nums',
+            isPositive ? 'text-green-500' : 'text-red-500'
+          )}
+        >
+          {formatPercent(holding.gainLossPercent)}
+        </span>
       </TableCell>
     </TableRow>
   );
@@ -419,13 +373,24 @@ export function HoldingsTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Symbol</TableHead>
-              <TableHead className="text-right">Qty</TableHead>
-              <TableHead className="text-right">Avg Cost</TableHead>
-              <TableHead className="text-right">Price</TableHead>
-              <TableHead className="text-right">Value</TableHead>
-              <TableHead className="hidden text-right md:table-cell">Gain/Loss</TableHead>
-              <TableHead className="w-[80px]"></TableHead>
+              <TableHead className="text-muted-foreground text-[11px] font-medium tracking-widest uppercase">
+                Symbol
+              </TableHead>
+              <TableHead className="text-muted-foreground text-center text-[11px] font-medium tracking-widest uppercase">
+                Qty
+              </TableHead>
+              <TableHead className="text-muted-foreground text-right text-[11px] font-medium tracking-widest uppercase">
+                Avg Cost
+              </TableHead>
+              <TableHead className="text-muted-foreground text-right text-[11px] font-medium tracking-widest uppercase">
+                Price
+              </TableHead>
+              <TableHead className="text-muted-foreground text-right text-[11px] font-medium tracking-widest uppercase">
+                Value
+              </TableHead>
+              <TableHead className="text-muted-foreground hidden text-right text-[11px] font-medium tracking-widest uppercase md:table-cell">
+                Gain/Loss
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -435,7 +400,6 @@ export function HoldingsTable({
                 holding={holding}
                 formatDisplayValue={formatDisplayValue}
                 formatOriginalCurrency={formatOriginalCurrency}
-                onDelete={() => deleteHolding.mutateAsync(holding.id)}
               />
             ))}
           </TableBody>

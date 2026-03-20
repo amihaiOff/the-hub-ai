@@ -22,15 +22,21 @@ interface AddHoldingDialogProps {
   accountId: string;
   accountName: string;
   accountCurrency?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function AddHoldingDialog({
   accountId,
   accountName,
   accountCurrency = 'USD',
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }: AddHoldingDialogProps) {
   // Cost basis is always entered in the account's native currency
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = controlledOnOpenChange ?? setInternalOpen;
   const [symbol, setSymbol] = useState('');
   const [stockName, setStockName] = useState('');
   const [subtitle, setSubtitle] = useState('');
@@ -84,12 +90,14 @@ export function AddHoldingDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon-sm" title="Add stock">
-          <Plus className="h-4 w-4" />
-          <span className="sr-only">Add stock to {accountName}</span>
-        </Button>
-      </DialogTrigger>
+      {controlledOpen === undefined && (
+        <DialogTrigger asChild>
+          <Button variant="ghost" size="icon-sm" title="Add stock">
+            <Plus className="h-4 w-4" />
+            <span className="sr-only">Add stock to {accountName}</span>
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
