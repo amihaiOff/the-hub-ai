@@ -8,6 +8,7 @@ import { useUser } from '@/lib/hooks/use-auth';
 import { useUncategorizedCount } from '@/lib/hooks/use-budget';
 import { LogOut, LogIn, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Logo } from './logo';
 import { Button } from '@/components/ui/button';
 import { navItems, settingsItem, type NavItem } from '@/lib/constants/navigation';
 
@@ -113,12 +114,7 @@ export function Sidebar() {
       <div className="flex h-full flex-col">
         {/* Logo */}
         <div className="border-sidebar-border/30 flex h-16 items-center border-b px-6">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="bg-primary flex h-8 w-8 items-center justify-center rounded-lg">
-              <span className="text-primary-foreground text-sm font-bold">H</span>
-            </div>
-            <span className="text-sidebar-foreground text-lg font-semibold">The Hub AI</span>
-          </Link>
+          <Logo />
         </div>
 
         {/* Navigation */}

@@ -144,15 +144,15 @@ describe('CategoryProgressBar', () => {
       // Find the progress bar fill element (has width style)
       const progressBar = container.querySelector('[style*="width"]');
       expect(progressBar).toBeInTheDocument();
-      // Check that the class includes bg-green-500
-      expect(progressBar?.className).toContain('bg-green-500');
+      // Check that the class includes the funded color
+      expect(progressBar?.className).toContain('bg-[#6ab2ff]');
     });
 
     it('should show red color when overspent', () => {
       const { container } = render(<CategoryProgressBar budgeted={1000} spent={1500} />);
       const progressBar = container.querySelector('[style*="width"]');
       expect(progressBar).toBeInTheDocument();
-      expect(progressBar?.className).toContain('bg-red-500');
+      expect(progressBar?.className).toContain('bg-[#ef4444]');
     });
 
     it('should show yellow color when underfunded', () => {
@@ -305,13 +305,13 @@ describe('StatusBadge', () => {
 
   it('should apply correct color classes for each status', () => {
     const { rerender } = render(<StatusBadge status="funded" />);
-    expect(screen.getByText('Funded').className).toContain('text-green');
+    expect(screen.getByText('Funded').className).toContain('text-[#6ab2ff]');
 
     rerender(<StatusBadge status="overspent" />);
-    expect(screen.getByText('Overspent').className).toContain('text-red');
+    expect(screen.getByText('Overspent').className).toContain('text-[#ef4444]');
 
     rerender(<StatusBadge status="underfunded" />);
-    expect(screen.getByText('Underfunded').className).toContain('text-yellow');
+    expect(screen.getByText('Underfunded').className).toContain('text-[#6ab2ff]');
   });
 
   it('should accept custom className', () => {

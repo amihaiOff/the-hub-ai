@@ -65,11 +65,11 @@ export function CategoryProgressBar({
   const getBarColor = () => {
     switch (status) {
       case 'overspent':
-        return 'bg-red-500';
+        return 'bg-[#ef4444]';
       case 'funded':
-        return 'bg-green-500';
+        return 'bg-[#6ab2ff]';
       case 'underfunded':
-        return 'bg-yellow-500';
+        return 'bg-[#6ab2ff]';
       default:
         return 'bg-muted-foreground';
     }
@@ -80,7 +80,7 @@ export function CategoryProgressBar({
     return (
       <div className={cn('flex items-center gap-3', className)}>
         <div
-          className="border-border/50 bg-muted relative h-3 flex-1 rounded-full border"
+          className="border-border bg-secondary relative h-3 flex-1 rounded-full border"
           role="progressbar"
           aria-valuenow={0}
           aria-valuemin={0}
@@ -110,7 +110,7 @@ export function CategoryProgressBar({
   return (
     <div className={cn('flex items-center gap-3', className)}>
       <div
-        className="border-border/50 bg-muted relative h-3 flex-1 rounded-full border"
+        className="border-border bg-secondary relative h-3 flex-1 rounded-full border"
         role="progressbar"
         aria-valuenow={Math.round(spentPercent)}
         aria-valuemin={0}
@@ -150,9 +150,9 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
   const statusConfig = {
-    funded: { label: 'Funded', className: 'bg-green-500/10 text-green-500' },
-    underfunded: { label: 'Underfunded', className: 'bg-yellow-500/10 text-yellow-500' },
-    overspent: { label: 'Overspent', className: 'bg-red-500/10 text-red-500' },
+    funded: { label: 'Funded', className: 'bg-[#6ab2ff]/10 text-[#6ab2ff]' },
+    underfunded: { label: 'Underfunded', className: 'bg-[#6ab2ff]/10 text-[#6ab2ff]' },
+    overspent: { label: 'Overspent', className: 'bg-[#ef4444]/10 text-[#ef4444]' },
     zero: { label: 'No Budget', className: 'bg-muted text-muted-foreground' },
   };
 

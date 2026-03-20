@@ -40,20 +40,20 @@ describe('MobileHeader', () => {
   });
 
   describe('Logo rendering', () => {
-    it('should render the logo with "H" letter', () => {
+    it('should render the logo SVG icon', () => {
       const mockOnMenuClick = jest.fn();
       render(<MobileHeader onMenuClick={mockOnMenuClick} />);
 
-      const logoLetter = screen.getByText('H');
-      expect(logoLetter).toBeInTheDocument();
+      const svg = document.querySelector('svg[viewBox="0 0 40 40"]');
+      expect(svg).toBeInTheDocument();
     });
 
-    it('should render "The Hub AI" text', () => {
+    it('should render "The Hub" and "AI" text', () => {
       const mockOnMenuClick = jest.fn();
       render(<MobileHeader onMenuClick={mockOnMenuClick} />);
 
-      const logoText = screen.getByText('The Hub AI');
-      expect(logoText).toBeInTheDocument();
+      expect(screen.getByText('AI')).toBeInTheDocument();
+      expect(screen.getByText(/The Hub/)).toBeInTheDocument();
     });
 
     it('should render logo as a link to homepage', () => {

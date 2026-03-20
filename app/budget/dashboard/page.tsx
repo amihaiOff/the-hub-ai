@@ -96,13 +96,13 @@ function CategoryTableRow({
   const isSavings = category.groupName === 'Savings';
   const status = getBudgetStatus(category.budgeted, category.spent);
   const availableColor = isSavings
-    ? 'text-green-500'
+    ? 'text-[#6ab2ff]'
     : status === 'overspent'
-      ? 'text-red-500'
+      ? 'text-[#ef4444]'
       : status === 'funded'
-        ? 'text-green-500'
+        ? 'text-[#6ab2ff]'
         : status === 'underfunded'
-          ? 'text-yellow-500'
+          ? 'text-[#6ab2ff]'
           : 'text-muted-foreground';
 
   const displayAvailable = isSavings ? category.spent : category.available;
@@ -111,7 +111,7 @@ function CategoryTableRow({
   return (
     <>
       <tr
-        className="hover:bg-muted/30 cursor-pointer border-b transition-colors"
+        className="cursor-pointer border-b transition-colors duration-200 hover:bg-[#6ab2ff]/5"
         onClick={onToggleExpand}
       >
         {/* Category Name + mobile progress bar */}
@@ -161,7 +161,7 @@ function CategoryTableRow({
       {/* Expanded Transactions */}
       {isExpanded && (
         <tr className="border-b">
-          <td colSpan={3} className="bg-muted/20 px-4 py-2.5 pl-12">
+          <td colSpan={3} className="bg-background px-4 py-2.5 pl-12">
             <CategoryTransactionsMini transactions={category.transactions} payees={payees} />
           </td>
         </tr>
@@ -201,13 +201,13 @@ function SortableGroupRow({
   const isGroupSavings = group.name === 'Savings';
   const groupStatus = getBudgetStatus(group.totalBudgeted, group.totalSpent);
   const groupAvailableColor = isGroupSavings
-    ? 'text-green-500'
+    ? 'text-[#6ab2ff]'
     : groupStatus === 'overspent'
-      ? 'text-red-500'
+      ? 'text-[#ef4444]'
       : groupStatus === 'funded'
-        ? 'text-green-500'
+        ? 'text-[#6ab2ff]'
         : groupStatus === 'underfunded'
-          ? 'text-yellow-500'
+          ? 'text-[#6ab2ff]'
           : 'text-muted-foreground';
 
   const groupDisplayAvailable = isGroupSavings ? group.totalSpent : group.totalAvailable;
@@ -220,8 +220,8 @@ function SortableGroupRow({
         ref={setNodeRef}
         style={style}
         className={cn(
-          'bg-muted/60 hover:bg-muted/80 cursor-pointer border-b',
-          isDragging && 'bg-muted opacity-50'
+          'bg-secondary hover:bg-secondary/80 cursor-pointer border-b transition-colors duration-200',
+          isDragging && 'bg-secondary opacity-50'
         )}
       >
         <td className="py-3 pr-2 pl-1">
@@ -406,7 +406,7 @@ export default function BudgetDashboardPage() {
               >
                 <table className="w-full">
                   <thead>
-                    <tr className="bg-muted/50 border-b text-xs">
+                    <tr className="bg-secondary border-b text-xs">
                       <th className="w-36 py-2.5 pr-2 pl-3 text-left font-medium sm:w-44">
                         Category
                       </th>

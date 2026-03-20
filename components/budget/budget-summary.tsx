@@ -15,7 +15,7 @@ export function BudgetSummary({ totalSpent, totalIncome, isLoading }: BudgetSumm
   const isNegative = net < 0;
 
   return (
-    <div className="bg-card/80 flex items-center divide-x rounded-xl border px-1 py-3 sm:py-4">
+    <div className="bg-card divide-border border-border flex items-center divide-x rounded-lg border px-1 py-3 sm:py-4">
       {/* Income */}
       <div className="flex-1 text-center">
         <p className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase sm:text-xs">
@@ -24,7 +24,7 @@ export function BudgetSummary({ totalSpent, totalIncome, isLoading }: BudgetSumm
         {isLoading ? (
           <div className="bg-muted mx-auto mt-1 h-5 w-14 animate-pulse rounded sm:h-7 sm:w-20" />
         ) : (
-          <p className="mt-0.5 text-base font-bold text-green-500 tabular-nums sm:text-xl">
+          <p className="mt-0.5 text-base font-bold text-[#6ab2ff] tabular-nums sm:text-xl">
             {formatCurrencyILS(totalIncome)}
           </p>
         )}
@@ -38,7 +38,7 @@ export function BudgetSummary({ totalSpent, totalIncome, isLoading }: BudgetSumm
         {isLoading ? (
           <div className="bg-muted mx-auto mt-1 h-5 w-14 animate-pulse rounded sm:h-7 sm:w-20" />
         ) : (
-          <p className="mt-0.5 text-base font-bold text-red-500 tabular-nums sm:text-xl">
+          <p className="mt-0.5 text-base font-bold text-[#ef4444] tabular-nums sm:text-xl">
             {formatCurrencyILS(totalSpent)}
           </p>
         )}
@@ -55,7 +55,7 @@ export function BudgetSummary({ totalSpent, totalIncome, isLoading }: BudgetSumm
           <p
             className={cn(
               'mt-0.5 text-base font-bold tabular-nums sm:text-xl',
-              isNegative ? 'text-red-500' : 'text-green-500'
+              isNegative ? 'text-[#ef4444]' : 'text-[#6ab2ff]'
             )}
           >
             {isNegative ? '-' : ''}

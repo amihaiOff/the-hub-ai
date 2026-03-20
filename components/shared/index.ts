@@ -8,3 +8,4 @@ export { HouseholdSwitcher } from './household-switcher';
 export { ProfileSelector } from './profile-selector';
 export { OwnerSelectDialog } from './owner-select-dialog';
 export { InlineOwnerPicker } from './inline-owner-picker';
+export { Logo } from './logo';
