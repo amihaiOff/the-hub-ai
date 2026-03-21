@@ -6,12 +6,12 @@
  */
 
 import { navItems, settingsItem, NavItem } from '../navigation';
-import { Home, TrendingUp, Building2, Wallet, Receipt, Settings } from 'lucide-react';
+import { Home, TrendingUp, Building2, Wallet, Receipt, Settings, Shield } from 'lucide-react';
 
 describe('Navigation Constants', () => {
   describe('navItems array structure', () => {
-    it('should contain exactly 5 navigation items with valid structure', () => {
-      expect(navItems).toHaveLength(5);
+    it('should contain exactly 6 navigation items with valid structure', () => {
+      expect(navItems).toHaveLength(6);
       expect(Array.isArray(navItems)).toBe(true);
 
       navItems.forEach((item) => {
@@ -45,6 +45,7 @@ describe('Navigation Constants', () => {
       { label: 'Portfolio', href: '/portfolio', icon: TrendingUp },
       { label: 'Pension', href: '/pension', icon: Building2 },
       { label: 'Assets', href: '/assets', icon: Wallet },
+      { label: 'ביטוחים', href: '/insurance', icon: Shield },
       { label: 'Budget', href: '/budget', icon: Receipt },
     ];
 

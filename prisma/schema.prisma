@@ -65,6 +65,9 @@ model Profile {
   // Budget transactions attributed to this profile
   budgetTransactions BudgetTransaction[]
 
+  // Insurance policies attributed to this profile
+  insurancePolicies InsurancePolicy[]
+
   @@map("profiles")
 }
 
@@ -83,6 +86,9 @@ model Household {
   budgetCategoryGroups BudgetCategoryGroup[]
   riseupCategories     RiseupCategory[]
   payeeCategoryRules   PayeeCategoryRule[]
+
+  // Insurance module
+  insurancePolicies InsurancePolicy[]
 
   @@map("households")
 }
@@ -534,4 +540,33 @@ model BudgetTransactionTag {
   @@index([transactionId])
   @@index([tagId])
   @@map("budget_transaction_tags")
+}
+
+// ============================================
+// INSURANCE MODULE
+// ============================================
+
+model InsurancePolicy {
+  id                 String   @id @default(cuid())
+  profileId          String   @map("profile_id")
+  householdId        String   @map("household_id")
+  mainBranch         String   @map("main_branch")
+  subBranch          String?  @map("sub_branch")
+  productType        String?  @map("product_type")
+  company            String?  @map("company")
+  insurancePeriod    String?  @map("insurance_period")
+  additionalDetails  String?  @map("additional_details")
+  premiumIls         Decimal? @map("premium_ils") @db.Decimal(12, 2)
+  premiumType        String?  @map("premium_type")
+  policyNumber       String?  @map("policy_number")
+  planClassification String?  @map("plan_classification")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  profile   Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@index([profileId])
+  @@map("insurance_policies")
 }

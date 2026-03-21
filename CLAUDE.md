@@ -418,7 +418,28 @@ npx prisma db push
 - **Stock prices cached 6 hours** - don't over-fetch external APIs
 - **Net worth snapshots bi-weekly** - not daily (to reduce database growth)
 
-  ## Browser Automation
+## Python Scripts
+
+The project uses a **Poetry-managed Python virtual environment** at `.venv/` (Python 3.11).
+
+**Always use the Poetry venv for Python scripts:**
+
+```bash
+# Run a script
+poetry run python scripts/my_script.py
+
+# Or activate the venv
+source .venv/bin/activate
+
+# Install new packages
+poetry add <package>
+```
+
+**Never use the system Python directly.** The `.venv/` folder is gitignored.
+
+Currently installed packages: `openpyxl`, `requests`
+
+## Browser Automation
 
 Use `agent-browser` for web automation. Run `agent-browser --help` for all commands.
 

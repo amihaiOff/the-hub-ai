@@ -54,3 +54,4 @@ prisma/*.db-journal
 
 /lib/generated/prisma
 .mcp.json
+.venv
