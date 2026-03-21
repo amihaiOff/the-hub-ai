@@ -32,7 +32,7 @@ export default function InsurancePage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('האם למחוק פוליסה זו?')) return;
+    if (!confirm('Delete this policy?')) return;
     try {
       await deletePolicy.mutateAsync(id);
     } catch {
@@ -41,12 +41,12 @@ export default function InsurancePage() {
   };
 
   return (
-    <div className="space-y-6" dir="rtl">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Shield className="text-primary h-7 w-7" />
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">ביטוחים</h1>
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Insurance</h1>
         </div>
         {activeGroup && effectiveProfileId && (
           <ImportExcelDialog
@@ -59,7 +59,7 @@ export default function InsurancePage() {
       {/* Error State */}
       {error && (
         <div className="bg-destructive/10 text-destructive rounded-md p-4">
-          שגיאה בטעינת נתוני הביטוחים. אנא נסה שוב.
+          Failed to load insurance data. Please try again.
         </div>
       )}
 
@@ -80,9 +80,9 @@ export default function InsurancePage() {
             <div className="border-border flex h-64 items-center justify-center rounded-lg border border-dashed">
               <div className="text-center">
                 <Shield className="text-muted-foreground mx-auto h-12 w-12" />
-                <p className="text-muted-foreground mt-2 text-lg font-medium">אין נתוני ביטוח</p>
+                <p className="text-muted-foreground mt-2 text-lg font-medium">No insurance data</p>
                 <p className="text-muted-foreground mt-1 text-sm">
-                  ייבא קובץ Excel מפורטל &ldquo;הר הביטוח&rdquo; כדי להתחיל
+                  Import an Excel file from the &ldquo;הר הביטוח&rdquo; portal to get started
                 </p>
               </div>
             </div>
@@ -129,7 +129,9 @@ export default function InsurancePage() {
                 <div className="border-border flex h-48 items-center justify-center rounded-lg border border-dashed">
                   <div className="text-center">
                     <Shield className="text-muted-foreground mx-auto h-10 w-10" />
-                    <p className="text-muted-foreground mt-2 text-sm">אין ביטוחים עבור פרופיל זה</p>
+                    <p className="text-muted-foreground mt-2 text-sm">
+                      No policies for this profile
+                    </p>
                   </div>
                 </div>
               )}
@@ -154,7 +156,9 @@ function BranchSection({ branch, policies, onDelete, isDeleting }: BranchSection
       {/* Branch Header */}
       <div className="bg-muted/50 border-border border-b px-4 py-3">
         <h2 className="text-base font-semibold">{branch}</h2>
-        <p className="text-muted-foreground text-xs">{policies.length} פוליסות</p>
+        <p className="text-muted-foreground text-xs">
+          {policies.length} {policies.length === 1 ? 'policy' : 'policies'}
+        </p>
       </div>
 
       {/* Desktop Table */}
@@ -239,7 +243,7 @@ function PolicyRow({ policy, onDelete, isDeleting }: PolicyRowProps) {
           onClick={() => onDelete(policy.id)}
           disabled={isDeleting}
           className="text-muted-foreground hover:text-destructive h-7 w-7"
-          aria-label="מחק פוליסה"
+          aria-label="Delete policy"
         >
           <Trash2 className="h-4 w-4" />
         </Button>
@@ -273,7 +277,7 @@ function PolicyCard({ policy, onDelete, isDeleting }: PolicyRowProps) {
             )}
             {policy.policyNumber && (
               <span className="text-muted-foreground text-xs tabular-nums">
-                פוליסה: {policy.policyNumber}
+                Policy: {policy.policyNumber}
               </span>
             )}
           </div>
@@ -293,7 +297,7 @@ function PolicyCard({ policy, onDelete, isDeleting }: PolicyRowProps) {
           onClick={() => onDelete(policy.id)}
           disabled={isDeleting}
           className="text-muted-foreground hover:text-destructive h-7 w-7 shrink-0"
-          aria-label="מחק פוליסה"
+          aria-label="Delete policy"
         >
           <Trash2 className="h-4 w-4" />
         </Button>
