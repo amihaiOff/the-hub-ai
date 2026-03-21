@@ -4,7 +4,7 @@ import { useState, Fragment, useMemo } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, Loader2, ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -46,9 +46,7 @@ import {
 
 // Hook to persist group order in localStorage
 function useGroupOrder(groupIds: string[]) {
-  // State holds the user's saved order (from localStorage or manual reorder)
   const [savedOrder, setSavedOrder] = useState<string[]>(() => {
-    // Initialize from localStorage on first render (client-side only)
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('budget-group-order');
       if (saved) {
@@ -62,7 +60,6 @@ function useGroupOrder(groupIds: string[]) {
     return [];
   });
 
-  // Compute the effective order: saved order filtered to existing groups + any new groups
   const order = useMemo(() => {
     if (groupIds.length === 0) return [];
     const existingOrdered = savedOrder.filter((id) => groupIds.includes(id));
@@ -78,7 +75,134 @@ function useGroupOrder(groupIds: string[]) {
   return { order, updateOrder };
 }
 
-interface CategoryRowProps {
+function availableColor(isSavings: boolean, status: ReturnType<typeof getBudgetStatus>): string {
+  if (isSavings) return 'text-[#6ab2ff]';
+  if (status === 'overspent') return 'text-[#ef4444]';
+  if (status === 'funded' || status === 'underfunded') return 'text-[#6ab2ff]';
+  return 'text-muted-foreground';
+}
+
+// ─── Mobile card layout ───────────────────────────────────────────────
+
+interface MobileCategoryRowProps {
+  category: CategorySpending;
+  payees: BudgetPayee[];
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  selectedMonth: string;
+  isLast: boolean;
+}
+
+function MobileCategoryRow({
+  category,
+  payees,
+  isExpanded,
+  onToggleExpand,
+  selectedMonth,
+  isLast,
+}: MobileCategoryRowProps) {
+  const isSavings = category.groupName === 'Savings';
+  const status = getBudgetStatus(category.budgeted, category.spent);
+  const color = availableColor(isSavings, status);
+  const displayAvailable = isSavings ? category.spent : category.available;
+
+  return (
+    <div className={cn(!isLast && 'border-border/40 border-b')}>
+      <div className="cursor-pointer px-4 py-3 active:bg-[#6ab2ff]/5" onClick={onToggleExpand}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="text-muted-foreground/50 shrink-0 text-xs">└</span>
+            <span className="truncate text-sm">{category.categoryName}</span>
+          </div>
+          <span className={cn('shrink-0 text-sm font-medium tabular-nums', color)}>
+            {formatCurrencyILS(displayAvailable)}
+          </span>
+        </div>
+        <div className="mt-1.5 pl-4">
+          <CategoryProgressBar
+            budgeted={category.budgeted}
+            spent={category.spent}
+            selectedMonth={selectedMonth}
+            showStats={false}
+          />
+        </div>
+      </div>
+      {isExpanded && (
+        <div className="border-border/30 bg-background border-t px-4 pt-2 pb-3">
+          <CategoryTransactionsMini transactions={category.transactions} payees={payees} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface MobileGroupCardProps {
+  group: CategoryGroupSummary;
+  payees: BudgetPayee[];
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  expandedCategories: Set<string>;
+  onToggleCategory: (id: string) => void;
+  selectedMonth: string;
+}
+
+function MobileGroupCard({
+  group,
+  payees,
+  isExpanded,
+  onToggleExpand,
+  expandedCategories,
+  onToggleCategory,
+  selectedMonth,
+}: MobileGroupCardProps) {
+  const isGroupSavings = group.name === 'Savings';
+  const groupStatus = getBudgetStatus(group.totalBudgeted, group.totalSpent);
+  const color = availableColor(isGroupSavings, groupStatus);
+  const groupDisplayAvailable = isGroupSavings ? group.totalSpent : group.totalAvailable;
+
+  return (
+    <div className="border-border bg-card overflow-hidden rounded-lg border">
+      {/* Group header */}
+      <div className="cursor-pointer px-4 pt-4 pb-3 active:bg-[#6ab2ff]/5" onClick={onToggleExpand}>
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate font-semibold">{group.name}</span>
+          <span className={cn('shrink-0 font-semibold tabular-nums', color)}>
+            {formatCurrencyILS(groupDisplayAvailable)}
+          </span>
+        </div>
+        <div className="mt-2">
+          <CategoryProgressBar
+            budgeted={group.totalBudgeted}
+            spent={group.totalSpent}
+            selectedMonth={selectedMonth}
+            showStats={false}
+          />
+        </div>
+      </div>
+
+      {/* Expanded categories */}
+      {isExpanded && group.categories.length > 0 && (
+        <div className="border-border/50 border-t">
+          {group.categories.map((category, i) => (
+            <MobileCategoryRow
+              key={category.categoryId}
+              category={category}
+              payees={payees}
+              isExpanded={expandedCategories.has(category.categoryId)}
+              onToggleExpand={() => onToggleCategory(category.categoryId)}
+              selectedMonth={selectedMonth}
+              isLast={i === group.categories.length - 1}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Desktop table layout (with DnD) ─────────────────────────────────
+
+interface CategoryTableRowProps {
   category: CategorySpending;
   payees: BudgetPayee[];
   isExpanded: boolean;
@@ -92,19 +216,10 @@ function CategoryTableRow({
   isExpanded,
   onToggleExpand,
   selectedMonth,
-}: CategoryRowProps) {
+}: CategoryTableRowProps) {
   const isSavings = category.groupName === 'Savings';
   const status = getBudgetStatus(category.budgeted, category.spent);
-  const availableColor = isSavings
-    ? 'text-[#6ab2ff]'
-    : status === 'overspent'
-      ? 'text-[#ef4444]'
-      : status === 'funded'
-        ? 'text-[#6ab2ff]'
-        : status === 'underfunded'
-          ? 'text-[#6ab2ff]'
-          : 'text-muted-foreground';
-
+  const color = availableColor(isSavings, status);
   const displayAvailable = isSavings ? category.spent : category.available;
   const spent = category.budgeted - category.available;
 
@@ -114,30 +229,10 @@ function CategoryTableRow({
         className="cursor-pointer border-b transition-colors duration-200 hover:bg-[#6ab2ff]/5"
         onClick={onToggleExpand}
       >
-        {/* Category Name + mobile progress bar */}
-        <td className="py-2.5 pr-2 pl-8 sm:w-44" colSpan={1}>
-          <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground/70 shrink-0">
-              {isExpanded ? (
-                <ChevronDown className="h-3.5 w-3.5" />
-              ) : (
-                <ChevronRight className="h-3.5 w-3.5" />
-              )}
-            </span>
-            <span className="truncate text-sm">{category.categoryName}</span>
-          </div>
-          {/* Mobile: progress bar on new line */}
-          <div className="mt-1.5 pr-2 pl-5 sm:hidden">
-            <CategoryProgressBar
-              budgeted={category.budgeted}
-              spent={category.spent}
-              selectedMonth={selectedMonth}
-              showStats={false}
-            />
-          </div>
+        <td className="py-2.5 pr-2 pl-8 sm:w-44">
+          <span className="truncate text-sm">{category.categoryName}</span>
         </td>
-        {/* Desktop: Progress Bar with date indicator */}
-        <td className="hidden px-2 py-2.5 sm:table-cell">
+        <td className="px-2 py-2.5">
           <CategoryProgressBar
             budgeted={category.budgeted}
             spent={category.spent}
@@ -145,20 +240,17 @@ function CategoryTableRow({
             showStats={false}
           />
         </td>
-        {/* Available */}
-        <td className="w-20 py-2.5 pr-3 pl-2 text-right sm:w-24">
-          <span className={cn('text-sm font-medium tabular-nums', availableColor)}>
+        <td className="w-24 py-2.5 pr-3 pl-2 text-right">
+          <span className={cn('text-sm font-medium tabular-nums', color)}>
             {formatCurrencyILS(displayAvailable)}
           </span>
-          {/* Mobile: spent amount (no currency, no percentage) */}
           {!isSavings && spent > 0 && (
-            <div className="text-muted-foreground text-[10px] tabular-nums lg:hidden">
+            <div className="text-muted-foreground text-[10px] tabular-nums">
               {spent.toLocaleString('he-IL')} used
             </div>
           )}
         </td>
       </tr>
-      {/* Expanded Transactions */}
       {isExpanded && (
         <tr className="border-b">
           <td colSpan={3} className="bg-background px-4 py-2.5 pl-12">
@@ -200,64 +292,27 @@ function SortableGroupRow({
 
   const isGroupSavings = group.name === 'Savings';
   const groupStatus = getBudgetStatus(group.totalBudgeted, group.totalSpent);
-  const groupAvailableColor = isGroupSavings
-    ? 'text-[#6ab2ff]'
-    : groupStatus === 'overspent'
-      ? 'text-[#ef4444]'
-      : groupStatus === 'funded'
-        ? 'text-[#6ab2ff]'
-        : groupStatus === 'underfunded'
-          ? 'text-[#6ab2ff]'
-          : 'text-muted-foreground';
-
+  const color = availableColor(isGroupSavings, groupStatus);
   const groupDisplayAvailable = isGroupSavings ? group.totalSpent : group.totalAvailable;
   const groupSpent = group.totalBudgeted - group.totalAvailable;
 
   return (
     <Fragment>
-      {/* Group Row */}
       <tr
         ref={setNodeRef}
         style={style}
+        {...attributes}
+        {...listeners}
+        onClick={onToggleExpand}
         className={cn(
-          'bg-secondary hover:bg-secondary/80 cursor-pointer border-b transition-colors duration-200',
-          isDragging && 'bg-secondary opacity-50'
+          'bg-secondary hover:bg-secondary/80 cursor-grab border-b transition-colors duration-200 active:cursor-grabbing',
+          isDragging && 'opacity-50'
         )}
       >
-        <td className="py-3 pr-2 pl-1">
-          <div className="flex items-center gap-1">
-            {/* Drag Handle */}
-            <button
-              className="text-muted-foreground/50 hover:text-muted-foreground cursor-grab touch-none p-1"
-              {...attributes}
-              {...listeners}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <GripVertical className="h-4 w-4" />
-            </button>
-            <div className="flex flex-1 items-center gap-1.5" onClick={onToggleExpand}>
-              <span className="text-muted-foreground shrink-0">
-                {isExpanded ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-              </span>
-              <span className="truncate font-semibold">{group.name}</span>
-            </div>
-          </div>
-          {/* Mobile: progress bar on new line */}
-          <div className="mt-1.5 pr-2 pl-8 sm:hidden" onClick={onToggleExpand}>
-            <CategoryProgressBar
-              budgeted={group.totalBudgeted}
-              spent={group.totalSpent}
-              selectedMonth={selectedMonth}
-              showStats={false}
-            />
-          </div>
+        <td className="py-3 pr-2 pl-3">
+          <span className="truncate font-semibold">{group.name}</span>
         </td>
-        {/* Desktop: Progress Bar */}
-        <td className="hidden px-2 py-3 sm:table-cell" onClick={onToggleExpand}>
+        <td className="px-2 py-3">
           <CategoryProgressBar
             budgeted={group.totalBudgeted}
             spent={group.totalSpent}
@@ -265,19 +320,18 @@ function SortableGroupRow({
             showStats={false}
           />
         </td>
-        <td className="py-3 pr-3 pl-2 text-right" onClick={onToggleExpand}>
-          <span className={cn('font-semibold tabular-nums', groupAvailableColor)}>
+        <td className="py-3 pr-3 pl-2 text-right">
+          <span className={cn('font-semibold tabular-nums', color)}>
             {formatCurrencyILS(groupDisplayAvailable)}
           </span>
           {!isGroupSavings && groupSpent > 0 && (
-            <div className="text-muted-foreground text-[10px] tabular-nums lg:hidden">
+            <div className="text-muted-foreground text-[10px] tabular-nums">
               {groupSpent.toLocaleString('he-IL')} used
             </div>
           )}
         </td>
       </tr>
 
-      {/* Category Rows */}
       {isExpanded &&
         group.categories.map((category) => (
           <CategoryTableRow
@@ -293,6 +347,8 @@ function SortableGroupRow({
   );
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────
+
 export default function BudgetDashboardPage() {
   const { selectedMonth, setSelectedMonth } = useSelectedMonth();
   const { data: monthSummary, isLoading, error } = useBudgetMonthSummary(selectedMonth);
@@ -306,10 +362,8 @@ export default function BudgetDashboardPage() {
   );
   const allExpanded = allGroupIds.length > 0 && allGroupIds.every((id) => expandedGroups.has(id));
 
-  // Custom order for groups
   const { order, updateOrder } = useGroupOrder(allGroupIds);
 
-  // Sort groups by custom order
   const orderedGroups = useMemo(() => {
     const groups = monthSummary?.categoryGroups;
     if (!groups) return [];
@@ -319,21 +373,13 @@ export default function BudgetDashboardPage() {
       .filter((g): g is CategoryGroupSummary => g !== undefined);
   }, [monthSummary, order]);
 
-  // DnD sensors
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-
     if (over && active.id !== over.id) {
       const oldIndex = order.indexOf(active.id as string);
       const newIndex = order.indexOf(over.id as string);
@@ -349,7 +395,7 @@ export default function BudgetDashboardPage() {
         <MonthSelector selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
       </div>
 
-      {/* Error State */}
+      {/* Error */}
       {error && (
         <Card className="border-destructive">
           <CardContent className="flex items-center gap-3 py-3">
@@ -372,7 +418,7 @@ export default function BudgetDashboardPage() {
         isLoading={isLoading}
       />
 
-      {/* Categories Table */}
+      {/* Categories */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">Categories</h2>
@@ -393,51 +439,64 @@ export default function BudgetDashboardPage() {
         {isLoading ? (
           <div className="space-y-2 py-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-muted h-8 animate-pulse rounded" />
+              <div key={i} className="bg-muted h-16 animate-pulse rounded-lg" />
             ))}
           </div>
         ) : orderedGroups.length > 0 ? (
-          <div className="lg:border-border lg:bg-card overflow-hidden lg:rounded-lg lg:border lg:py-6">
-            <div className="overflow-x-auto">
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-secondary border-b text-xs">
-                      <th className="w-36 py-2.5 pr-2 pl-3 text-left font-medium sm:w-44">
-                        Category
-                      </th>
-                      <th className="hidden px-2 py-2.5 text-left font-medium sm:table-cell">
-                        Progress
-                      </th>
-                      <th className="w-20 py-2.5 pr-3 pl-2 text-right font-medium sm:w-24">
-                        Available
-                      </th>
-                    </tr>
-                  </thead>
-                  <SortableContext items={order} strategy={verticalListSortingStrategy}>
-                    <tbody>
-                      {orderedGroups.map((group) => (
-                        <SortableGroupRow
-                          key={group.id}
-                          group={group}
-                          payees={payees}
-                          isExpanded={expandedGroups.has(group.id)}
-                          onToggleExpand={() => toggleGroup(group.id)}
-                          expandedCategories={expandedCategories}
-                          onToggleCategory={toggleCategory}
-                          selectedMonth={selectedMonth}
-                        />
-                      ))}
-                    </tbody>
-                  </SortableContext>
-                </table>
-              </DndContext>
+          <>
+            {/* Mobile: card-based layout */}
+            <div className="space-y-2 sm:hidden">
+              {orderedGroups.map((group) => (
+                <MobileGroupCard
+                  key={group.id}
+                  group={group}
+                  payees={payees}
+                  isExpanded={expandedGroups.has(group.id)}
+                  onToggleExpand={() => toggleGroup(group.id)}
+                  expandedCategories={expandedCategories}
+                  onToggleCategory={toggleCategory}
+                  selectedMonth={selectedMonth}
+                />
+              ))}
             </div>
-          </div>
+
+            {/* Desktop: table with DnD */}
+            <div className="hidden sm:block">
+              <div className="border-border bg-card overflow-hidden rounded-lg border">
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-secondary border-b text-xs">
+                        <th className="w-44 py-2.5 pr-2 pl-3 text-left font-medium">Category</th>
+                        <th className="px-2 py-2.5 text-left font-medium">Progress</th>
+                        <th className="w-24 py-2.5 pr-3 pl-2 text-right font-medium">Available</th>
+                      </tr>
+                    </thead>
+                    <SortableContext items={order} strategy={verticalListSortingStrategy}>
+                      <tbody>
+                        {orderedGroups.map((group) => (
+                          <SortableGroupRow
+                            key={group.id}
+                            group={group}
+                            payees={payees}
+                            isExpanded={expandedGroups.has(group.id)}
+                            onToggleExpand={() => toggleGroup(group.id)}
+                            expandedCategories={expandedCategories}
+                            onToggleCategory={toggleCategory}
+                            selectedMonth={selectedMonth}
+                          />
+                        ))}
+                      </tbody>
+                    </SortableContext>
+                  </table>
+                </DndContext>
+              </div>
+            </div>
+          </>
         ) : (
           <div className="py-8 text-center">
             <p className="text-muted-foreground">No categories set up yet</p>

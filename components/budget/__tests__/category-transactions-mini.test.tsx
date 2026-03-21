@@ -115,7 +115,7 @@ describe('CategoryTransactionsMini', () => {
       // Notes column should have responsive hiding
       const notesHeader = screen.getByText('Notes');
       expect(notesHeader.closest('th')?.className).toContain('hidden');
-      expect(notesHeader.closest('th')?.className).toContain('lg:table-cell');
+      expect(notesHeader.closest('th')?.className).toContain('sm:table-cell');
     });
   });
 

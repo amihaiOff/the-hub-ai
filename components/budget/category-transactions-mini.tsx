@@ -48,7 +48,7 @@ export function CategoryTransactionsMini({
             <th scope="col" className="pr-4 pb-1 text-left font-medium">
               Payee
             </th>
-            <th scope="col" className="hidden pr-4 pb-1 text-left font-medium lg:table-cell">
+            <th scope="col" className="hidden pr-4 pb-1 text-left font-medium sm:table-cell">
               Notes
             </th>
             <th scope="col" className="pb-1 text-right font-medium">
@@ -65,7 +65,7 @@ export function CategoryTransactionsMini({
               <td className="max-w-[150px] truncate py-1 pr-4">
                 {getPayeeName(tx.payeeId, payees)}
               </td>
-              <td className="text-muted-foreground hidden max-w-[150px] truncate py-1 pr-4 lg:table-cell">
+              <td className="text-muted-foreground hidden max-w-[150px] truncate py-1 pr-4 sm:table-cell">
                 {tx.notes || '—'}
               </td>
               <td className="py-1 text-right tabular-nums">
