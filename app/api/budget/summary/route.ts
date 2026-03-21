@@ -57,6 +57,8 @@ export async function GET(request: NextRequest) {
         },
         // Exclude split parent transactions (only count children)
         isSplit: false,
+        // Exclude transactions marked as excluded from budget flow
+        excludedFromFlow: false,
       },
       select: {
         id: true,

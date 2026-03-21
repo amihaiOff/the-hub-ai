@@ -163,8 +163,9 @@ export function AccountSparkline({
         <AreaChart data={data} margin={{ top: 2, right: 0, left: 0, bottom: 2 }}>
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.2} />
-              <stop offset="100%" stopColor={color} stopOpacity={0} />
+              <stop offset="0%" stopColor={color} stopOpacity={0.8} />
+              <stop offset="80%" stopColor={color} stopOpacity={0.3} />
+              <stop offset="100%" stopColor={color} stopOpacity={0.1} />
             </linearGradient>
           </defs>
           <YAxis hide domain={['dataMin', 'dataMax']} />
