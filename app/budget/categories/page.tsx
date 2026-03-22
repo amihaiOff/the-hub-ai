@@ -27,6 +27,7 @@ import {
   useUpdateCategory,
   useRiseupCategories,
   useUpdateRiseupCategoryMapping,
+  useApplyRiseupMappings,
   type RiseupCategory,
 } from '@/lib/hooks/use-budget';
 import { type BudgetCategory, formatCurrencyILS } from '@/lib/utils/budget';
@@ -49,6 +50,7 @@ export default function CategoriesPage() {
   const deleteCategoryGroup = useDeleteCategoryGroup();
   const updateCategory = useUpdateCategory();
   const updateRiseupMapping = useUpdateRiseupCategoryMapping();
+  const applyRiseupMappings = useApplyRiseupMappings();
 
   useEffect(() => {
     if (editingBudgetId && budgetInputRef.current) {
@@ -138,6 +140,17 @@ export default function CategoriesPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Categories</h1>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => applyRiseupMappings.mutate()}
+            disabled={applyRiseupMappings.isPending}
+            title="Re-apply Riseup category mappings to existing uncategorized transactions"
+          >
+            {applyRiseupMappings.isPending ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : null}
+            Apply Mappings
+          </Button>
           <Button variant="outline" onClick={() => setShowAddGroup(true)}>
             <Plus className="mr-1.5 h-4 w-4" />
             Add Group
