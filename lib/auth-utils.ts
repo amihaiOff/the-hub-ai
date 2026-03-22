@@ -71,18 +71,25 @@ function isAuthBypassed(): boolean {
 export async function getCurrentUser(): Promise<CurrentUser | null> {
   if (isAuthBypassed()) {
     // Ensure dev user exists in database (only once per server lifecycle)
+    // Use a best-effort upsert — if it fails (e.g. transient Neon connection error),
+    // still return the dev user since it's likely already present from seed.
     if (!devUserCreated) {
-      await prisma.user.upsert({
-        where: { id: DEV_USER_ID },
-        update: {},
-        create: {
-          id: DEV_USER_ID,
-          email: DEV_USER_EMAIL,
-          name: DEV_USER_NAME,
-        },
-      });
-      devUserCreated = true;
-      console.warn('[DEV MODE] Auth bypass enabled - NEVER use in production');
+      try {
+        await prisma.user.upsert({
+          where: { id: DEV_USER_ID },
+          update: {},
+          create: {
+            id: DEV_USER_ID,
+            email: DEV_USER_EMAIL,
+            name: DEV_USER_NAME,
+          },
+        });
+        devUserCreated = true;
+        console.warn('[DEV MODE] Auth bypass enabled - NEVER use in production');
+      } catch (err) {
+        console.warn('[DEV MODE] Dev user upsert failed (may already exist):', err);
+        devUserCreated = true; // Assume it exists (from seed), don't retry
+      }
     }
 
     return {
