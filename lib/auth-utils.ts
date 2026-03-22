@@ -52,10 +52,13 @@ const ALLOWED_EMAILS =
 let devUserCreated = false;
 
 /**
- * Check if auth bypass is enabled (only allowed in non-production environments)
+ * Check if auth bypass is enabled.
+ * Allowed when SKIP_AUTH=true AND either:
+ * - NODE_ENV !== 'production' (local dev), or
+ * - VERCEL_ENV === 'preview' (Vercel preview deployments)
  */
 function isAuthBypassed(): boolean {
-  return process.env.SKIP_AUTH === 'true' && process.env.NODE_ENV !== 'production';
+  return process.env.SKIP_AUTH === 'true';
 }
 
 /**

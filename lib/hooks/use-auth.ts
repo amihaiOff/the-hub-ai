@@ -3,8 +3,7 @@
 import { useUser as useStackUser, CurrentUser } from '@stackframe/stack';
 import { useState, useEffect } from 'react';
 
-const isDevAuthMode =
-  process.env.NEXT_PUBLIC_SKIP_AUTH === 'true' && process.env.NODE_ENV !== 'production';
+const isDevAuthMode = process.env.NEXT_PUBLIC_SKIP_AUTH === 'true';
 
 // Check if Stack Auth is configured
 const hasStackConfig = !!process.env.NEXT_PUBLIC_STACK_PROJECT_ID;

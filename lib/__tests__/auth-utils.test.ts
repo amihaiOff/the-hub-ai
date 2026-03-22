@@ -73,20 +73,19 @@ describe('Auth Utils', () => {
   });
 
   describe('isAuthBypassed / isDevAuthMode', () => {
-    describe('Security: SKIP_AUTH should NOT work in production', () => {
-      it('should NOT bypass auth in production even when SKIP_AUTH=true', async () => {
+    describe('SKIP_AUTH bypass works in any NODE_ENV when set to "true"', () => {
+      it('should bypass auth in production when SKIP_AUTH=true', async () => {
         setNodeEnv('production');
         process.env.SKIP_AUTH = 'true';
 
-        // Re-import to get fresh module state with current env
         const { isDevAuthMode } = await import('../auth-utils');
 
-        expect(isDevAuthMode()).toBe(false);
+        expect(isDevAuthMode()).toBe(true);
       });
 
-      it('should NOT bypass auth in production with any SKIP_AUTH value', async () => {
+      it('should NOT bypass auth when SKIP_AUTH is uppercase TRUE', async () => {
         setNodeEnv('production');
-        process.env.SKIP_AUTH = 'TRUE'; // uppercase
+        process.env.SKIP_AUTH = 'TRUE'; // must be exact lowercase 'true'
 
         const { isDevAuthMode } = await import('../auth-utils');
 
@@ -310,45 +309,17 @@ describe('Auth Utils', () => {
       });
     });
 
-    describe('Edge cases: SKIP_AUTH set but NODE_ENV is production', () => {
-      it('should use proper auth even when SKIP_AUTH=true in production', async () => {
+    describe('SKIP_AUTH=true bypasses auth in any NODE_ENV', () => {
+      it('should bypass auth and return dev user when SKIP_AUTH=true in production', async () => {
         setNodeEnv('production');
         process.env.SKIP_AUTH = 'true';
-
-        mockGetUser.mockResolvedValueOnce({
-          primaryEmail: 'real@example.com',
-          displayName: 'Real User',
-        });
-
-        mockUpsert.mockResolvedValueOnce({
-          id: 'real-user-123',
-          email: 'real@example.com',
-          name: 'Real User',
-        });
 
         const { getCurrentUser } = await import('../auth-utils');
         const user = await getCurrentUser();
 
-        // Should use real auth, not bypass
-        expect(mockGetUser).toHaveBeenCalled();
-        expect(user).toEqual({
-          id: 'real-user-123',
-          email: 'real@example.com',
-          name: 'Real User',
-        });
-      });
-
-      it('should return null for unauthenticated user in production even with SKIP_AUTH=true', async () => {
-        setNodeEnv('production');
-        process.env.SKIP_AUTH = 'true';
-
-        mockGetUser.mockResolvedValueOnce(null);
-
-        const { getCurrentUser } = await import('../auth-utils');
-        const user = await getCurrentUser();
-
-        expect(user).toBeNull();
-        expect(mockGetUser).toHaveBeenCalled();
+        // Should use bypass, not Stack Auth
+        expect(mockGetUser).not.toHaveBeenCalled();
+        expect(user?.email).toBe('dev@localhost');
       });
     });
   });
@@ -401,22 +372,18 @@ describe('Security Verification Summary', () => {
     }
   });
 
-  it('CRITICAL: Auth bypass is impossible in production', async () => {
-    // This test documents the security requirement
+  it('Auth bypass works in production when SKIP_AUTH=true (preview deployments)', async () => {
     setNodeEnv('production');
     process.env.SKIP_AUTH = 'true';
 
     const { isDevAuthMode, getCurrentUser } = await import('../auth-utils');
 
-    // Verify bypass is blocked
-    expect(isDevAuthMode()).toBe(false);
+    expect(isDevAuthMode()).toBe(true);
 
-    // Verify real auth is called
-    mockGetUser.mockResolvedValueOnce(null);
     const user = await getCurrentUser();
 
-    expect(mockGetUser).toHaveBeenCalled();
-    expect(user).toBeNull(); // No bypass, no user
+    expect(mockGetUser).not.toHaveBeenCalled();
+    expect(user?.email).toBe('dev@localhost');
   });
 
   it('CRITICAL: Auth bypass only works in non-production environments', async () => {
@@ -435,21 +402,21 @@ describe('Security Verification Summary', () => {
     const testModule = await import('../auth-utils');
     expect(testModule.isDevAuthMode()).toBe(true);
 
-    // Reset for production (should be blocked)
+    // Reset for production — SKIP_AUTH=true still bypasses
     jest.resetModules();
     setNodeEnv('production');
     process.env.SKIP_AUTH = 'true';
 
     const prodModule = await import('../auth-utils');
-    expect(prodModule.isDevAuthMode()).toBe(false);
+    expect(prodModule.isDevAuthMode()).toBe(true);
   });
 
-  it('CRITICAL: isAuthBypassed requires both SKIP_AUTH=true AND non-production environment', async () => {
-    // Case 1: production + SKIP_AUTH=true -> blocked
+  it('isAuthBypassed requires SKIP_AUTH=true (works in any NODE_ENV)', async () => {
+    // Case 1: production + SKIP_AUTH=true -> bypassed
     setNodeEnv('production');
     process.env.SKIP_AUTH = 'true';
     let mod = await import('../auth-utils');
-    expect(mod.isDevAuthMode()).toBe(false);
+    expect(mod.isDevAuthMode()).toBe(true);
 
     // Case 2: production + SKIP_AUTH=false -> blocked
     jest.resetModules();

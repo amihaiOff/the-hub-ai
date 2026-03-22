@@ -2,8 +2,7 @@
 
 import { StackClientApp } from '@stackframe/stack';
 
-const isDevAuthMode =
-  process.env.NEXT_PUBLIC_SKIP_AUTH === 'true' && process.env.NODE_ENV !== 'production';
+const isDevAuthMode = process.env.NEXT_PUBLIC_SKIP_AUTH === 'true';
 
 // Check if Stack Auth env vars are configured
 const hasStackConfig = !!process.env.NEXT_PUBLIC_STACK_PROJECT_ID;

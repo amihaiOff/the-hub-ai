@@ -90,11 +90,11 @@ async function main() {
   });
 
   // Create real user for production/preview OAuth
-  const realUser = await prisma.user.create({
-    data: {
-      email: 'amihaio@gmail.com',
-      name: 'Ami Haio',
-    },
+  // Use upsert so re-running seed preserves the same ID
+  const realUser = await prisma.user.upsert({
+    where: { email: 'amihaio@gmail.com' },
+    update: { name: 'Ami Haio' },
+    create: { email: 'amihaio@gmail.com', name: 'Ami Haio' },
   });
 
   // Create profile for dev user (for local development with SKIP_AUTH)
@@ -142,14 +142,14 @@ async function main() {
     ],
   });
 
-  // Create stock accounts (use devUser for local dev, data is shared via owner tables)
+  // Create stock accounts under realUser so OAuth login sees them
   console.log('📈 Creating stock accounts...');
   const stockAccount1 = await prisma.stockAccount.create({
     data: {
       name: 'Interactive Brokers',
       broker: 'IBKR',
       currency: 'USD',
-      userId: devUser.id,
+      userId: realUser.id,
     },
   });
 
@@ -158,7 +158,7 @@ async function main() {
       name: 'IBI',
       broker: 'IBI',
       currency: 'ILS',
-      userId: devUser.id,
+      userId: realUser.id,
     },
   });
 
@@ -213,7 +213,7 @@ async function main() {
       currentValue: 450000,
       feeFromDeposit: 0.02,
       feeFromTotal: 0.005,
-      userId: devUser.id,
+      userId: realUser.id,
     },
   });
 
@@ -225,7 +225,7 @@ async function main() {
       currentValue: 180000,
       feeFromDeposit: 0.015,
       feeFromTotal: 0.004,
-      userId: devUser.id,
+      userId: realUser.id,
     },
   });
 
@@ -296,7 +296,7 @@ async function main() {
       currentValue: 150000,
       interestRate: 0.045,
       maturityDate: new Date(now.getFullYear() + 1, 6, 15),
-      userId: devUser.id,
+      userId: realUser.id,
     },
   });
 
@@ -308,7 +308,7 @@ async function main() {
       interestRate: 0.035,
       monthlyPayment: 4200,
       maturityDate: new Date(now.getFullYear() + 20, 0, 1),
-      userId: devUser.id,
+      userId: realUser.id,
     },
   });
 
@@ -319,7 +319,7 @@ async function main() {
       currentValue: 45000,
       interestRate: 0.04,
       monthlyDeposit: 500,
-      userId: devUser.id,
+      userId: realUser.id,
     },
   });
 
@@ -331,7 +331,7 @@ async function main() {
       interestRate: 0.055,
       monthlyPayment: 1200,
       maturityDate: new Date(now.getFullYear() + 2, 3, 1),
-      userId: devUser.id,
+      userId: realUser.id,
     },
   });
 
