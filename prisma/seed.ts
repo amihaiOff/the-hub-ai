@@ -149,7 +149,7 @@ async function main() {
       name: 'Interactive Brokers',
       broker: 'IBKR',
       currency: 'USD',
-      userId: realUser.id,
+      userId: devUser.id,
     },
   });
 
@@ -158,7 +158,7 @@ async function main() {
       name: 'IBI',
       broker: 'IBI',
       currency: 'ILS',
-      userId: realUser.id,
+      userId: devUser.id,
     },
   });
 
@@ -213,7 +213,7 @@ async function main() {
       currentValue: 450000,
       feeFromDeposit: 0.02,
       feeFromTotal: 0.005,
-      userId: realUser.id,
+      userId: devUser.id,
     },
   });
 
@@ -225,7 +225,7 @@ async function main() {
       currentValue: 180000,
       feeFromDeposit: 0.015,
       feeFromTotal: 0.004,
-      userId: realUser.id,
+      userId: devUser.id,
     },
   });
 
@@ -296,7 +296,7 @@ async function main() {
       currentValue: 150000,
       interestRate: 0.045,
       maturityDate: new Date(now.getFullYear() + 1, 6, 15),
-      userId: realUser.id,
+      userId: devUser.id,
     },
   });
 
@@ -308,7 +308,7 @@ async function main() {
       interestRate: 0.035,
       monthlyPayment: 4200,
       maturityDate: new Date(now.getFullYear() + 20, 0, 1),
-      userId: realUser.id,
+      userId: devUser.id,
     },
   });
 
@@ -319,7 +319,7 @@ async function main() {
       currentValue: 45000,
       interestRate: 0.04,
       monthlyDeposit: 500,
-      userId: realUser.id,
+      userId: devUser.id,
     },
   });
 
@@ -331,7 +331,7 @@ async function main() {
       interestRate: 0.055,
       monthlyPayment: 1200,
       maturityDate: new Date(now.getFullYear() + 2, 3, 1),
-      userId: realUser.id,
+      userId: devUser.id,
     },
   });
 
