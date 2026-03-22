@@ -86,6 +86,11 @@ export default function OnboardingPage() {
 
       if (!response.ok) {
         const data = await response.json();
+        // If user already has a profile, just redirect to dashboard
+        if (response.status === 400 && data.error === 'User already has a profile') {
+          router.replace('/');
+          return;
+        }
         const errorMsg = data.details ? `${data.error}: ${data.details}` : data.error;
         throw new Error(errorMsg || 'Failed to complete setup');
       }
