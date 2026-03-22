@@ -56,7 +56,11 @@ export async function GET() {
           policies: [],
         };
       }
-      grouped[policy.profileId].policies.push(policy);
+      // Cast premiumIls to number — Prisma Decimal serializes as string over JSON
+      (grouped[policy.profileId].policies as unknown[]).push({
+        ...policy,
+        premiumIls: policy.premiumIls != null ? Number(policy.premiumIls) : null,
+      });
     }
 
     return NextResponse.json({ success: true, data: grouped });

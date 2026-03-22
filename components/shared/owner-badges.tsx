@@ -13,7 +13,7 @@ interface Owner {
 interface OwnerBadgesProps {
   owners: Owner[];
   maxDisplay?: number;
-  size?: 'xs' | 'sm' | 'md';
+  size?: '2xs' | 'xs' | 'sm' | 'md';
   className?: string;
 }
 
@@ -45,6 +45,7 @@ export function OwnerBadges({ owners, maxDisplay = 3, size = 'sm', className }: 
           <div
             className={cn(
               'bg-muted text-muted-foreground ring-background flex items-center justify-center rounded-full font-medium ring-2',
+              size === '2xs' && 'h-4 w-4 text-[9px]',
               size === 'xs' && 'h-6 w-6 text-xs',
               size === 'sm' && 'h-8 w-8 text-xs',
               size === 'md' && 'h-10 w-10 text-sm'

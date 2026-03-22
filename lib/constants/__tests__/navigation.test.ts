@@ -45,7 +45,7 @@ describe('Navigation Constants', () => {
       { label: 'Portfolio', href: '/portfolio', icon: TrendingUp },
       { label: 'Pension', href: '/pension', icon: Building2 },
       { label: 'Assets', href: '/assets', icon: Wallet },
-      { label: 'ביטוחים', href: '/insurance', icon: Shield },
+      { label: 'Insurance', href: '/insurance', icon: Shield },
       { label: 'Budget', href: '/budget', icon: Receipt },
     ];
 

@@ -44,7 +44,7 @@ interface ParsedPolicyRow {
  *   10: סיווג תכנית
  */
 function parseInsuranceExcel(buffer: Buffer): ParsedPolicyRow[] {
-  const workbook = XLSX.read(buffer, { type: 'buffer' });
+  const workbook = XLSX.read(buffer, { type: 'buffer', cellNF: true });
 
   // Try to find the sheet "תיק ביטוחי" or fall back to first sheet
   const sheetName =
@@ -55,6 +55,14 @@ function parseInsuranceExcel(buffer: Buffer): ParsedPolicyRow[] {
   }
 
   const sheet = workbook.Sheets[sheetName];
+
+  // The הר הביטוח export has a stale !ref range that doesn't cover all data rows.
+  // Extend the range to a large number to force reading all cells.
+  if (sheet['!ref']) {
+    const range = XLSX.utils.decode_range(sheet['!ref']);
+    range.e.r = Math.max(range.e.r, 2000);
+    sheet['!ref'] = XLSX.utils.encode_range(range);
+  }
 
   // Convert to array of arrays (raw values)
   const rows: (string | number | null | undefined)[][] = XLSX.utils.sheet_to_json(sheet, {
@@ -209,7 +217,11 @@ export async function POST(request: NextRequest) {
 
     if (parsedPolicies.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'No valid insurance policies found in the Excel file.' },
+        {
+          success: false,
+          error:
+            'No policies found in the file. The file appears to be empty or contain only section headers. Make sure you exported a file with actual policy data from הר הביטוח.',
+        },
         { status: 400 }
       );
     }

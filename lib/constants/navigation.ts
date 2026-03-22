@@ -34,7 +34,7 @@ export const navItems: NavItem[] = [
   { href: '/portfolio', label: 'Portfolio', icon: TrendingUp },
   { href: '/pension', label: 'Pension', icon: Building2 },
   { href: '/assets', label: 'Assets', icon: Wallet },
-  { href: '/insurance', label: 'ביטוחים', icon: Shield },
+  { href: '/insurance', label: 'Insurance', icon: Shield },
   {
     href: '/budget',
     label: 'Budget',

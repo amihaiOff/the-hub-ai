@@ -136,7 +136,7 @@ export function AccountCard({ account }: AccountCardProps) {
                         </span>
                       )}
                       {account.owners && account.owners.length > 0 && (
-                        <OwnerBadges owners={account.owners} size="xs" />
+                        <OwnerBadges owners={account.owners} size="2xs" />
                       )}
                     </div>
                   </div>

@@ -8,11 +8,12 @@ interface ProfileAvatarProps {
   name: string;
   image?: string | null;
   color?: string | null;
-  size?: 'xs' | 'sm' | 'md' | 'lg';
+  size?: '2xs' | 'xs' | 'sm' | 'md' | 'lg';
   className?: string;
 }
 
 const sizeClasses = {
+  '2xs': 'h-4 w-4 text-[9px]',
   xs: 'h-6 w-6 text-xs',
   sm: 'h-8 w-8 text-sm',
   md: 'h-10 w-10 text-sm',
@@ -20,6 +21,7 @@ const sizeClasses = {
 };
 
 const sizePixels = {
+  '2xs': 16,
   xs: 24,
   sm: 32,
   md: 40,
