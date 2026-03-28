@@ -72,12 +72,174 @@ function parseInsuranceExcel(buffer: Buffer): ParsedPolicyRow[] {
 
   const policies: ParsedPolicyRow[] = [];
 
-  // Find the header row (look for row containing "ענף ראשי")
-  let dataStartRow = 3; // default
+  /**
+   * Detect format type from a header row.
+   * Returns 'har-habitua' (10-col with ענף ראשי) or 'shaban' (7-col without ענף ראשי).
+   */
+  function detectFormat(
+    row: (string | number | null | undefined)[]
+  ): 'har-habitua' | 'shaban' | null {
+    const cells = row.map((c) => String(c ?? '').trim());
+    if (cells.includes('ענף ראשי')) return 'har-habitua';
+    if (cells.includes('ענף (משני)') && cells.includes('סוג פרמיה')) return 'shaban';
+    return null;
+  }
+
+  // Build column index map from a header row
+  function buildColMap(row: (string | number | null | undefined)[]): Record<string, number> {
+    const map: Record<string, number> = {};
+    row.forEach((cell, idx) => {
+      const key = String(cell ?? '').trim();
+      if (key) map[key] = idx;
+    });
+    return map;
+  }
+
+  // Scan the whole sheet for header rows — the file may contain multiple sections
+  const sections: {
+    startRow: number;
+    format: 'har-habitua' | 'shaban';
+    colMap: Record<string, number>;
+  }[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row) continue;
+    const fmt = detectFormat(row);
+    if (fmt) sections.push({ startRow: i + 1, format: fmt, colMap: buildColMap(row) });
+  }
+
+  // If no sections found, try default (original format)
+  if (sections.length === 0) {
+    const defaultColMap = {
+      'ענף ראשי': 1,
+      'ענף (משני)': 2,
+      'סוג מוצר': 3,
+      חברה: 4,
+      'תקופת ביטוח': 5,
+      'פרטים נוספים': 6,
+      'פרמיה בש"ח': 7,
+      'סוג פרמיה': 8,
+      'מספר פוליסה': 9,
+      'סיווג תכנית': 10,
+    };
+    sections.push({ startRow: 4, format: 'har-habitua', colMap: defaultColMap });
+  }
+
+  function getCell(
+    row: (string | number | null | undefined)[],
+    colMap: Record<string, number>,
+    key: string
+  ): string | number | null | undefined {
+    const idx = colMap[key];
+    return idx !== undefined ? row[idx] : null;
+  }
+
+  function parsePremium(raw: string | number | null | undefined): number | null {
+    if (raw === null || raw === undefined || raw === '') return null;
+    const parsed = typeof raw === 'number' ? raw : parseFloat(String(raw).replace(/,/g, ''));
+    return isNaN(parsed) ? null : parsed;
+  }
+
+  for (const section of sections) {
+    const { colMap } = section;
+    const nextSectionStart = sections.find((s) => s.startRow > section.startRow)?.startRow;
+    const endRow = nextSectionStart ? nextSectionStart - 2 : rows.length;
+
+    for (let i = section.startRow; i < endRow; i++) {
+      const row = rows[i];
+      if (!row || row.length === 0) continue;
+
+      const col0 = row[0];
+      const col1 = String(row[1] ?? '').trim();
+
+      // Skip title rows, section separators, and header-like rows
+      if (
+        (col0 === null || col0 === undefined || col0 === '') &&
+        (col1.startsWith('תחום -') || col1.startsWith('כיסויי') || col1.startsWith('התיק'))
+      )
+        continue;
+      if (String(col0 ?? '').includes('תעודת זהות')) continue;
+      if (!col1) continue;
+
+      if (section.format === 'har-habitua') {
+        // Use colMap to find premium — handles both 10-col and 11-col variants
+        const premiumKey = Object.keys(colMap).find((k) => k.startsWith('פרמיה')) ?? 'פרמיה בש"ח';
+        const premiumTypeKey = 'סוג פרמיה';
+        const policyKey = 'מספר פוליסה';
+
+        policies.push({
+          mainBranch: col1,
+          subBranch: row[colMap['ענף (משני)'] ?? 2]
+            ? String(row[colMap['ענף (משני)'] ?? 2])
+                .trim()
+                .replace(/\r\n|\n/g, ' ') || null
+            : null,
+          productType: row[colMap['סוג מוצר'] ?? 3]
+            ? String(row[colMap['סוג מוצר'] ?? 3]).trim() || null
+            : null,
+          company: row[colMap['חברה'] ?? 4]
+            ? String(row[colMap['חברה'] ?? 4]).trim() || null
+            : null,
+          insurancePeriod: row[colMap['תקופת ביטוח'] ?? 5]
+            ? String(row[colMap['תקופת ביטוח'] ?? 5]).trim() || null
+            : null,
+          additionalDetails:
+            colMap['פרטים נוספים'] !== undefined
+              ? row[colMap['פרטים נוספים']]
+                ? String(row[colMap['פרטים נוספים']]).trim() || null
+                : null
+              : null,
+          premiumIls: parsePremium(getCell(row, colMap, premiumKey)),
+          premiumType: getCell(row, colMap, premiumTypeKey)
+            ? String(getCell(row, colMap, premiumTypeKey)).trim() || null
+            : null,
+          policyNumber:
+            getCell(row, colMap, policyKey) != null
+              ? String(getCell(row, colMap, policyKey)).trim() || null
+              : null,
+          planClassification: getCell(row, colMap, 'סיווג תכנית')
+            ? String(getCell(row, colMap, 'סיווג תכנית')).trim() || null
+            : null,
+        });
+      } else {
+        // שב"ן format: ID | ענף (משני) | סוג מוצר | חברה | תקופת כיסוי | פרמיה | סוג פרמיה
+        const productType = row[colMap['סוג מוצר'] ?? 2]
+          ? String(row[colMap['סוג מוצר'] ?? 2]).trim() || null
+          : null;
+        const premiumKey = Object.keys(colMap).find((k) => k.startsWith('פרמיה')) ?? 'פרמיה בש"ח';
+        const periodKey = Object.keys(colMap).find((k) => k.startsWith('תקופת')) ?? 'תקופת כיסוי';
+
+        policies.push({
+          mainBranch: productType ?? 'שב"ן',
+          subBranch: col1.replace(/\r\n|\n/g, ' ') || null,
+          productType,
+          company: row[colMap['חברה'] ?? 3]
+            ? String(row[colMap['חברה'] ?? 3]).trim() || null
+            : null,
+          insurancePeriod: getCell(row, colMap, periodKey)
+            ? String(getCell(row, colMap, periodKey)).trim() || null
+            : null,
+          additionalDetails: null,
+          premiumIls: parsePremium(getCell(row, colMap, premiumKey)),
+          premiumType: getCell(row, colMap, 'סוג פרמיה')
+            ? String(getCell(row, colMap, 'סוג פרמיה')).trim() || null
+            : null,
+          policyNumber: null,
+          planClassification: null,
+        });
+      }
+    }
+  }
+
+  // Legacy path kept for backward compat — only reached if sections logic produced nothing
+  if (policies.length > 0) return policies;
+
+  // Fallback: original single-section logic
+  let dataStartRow = 3;
   for (let i = 0; i < Math.min(10, rows.length); i++) {
     const row = rows[i];
     if (row && row.some((cell) => String(cell ?? '').includes('ענף ראשי'))) {
-      dataStartRow = i + 1; // data starts after header row
+      dataStartRow = i + 1;
       break;
     }
   }
@@ -85,18 +247,11 @@ function parseInsuranceExcel(buffer: Buffer): ParsedPolicyRow[] {
   for (let i = dataStartRow; i < rows.length; i++) {
     const row = rows[i];
     if (!row || row.length === 0) continue;
-
-    // Skip section rows: col[0] is null and col[1] starts with "תחום -"
     const col0 = row[0];
     const col1 = String(row[1] ?? '');
-    if ((col0 === null || col0 === undefined || col0 === '') && col1.startsWith('תחום -')) {
-      continue;
-    }
-
-    // Skip rows without a main branch (col index 1)
+    if ((col0 === null || col0 === undefined || col0 === '') && col1.startsWith('תחום -')) continue;
     const mainBranch = String(row[1] ?? '').trim();
     if (!mainBranch) continue;
-
     const premiumRaw = row[7];
     let premiumIls: number | null = null;
     if (premiumRaw !== null && premiumRaw !== undefined && premiumRaw !== '') {
@@ -104,11 +259,8 @@ function parseInsuranceExcel(buffer: Buffer): ParsedPolicyRow[] {
         typeof premiumRaw === 'number'
           ? premiumRaw
           : parseFloat(String(premiumRaw).replace(/,/g, ''));
-      if (!isNaN(parsed)) {
-        premiumIls = parsed;
-      }
+      if (!isNaN(parsed)) premiumIls = parsed;
     }
-
     policies.push({
       mainBranch,
       subBranch: row[2] ? String(row[2]).trim() || null : null,

@@ -13,6 +13,7 @@ import {
   BarChart3,
   PiggyBank,
   Shield,
+  Calculator,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -33,7 +34,15 @@ export const navItems: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: Home },
   { href: '/portfolio', label: 'Portfolio', icon: TrendingUp },
   { href: '/pension', label: 'Pension', icon: Building2 },
-  { href: '/assets', label: 'Assets', icon: Wallet },
+  {
+    href: '/assets',
+    label: 'Assets',
+    icon: Wallet,
+    subItems: [
+      { href: '/assets', label: 'Overview', icon: LayoutDashboard },
+      { href: '/assets/mortgage-simulator', label: 'Mortgage Simulator', icon: Calculator },
+    ],
+  },
   { href: '/insurance', label: 'Insurance', icon: Shield },
   {
     href: '/budget',
