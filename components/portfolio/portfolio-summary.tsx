@@ -29,9 +29,9 @@ export function PortfolioSummary({
   const ilsValue = rates ? convertToILS(totalValue, baseCurrency, rates) : null;
 
   return (
-    <div className="bg-card/80 rounded-xl border px-5 py-5 sm:px-6 sm:py-6">
+    <div className="bg-card/80 rounded-xl border px-5 py-5 shadow-sm sm:px-6 sm:py-6">
       {/* Label */}
-      <p className="text-muted-foreground text-[11px] font-medium tracking-widest uppercase">
+      <p className="text-muted-foreground text-xs font-medium tracking-widest uppercase">
         Total Portfolio Value
       </p>
 
@@ -53,21 +53,31 @@ export function PortfolioSummary({
 
       {/* Gain/Loss Badge */}
       {isLoading ? (
-        <div className="bg-muted mt-3 h-6 w-32 animate-pulse rounded-full" />
+        <div className="bg-muted mt-3 h-6 w-40 animate-pulse rounded-full" />
       ) : (
-        <div className="mt-3 flex items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <span
             className={cn(
-              'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-sm font-medium tabular-nums',
-              isPositive ? 'bg-blue-500/15 text-blue-400' : 'bg-red-500/15 text-red-400'
+              'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-sm font-semibold tabular-nums',
+              isPositive ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'
             )}
+            aria-label={`All-time gain/loss: ${formatPercent(totalGainLossPercent)}`}
           >
             {isPositive ? (
-              <TrendingUp className="h-3.5 w-3.5" />
+              <TrendingUp className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             ) : (
-              <TrendingDown className="h-3.5 w-3.5" />
+              <TrendingDown className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             )}
             {formatPercent(totalGainLossPercent)}
+          </span>
+          <span
+            className={cn(
+              'text-sm font-medium tabular-nums',
+              isPositive ? 'text-emerald-400/80' : 'text-red-400/80'
+            )}
+          >
+            {isPositive ? '+' : ''}
+            {formatValue(totalGainLoss, baseCurrency)}
           </span>
           <span className="text-muted-foreground text-sm">all time</span>
         </div>

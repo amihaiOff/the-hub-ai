@@ -107,7 +107,7 @@ export function AccountCard({ account }: AccountCardProps) {
     TIMESPAN_OPTIONS.find((o) => o.value === timespan)?.label ?? 'all time';
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden transition-shadow duration-200 hover:shadow-md">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CardHeader className="relative p-0">
           <div className="relative z-10 px-4 pt-4 sm:px-6 sm:pt-5">
@@ -115,23 +115,23 @@ export function AccountCard({ account }: AccountCardProps) {
             <div className="flex items-start justify-between">
               <CollapsibleTrigger asChild>
                 <button
-                  className="flex items-center gap-2 text-left hover:opacity-80"
+                  className="focus-visible:ring-ring flex min-h-[44px] items-center gap-2 text-left hover:opacity-80 focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none"
                   aria-expanded={isOpen}
                   aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${account.name} account details`}
                 >
                   {isOpen ? (
-                    <ChevronDown className="text-muted-foreground h-4 w-4 shrink-0" />
+                    <ChevronDown className="text-muted-foreground h-4 w-4 shrink-0 transition-transform duration-200" />
                   ) : (
-                    <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0" />
+                    <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0 transition-transform duration-200" />
                   )}
                   <div>
-                    <p className="text-muted-foreground text-[11px] font-medium tracking-widest uppercase">
+                    <p className="text-muted-foreground text-xs font-semibold tracking-widest uppercase">
                       {account.name}
                     </p>
                     <div className="flex items-center gap-2">
                       {account.broker && (
                         <span className="text-muted-foreground/60 flex items-center gap-1 text-xs">
-                          <Building2 className="h-3 w-3" />
+                          <Building2 className="h-3 w-3" aria-hidden="true" />
                           {account.broker}
                         </span>
                       )}
@@ -144,18 +144,22 @@ export function AccountCard({ account }: AccountCardProps) {
               </CollapsibleTrigger>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon-sm" className="text-muted-foreground">
-                    <MoreVertical className="h-4 w-4" />
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground min-h-[44px] min-w-[44px]"
+                  >
+                    <MoreVertical className="h-4 w-4" aria-hidden="true" />
                     <span className="sr-only">Account options</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => setShowAddHoldingDialog(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
+                    <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
                     Add holding
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
-                    <Pencil className="mr-2 h-4 w-4" />
+                    <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
                     Edit account
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -163,7 +167,7 @@ export function AccountCard({ account }: AccountCardProps) {
                     onClick={() => setShowDeleteDialog(true)}
                     className="text-destructive focus:text-destructive"
                   >
-                    <Trash2 className="mr-2 h-4 w-4" />
+                    <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
                     Delete account
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -171,30 +175,46 @@ export function AccountCard({ account }: AccountCardProps) {
             </div>
 
             {/* Large value */}
-            <div className="mt-1 text-3xl font-bold tabular-nums sm:text-4xl">
+            <div className="mt-1 text-3xl font-bold tabular-nums sm:text-4xl" dir="ltr">
               {formatDisplayValue(account.totalValue)}
             </div>
 
             {/* Gain/loss badge + timespan dropdown + currency toggle */}
-            <div className="mt-1.5 flex items-center gap-2">
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <span
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium',
-                  isPositive ? 'bg-blue-500/15 text-blue-400' : 'bg-red-500/15 text-red-400'
+                  'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold',
+                  isPositive ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'
                 )}
+                aria-label={`${isPositive ? 'Gain' : 'Loss'}: ${formatPercent(account.totalGainLossPercent)}`}
               >
                 {isPositive ? (
-                  <TrendingUp className="h-3 w-3" />
+                  <TrendingUp className="h-3 w-3 shrink-0" aria-hidden="true" />
                 ) : (
-                  <TrendingDown className="h-3 w-3" />
+                  <TrendingDown className="h-3 w-3 shrink-0" aria-hidden="true" />
                 )}
                 {formatPercent(account.totalGainLossPercent)}
+              </span>
+
+              {/* Absolute gain/loss */}
+              <span
+                className={cn(
+                  'text-xs font-medium tabular-nums',
+                  isPositive ? 'text-emerald-400/80' : 'text-red-400/80'
+                )}
+                dir="ltr"
+              >
+                {isPositive ? '+' : ''}
+                {formatDisplayValue(account.totalGainLoss)}
               </span>
 
               {/* Timespan dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="text-muted-foreground hover:text-foreground cursor-pointer text-xs transition-colors">
+                  <button
+                    className="text-muted-foreground hover:text-foreground focus-visible:ring-ring min-h-[28px] cursor-pointer rounded px-1 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                    aria-label={`Change time period, currently showing ${selectedTimespanLabel}`}
+                  >
                     {selectedTimespanLabel}
                   </button>
                 </DropdownMenuTrigger>
@@ -223,7 +243,7 @@ export function AccountCard({ account }: AccountCardProps) {
                   onClick={() => setShowInAlternate(false)}
                   aria-pressed={!showInAlternate}
                   className={cn(
-                    'h-5 px-1.5 text-[10px] font-medium',
+                    'h-6 min-w-[28px] px-1.5 text-[11px] font-semibold',
                     !showInAlternate ? 'bg-background shadow-sm' : 'hover:bg-transparent'
                   )}
                 >
@@ -236,7 +256,7 @@ export function AccountCard({ account }: AccountCardProps) {
                   disabled={toggleDisabled}
                   aria-pressed={showInAlternate}
                   className={cn(
-                    'h-5 px-1.5 text-[10px] font-medium',
+                    'h-6 min-w-[28px] px-1.5 text-[11px] font-semibold',
                     showInAlternate ? 'bg-background shadow-sm' : 'hover:bg-transparent',
                     toggleDisabled && 'cursor-not-allowed opacity-50'
                   )}
@@ -248,12 +268,13 @@ export function AccountCard({ account }: AccountCardProps) {
           </div>
 
           {/* Sparkline — px matches the table padding */}
-          <div className="mt-2 h-16 w-full px-4 sm:h-20 sm:px-6">
+          <div className="mt-3 h-16 w-full px-4 sm:h-20 sm:px-6">
             <AccountSparkline
               currentValue={account.totalValue}
               totalGainLoss={account.totalGainLoss}
               timespan={timespan}
               formatValue={formatDisplayValue}
+              isPositive={isPositive}
             />
           </div>
 

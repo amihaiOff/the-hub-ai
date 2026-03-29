@@ -16,19 +16,20 @@ import {
 function PortfolioContent() {
   const { data: portfolio, isLoading, error } = usePortfolio();
 
-  // Calculate allocation from portfolio data
   const allocation = portfolio?.accounts ? calculateAllocation(portfolio.accounts) : [];
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Stock Portfolio</h1>
+      {/* Page header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Stock Portfolio</h1>
+      </div>
 
       {/* Error State */}
       {error && (
         <Card className="border-destructive">
           <CardContent className="flex items-center gap-3 py-4">
-            <AlertCircle className="text-destructive h-5 w-5" />
+            <AlertCircle className="text-destructive h-5 w-5 shrink-0" aria-hidden="true" />
             <div>
               <p className="text-destructive font-medium">Failed to load portfolio</p>
               <p className="text-muted-foreground text-sm">
@@ -51,7 +52,7 @@ function PortfolioContent() {
 
       {/* Portfolio Performance Chart */}
       <Card>
-        <CardContent className="pt-4 pb-3">
+        <CardContent className="px-4 pt-4 pb-3 sm:px-6">
           <PortfolioGainsChart
             currentValue={portfolio?.totalValue ?? 0}
             totalGainLoss={portfolio?.totalGainLoss ?? 0}
@@ -68,7 +69,12 @@ function PortfolioContent() {
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Brokerage Accounts</h2>
             <div className="flex items-center gap-2">
-              {isLoading && <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />}
+              {isLoading && (
+                <Loader2
+                  className="text-muted-foreground h-4 w-4 animate-spin"
+                  aria-hidden="true"
+                />
+              )}
               <AddAccountDialog />
             </div>
           </div>
@@ -78,7 +84,10 @@ function PortfolioContent() {
             <Card>
               <CardContent className="py-8">
                 <div className="flex items-center justify-center">
-                  <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+                  <Loader2
+                    className="text-muted-foreground h-8 w-8 animate-spin"
+                    aria-hidden="true"
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -99,9 +108,12 @@ function PortfolioContent() {
               <CardContent>
                 <div className="border-border flex h-48 items-center justify-center rounded-lg border border-dashed">
                   <div className="text-center">
-                    <TrendingUp className="text-muted-foreground mx-auto h-12 w-12" />
-                    <p className="text-muted-foreground mt-2">No accounts yet</p>
-                    <p className="text-muted-foreground text-sm">
+                    <TrendingUp
+                      className="text-muted-foreground mx-auto h-12 w-12"
+                      aria-hidden="true"
+                    />
+                    <p className="text-muted-foreground mt-2 font-medium">No accounts yet</p>
+                    <p className="text-muted-foreground mt-1 text-sm">
                       Add your first brokerage account to start tracking
                     </p>
                   </div>

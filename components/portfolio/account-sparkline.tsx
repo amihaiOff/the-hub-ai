@@ -10,6 +10,8 @@ interface AccountSparklineProps {
   totalGainLoss: number;
   timespan?: SparklineTimespan;
   formatValue?: (value: number) => string;
+  /** Controls chart color: true = green/blue, false = red */
+  isPositive?: boolean;
 }
 
 const TIMESPAN_CONFIG: Record<SparklineTimespan, { points: number; gainFraction: number }> = {
@@ -77,7 +79,7 @@ function SparklineTooltip({
   return (
     <div className="border-border/50 bg-card/95 rounded-lg border px-3 py-1.5 text-xs shadow-lg backdrop-blur-sm">
       <p className="text-muted-foreground">{date}</p>
-      <p className="font-medium tabular-nums">
+      <p className="font-semibold tabular-nums">
         {formatValue
           ? formatValue(value)
           : value.toLocaleString('en-US', {
@@ -94,6 +96,7 @@ export function AccountSparkline({
   totalGainLoss,
   timespan = '1M',
   formatValue,
+  isPositive = true,
 }: AccountSparklineProps) {
   const id = useId();
   const data = useMemo(
@@ -110,7 +113,6 @@ export function AccountSparkline({
       const el = containerRef.current;
       if (!el || data.length === 0) return undefined;
       const rect = el.getBoundingClientRect();
-      // Recharts uses a small margin; approximate the chart area
       const chartLeft = rect.left;
       const chartWidth = rect.width;
       const x = clientX - chartLeft;
@@ -147,7 +149,8 @@ export function AccountSparkline({
 
   if (currentValue === 0) return null;
 
-  const color = '#60a5fa'; // blue-400
+  // Color based on performance direction
+  const color = isPositive ? '#34d399' : '#f87171'; // emerald-400 for positive, red-400 for negative
   const gradientId = `sparkline-${id}`;
 
   return (
@@ -158,14 +161,16 @@ export function AccountSparkline({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
+      role="img"
+      aria-label={`Sparkline chart for account performance, ${isPositive ? 'positive' : 'negative'} trend`}
     >
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 2, right: 0, left: 0, bottom: 2 }}>
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.8} />
-              <stop offset="80%" stopColor={color} stopOpacity={0.3} />
-              <stop offset="100%" stopColor={color} stopOpacity={0.1} />
+              <stop offset="0%" stopColor={color} stopOpacity={0.5} />
+              <stop offset="70%" stopColor={color} stopOpacity={0.15} />
+              <stop offset="100%" stopColor={color} stopOpacity={0.02} />
             </linearGradient>
           </defs>
           <YAxis hide domain={['dataMin', 'dataMax']} />
@@ -177,6 +182,7 @@ export function AccountSparkline({
               stroke: color,
               strokeWidth: 1,
               strokeDasharray: '4 4',
+              strokeOpacity: 0.7,
             }}
           />
           <Area
@@ -189,7 +195,7 @@ export function AccountSparkline({
             activeDot={{
               r: 4,
               fill: color,
-              stroke: '#1e293b',
+              stroke: 'hsl(var(--card))',
               strokeWidth: 2,
             }}
             isAnimationActive={false}

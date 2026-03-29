@@ -14,6 +14,7 @@ import {
   PiggyBank,
   Shield,
   Calculator,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -32,7 +33,15 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: Home },
-  { href: '/portfolio', label: 'Portfolio', icon: TrendingUp },
+  {
+    href: '/portfolio',
+    label: 'Portfolio',
+    icon: TrendingUp,
+    subItems: [
+      { href: '/portfolio', label: 'Original Design', icon: LayoutDashboard },
+      { href: '/portfolio/v2', label: 'New Design', icon: Sparkles },
+    ],
+  },
   { href: '/pension', label: 'Pension', icon: Building2 },
   {
     href: '/assets',
