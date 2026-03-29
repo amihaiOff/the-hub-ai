@@ -50,7 +50,7 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
               const isActive =
                 pathname === item.href || (item.subItems && pathname.startsWith(item.href + '/'));
               const Icon = item.icon;
-              const hasSubItems = item.subItems && item.subItems.length > 0;
+              const hasSubItems = item.subItems && item.subItems.length > 0 && isActive;
 
               return (
                 <div key={item.href}>
