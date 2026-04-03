@@ -483,6 +483,30 @@ export function useDeleteCategory() {
   });
 }
 
+export function useMergeCategory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: {
+      sourceCategoryId: string;
+      targetCategoryId: string;
+    }): Promise<{ targetCategoryId: string; transactionsMoved: number; payeesUpdated: number }> => {
+      return fetchApi('/api/budget/categories/merge', {
+        method: 'PUT',
+        body: JSON.stringify(input),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: budgetKeys.categoryGroups() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allMonthSummaries() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.payees() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.payeeCategoryRules() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.analysis() });
+    },
+  });
+}
+
 // Category Group mutations
 export function useCreateCategoryGroup() {
   const queryClient = useQueryClient();

@@ -117,9 +117,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         },
       });
 
-      // Find and individually update transactions for this payee
+      // Find and individually update non-deleted transactions for this payee
       const transactionsToUpdate = await prisma.budgetTransaction.findMany({
-        where: { payeeId: id, householdId },
+        where: { payeeId: id, householdId, isDeleted: false },
         select: { id: true },
       });
 

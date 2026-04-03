@@ -21,6 +21,7 @@ jest.mock('@/lib/db', () => ({
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       delete: jest.fn(),
       count: jest.fn(),
     },
@@ -145,6 +146,7 @@ describe('Transactions API', () => {
       expect(mockPrisma.budgetTransaction.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
+            isDeleted: false,
             transactionDate: {
               gte: expect.any(Date),
               lte: expect.any(Date),
@@ -165,6 +167,7 @@ describe('Transactions API', () => {
       expect(mockPrisma.budgetTransaction.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
+            isDeleted: false,
             type: 'expense',
           }),
         })
@@ -210,6 +213,7 @@ describe('Transactions API', () => {
         expect.objectContaining({
           where: expect.objectContaining({
             householdId: 'household-1',
+            isDeleted: false,
             categoryId: null,
             type: 'expense',
             tags: { none: {} },
@@ -247,6 +251,7 @@ describe('Transactions API', () => {
         expect.objectContaining({
           where: expect.objectContaining({
             householdId: 'household-1',
+            isDeleted: false,
             categoryId: null,
             type: 'expense',
             tags: { none: {} },
@@ -691,7 +696,7 @@ describe('Transactions API', () => {
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       (mockPrisma.budgetTransaction.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
-      (mockPrisma.budgetTransaction.delete as jest.Mock).mockResolvedValueOnce({});
+      (mockPrisma.budgetTransaction.updateMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
 
       const request = new NextRequest('http://localhost:3000/api/budget/transactions/tx-1', {
         method: 'DELETE',
@@ -703,6 +708,13 @@ describe('Transactions API', () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.data.id).toBe('tx-1');
+      expect(mockPrisma.budgetTransaction.updateMany).toHaveBeenCalledWith({
+        where: {
+          OR: [{ id: 'tx-1' }, { originalTransactionId: 'tx-1' }],
+          householdId: 'household-1',
+        },
+        data: { isDeleted: true },
+      });
     });
 
     it('should return 404 when transaction not found', async () => {
@@ -742,7 +754,7 @@ describe('Transactions API', () => {
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       (mockPrisma.budgetTransaction.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
-      (mockPrisma.budgetTransaction.delete as jest.Mock).mockRejectedValueOnce(
+      (mockPrisma.budgetTransaction.updateMany as jest.Mock).mockRejectedValueOnce(
         new Error('Database error')
       );
 

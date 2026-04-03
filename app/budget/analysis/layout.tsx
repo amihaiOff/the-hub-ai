@@ -4,7 +4,6 @@ import { createContext, useContext, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { useBudgetAnalysis, type AnalysisData } from '@/lib/hooks/use-budget';
 import { DateRangePicker } from '@/components/budget/analysis/date-range-picker';
-import { AnalysisTabBar } from '@/components/budget/analysis/analysis-tab-bar';
 
 interface AnalysisContextValue {
   data: AnalysisData | undefined;
@@ -53,7 +52,6 @@ export default function AnalysisLayout({ children }: { children: React.ReactNode
             onEndDateChange={setEndDate}
           />
         </div>
-        <AnalysisTabBar />
         {children}
       </div>
     </AnalysisContext.Provider>

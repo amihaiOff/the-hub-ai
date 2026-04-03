@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, MoreVertical, Pencil, Trash2, AlertCircle, Loader2, X } from 'lucide-react';
+import { Plus, MoreVertical, Pencil, Trash2, AlertCircle, Loader2, X, Merge } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   useCategoryGroups,
@@ -32,11 +32,13 @@ import {
 } from '@/lib/hooks/use-budget';
 import { type BudgetCategory, formatCurrencyILS } from '@/lib/utils/budget';
 import { AddCategoryDialog, EditCategoryDialog, AddCategoryGroupDialog } from '@/components/budget';
+import { MergeCategoriesDialog } from '@/components/budget/merge-categories-dialog';
 
 export default function CategoriesPage() {
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [showAddGroup, setShowAddGroup] = useState(false);
   const [editingCategory, setEditingCategory] = useState<BudgetCategory | null>(null);
+  const [mergingCategory, setMergingCategory] = useState<BudgetCategory | null>(null);
   const [defaultGroupId, setDefaultGroupId] = useState<string>('');
 
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
@@ -402,6 +404,10 @@ export default function CategoriesPage() {
                                     <Pencil className="mr-2 h-4 w-4" />
                                     Edit
                                   </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setMergingCategory(category)}>
+                                    <Merge className="mr-2 h-4 w-4" />
+                                    Merge into...
+                                  </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={() => handleDeleteCategory(category.id, category.name)}
                                     className="text-destructive"
@@ -438,6 +444,13 @@ export default function CategoriesPage() {
         category={editingCategory}
         open={!!editingCategory}
         onOpenChange={(open) => !open && setEditingCategory(null)}
+      />
+      <MergeCategoriesDialog
+        open={!!mergingCategory}
+        onOpenChange={(open) => !open && setMergingCategory(null)}
+        sourceCategory={mergingCategory}
+        categoryGroups={categoryGroups}
+        onComplete={() => setMergingCategory(null)}
       />
     </div>
   );

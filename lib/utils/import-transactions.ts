@@ -84,7 +84,8 @@ export async function importTransactions(
     }
   }
 
-  // Fetch existing transactions for duplicate detection
+  // Fetch existing transactions for duplicate detection (including soft-deleted ones
+  // so that previously deleted transactions are not re-imported)
   // Get date range from the import batch
   const dates = transactions.map((t) => t.transactionDate);
   const minDate = dates.reduce((a, b) => (a < b ? a : b));

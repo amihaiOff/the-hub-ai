@@ -58,9 +58,9 @@ export async function POST() {
       });
       matched += payeeIds.length;
 
-      // Also update existing transactions for matched payees
+      // Also update existing non-deleted transactions for matched payees
       const txResult = await prisma.budgetTransaction.updateMany({
-        where: { payeeId: { in: payeeIds }, householdId },
+        where: { payeeId: { in: payeeIds }, householdId, isDeleted: false },
         data: { categoryId },
       });
       transactionsUpdated += txResult.count;

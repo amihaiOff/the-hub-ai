@@ -505,6 +505,7 @@ export async function POST(request: NextRequest) {
           // originalTransactionId set in second pass to handle self-references
           paymentIdentifier: (btx.paymentIdentifier as string | null) ?? null,
           excludedFromFlow: btx.excludedFromFlow as boolean,
+          isDeleted: (btx.isDeleted as boolean) ?? false,
           profileId: (btx.profileId as string | null) ?? null,
           householdId: btx.householdId as string,
           createdAt: new Date(btx.createdAt as string),

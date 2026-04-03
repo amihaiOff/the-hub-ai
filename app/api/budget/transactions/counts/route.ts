@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
       householdId: string;
       categoryId: null;
       type: 'expense';
+      isDeleted: false;
       tags?: { none: Record<string, never> };
       transactionDate?: { gte: Date; lt: Date };
     } = {
@@ -24,6 +25,7 @@ export async function GET(request: NextRequest) {
       categoryId: null,
       type: 'expense',
       tags: { none: {} },
+      isDeleted: false,
     };
 
     if (month) {

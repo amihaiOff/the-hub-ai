@@ -2,7 +2,10 @@
 
 import { useAnalysisContext } from './layout';
 import { AnalysisSummaryCards } from '@/components/budget/analysis/analysis-summary-cards';
-import { OverallTrendChart } from '@/components/budget/analysis/overall-trend-chart';
+import { IncomeSpendingChart } from '@/components/budget/analysis/income-spending-chart';
+import { CategoryTrendChart } from '@/components/budget/analysis/category-trend-chart';
+import { GroupTrendChart } from '@/components/budget/analysis/group-trend-chart';
+import { TagSpendingOverviewChart } from '@/components/budget/analysis/tag-spending-overview-chart';
 
 export default function AnalysisOverallPage() {
   const { data, isLoading, error } = useAnalysisContext();
@@ -16,6 +19,9 @@ export default function AnalysisOverallPage() {
           ))}
         </div>
         <div className="bg-muted h-72 animate-pulse rounded-lg" />
+        <div className="bg-muted h-64 animate-pulse rounded-lg" />
+        <div className="bg-muted h-64 animate-pulse rounded-lg" />
+        <div className="bg-muted h-64 animate-pulse rounded-lg" />
       </div>
     );
   }
@@ -31,7 +37,10 @@ export default function AnalysisOverallPage() {
   return (
     <div className="space-y-4 pt-4">
       <AnalysisSummaryCards data={data} />
-      <OverallTrendChart data={data} />
+      <IncomeSpendingChart data={data} />
+      <CategoryTrendChart data={data} />
+      <GroupTrendChart data={data} />
+      <TagSpendingOverviewChart data={data} />
     </div>
   );
 }

@@ -115,6 +115,7 @@ export async function GET(request: NextRequest) {
     // Build where clause
     const where: Prisma.BudgetTransactionWhereInput = {
       householdId,
+      isDeleted: false,
     };
 
     // Date filters

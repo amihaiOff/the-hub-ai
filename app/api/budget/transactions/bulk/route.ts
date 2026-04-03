@@ -194,11 +194,12 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Category not found' }, { status: 404 });
     }
 
-    // Verify all transactions belong to household
+    // Verify all transactions belong to household and are not deleted
     const transactions = await prisma.budgetTransaction.findMany({
       where: {
         id: { in: transactionIds },
         householdId,
+        isDeleted: false,
       },
       select: { id: true },
     });
@@ -259,11 +260,12 @@ export async function DELETE(request: NextRequest) {
 
     const { transactionIds } = validation.data;
 
-    // Verify all transactions belong to household
+    // Verify all transactions belong to household and are not already deleted
     const transactions = await prisma.budgetTransaction.findMany({
       where: {
         id: { in: transactionIds },
         householdId,
+        isDeleted: false,
       },
       select: { id: true },
     });
@@ -275,11 +277,13 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Delete transactions (cascades to tag links and split children)
-    await prisma.budgetTransaction.deleteMany({
+    // Soft delete transactions (also soft-delete their split children)
+    await prisma.budgetTransaction.updateMany({
       where: {
-        id: { in: transactionIds },
+        OR: [{ id: { in: transactionIds } }, { originalTransactionId: { in: transactionIds } }],
+        householdId,
       },
+      data: { isDeleted: true },
     });
 
     return NextResponse.json({

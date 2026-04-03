@@ -87,7 +87,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const householdId = context.activeHousehold.id;
 
     const transaction = await prisma.budgetTransaction.findFirst({
-      where: { id, householdId },
+      where: { id, householdId, isDeleted: false },
       include: {
         category: {
           select: { id: true, name: true },
@@ -106,6 +106,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           },
         },
         splitChildren: {
+          where: { isDeleted: false },
           include: {
             category: {
               select: { id: true, name: true },
@@ -164,9 +165,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const householdId = context.activeHousehold.id;
 
-    // Verify transaction belongs to household
+    // Verify transaction belongs to household and is not soft-deleted
     const existingTransaction = await prisma.budgetTransaction.findFirst({
-      where: { id, householdId },
+      where: { id, householdId, isDeleted: false },
     });
 
     if (!existingTransaction) {
@@ -328,18 +329,22 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const householdId = context.activeHousehold.id;
 
-    // Verify transaction belongs to household
+    // Verify transaction belongs to household and is not already deleted
     const existingTransaction = await prisma.budgetTransaction.findFirst({
-      where: { id, householdId },
+      where: { id, householdId, isDeleted: false },
     });
 
     if (!existingTransaction) {
       return NextResponse.json({ success: false, error: 'Transaction not found' }, { status: 404 });
     }
 
-    // Delete (cascades to tag links and split children)
-    await prisma.budgetTransaction.delete({
-      where: { id },
+    // Soft delete: mark as deleted (also soft-delete split children)
+    await prisma.budgetTransaction.updateMany({
+      where: {
+        OR: [{ id }, { originalTransactionId: id }],
+        householdId,
+      },
+      data: { isDeleted: true },
     });
 
     return NextResponse.json({

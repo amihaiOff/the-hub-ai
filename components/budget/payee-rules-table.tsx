@@ -31,18 +31,22 @@ export function PayeeRulesTable({ rules, onEdit, onDelete }: PayeeRulesTableProp
     matched: number;
     total: number;
   } | null>(null);
+  const [applyError, setApplyError] = useState<{ ruleId: string; message: string } | null>(null);
 
   const handleToggleActive = (rule: PayeeCategoryRule) => {
     updateRule.mutate({ id: rule.id, isActive: !rule.isActive });
   };
 
   const handleApplyRule = async (rule: PayeeCategoryRule) => {
+    setApplyError(null);
     try {
       const result = await applyRule.mutateAsync(rule.id);
       setApplyResult({ ruleId: rule.id, ...result });
       setTimeout(() => setApplyResult(null), 5000);
-    } catch {
-      // Error is handled by TanStack Query's error state
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to apply rule';
+      setApplyError({ ruleId: rule.id, message });
+      setTimeout(() => setApplyError(null), 8000);
     }
   };
 
@@ -89,8 +93,11 @@ export function PayeeRulesTable({ rules, onEdit, onDelete }: PayeeRulesTableProp
                 </div>
                 {applyResult?.ruleId === rule.id && (
                   <div className="text-muted-foreground mt-0.5 text-xs">
-                    {applyResult.matched} of {applyResult.total} uncategorized matched
+                    {applyResult.matched} of {applyResult.total} payees matched
                   </div>
+                )}
+                {applyError?.ruleId === rule.id && (
+                  <div className="text-destructive mt-0.5 text-xs">Error: {applyError.message}</div>
                 )}
               </td>
               <td className="hidden px-2 py-2 sm:table-cell sm:px-4 sm:py-3">

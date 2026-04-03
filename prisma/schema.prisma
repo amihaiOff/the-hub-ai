@@ -481,6 +481,7 @@ model BudgetTransaction {
   originalTransactionId String?           @map("original_transaction_id") // Reference to parent if this is a split child
   paymentIdentifier     String?           @map("payment_identifier") // External payment identifier (e.g., credit card last 4 digits)
   excludedFromFlow      Boolean           @default(false) @map("excluded_from_flow") // Excluded from cashflow analysis
+  isDeleted             Boolean           @default(false) @map("is_deleted") // Soft delete - kept for duplicate detection on import
   profileId             String?           @map("profile_id") // Which household member made the transaction
   householdId           String            @map("household_id")
   createdAt             DateTime          @default(now()) @map("created_at")
@@ -496,6 +497,7 @@ model BudgetTransaction {
   splitChildren       BudgetTransaction[]  @relation("SplitTransactions")
 
   @@index([householdId])
+  @@index([householdId, isDeleted])
   @@index([transactionDate])
   @@index([categoryId])
   @@index([payeeId])

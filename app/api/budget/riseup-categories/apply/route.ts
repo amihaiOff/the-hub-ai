@@ -44,6 +44,7 @@ export async function POST() {
         categoryId: null,
         isSplit: false,
         excludedFromFlow: false,
+        isDeleted: false,
         payeeId: { not: null },
       },
       select: {

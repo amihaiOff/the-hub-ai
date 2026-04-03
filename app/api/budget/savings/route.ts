@@ -96,6 +96,7 @@ export async function GET() {
       where: {
         householdId,
         categoryId,
+        isDeleted: false,
       },
       select: {
         transactionDate: true,

@@ -115,6 +115,15 @@ export const mergeTagsSchema = z.object({
   targetTagId: nonEmptyString('Target tag ID is required'),
 });
 
+export const mergeCategoriesSchema = z
+  .object({
+    sourceCategoryId: nonEmptyString('Source category ID is required'),
+    targetCategoryId: nonEmptyString('Target category ID is required'),
+  })
+  .refine((data) => data.sourceCategoryId !== data.targetCategoryId, {
+    message: 'Source and target categories must be different',
+  });
+
 // ============================================
 // Transaction Schemas
 // ============================================
@@ -293,6 +302,7 @@ export type UpdatePayeeInput = z.infer<typeof updatePayeeSchema>;
 export type CreateTagInput = z.infer<typeof createTagSchema>;
 export type UpdateTagInput = z.infer<typeof updateTagSchema>;
 export type MergeTagsInput = z.infer<typeof mergeTagsSchema>;
+export type MergeCategoriesInput = z.infer<typeof mergeCategoriesSchema>;
 
 export type CreateTransactionInput = z.infer<typeof createTransactionSchema>;
 export type UpdateTransactionInput = z.infer<typeof updateTransactionSchema>;

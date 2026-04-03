@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     // Verify original transaction belongs to household
     const originalTransaction = await prisma.budgetTransaction.findFirst({
-      where: { id: originalTransactionId, householdId },
+      where: { id: originalTransactionId, householdId, isDeleted: false },
     });
 
     if (!originalTransaction) {
@@ -195,7 +195,7 @@ export async function DELETE(request: NextRequest) {
 
     // Verify transaction belongs to household and is split
     const transaction = await prisma.budgetTransaction.findFirst({
-      where: { id: transactionId, householdId },
+      where: { id: transactionId, householdId, isDeleted: false },
     });
 
     if (!transaction) {
@@ -209,9 +209,10 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Delete all split children
-    await prisma.budgetTransaction.deleteMany({
+    // Soft-delete all split children
+    await prisma.budgetTransaction.updateMany({
       where: { originalTransactionId: transactionId },
+      data: { isDeleted: true },
     });
 
     // Mark parent as not split

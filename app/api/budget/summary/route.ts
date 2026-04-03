@@ -59,6 +59,7 @@ export async function GET(request: NextRequest) {
         isSplit: false,
         // Exclude transactions marked as excluded from budget flow
         excludedFromFlow: false,
+        isDeleted: false,
       },
       select: {
         id: true,

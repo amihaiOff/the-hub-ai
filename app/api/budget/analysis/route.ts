@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
           transactionDate: { gte: start, lte: end },
           isSplit: false,
           excludedFromFlow: false,
+          isDeleted: false,
         },
         select: {
           id: true,

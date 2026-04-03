@@ -310,7 +310,7 @@ describe('Payee Category Rules API', () => {
         data: { categoryId: 'cat-1' },
       });
       expect(mockPrisma.budgetTransaction.updateMany).toHaveBeenCalledWith({
-        where: { payeeId: { in: ['payee-1'] }, householdId: 'household-1' },
+        where: { payeeId: { in: ['payee-1'] }, householdId: 'household-1', isDeleted: false },
         data: { categoryId: 'cat-1' },
       });
     });
@@ -369,7 +369,7 @@ describe('Payee Category Rules API', () => {
         data: { categoryId: 'cat-1' },
       });
       expect(mockPrisma.budgetTransaction.updateMany).toHaveBeenCalledWith({
-        where: { payeeId: { in: ['payee-1'] }, householdId: 'household-1' },
+        where: { payeeId: { in: ['payee-1'] }, householdId: 'household-1', isDeleted: false },
         data: { categoryId: 'cat-1' },
       });
     });

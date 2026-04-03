@@ -12,6 +12,7 @@ jest.mock('@/lib/db', () => ({
       findMany: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       deleteMany: jest.fn(),
     },
     budgetCategory: {
@@ -450,7 +451,7 @@ describe('Transactions Bulk API', () => {
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce(mockTransactions);
-      (mockPrisma.budgetTransaction.deleteMany as jest.Mock).mockResolvedValueOnce({ count: 2 });
+      (mockPrisma.budgetTransaction.updateMany as jest.Mock).mockResolvedValueOnce({ count: 2 });
 
       const request = new NextRequest('http://localhost:3000/api/budget/transactions/bulk', {
         method: 'DELETE',
@@ -524,7 +525,7 @@ describe('Transactions Bulk API', () => {
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce(mockTransactions);
-      (mockPrisma.budgetTransaction.deleteMany as jest.Mock).mockRejectedValueOnce(
+      (mockPrisma.budgetTransaction.updateMany as jest.Mock).mockRejectedValueOnce(
         new Error('Database error')
       );
 
