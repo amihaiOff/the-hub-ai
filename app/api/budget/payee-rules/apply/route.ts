@@ -51,19 +51,29 @@ export async function POST() {
     let matched = 0;
     let transactionsUpdated = 0;
     for (const [categoryId, payeeIds] of updatesByCategory) {
-      // Update payee default categories
-      await prisma.budgetPayee.updateMany({
-        where: { id: { in: payeeIds }, householdId },
-        data: { categoryId },
-      });
+      // Update payee default categories individually
+      // Note: Using individual update() calls instead of updateMany() due to
+      // Neon poolQueryViaFetch compatibility (updateMany silently fails like createMany)
+      for (const payeeId of payeeIds) {
+        await prisma.budgetPayee.update({
+          where: { id: payeeId },
+          data: { categoryId },
+        });
+      }
       matched += payeeIds.length;
 
       // Also update existing non-deleted transactions for matched payees
-      const txResult = await prisma.budgetTransaction.updateMany({
+      const txsToUpdate = await prisma.budgetTransaction.findMany({
         where: { payeeId: { in: payeeIds }, householdId, isDeleted: false },
-        data: { categoryId },
+        select: { id: true },
       });
-      transactionsUpdated += txResult.count;
+      for (const tx of txsToUpdate) {
+        await prisma.budgetTransaction.update({
+          where: { id: tx.id },
+          data: { categoryId },
+        });
+      }
+      transactionsUpdated += txsToUpdate.length;
     }
 
     return NextResponse.json({

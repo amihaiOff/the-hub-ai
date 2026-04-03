@@ -15,7 +15,8 @@ import { NextRequest } from 'next/server';
 jest.mock('@/lib/db', () => {
   const txProxy = {
     budgetTransaction: {
-      deleteMany: jest.fn(),
+      findMany: jest.fn(),
+      delete: jest.fn(),
       create: jest.fn(),
     },
   };
@@ -31,7 +32,7 @@ jest.mock('@/lib/db', () => {
       budgetTransaction: {
         findMany: jest.fn(),
         create: jest.fn(),
-        deleteMany: jest.fn(),
+        delete: jest.fn(),
       },
       $transaction: jest.fn((cb: (tx: typeof txProxy) => Promise<unknown>) => cb(txProxy)),
       __txProxy: txProxy,
@@ -839,7 +840,14 @@ describe('Budget Savings API', () => {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const txProxy = (mockPrisma as any).__txProxy;
-      (txProxy.budgetTransaction.deleteMany as jest.Mock).mockResolvedValueOnce({ count: 2 });
+      // findMany returns transactions to delete
+      (txProxy.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
+        { id: 'old-tx-1' },
+        { id: 'old-tx-2' },
+      ]);
+      (txProxy.budgetTransaction.delete as jest.Mock)
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({});
 
       const mockTransaction = {
         id: 'tx-updated',
@@ -867,8 +875,8 @@ describe('Budget Savings API', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((mockPrisma as any).$transaction).toHaveBeenCalled();
 
-      // Verify deleteMany was called with correct date range via tx proxy
-      expect(txProxy.budgetTransaction.deleteMany).toHaveBeenCalledWith({
+      // Verify findMany + delete were called via tx proxy
+      expect(txProxy.budgetTransaction.findMany).toHaveBeenCalledWith({
         where: {
           householdId: 'household-1',
           categoryId: 'cat-savings-1',
@@ -877,7 +885,9 @@ describe('Budget Savings API', () => {
             lt: new Date(2025, 3, 1),
           },
         },
+        select: { id: true },
       });
+      expect(txProxy.budgetTransaction.delete).toHaveBeenCalledTimes(2);
     });
 
     it('should return 500 when database fails', async () => {
@@ -886,7 +896,7 @@ describe('Budget Savings API', () => {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const txProxy = (mockPrisma as any).__txProxy;
-      (txProxy.budgetTransaction.deleteMany as jest.Mock).mockRejectedValueOnce(
+      (txProxy.budgetTransaction.findMany as jest.Mock).mockRejectedValueOnce(
         new Error('DB error')
       );
 
@@ -949,7 +959,15 @@ describe('Budget Savings API', () => {
     it('should delete all transactions for the given month', async () => {
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       mockSavingsCategoryExists('cat-savings-1');
-      (mockPrisma.budgetTransaction.deleteMany as jest.Mock).mockResolvedValueOnce({ count: 3 });
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
+        { id: 'tx-1' },
+        { id: 'tx-2' },
+        { id: 'tx-3' },
+      ]);
+      (mockPrisma.budgetTransaction.delete as jest.Mock)
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({});
 
       const request = createRequest({ month: '2025-06' });
       const response = await DELETE(request);
@@ -958,7 +976,7 @@ describe('Budget Savings API', () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
 
-      expect(mockPrisma.budgetTransaction.deleteMany).toHaveBeenCalledWith({
+      expect(mockPrisma.budgetTransaction.findMany).toHaveBeenCalledWith({
         where: {
           householdId: 'household-1',
           categoryId: 'cat-savings-1',
@@ -967,13 +985,15 @@ describe('Budget Savings API', () => {
             lt: new Date(2025, 6, 1),
           },
         },
+        select: { id: true },
       });
+      expect(mockPrisma.budgetTransaction.delete).toHaveBeenCalledTimes(3);
     });
 
     it('should return 500 when database fails', async () => {
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       mockSavingsCategoryExists('cat-savings-1');
-      (mockPrisma.budgetTransaction.deleteMany as jest.Mock).mockRejectedValueOnce(
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockRejectedValueOnce(
         new Error('DB error')
       );
 

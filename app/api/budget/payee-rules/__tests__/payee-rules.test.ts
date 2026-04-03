@@ -24,6 +24,8 @@ jest.mock('@/lib/db', () => ({
       updateMany: jest.fn(),
     },
     budgetTransaction: {
+      findMany: jest.fn(),
+      update: jest.fn(),
       updateMany: jest.fn(),
     },
   },
@@ -295,8 +297,19 @@ describe('Payee Category Rules API', () => {
         { id: 'payee-1', name: 'Shufersal Deal' },
         { id: 'payee-2', name: 'Unknown Store' },
       ]);
-      (mockPrisma.budgetPayee.updateMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
-      (mockPrisma.budgetTransaction.updateMany as jest.Mock).mockResolvedValueOnce({ count: 3 });
+      // Individual payee update (one matched payee)
+      (mockPrisma.budgetPayee.update as jest.Mock).mockResolvedValueOnce({});
+      // findMany for transactions to update
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
+        { id: 'tx-1' },
+        { id: 'tx-2' },
+        { id: 'tx-3' },
+      ]);
+      // Individual transaction updates
+      (mockPrisma.budgetTransaction.update as jest.Mock)
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({});
 
       const response = await APPLY_BULK();
       const data = await response.json();
@@ -305,13 +318,15 @@ describe('Payee Category Rules API', () => {
       expect(data.data.matched).toBe(1);
       expect(data.data.total).toBe(2);
       expect(data.data.transactionsUpdated).toBe(3);
-      expect(mockPrisma.budgetPayee.updateMany).toHaveBeenCalledWith({
-        where: { id: { in: ['payee-1'] }, householdId: 'household-1' },
+      // Verify individual payee update
+      expect(mockPrisma.budgetPayee.update).toHaveBeenCalledWith({
+        where: { id: 'payee-1' },
         data: { categoryId: 'cat-1' },
       });
-      expect(mockPrisma.budgetTransaction.updateMany).toHaveBeenCalledWith({
+      // Verify transactions were queried for matched payees
+      expect(mockPrisma.budgetTransaction.findMany).toHaveBeenCalledWith({
         where: { payeeId: { in: ['payee-1'] }, householdId: 'household-1', isDeleted: false },
-        data: { categoryId: 'cat-1' },
+        select: { id: true },
       });
     });
   });
@@ -352,8 +367,23 @@ describe('Payee Category Rules API', () => {
         { id: 'payee-1', name: 'Shufersal Deal' },
         { id: 'payee-2', name: 'Unknown Store' },
       ]);
-      (mockPrisma.budgetPayee.updateMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
-      (mockPrisma.budgetTransaction.updateMany as jest.Mock).mockResolvedValueOnce({ count: 5 });
+      // Individual payee update (one matched payee)
+      (mockPrisma.budgetPayee.update as jest.Mock).mockResolvedValueOnce({});
+      // findMany for transactions to update
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
+        { id: 'tx-1' },
+        { id: 'tx-2' },
+        { id: 'tx-3' },
+        { id: 'tx-4' },
+        { id: 'tx-5' },
+      ]);
+      // Individual transaction updates
+      (mockPrisma.budgetTransaction.update as jest.Mock)
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({});
 
       const response = await APPLY_SINGLE(makeRequest(), {
         params: Promise.resolve({ id: 'rule-1' }),
@@ -364,13 +394,15 @@ describe('Payee Category Rules API', () => {
       expect(data.data.matched).toBe(1);
       expect(data.data.total).toBe(2);
       expect(data.data.transactionsUpdated).toBe(5);
-      expect(mockPrisma.budgetPayee.updateMany).toHaveBeenCalledWith({
-        where: { id: { in: ['payee-1'] }, householdId: 'household-1' },
+      // Verify individual payee update
+      expect(mockPrisma.budgetPayee.update).toHaveBeenCalledWith({
+        where: { id: 'payee-1' },
         data: { categoryId: 'cat-1' },
       });
-      expect(mockPrisma.budgetTransaction.updateMany).toHaveBeenCalledWith({
+      // Verify transactions were queried for matched payees
+      expect(mockPrisma.budgetTransaction.findMany).toHaveBeenCalledWith({
         where: { payeeId: { in: ['payee-1'] }, householdId: 'household-1', isDeleted: false },
-        data: { categoryId: 'cat-1' },
+        select: { id: true },
       });
     });
 

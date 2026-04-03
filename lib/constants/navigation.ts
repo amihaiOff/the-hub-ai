@@ -15,6 +15,8 @@ import {
   Shield,
   Calculator,
   Sparkles,
+  ShoppingCart,
+  Package,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -65,6 +67,15 @@ export const navItems: NavItem[] = [
       { href: '/budget/payees', label: 'Payees', icon: Users },
       { href: '/budget/analysis', label: 'Analysis', icon: BarChart3 },
       { href: '/budget/savings', label: 'Savings', icon: PiggyBank },
+    ],
+  },
+  {
+    href: '/shopping',
+    label: 'Shopping',
+    icon: ShoppingCart,
+    subItems: [
+      { href: '/shopping', label: 'Cart', icon: ShoppingCart },
+      { href: '/shopping/items', label: 'Items', icon: Package },
     ],
   },
 ];

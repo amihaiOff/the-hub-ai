@@ -209,11 +209,19 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Soft-delete all split children
-    await prisma.budgetTransaction.updateMany({
-      where: { originalTransactionId: transactionId },
-      data: { isDeleted: true },
+    // Soft-delete all split children individually
+    // Note: Using individual update() calls instead of updateMany() due to
+    // Neon poolQueryViaFetch compatibility (updateMany silently fails like createMany)
+    const splitChildren = await prisma.budgetTransaction.findMany({
+      where: { originalTransactionId: transactionId, isDeleted: false },
+      select: { id: true },
     });
+    for (const child of splitChildren) {
+      await prisma.budgetTransaction.update({
+        where: { id: child.id },
+        data: { isDeleted: true },
+      });
+    }
 
     // Mark parent as not split
     await prisma.budgetTransaction.update({

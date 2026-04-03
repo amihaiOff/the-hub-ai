@@ -289,13 +289,18 @@ export async function PUT(request: NextRequest) {
 
     // Atomic delete + create to prevent data loss on partial failure
     const transaction = await prisma.$transaction(async (tx) => {
-      await tx.budgetTransaction.deleteMany({
+      // Delete individually (Neon poolQueryViaFetch compatibility)
+      const toDelete = await tx.budgetTransaction.findMany({
         where: {
           householdId,
           categoryId,
           transactionDate: { gte: startDate, lt: endDate },
         },
+        select: { id: true },
       });
+      for (const t of toDelete) {
+        await tx.budgetTransaction.delete({ where: { id: t.id } });
+      }
 
       return tx.budgetTransaction.create({
         data: {
@@ -363,13 +368,18 @@ export async function DELETE(request: NextRequest) {
 
     const { startDate, endDate } = parseMonthDates(month);
 
-    await prisma.budgetTransaction.deleteMany({
+    // Delete individually (Neon poolQueryViaFetch compatibility)
+    const toDelete = await prisma.budgetTransaction.findMany({
       where: {
         householdId,
         categoryId,
         transactionDate: { gte: startDate, lt: endDate },
       },
+      select: { id: true },
     });
+    for (const t of toDelete) {
+      await prisma.budgetTransaction.delete({ where: { id: t.id } });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -17,6 +17,7 @@ jest.mock('@/lib/db', () => ({
   prisma: {
     budgetTransaction: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
@@ -339,8 +340,16 @@ describe('Transactions Split API', () => {
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       (mockPrisma.budgetTransaction.findFirst as jest.Mock).mockResolvedValueOnce(mockTransaction);
-      (mockPrisma.budgetTransaction.updateMany as jest.Mock).mockResolvedValueOnce({ count: 2 });
-      (mockPrisma.budgetTransaction.update as jest.Mock).mockResolvedValueOnce({});
+      // findMany returns split children
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
+        { id: 'child-1' },
+        { id: 'child-2' },
+      ]);
+      // update each child (soft delete) + update parent (isSplit: false)
+      (mockPrisma.budgetTransaction.update as jest.Mock)
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({});
 
       const request = new NextRequest(
         'http://localhost:3000/api/budget/transactions/split?transactionId=tx-1',

@@ -450,8 +450,14 @@ describe('Transactions Bulk API', () => {
       const mockTransactions = [{ id: 'tx-1' }, { id: 'tx-2' }];
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      // First findMany: verify transactions belong to household
       (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce(mockTransactions);
-      (mockPrisma.budgetTransaction.updateMany as jest.Mock).mockResolvedValueOnce({ count: 2 });
+      // update calls for each transaction (soft delete)
+      (mockPrisma.budgetTransaction.update as jest.Mock)
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({});
+      // Second findMany: find split children (none)
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const request = new NextRequest('http://localhost:3000/api/budget/transactions/bulk', {
         method: 'DELETE',
@@ -525,7 +531,7 @@ describe('Transactions Bulk API', () => {
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce(mockTransactions);
-      (mockPrisma.budgetTransaction.updateMany as jest.Mock).mockRejectedValueOnce(
+      (mockPrisma.budgetTransaction.update as jest.Mock).mockRejectedValueOnce(
         new Error('Database error')
       );
 

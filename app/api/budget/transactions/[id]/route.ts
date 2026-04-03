@@ -263,10 +263,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     // Update tags if provided
     if (data.tagIds !== undefined) {
-      // Delete existing tags
-      await prisma.budgetTransactionTag.deleteMany({
+      // Delete existing tags individually (Neon poolQueryViaFetch compatibility)
+      const existingTags = await prisma.budgetTransactionTag.findMany({
         where: { transactionId: id },
+        select: { id: true },
       });
+      for (const tag of existingTags) {
+        await prisma.budgetTransactionTag.delete({
+          where: { id: tag.id },
+        });
+      }
 
       // Create new tag links
       for (const tagId of data.tagIds) {
@@ -339,13 +345,24 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Soft delete: mark as deleted (also soft-delete split children)
-    await prisma.budgetTransaction.updateMany({
-      where: {
-        OR: [{ id }, { originalTransactionId: id }],
-        householdId,
-      },
+    // Note: Using individual update() calls instead of updateMany() due to
+    // Neon poolQueryViaFetch compatibility (updateMany silently fails like createMany)
+    await prisma.budgetTransaction.update({
+      where: { id },
       data: { isDeleted: true },
     });
+
+    // Soft-delete split children individually
+    const splitChildren = await prisma.budgetTransaction.findMany({
+      where: { originalTransactionId: id, householdId, isDeleted: false },
+      select: { id: true },
+    });
+    for (const child of splitChildren) {
+      await prisma.budgetTransaction.update({
+        where: { id: child.id },
+        data: { isDeleted: true },
+      });
+    }
 
     return NextResponse.json({
       success: true,

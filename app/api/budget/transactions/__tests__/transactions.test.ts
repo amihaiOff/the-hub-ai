@@ -696,7 +696,9 @@ describe('Transactions API', () => {
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       (mockPrisma.budgetTransaction.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
-      (mockPrisma.budgetTransaction.updateMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
+      (mockPrisma.budgetTransaction.update as jest.Mock).mockResolvedValueOnce({});
+      // findMany for split children returns empty array (no children)
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const request = new NextRequest('http://localhost:3000/api/budget/transactions/tx-1', {
         method: 'DELETE',
@@ -708,12 +710,15 @@ describe('Transactions API', () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.data.id).toBe('tx-1');
-      expect(mockPrisma.budgetTransaction.updateMany).toHaveBeenCalledWith({
-        where: {
-          OR: [{ id: 'tx-1' }, { originalTransactionId: 'tx-1' }],
-          householdId: 'household-1',
-        },
+      // Verify the main transaction was soft-deleted
+      expect(mockPrisma.budgetTransaction.update).toHaveBeenCalledWith({
+        where: { id: 'tx-1' },
         data: { isDeleted: true },
+      });
+      // Verify split children were queried
+      expect(mockPrisma.budgetTransaction.findMany).toHaveBeenCalledWith({
+        where: { originalTransactionId: 'tx-1', householdId: 'household-1', isDeleted: false },
+        select: { id: true },
       });
     });
 
@@ -754,7 +759,7 @@ describe('Transactions API', () => {
 
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       (mockPrisma.budgetTransaction.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
-      (mockPrisma.budgetTransaction.updateMany as jest.Mock).mockRejectedValueOnce(
+      (mockPrisma.budgetTransaction.update as jest.Mock).mockRejectedValueOnce(
         new Error('Database error')
       );
 

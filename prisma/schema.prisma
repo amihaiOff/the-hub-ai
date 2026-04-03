@@ -90,6 +90,12 @@ model Household {
   // Insurance module
   insurancePolicies InsurancePolicy[]
 
+  // Shopping module
+  shoppingCategories ShoppingCategory[]
+  shoppingItems      ShoppingItem[]
+  shoppingCartItems  ShoppingCartItem[]
+  shoppingDeliveries ShoppingDelivery[]
+
   @@map("households")
 }
 
@@ -571,4 +577,77 @@ model InsurancePolicy {
   @@index([householdId])
   @@index([profileId])
   @@map("insurance_policies")
+}
+
+// ============================================
+// SHOPPING MODULE
+// ============================================
+
+model ShoppingCategory {
+  id          String   @id @default(cuid())
+  name        String
+  sortOrder   Int      @default(0) @map("sort_order")
+  householdId String   @map("household_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  household Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  items     ShoppingItem[]
+
+  @@unique([householdId, name])
+  @@index([householdId])
+  @@map("shopping_categories")
+}
+
+model ShoppingItem {
+  id              String    @id @default(cuid())
+  name            String
+  nameHe          String?   @map("name_he") // Hebrew alternate name for bilingual search
+  categoryId      String    @map("category_id")
+  isDefault       Boolean   @default(false) @map("is_default") // Auto-added to every new cart
+  lastPurchasedAt DateTime? @map("last_purchased_at") // For time-based warnings
+  warningDays     Int?      @map("warning_days") // Days threshold before warning (null = no warning)
+  householdId     String    @map("household_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  category  ShoppingCategory  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  household Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  cartItems ShoppingCartItem[]
+
+  @@unique([householdId, name])
+  @@index([householdId])
+  @@index([categoryId])
+  @@map("shopping_items")
+}
+
+// Delivery records - track when carts were marked as delivered
+model ShoppingDelivery {
+  id          String   @id @default(cuid())
+  deliveredAt DateTime @default(now()) @map("delivered_at")
+  itemCount   Int      @map("item_count")
+  householdId String   @map("household_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@map("shopping_deliveries")
+}
+
+model ShoppingCartItem {
+  id          String   @id @default(cuid())
+  itemId      String   @map("item_id")
+  quantity    Int      @default(1)
+  checked     Boolean  @default(false)
+  householdId String   @map("household_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  item      ShoppingItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  household Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, itemId])
+  @@index([householdId])
+  @@map("shopping_cart_items")
 }

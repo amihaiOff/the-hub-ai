@@ -162,7 +162,8 @@ neonConfig.poolQueryViaFetch = true;
 
 **Known limitations with this config:**
 
-- `createMany` doesn't work reliably
+- `createMany`, `updateMany`, and `deleteMany` don't work reliably (silently fail — resolve without error but no rows affected)
+- Use individual `create`/`update`/`delete` calls in a loop instead
 - Interactive transactions may fail
 - Connection pooling behaves differently
 
@@ -202,10 +203,12 @@ Before deploying new features:
 
 ## Common Error Patterns
 
-| Error                           | Cause                        | Fix                           |
-| ------------------------------- | ---------------------------- | ----------------------------- |
-| "Module not found" in prod only | Dynamic require              | Add to serverExternalPackages |
-| Transaction timeout             | Long interactive transaction | Use array syntax or remove    |
-| createMany fails silently       | Neon HTTP mode               | Use individual creates        |
-| Function timeout                | >10s execution               | Add maxDuration, optimize     |
-| Memory exceeded                 | Large in-memory data         | Paginate/stream               |
+| Error                           | Cause                        | Fix                               |
+| ------------------------------- | ---------------------------- | --------------------------------- |
+| "Module not found" in prod only | Dynamic require              | Add to serverExternalPackages     |
+| Transaction timeout             | Long interactive transaction | Use array syntax or remove        |
+| createMany fails silently       | Neon HTTP mode               | Use individual creates            |
+| updateMany fails silently       | Neon HTTP mode               | Use findMany + individual updates |
+| deleteMany fails silently       | Neon HTTP mode               | Use findMany + individual deletes |
+| Function timeout                | >10s execution               | Add maxDuration, optimize         |
+| Memory exceeded                 | Large in-memory data         | Paginate/stream                   |

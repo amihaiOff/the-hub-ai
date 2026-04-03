@@ -203,12 +203,12 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // Delete source tags (cascade deletes their links)
-    await prisma.budgetTag.deleteMany({
-      where: {
-        id: { in: sourceTagIds },
-      },
-    });
+    // Delete source tags individually (Neon poolQueryViaFetch compatibility)
+    for (const tagId of sourceTagIds) {
+      await prisma.budgetTag.delete({
+        where: { id: tagId },
+      });
+    }
 
     // Fetch updated target tag
     const updatedTag = await prisma.budgetTag.findUnique({

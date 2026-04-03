@@ -20,15 +20,23 @@ jest.mock('@/lib/db', () => ({
       delete: jest.fn(),
     },
     budgetTransaction: {
+      findMany: jest.fn(),
+      update: jest.fn(),
       updateMany: jest.fn(),
     },
     budgetPayee: {
+      findMany: jest.fn(),
+      update: jest.fn(),
       updateMany: jest.fn(),
     },
     payeeCategoryRule: {
+      findMany: jest.fn(),
+      update: jest.fn(),
       updateMany: jest.fn(),
     },
     riseupCategory: {
+      findMany: jest.fn(),
+      update: jest.fn(),
       updateMany: jest.fn(),
     },
     $transaction: jest.fn(),
@@ -138,10 +146,22 @@ describe('PUT /api/budget/categories/merge', () => {
     (mockPrisma.budgetCategory.findFirst as jest.Mock)
       .mockResolvedValueOnce(sourceCategory)
       .mockResolvedValueOnce(targetCategory);
-    (mockPrisma.budgetTransaction.updateMany as jest.Mock).mockResolvedValue({ count: 10 });
-    (mockPrisma.budgetPayee.updateMany as jest.Mock).mockResolvedValue({ count: 3 });
-    (mockPrisma.payeeCategoryRule.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
-    (mockPrisma.riseupCategory.updateMany as jest.Mock).mockResolvedValue({ count: 2 });
+    // findMany returns IDs for each entity type
+    (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValue(
+      Array.from({ length: 10 }, (_, i) => ({ id: `tx-${i}` }))
+    );
+    (mockPrisma.budgetTransaction.update as jest.Mock).mockResolvedValue({});
+    (mockPrisma.budgetPayee.findMany as jest.Mock).mockResolvedValue(
+      Array.from({ length: 3 }, (_, i) => ({ id: `payee-${i}` }))
+    );
+    (mockPrisma.budgetPayee.update as jest.Mock).mockResolvedValue({});
+    (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValue([{ id: 'rule-1' }]);
+    (mockPrisma.payeeCategoryRule.update as jest.Mock).mockResolvedValue({});
+    (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValue([
+      { id: 'rc-1' },
+      { id: 'rc-2' },
+    ]);
+    (mockPrisma.riseupCategory.update as jest.Mock).mockResolvedValue({});
     (mockPrisma.budgetCategory.update as jest.Mock).mockResolvedValue({
       ...targetCategory,
       budget: createDecimal(1500),
@@ -162,29 +182,25 @@ describe('PUT /api/budget/categories/merge', () => {
     expect(data.data.transactionsMoved).toBe(10);
     expect(data.data.payeesUpdated).toBe(3);
 
-    // Verify transactions were moved
-    expect(mockPrisma.budgetTransaction.updateMany).toHaveBeenCalledWith({
+    // Verify transactions were queried and updated individually
+    expect(mockPrisma.budgetTransaction.findMany).toHaveBeenCalledWith({
       where: { categoryId: 'cat-source', householdId: 'household-1' },
-      data: { categoryId: 'cat-target' },
+      select: { id: true },
     });
+    expect(mockPrisma.budgetTransaction.update).toHaveBeenCalledTimes(10);
 
-    // Verify payees were updated
-    expect(mockPrisma.budgetPayee.updateMany).toHaveBeenCalledWith({
+    // Verify payees were queried and updated individually
+    expect(mockPrisma.budgetPayee.findMany).toHaveBeenCalledWith({
       where: { categoryId: 'cat-source', householdId: 'household-1' },
-      data: { categoryId: 'cat-target' },
+      select: { id: true },
     });
+    expect(mockPrisma.budgetPayee.update).toHaveBeenCalledTimes(3);
 
     // Verify payee rules were updated
-    expect(mockPrisma.payeeCategoryRule.updateMany).toHaveBeenCalledWith({
-      where: { categoryId: 'cat-source', householdId: 'household-1' },
-      data: { categoryId: 'cat-target' },
-    });
+    expect(mockPrisma.payeeCategoryRule.update).toHaveBeenCalledTimes(1);
 
     // Verify riseup mappings were updated
-    expect(mockPrisma.riseupCategory.updateMany).toHaveBeenCalledWith({
-      where: { budgetCategoryId: 'cat-source', householdId: 'household-1' },
-      data: { budgetCategoryId: 'cat-target' },
-    });
+    expect(mockPrisma.riseupCategory.update).toHaveBeenCalledTimes(2);
 
     // Verify budgets were merged (500 + 1000 = 1500)
     expect(mockPrisma.budgetCategory.update).toHaveBeenCalledWith({
@@ -273,10 +289,10 @@ describe('PUT /api/budget/categories/merge', () => {
     (mockPrisma.budgetCategory.findFirst as jest.Mock)
       .mockResolvedValueOnce(sourceCatNoBudget)
       .mockResolvedValueOnce(targetCatNoBudget);
-    (mockPrisma.budgetTransaction.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
-    (mockPrisma.budgetPayee.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
-    (mockPrisma.payeeCategoryRule.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
-    (mockPrisma.riseupCategory.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+    (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.budgetPayee.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValue([]);
     (mockPrisma.budgetCategory.delete as jest.Mock).mockResolvedValue(sourceCatNoBudget);
 
     const request = createRequest({

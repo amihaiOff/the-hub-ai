@@ -60,29 +60,58 @@ export async function PUT(request: NextRequest) {
 
     // All operations in a transaction to ensure atomicity
     const result = await prisma.$transaction(async (tx) => {
+      // Note: Using individual update() calls instead of updateMany() due to
+      // Neon poolQueryViaFetch compatibility (updateMany silently fails like createMany)
+
       // 1. Move all transactions from source to target
-      const txResult = await tx.budgetTransaction.updateMany({
+      const txsToMove = await tx.budgetTransaction.findMany({
         where: { categoryId: sourceCategoryId, householdId },
-        data: { categoryId: targetCategoryId },
+        select: { id: true },
       });
+      for (const t of txsToMove) {
+        await tx.budgetTransaction.update({
+          where: { id: t.id },
+          data: { categoryId: targetCategoryId },
+        });
+      }
+      const txResult = { count: txsToMove.length };
 
       // 2. Update payees with source as default category
-      const payeeResult = await tx.budgetPayee.updateMany({
+      const payeesToMove = await tx.budgetPayee.findMany({
         where: { categoryId: sourceCategoryId, householdId },
-        data: { categoryId: targetCategoryId },
+        select: { id: true },
       });
+      for (const p of payeesToMove) {
+        await tx.budgetPayee.update({
+          where: { id: p.id },
+          data: { categoryId: targetCategoryId },
+        });
+      }
+      const payeeResult = { count: payeesToMove.length };
 
       // 3. Update payee rules targeting source category
-      await tx.payeeCategoryRule.updateMany({
+      const rulesToMove = await tx.payeeCategoryRule.findMany({
         where: { categoryId: sourceCategoryId, householdId },
-        data: { categoryId: targetCategoryId },
+        select: { id: true },
       });
+      for (const r of rulesToMove) {
+        await tx.payeeCategoryRule.update({
+          where: { id: r.id },
+          data: { categoryId: targetCategoryId },
+        });
+      }
 
       // 4. Update Riseup category mappings
-      await tx.riseupCategory.updateMany({
+      const riseupToMove = await tx.riseupCategory.findMany({
         where: { budgetCategoryId: sourceCategoryId, householdId },
-        data: { budgetCategoryId: targetCategoryId },
+        select: { id: true },
       });
+      for (const rc of riseupToMove) {
+        await tx.riseupCategory.update({
+          where: { id: rc.id },
+          data: { budgetCategoryId: targetCategoryId },
+        });
+      }
 
       // 5. Merge budgets
       if (combinedBudget > 0) {

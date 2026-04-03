@@ -6,12 +6,21 @@
  */
 
 import { navItems, settingsItem, NavItem } from '../navigation';
-import { Home, TrendingUp, Building2, Wallet, Receipt, Settings, Shield } from 'lucide-react';
+import {
+  Home,
+  TrendingUp,
+  Building2,
+  Wallet,
+  Receipt,
+  Settings,
+  Shield,
+  ShoppingCart,
+} from 'lucide-react';
 
 describe('Navigation Constants', () => {
   describe('navItems array structure', () => {
-    it('should contain exactly 6 navigation items with valid structure', () => {
-      expect(navItems).toHaveLength(6);
+    it('should contain exactly 7 navigation items with valid structure', () => {
+      expect(navItems).toHaveLength(7);
       expect(Array.isArray(navItems)).toBe(true);
 
       navItems.forEach((item) => {
@@ -47,6 +56,7 @@ describe('Navigation Constants', () => {
       { label: 'Assets', href: '/assets', icon: Wallet },
       { label: 'Insurance', href: '/insurance', icon: Shield },
       { label: 'Budget', href: '/budget', icon: Receipt },
+      { label: 'Shopping', href: '/shopping', icon: ShoppingCart },
     ];
 
     it.each(expectedItems.map((item, index) => [index, item.label, item.href, item.icon]))(
