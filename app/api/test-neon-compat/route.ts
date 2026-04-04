@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { getCurrentContext } from '@/lib/auth-utils';
 
 /**
  * GET /api/test-neon-compat
@@ -8,7 +9,12 @@ import { prisma } from '@/lib/db';
  */
 export async function GET() {
   const results: Record<string, { success: boolean; detail: string }> = {};
-  const testHouseholdId = 'neon-compat-test';
+
+  const context = await getCurrentContext();
+  if (!context) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+  const testHouseholdId = context.activeHousehold.id;
 
   try {
     // Clean up any previous test data
