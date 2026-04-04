@@ -110,6 +110,10 @@ export async function POST(request: NextRequest) {
     const payeeCategoryRules = await parseFile<Record<string, unknown>>(
       'payee_category_rules.json'
     );
+    const shoppingCategories = await parseFile<Record<string, unknown>>('shopping_categories.json');
+    const shoppingItems = await parseFile<Record<string, unknown>>('shopping_items.json');
+    const shoppingCartItems = await parseFile<Record<string, unknown>>('shopping_cart_items.json');
+    const shoppingDeliveries = await parseFile<Record<string, unknown>>('shopping_deliveries.json');
 
     // Execute operations sequentially without transaction
     // Neon serverless doesn't support long-running transactions well
@@ -117,6 +121,11 @@ export async function POST(request: NextRequest) {
 
     // Delete all existing data in reverse order of dependencies
     console.log('Deleting existing data...');
+    // Shopping tables (children first)
+    await prisma.shoppingDelivery.deleteMany();
+    await prisma.shoppingCartItem.deleteMany();
+    await prisma.shoppingItem.deleteMany();
+    await prisma.shoppingCategory.deleteMany();
     // Budget tables (children first)
     await prisma.budgetTransactionTag.deleteMany();
     await prisma.budgetTransaction.deleteMany();
@@ -529,6 +538,66 @@ export async function POST(request: NextRequest) {
           id: btt.id as string,
           transactionId: btt.transactionId as string,
           tagId: btt.tagId as string,
+        },
+      });
+    }
+
+    // 22. Shopping Categories
+    for (const sc of shoppingCategories) {
+      await prisma.shoppingCategory.create({
+        data: {
+          id: sc.id as string,
+          name: sc.name as string,
+          sortOrder: sc.sortOrder as number,
+          householdId: sc.householdId as string,
+          createdAt: new Date(sc.createdAt as string),
+          updatedAt: new Date(sc.updatedAt as string),
+        },
+      });
+    }
+
+    // 23. Shopping Items (after categories)
+    for (const si of shoppingItems) {
+      await prisma.shoppingItem.create({
+        data: {
+          id: si.id as string,
+          name: si.name as string,
+          nameHe: (si.nameHe as string | null) ?? null,
+          categoryId: si.categoryId as string,
+          isDefault: (si.isDefault as boolean) ?? false,
+          lastPurchasedAt: si.lastPurchasedAt ? new Date(si.lastPurchasedAt as string) : null,
+          warningDays: (si.warningDays as number | null) ?? null,
+          householdId: si.householdId as string,
+          createdAt: new Date(si.createdAt as string),
+          updatedAt: new Date(si.updatedAt as string),
+        },
+      });
+    }
+
+    // 24. Shopping Cart Items (after items)
+    for (const sci of shoppingCartItems) {
+      await prisma.shoppingCartItem.create({
+        data: {
+          id: sci.id as string,
+          itemId: sci.itemId as string,
+          quantity: sci.quantity as number,
+          checked: (sci.checked as boolean) ?? false,
+          householdId: sci.householdId as string,
+          createdAt: new Date(sci.createdAt as string),
+          updatedAt: new Date(sci.updatedAt as string),
+        },
+      });
+    }
+
+    // 25. Shopping Deliveries
+    for (const sd of shoppingDeliveries) {
+      await prisma.shoppingDelivery.create({
+        data: {
+          id: sd.id as string,
+          deliveredAt: new Date(sd.deliveredAt as string),
+          itemCount: sd.itemCount as number,
+          householdId: sd.householdId as string,
+          createdAt: new Date(sd.createdAt as string),
         },
       });
     }

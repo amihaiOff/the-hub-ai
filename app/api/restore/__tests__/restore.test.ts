@@ -53,6 +53,10 @@ const mockPrisma = {
   budgetTransactionTag: createMockFns('budgetTransactionTag'),
   riseupCategory: createMockFns('riseupCategory'),
   payeeCategoryRule: createMockFns('payeeCategoryRule'),
+  shoppingCategory: createMockFns('shoppingCategory'),
+  shoppingItem: createMockFns('shoppingItem'),
+  shoppingCartItem: createMockFns('shoppingCartItem'),
+  shoppingDelivery: createMockFns('shoppingDelivery'),
 };
 
 jest.mock('@/lib/db', () => ({
@@ -105,6 +109,10 @@ async function createBackupZip(
     budget_transactions: [],
     budget_transaction_tags: [],
     riseup_categories: [],
+    shopping_categories: [],
+    shopping_items: [],
+    shopping_cart_items: [],
+    shopping_deliveries: [],
     ...data,
   };
 

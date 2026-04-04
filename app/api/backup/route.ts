@@ -44,6 +44,10 @@ export async function GET() {
       budgetTransactionTags,
       riseupCategories,
       payeeCategoryRules,
+      shoppingCategories,
+      shoppingItems,
+      shoppingCartItems,
+      shoppingDeliveries,
     ] = await Promise.all([
       prisma.user.findMany(),
       prisma.profile.findMany(),
@@ -69,6 +73,10 @@ export async function GET() {
       prisma.budgetTransactionTag.findMany(),
       prisma.riseupCategory.findMany(),
       prisma.payeeCategoryRule.findMany(),
+      prisma.shoppingCategory.findMany(),
+      prisma.shoppingItem.findMany(),
+      prisma.shoppingCartItem.findMany(),
+      prisma.shoppingDelivery.findMany(),
     ]);
 
     // Create backup metadata
@@ -101,6 +109,10 @@ export async function GET() {
         budgetTransactionTags: budgetTransactionTags.length,
         riseupCategories: riseupCategories.length,
         payeeCategoryRules: payeeCategoryRules.length,
+        shoppingCategories: shoppingCategories.length,
+        shoppingItems: shoppingItems.length,
+        shoppingCartItems: shoppingCartItems.length,
+        shoppingDeliveries: shoppingDeliveries.length,
       },
     };
 
@@ -145,6 +157,10 @@ export async function GET() {
     );
     zip.file('riseup_categories.json', JSON.stringify(riseupCategories, jsonSerializer, 2));
     zip.file('payee_category_rules.json', JSON.stringify(payeeCategoryRules, jsonSerializer, 2));
+    zip.file('shopping_categories.json', JSON.stringify(shoppingCategories, jsonSerializer, 2));
+    zip.file('shopping_items.json', JSON.stringify(shoppingItems, jsonSerializer, 2));
+    zip.file('shopping_cart_items.json', JSON.stringify(shoppingCartItems, jsonSerializer, 2));
+    zip.file('shopping_deliveries.json', JSON.stringify(shoppingDeliveries, jsonSerializer, 2));
 
     // Generate ZIP as Blob
     const zipBlob = await zip.generateAsync({ type: 'blob' });

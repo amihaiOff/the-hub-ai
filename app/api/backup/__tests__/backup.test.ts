@@ -40,6 +40,10 @@ jest.mock('@/lib/db', () => ({
     budgetTransactionTag: { findMany: jest.fn() },
     riseupCategory: { findMany: jest.fn() },
     payeeCategoryRule: { findMany: jest.fn() },
+    shoppingCategory: { findMany: jest.fn() },
+    shoppingItem: { findMany: jest.fn() },
+    shoppingCartItem: { findMany: jest.fn() },
+    shoppingDelivery: { findMany: jest.fn() },
   },
 }));
 
@@ -332,6 +336,10 @@ describe('Backup API', () => {
       );
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce(mockRiseupCategories);
       (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.shoppingCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.shoppingItem.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.shoppingCartItem.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.shoppingDelivery.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const response = await GET();
 
@@ -373,6 +381,10 @@ describe('Backup API', () => {
       expect(zip.file('budget_transaction_tags.json')).not.toBeNull();
       expect(zip.file('riseup_categories.json')).not.toBeNull();
       expect(zip.file('payee_category_rules.json')).not.toBeNull();
+      expect(zip.file('shopping_categories.json')).not.toBeNull();
+      expect(zip.file('shopping_items.json')).not.toBeNull();
+      expect(zip.file('shopping_cart_items.json')).not.toBeNull();
+      expect(zip.file('shopping_deliveries.json')).not.toBeNull();
 
       // Verify metadata content
       const metadataContent = await zip.file('metadata.json')!.async('string');
@@ -404,6 +416,10 @@ describe('Backup API', () => {
         budgetTransactionTags: 1,
         riseupCategories: 1,
         payeeCategoryRules: 0,
+        shoppingCategories: 0,
+        shoppingItems: 0,
+        shoppingCartItems: 0,
+        shoppingDeliveries: 0,
       });
 
       // Verify data files contain correct data
@@ -448,6 +464,10 @@ describe('Backup API', () => {
       (mockPrisma.budgetTransactionTag.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.shoppingCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.shoppingItem.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.shoppingCartItem.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.shoppingDelivery.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const response = await GET();
 
@@ -519,6 +539,10 @@ describe('Backup API', () => {
       (mockPrisma.budgetTransactionTag.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.shoppingCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.shoppingItem.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.shoppingCartItem.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.shoppingDelivery.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const response = await GET();
       const blob = await response.blob();
