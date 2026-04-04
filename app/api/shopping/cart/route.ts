@@ -89,34 +89,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Item not found' }, { status: 404 });
     }
 
-    // Upsert: if already in cart, increment quantity
-    const cartItem = await prisma.shoppingCartItem.upsert({
-      where: {
-        householdId_itemId: {
-          householdId,
-          itemId,
-        },
-      },
-      create: {
-        itemId,
-        quantity,
-        householdId,
-      },
-      update: {
-        quantity: {
-          increment: quantity,
-        },
-      },
-      include: {
-        item: {
-          include: {
-            category: {
-              select: { id: true, name: true },
+    // Find-then-create/update for Neon serverless compatibility (upsert may fail)
+    const existing = await prisma.shoppingCartItem.findFirst({
+      where: { householdId, itemId },
+    });
+
+    let cartItem;
+    if (existing) {
+      cartItem = await prisma.shoppingCartItem.update({
+        where: { id: existing.id },
+        data: { quantity: existing.quantity + quantity },
+        include: {
+          item: {
+            include: {
+              category: { select: { id: true, name: true } },
             },
           },
         },
-      },
-    });
+      });
+    } else {
+      cartItem = await prisma.shoppingCartItem.create({
+        data: { itemId, quantity, householdId },
+        include: {
+          item: {
+            include: {
+              category: { select: { id: true, name: true } },
+            },
+          },
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,

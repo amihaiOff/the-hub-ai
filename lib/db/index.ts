@@ -22,11 +22,11 @@ function createPrismaClient(): PrismaClient {
     const { Pool, neonConfig } = require('@neondatabase/serverless');
 
     // Use HTTP fetch for serverless compatibility
-    // Note: createMany may have issues - use individual create calls in a loop instead
+    // Note: createMany/updateMany/deleteMany may have issues - use individual calls in loops
     neonConfig.poolQueryViaFetch = true;
 
-    const pool = new Pool({ connectionString });
-    const adapter = new PrismaNeon(pool);
+    // Pass PoolConfig (not a Pool instance) - PrismaNeon 7.x is a factory that creates its own Pool
+    const adapter = new PrismaNeon({ connectionString });
 
     return new PrismaClient({
       adapter,

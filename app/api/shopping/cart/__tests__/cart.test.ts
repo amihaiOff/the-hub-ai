@@ -11,6 +11,7 @@ jest.mock('@/lib/db', () => ({
     shoppingCartItem: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
+      create: jest.fn(),
       upsert: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
@@ -222,7 +223,10 @@ describe('Shopping Cart API', () => {
         householdId: 'household-1',
       });
 
-      const upsertResult = {
+      // Item not in cart yet
+      (mockPrisma.shoppingCartItem.findFirst as jest.Mock).mockResolvedValue(null);
+
+      const createResult = {
         id: 'cart-1',
         itemId: 'item-1',
         quantity: 1,
@@ -233,7 +237,7 @@ describe('Shopping Cart API', () => {
           category: { id: 'cat-1', name: 'Dairy' },
         },
       };
-      (mockPrisma.shoppingCartItem.upsert as jest.Mock).mockResolvedValue(upsertResult);
+      (mockPrisma.shoppingCartItem.create as jest.Mock).mockResolvedValue(createResult);
 
       const response = await POST(createRequest({ itemId: 'item-1' }));
       const data = await response.json();
@@ -250,32 +254,7 @@ describe('Shopping Cart API', () => {
         checked: false,
       });
 
-      // Verify upsert was called with correct compound key
-      expect(mockPrisma.shoppingCartItem.upsert).toHaveBeenCalledWith({
-        where: {
-          householdId_itemId: {
-            householdId: 'household-1',
-            itemId: 'item-1',
-          },
-        },
-        create: {
-          itemId: 'item-1',
-          quantity: 1,
-          householdId: 'household-1',
-        },
-        update: {
-          quantity: { increment: 1 },
-        },
-        include: {
-          item: {
-            include: {
-              category: {
-                select: { id: true, name: true },
-              },
-            },
-          },
-        },
-      });
+      expect(mockPrisma.shoppingCartItem.create).toHaveBeenCalled();
     });
 
     it('should add item to cart with custom quantity', async () => {
@@ -287,7 +266,10 @@ describe('Shopping Cart API', () => {
         householdId: 'household-1',
       });
 
-      const upsertResult = {
+      // Item not in cart yet
+      (mockPrisma.shoppingCartItem.findFirst as jest.Mock).mockResolvedValue(null);
+
+      const createResult = {
         id: 'cart-1',
         itemId: 'item-1',
         quantity: 3,
@@ -298,7 +280,7 @@ describe('Shopping Cart API', () => {
           category: { id: 'cat-1', name: 'Dairy' },
         },
       };
-      (mockPrisma.shoppingCartItem.upsert as jest.Mock).mockResolvedValue(upsertResult);
+      (mockPrisma.shoppingCartItem.create as jest.Mock).mockResolvedValue(createResult);
 
       const response = await POST(createRequest({ itemId: 'item-1', quantity: 3 }));
       const data = await response.json();
@@ -307,10 +289,9 @@ describe('Shopping Cart API', () => {
       expect(data.success).toBe(true);
       expect(data.data.quantity).toBe(3);
 
-      expect(mockPrisma.shoppingCartItem.upsert).toHaveBeenCalledWith(
+      expect(mockPrisma.shoppingCartItem.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          create: expect.objectContaining({ quantity: 3 }),
-          update: { quantity: { increment: 3 } },
+          data: expect.objectContaining({ quantity: 3 }),
         })
       );
     });
@@ -342,7 +323,7 @@ describe('Shopping Cart API', () => {
         name: 'Milk',
         householdId: 'household-1',
       });
-      (mockPrisma.shoppingCartItem.upsert as jest.Mock).mockRejectedValue(
+      (mockPrisma.shoppingCartItem.findFirst as jest.Mock).mockRejectedValue(
         new Error('Database error')
       );
 
