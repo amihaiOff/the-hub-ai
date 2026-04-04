@@ -277,6 +277,7 @@ export function useRemoveFromCart() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: shoppingKeys.cart() });
+      queryClient.invalidateQueries({ queryKey: shoppingKeys.allItems() });
     },
   });
 }
