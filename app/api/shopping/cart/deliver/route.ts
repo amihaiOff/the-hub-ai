@@ -47,65 +47,58 @@ export async function POST(request: NextRequest) {
 
     const now = new Date();
 
-    // Use a transaction for atomicity
-    const defaultsAdded = await prisma.$transaction(async (tx) => {
-      // 1. Update lastPurchasedAt for delivered items and delete them from cart
-      if (deliveredItems.length > 0) {
-        await tx.shoppingItem.updateMany({
-          where: { id: { in: deliveredItems.map((ci) => ci.itemId) } },
-          data: { lastPurchasedAt: now },
-        });
+    // Sequential individual operations for Neon serverless compatibility
+    // (createMany/updateMany/deleteMany/$transaction silently fail on Neon HTTP adapter)
 
-        await tx.shoppingCartItem.deleteMany({
-          where: { id: { in: deliveredItems.map((ci) => ci.id) } },
-        });
-      }
-
-      // 2. Uncheck missing items (keep them in cart for next delivery)
-      if (missingItems.length > 0) {
-        await tx.shoppingCartItem.updateMany({
-          where: { id: { in: missingItems.map((ci) => ci.id) } },
-          data: { checked: false },
-        });
-      }
-
-      // 3. Unchecked items already have checked=false, no update needed
-
-      // 4. Add default items to cart if not already present
-      const remainingCartItemIds = new Set([
-        ...missingItems.map((ci) => ci.itemId),
-        ...uncheckedItems.map((ci) => ci.itemId),
-      ]);
-
-      const defaultItems = await tx.shoppingItem.findMany({
-        where: {
-          householdId,
-          isDefault: true,
-          id: { notIn: Array.from(remainingCartItemIds) },
-        },
+    // 1. Update lastPurchasedAt for delivered items and delete them from cart
+    for (const ci of deliveredItems) {
+      await prisma.shoppingItem.update({
+        where: { id: ci.itemId },
+        data: { lastPurchasedAt: now },
       });
+      await prisma.shoppingCartItem.delete({ where: { id: ci.id } });
+    }
 
-      if (defaultItems.length > 0) {
-        await tx.shoppingCartItem.createMany({
-          data: defaultItems.map((item) => ({
-            itemId: item.id,
-            householdId,
-            quantity: 1,
-            checked: false,
-          })),
-        });
-      }
-
-      // 5. Create delivery record
-      await tx.shoppingDelivery.create({
-        data: {
-          householdId,
-          itemCount: deliveredItems.length,
-        },
+    // 2. Uncheck missing items (keep them in cart for next delivery)
+    for (const ci of missingItems) {
+      await prisma.shoppingCartItem.update({
+        where: { id: ci.id },
+        data: { checked: false },
       });
+    }
 
-      return defaultItems.length;
+    // 3. Unchecked items already have checked=false, no update needed
+
+    // 4. Add default items to cart if not already present
+    const remainingCartItemIds = new Set([
+      ...missingItems.map((ci) => ci.itemId),
+      ...uncheckedItems.map((ci) => ci.itemId),
+    ]);
+
+    const defaultItems = await prisma.shoppingItem.findMany({
+      where: {
+        householdId,
+        isDefault: true,
+        id: { notIn: Array.from(remainingCartItemIds) },
+      },
     });
+
+    for (const item of defaultItems) {
+      try {
+        await prisma.shoppingCartItem.create({
+          data: { itemId: item.id, householdId, quantity: 1, checked: false },
+        });
+      } catch {
+        // Ignore if already in cart (unique constraint)
+      }
+    }
+
+    // 5. Create delivery record
+    await prisma.shoppingDelivery.create({
+      data: { householdId, itemCount: deliveredItems.length },
+    });
+
+    const defaultsAdded = defaultItems.length;
 
     return NextResponse.json({
       success: true,

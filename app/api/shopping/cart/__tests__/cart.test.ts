@@ -372,7 +372,12 @@ describe('Shopping Cart API', () => {
 
     it('should clear all checked items and return count', async () => {
       mockGetCurrentContext.mockResolvedValue(mockContext);
-      (mockPrisma.shoppingCartItem.deleteMany as jest.Mock).mockResolvedValue({ count: 3 });
+      (mockPrisma.shoppingCartItem.findMany as jest.Mock).mockResolvedValue([
+        { id: 'ci-1' },
+        { id: 'ci-2' },
+        { id: 'ci-3' },
+      ]);
+      (mockPrisma.shoppingCartItem.delete as jest.Mock).mockResolvedValue({});
 
       const response = await DELETE();
       const data = await response.json();
@@ -380,14 +385,12 @@ describe('Shopping Cart API', () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.data.deletedCount).toBe(3);
-      expect(mockPrisma.shoppingCartItem.deleteMany).toHaveBeenCalledWith({
-        where: { householdId: 'household-1', checked: true },
-      });
+      expect(mockPrisma.shoppingCartItem.delete).toHaveBeenCalledTimes(3);
     });
 
     it('should return 0 when no checked items exist', async () => {
       mockGetCurrentContext.mockResolvedValue(mockContext);
-      (mockPrisma.shoppingCartItem.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
+      (mockPrisma.shoppingCartItem.findMany as jest.Mock).mockResolvedValue([]);
 
       const response = await DELETE();
       const data = await response.json();
@@ -399,7 +402,7 @@ describe('Shopping Cart API', () => {
 
     it('should return 500 on database error', async () => {
       mockGetCurrentContext.mockResolvedValue(mockContext);
-      (mockPrisma.shoppingCartItem.deleteMany as jest.Mock).mockRejectedValue(
+      (mockPrisma.shoppingCartItem.findMany as jest.Mock).mockRejectedValue(
         new Error('Database error')
       );
 

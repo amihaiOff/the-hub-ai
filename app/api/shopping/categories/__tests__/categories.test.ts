@@ -101,7 +101,7 @@ describe('Shopping Categories API', () => {
         orderBy: { sortOrder: 'asc' },
       });
       // Should not auto-seed when categories already exist
-      expect(mockPrisma.shoppingCategory.createMany).not.toHaveBeenCalled();
+      expect(mockPrisma.shoppingCategory.create).not.toHaveBeenCalled();
     });
 
     it('should auto-seed default categories when none exist', async () => {
@@ -124,7 +124,7 @@ describe('Shopping Categories API', () => {
       (mockPrisma.shoppingCategory.findMany as jest.Mock)
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce(defaultCategories);
-      (mockPrisma.shoppingCategory.createMany as jest.Mock).mockResolvedValue({ count: 10 });
+      (mockPrisma.shoppingCategory.create as jest.Mock).mockResolvedValue({});
 
       const response = await GET();
       const data = await response.json();
@@ -132,18 +132,8 @@ describe('Shopping Categories API', () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.data).toHaveLength(10);
-      expect(mockPrisma.shoppingCategory.createMany).toHaveBeenCalledTimes(1);
-      expect(mockPrisma.shoppingCategory.createMany).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            name: 'Meat & Fish',
-            sortOrder: 0,
-            householdId: 'household-1',
-          }),
-          expect.objectContaining({ name: 'Other', sortOrder: 9, householdId: 'household-1' }),
-        ]),
-        skipDuplicates: true,
-      });
+      // Individual creates for Neon compatibility (10 default categories)
+      expect(mockPrisma.shoppingCategory.create).toHaveBeenCalledTimes(10);
       // findMany called twice: once to check, once after seed
       expect(mockPrisma.shoppingCategory.findMany).toHaveBeenCalledTimes(2);
     });

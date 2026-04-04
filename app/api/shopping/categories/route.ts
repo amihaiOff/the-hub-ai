@@ -37,15 +37,17 @@ export async function GET() {
     });
 
     // Auto-seed defaults if household has no categories
+    // Use individual creates for Neon serverless compatibility (createMany silently fails)
     if (categories.length === 0) {
-      await prisma.shoppingCategory.createMany({
-        data: DEFAULT_CATEGORIES.map((name, index) => ({
-          name,
-          sortOrder: index,
-          householdId,
-        })),
-        skipDuplicates: true,
-      });
+      for (let i = 0; i < DEFAULT_CATEGORIES.length; i++) {
+        try {
+          await prisma.shoppingCategory.create({
+            data: { name: DEFAULT_CATEGORIES[i], sortOrder: i, householdId },
+          });
+        } catch {
+          // Ignore unique constraint violations (concurrent requests)
+        }
+      }
 
       categories = await prisma.shoppingCategory.findMany({
         where: { householdId },

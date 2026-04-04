@@ -152,13 +152,19 @@ export async function DELETE() {
 
     const householdId = context.activeHousehold.id;
 
-    const result = await prisma.shoppingCartItem.deleteMany({
+    // Find and delete individually for Neon serverless compatibility (deleteMany silently fails)
+    const checkedItems = await prisma.shoppingCartItem.findMany({
       where: { householdId, checked: true },
+      select: { id: true },
     });
+
+    for (const item of checkedItems) {
+      await prisma.shoppingCartItem.delete({ where: { id: item.id } });
+    }
 
     return NextResponse.json({
       success: true,
-      data: { deletedCount: result.count },
+      data: { deletedCount: checkedItems.length },
     });
   } catch (error) {
     console.error('Error clearing checked cart items:', error);
