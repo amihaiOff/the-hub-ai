@@ -58,76 +58,89 @@ export async function PUT(request: NextRequest) {
     const targetBudget = Number(targetCategory.budget ?? 0);
     const combinedBudget = sourceBudget + targetBudget;
 
-    // All operations in a transaction to ensure atomicity
-    const result = await prisma.$transaction(async (tx) => {
-      // Note: Using individual update() calls instead of updateMany() due to
-      // Neon poolQueryViaFetch compatibility (updateMany silently fails like createMany)
+    // Perform merge operations with batched parallel updates
+    // Note: $transaction doesn't work on Neon HTTP adapter, and updateMany silently fails.
+    // Using individual update() calls in parallel batches instead.
+    const BATCH_SIZE = 5;
 
-      // 1. Move all transactions from source to target
-      const txsToMove = await tx.budgetTransaction.findMany({
-        where: { categoryId: sourceCategoryId, householdId },
-        select: { id: true },
-      });
-      for (const t of txsToMove) {
-        await tx.budgetTransaction.update({
-          where: { id: t.id },
-          data: { categoryId: targetCategoryId },
-        });
-      }
-      const txResult = { count: txsToMove.length };
-
-      // 2. Update payees with source as default category
-      const payeesToMove = await tx.budgetPayee.findMany({
-        where: { categoryId: sourceCategoryId, householdId },
-        select: { id: true },
-      });
-      for (const p of payeesToMove) {
-        await tx.budgetPayee.update({
-          where: { id: p.id },
-          data: { categoryId: targetCategoryId },
-        });
-      }
-      const payeeResult = { count: payeesToMove.length };
-
-      // 3. Update payee rules targeting source category
-      const rulesToMove = await tx.payeeCategoryRule.findMany({
-        where: { categoryId: sourceCategoryId, householdId },
-        select: { id: true },
-      });
-      for (const r of rulesToMove) {
-        await tx.payeeCategoryRule.update({
-          where: { id: r.id },
-          data: { categoryId: targetCategoryId },
-        });
-      }
-
-      // 4. Update Riseup category mappings
-      const riseupToMove = await tx.riseupCategory.findMany({
-        where: { budgetCategoryId: sourceCategoryId, householdId },
-        select: { id: true },
-      });
-      for (const rc of riseupToMove) {
-        await tx.riseupCategory.update({
-          where: { id: rc.id },
-          data: { budgetCategoryId: targetCategoryId },
-        });
-      }
-
-      // 5. Merge budgets
-      if (combinedBudget > 0) {
-        await tx.budgetCategory.update({
-          where: { id: targetCategoryId },
-          data: { budget: combinedBudget },
-        });
-      }
-
-      // 6. Delete source category
-      await tx.budgetCategory.delete({
-        where: { id: sourceCategoryId },
-      });
-
-      return { transactionsMoved: txResult.count, payeesUpdated: payeeResult.count };
+    // 1. Move all transactions from source to target
+    const txsToMove = await prisma.budgetTransaction.findMany({
+      where: { categoryId: sourceCategoryId, householdId },
+      select: { id: true },
     });
+    for (let i = 0; i < txsToMove.length; i += BATCH_SIZE) {
+      await Promise.all(
+        txsToMove.slice(i, i + BATCH_SIZE).map((t) =>
+          prisma.budgetTransaction.update({
+            where: { id: t.id },
+            data: { categoryId: targetCategoryId },
+          })
+        )
+      );
+    }
+
+    // 2. Update payees with source as default category
+    const payeesToMove = await prisma.budgetPayee.findMany({
+      where: { categoryId: sourceCategoryId, householdId },
+      select: { id: true },
+    });
+    for (let i = 0; i < payeesToMove.length; i += BATCH_SIZE) {
+      await Promise.all(
+        payeesToMove.slice(i, i + BATCH_SIZE).map((p) =>
+          prisma.budgetPayee.update({
+            where: { id: p.id },
+            data: { categoryId: targetCategoryId },
+          })
+        )
+      );
+    }
+
+    // 3. Update payee rules targeting source category
+    const rulesToMove = await prisma.payeeCategoryRule.findMany({
+      where: { categoryId: sourceCategoryId, householdId },
+      select: { id: true },
+    });
+    for (let i = 0; i < rulesToMove.length; i += BATCH_SIZE) {
+      await Promise.all(
+        rulesToMove.slice(i, i + BATCH_SIZE).map((r) =>
+          prisma.payeeCategoryRule.update({
+            where: { id: r.id },
+            data: { categoryId: targetCategoryId },
+          })
+        )
+      );
+    }
+
+    // 4. Update Riseup category mappings
+    const riseupToMove = await prisma.riseupCategory.findMany({
+      where: { budgetCategoryId: sourceCategoryId, householdId },
+      select: { id: true },
+    });
+    for (let i = 0; i < riseupToMove.length; i += BATCH_SIZE) {
+      await Promise.all(
+        riseupToMove.slice(i, i + BATCH_SIZE).map((rc) =>
+          prisma.riseupCategory.update({
+            where: { id: rc.id },
+            data: { budgetCategoryId: targetCategoryId },
+          })
+        )
+      );
+    }
+
+    // 5. Merge budgets
+    if (combinedBudget > 0) {
+      await prisma.budgetCategory.update({
+        where: { id: targetCategoryId },
+        data: { budget: combinedBudget },
+      });
+    }
+
+    // 6. Delete source category
+    await prisma.budgetCategory.delete({
+      where: { id: sourceCategoryId },
+    });
+
+    const result = { transactionsMoved: txsToMove.length, payeesUpdated: payeesToMove.length };
 
     return NextResponse.json({
       success: true,

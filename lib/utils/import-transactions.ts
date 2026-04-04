@@ -71,17 +71,23 @@ export async function importTransactions(
     }
   }
 
-  // Auto-create new Riseup categories
-  for (const name of newRiseupCategoryNames) {
-    try {
-      await prisma.riseupCategory.create({
-        data: { name, householdId },
-      });
-      knownRiseupNames.add(name);
-      riseupMapping.set(name, null); // No mapping yet
-    } catch {
-      // Ignore unique constraint violations (concurrent imports)
-    }
+  // Auto-create new Riseup categories in parallel batches
+  const BATCH_SIZE = 5;
+  const newRiseupNames = Array.from(newRiseupCategoryNames);
+  for (let i = 0; i < newRiseupNames.length; i += BATCH_SIZE) {
+    await Promise.all(
+      newRiseupNames.slice(i, i + BATCH_SIZE).map(async (name) => {
+        try {
+          await prisma.riseupCategory.create({
+            data: { name, householdId },
+          });
+          knownRiseupNames.add(name);
+          riseupMapping.set(name, null); // No mapping yet
+        } catch {
+          // Ignore unique constraint violations (concurrent imports)
+        }
+      })
+    );
   }
 
   // Fetch existing transactions for duplicate detection (including soft-deleted ones

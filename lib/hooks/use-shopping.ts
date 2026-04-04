@@ -83,6 +83,7 @@ export function useShoppingCategories() {
     queryFn: async (): Promise<ShoppingCategory[]> => {
       return fetchApi<ShoppingCategory[]>('/api/shopping/categories');
     },
+    staleTime: 5 * 60 * 1000, // 5 min - categories rarely change
   });
 }
 
@@ -95,6 +96,7 @@ export function useShoppingItems(search?: string) {
       const qs = params.toString();
       return fetchApi<ShoppingItem[]>(`/api/shopping/items${qs ? `?${qs}` : ''}`);
     },
+    staleTime: 30_000, // 30s
   });
 }
 
@@ -104,6 +106,7 @@ export function useShoppingCart() {
     queryFn: async (): Promise<ShoppingCartItem[]> => {
       return fetchApi<ShoppingCartItem[]>('/api/shopping/cart');
     },
+    staleTime: 10_000, // 10s - changes frequently
   });
 }
 
@@ -351,5 +354,6 @@ export function useShoppingWarnings() {
     queryFn: async (): Promise<ShoppingWarningItem[]> => {
       return fetchApi<ShoppingWarningItem[]>('/api/shopping/items/warnings');
     },
+    staleTime: 60_000, // 1 min
   });
 }

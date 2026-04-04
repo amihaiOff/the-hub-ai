@@ -166,34 +166,34 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get total count for pagination
-    const total = await prisma.budgetTransaction.count({ where });
-
-    // Fetch transactions with relations
-    const transactions = await prisma.budgetTransaction.findMany({
-      where,
-      include: {
-        category: {
-          select: { id: true, name: true },
-        },
-        payee: {
-          select: { id: true, name: true },
-        },
-        profile: {
-          select: { id: true, name: true },
-        },
-        tags: {
-          include: {
-            tag: {
-              select: { id: true },
+    // Get total count and transactions in parallel (same where clause, no dependency)
+    const [total, transactions] = await Promise.all([
+      prisma.budgetTransaction.count({ where }),
+      prisma.budgetTransaction.findMany({
+        where,
+        include: {
+          category: {
+            select: { id: true, name: true },
+          },
+          payee: {
+            select: { id: true, name: true },
+          },
+          profile: {
+            select: { id: true, name: true },
+          },
+          tags: {
+            include: {
+              tag: {
+                select: { id: true },
+              },
             },
           },
         },
-      },
-      orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
-      take: filters.limit,
-      skip: filters.offset,
-    });
+        orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
+        take: filters.limit,
+        skip: filters.offset,
+      }),
+    ]);
 
     const transformedTransactions = transactions.map(transformTransaction);
 
@@ -315,15 +315,20 @@ export async function POST(request: NextRequest) {
 
     const transactionId = transaction.id;
 
-    // Create tag links sequentially
+    // Create tag links in parallel batches
     if (data.tagIds && data.tagIds.length > 0) {
-      for (const tagId of data.tagIds) {
-        await prisma.budgetTransactionTag.create({
-          data: {
-            transactionId,
-            tagId,
-          },
-        });
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < data.tagIds.length; i += BATCH_SIZE) {
+        await Promise.all(
+          data.tagIds.slice(i, i + BATCH_SIZE).map((tagId) =>
+            prisma.budgetTransactionTag.create({
+              data: {
+                transactionId,
+                tagId,
+              },
+            })
+          )
+        );
       }
     }
 

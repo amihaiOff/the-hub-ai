@@ -51,20 +51,29 @@ export async function POST(request: NextRequest) {
     // (createMany/updateMany/deleteMany/$transaction silently fail on Neon HTTP adapter)
 
     // 1. Update lastPurchasedAt for delivered items and delete them from cart
-    for (const ci of deliveredItems) {
-      await prisma.shoppingItem.update({
-        where: { id: ci.itemId },
-        data: { lastPurchasedAt: now },
-      });
-      await prisma.shoppingCartItem.delete({ where: { id: ci.id } });
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < deliveredItems.length; i += BATCH_SIZE) {
+      await Promise.all(
+        deliveredItems.slice(i, i + BATCH_SIZE).map(async (ci) => {
+          await prisma.shoppingItem.update({
+            where: { id: ci.itemId },
+            data: { lastPurchasedAt: now },
+          });
+          await prisma.shoppingCartItem.delete({ where: { id: ci.id } });
+        })
+      );
     }
 
     // 2. Uncheck missing items (keep them in cart for next delivery)
-    for (const ci of missingItems) {
-      await prisma.shoppingCartItem.update({
-        where: { id: ci.id },
-        data: { checked: false },
-      });
+    for (let i = 0; i < missingItems.length; i += BATCH_SIZE) {
+      await Promise.all(
+        missingItems.slice(i, i + BATCH_SIZE).map((ci) =>
+          prisma.shoppingCartItem.update({
+            where: { id: ci.id },
+            data: { checked: false },
+          })
+        )
+      );
     }
 
     // 3. Unchecked items already have checked=false, no update needed
@@ -83,14 +92,18 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    for (const item of defaultItems) {
-      try {
-        await prisma.shoppingCartItem.create({
-          data: { itemId: item.id, householdId, quantity: 1, checked: false },
-        });
-      } catch {
-        // Ignore if already in cart (unique constraint)
-      }
+    for (let i = 0; i < defaultItems.length; i += BATCH_SIZE) {
+      await Promise.all(
+        defaultItems.slice(i, i + BATCH_SIZE).map(async (item) => {
+          try {
+            await prisma.shoppingCartItem.create({
+              data: { itemId: item.id, householdId, quantity: 1, checked: false },
+            });
+          } catch {
+            // Ignore if already in cart (unique constraint)
+          }
+        })
+      );
     }
 
     // 5. Create delivery record

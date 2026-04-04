@@ -46,16 +46,21 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       }
     }
 
+    const BATCH_SIZE = 5;
     let transactionsUpdated = 0;
     if (matchedIds.length > 0) {
-      // Update payee default categories individually
+      // Update payee default categories in parallel batches
       // Note: Using individual update() calls instead of updateMany() due to
       // Neon poolQueryViaFetch compatibility (updateMany silently fails like createMany)
-      for (const payeeId of matchedIds) {
-        await prisma.budgetPayee.update({
-          where: { id: payeeId },
-          data: { categoryId: rule.categoryId },
-        });
+      for (let i = 0; i < matchedIds.length; i += BATCH_SIZE) {
+        await Promise.all(
+          matchedIds.slice(i, i + BATCH_SIZE).map((payeeId) =>
+            prisma.budgetPayee.update({
+              where: { id: payeeId },
+              data: { categoryId: rule.categoryId },
+            })
+          )
+        );
       }
 
       // Also update existing non-deleted transactions for matched payees
@@ -63,11 +68,15 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
         where: { payeeId: { in: matchedIds }, householdId, isDeleted: false },
         select: { id: true },
       });
-      for (const tx of txsToUpdate) {
-        await prisma.budgetTransaction.update({
-          where: { id: tx.id },
-          data: { categoryId: rule.categoryId },
-        });
+      for (let i = 0; i < txsToUpdate.length; i += BATCH_SIZE) {
+        await Promise.all(
+          txsToUpdate.slice(i, i + BATCH_SIZE).map((tx) =>
+            prisma.budgetTransaction.update({
+              where: { id: tx.id },
+              data: { categoryId: rule.categoryId },
+            })
+          )
+        );
       }
       transactionsUpdated = txsToUpdate.length;
     }

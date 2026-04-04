@@ -504,6 +504,7 @@ model BudgetTransaction {
 
   @@index([householdId])
   @@index([householdId, isDeleted])
+  @@index([householdId, isDeleted, transactionDate])
   @@index([transactionDate])
   @@index([categoryId])
   @@index([payeeId])

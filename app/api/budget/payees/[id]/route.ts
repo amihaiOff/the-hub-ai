@@ -117,17 +117,22 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         },
       });
 
-      // Find and individually update non-deleted transactions for this payee
+      // Find and update non-deleted transactions for this payee in parallel batches
       const transactionsToUpdate = await prisma.budgetTransaction.findMany({
         where: { payeeId: id, householdId, isDeleted: false },
         select: { id: true },
       });
 
-      for (const tx of transactionsToUpdate) {
-        await prisma.budgetTransaction.update({
-          where: { id: tx.id },
-          data: { categoryId },
-        });
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < transactionsToUpdate.length; i += BATCH_SIZE) {
+        await Promise.all(
+          transactionsToUpdate.slice(i, i + BATCH_SIZE).map((tx) =>
+            prisma.budgetTransaction.update({
+              where: { id: tx.id },
+              data: { categoryId },
+            })
+          )
+        );
       }
 
       recategorizedCount = transactionsToUpdate.length;

@@ -102,9 +102,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create transactions one by one (Neon compatibility)
+    // Create transactions in batches (Neon compatibility - no createMany)
+    const BATCH_SIZE = 5;
     const createdIds: string[] = [];
 
+    // Transactions must be created sequentially because tag links depend on the transaction ID.
+    // However, tag links within a transaction can be batched.
     for (const data of transactions) {
       const transaction = await prisma.budgetTransaction.create({
         data: {
@@ -131,15 +134,19 @@ export async function POST(request: NextRequest) {
 
       createdIds.push(transaction.id);
 
-      // Create tag links
+      // Create tag links in parallel batches
       if (data.tagIds && data.tagIds.length > 0) {
-        for (const tagId of data.tagIds) {
-          await prisma.budgetTransactionTag.create({
-            data: {
-              transactionId: transaction.id,
-              tagId,
-            },
-          });
+        for (let i = 0; i < data.tagIds.length; i += BATCH_SIZE) {
+          await Promise.all(
+            data.tagIds.slice(i, i + BATCH_SIZE).map((tagId) =>
+              prisma.budgetTransactionTag.create({
+                data: {
+                  transactionId: transaction.id,
+                  tagId,
+                },
+              })
+            )
+          );
         }
       }
     }
@@ -211,12 +218,17 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Update transactions one by one (Neon compatibility)
-    for (const txId of transactionIds) {
-      await prisma.budgetTransaction.update({
-        where: { id: txId },
-        data: { categoryId },
-      });
+    // Update transactions in parallel batches (Neon compatibility)
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < transactionIds.length; i += BATCH_SIZE) {
+      await Promise.all(
+        transactionIds.slice(i, i + BATCH_SIZE).map((txId) =>
+          prisma.budgetTransaction.update({
+            where: { id: txId },
+            data: { categoryId },
+          })
+        )
+      );
     }
 
     return NextResponse.json({
@@ -277,26 +289,35 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Soft delete transactions and their split children individually
+    // Soft delete transactions in parallel batches
     // Note: Using individual update() calls instead of updateMany() due to
     // Neon poolQueryViaFetch compatibility (updateMany silently fails like createMany)
-    for (const txId of transactionIds) {
-      await prisma.budgetTransaction.update({
-        where: { id: txId },
-        data: { isDeleted: true },
-      });
+    const BATCH_SIZE_DEL = 5;
+    for (let i = 0; i < transactionIds.length; i += BATCH_SIZE_DEL) {
+      await Promise.all(
+        transactionIds.slice(i, i + BATCH_SIZE_DEL).map((txId) =>
+          prisma.budgetTransaction.update({
+            where: { id: txId },
+            data: { isDeleted: true },
+          })
+        )
+      );
     }
 
-    // Find and soft-delete split children
+    // Find and soft-delete split children in parallel batches
     const splitChildren = await prisma.budgetTransaction.findMany({
       where: { originalTransactionId: { in: transactionIds }, householdId, isDeleted: false },
       select: { id: true },
     });
-    for (const child of splitChildren) {
-      await prisma.budgetTransaction.update({
-        where: { id: child.id },
-        data: { isDeleted: true },
-      });
+    for (let i = 0; i < splitChildren.length; i += BATCH_SIZE_DEL) {
+      await Promise.all(
+        splitChildren.slice(i, i + BATCH_SIZE_DEL).map((child) =>
+          prisma.budgetTransaction.update({
+            where: { id: child.id },
+            data: { isDeleted: true },
+          })
+        )
+      );
     }
 
     return NextResponse.json({

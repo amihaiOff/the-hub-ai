@@ -158,8 +158,13 @@ export async function DELETE() {
       select: { id: true },
     });
 
-    for (const item of checkedItems) {
-      await prisma.shoppingCartItem.delete({ where: { id: item.id } });
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < checkedItems.length; i += BATCH_SIZE) {
+      await Promise.all(
+        checkedItems
+          .slice(i, i + BATCH_SIZE)
+          .map((item) => prisma.shoppingCartItem.delete({ where: { id: item.id } }))
+      );
     }
 
     return NextResponse.json({

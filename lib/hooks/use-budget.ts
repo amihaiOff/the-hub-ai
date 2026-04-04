@@ -142,6 +142,7 @@ export function useBudgetMonthSummary(month: string) {
     queryFn: async (): Promise<BudgetMonthSummary> => {
       return fetchApi<BudgetMonthSummary>(`/api/budget/summary?month=${month}`);
     },
+    staleTime: 30_000, // 30s
   });
 }
 
@@ -152,6 +153,7 @@ export function useTransactions(filters?: TransactionFilters) {
   return useQuery({
     queryKey: budgetKeys.transactions(filters),
     enabled: filters !== undefined,
+    staleTime: 30_000, // 30s
     queryFn: async (): Promise<BudgetTransaction[]> => {
       const params = new URLSearchParams();
 
@@ -235,6 +237,7 @@ export function useBudgetAnalysis(startDate: string, endDate: string) {
         `/api/budget/analysis?startDate=${startDate}&endDate=${endDate}`
       );
     },
+    staleTime: 5 * 60 * 1000, // 5 min - analysis data is expensive to compute
   });
 }
 
@@ -797,6 +800,7 @@ export function useRiseupCategories() {
     queryFn: async (): Promise<RiseupCategory[]> => {
       return fetchApi<RiseupCategory[]>('/api/budget/riseup-categories');
     },
+    staleTime: 5 * 60 * 1000, // 5 min - rarely changes
   });
 }
 
@@ -937,6 +941,7 @@ export function useSavings() {
     queryFn: async (): Promise<SavingsData> => {
       return fetchApi<SavingsData>('/api/budget/savings');
     },
+    staleTime: 5 * 60 * 1000, // 5 min
   });
 }
 

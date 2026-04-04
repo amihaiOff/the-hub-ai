@@ -36,45 +36,45 @@ export async function GET(request: NextRequest) {
     const startDate = new Date(year, monthNum - 1, 1);
     const endDate = new Date(year, monthNum, 0); // Last day of month
 
-    // Fetch category groups with categories
-    const categoryGroups = await prisma.budgetCategoryGroup.findMany({
-      where: { householdId },
-      include: {
-        categories: {
-          orderBy: { sortOrder: 'asc' },
+    // Fetch category groups and transactions in parallel (no dependency between them)
+    const [categoryGroups, transactions] = await Promise.all([
+      prisma.budgetCategoryGroup.findMany({
+        where: { householdId },
+        include: {
+          categories: {
+            orderBy: { sortOrder: 'asc' },
+          },
         },
-      },
-      orderBy: { sortOrder: 'asc' },
-    });
-
-    // Fetch all transactions for the month
-    const transactions = await prisma.budgetTransaction.findMany({
-      where: {
-        householdId,
-        transactionDate: {
-          gte: startDate,
-          lte: endDate,
+        orderBy: { sortOrder: 'asc' },
+      }),
+      prisma.budgetTransaction.findMany({
+        where: {
+          householdId,
+          transactionDate: {
+            gte: startDate,
+            lte: endDate,
+          },
+          // Exclude split parent transactions (only count children)
+          isSplit: false,
+          // Exclude transactions marked as excluded from budget flow
+          excludedFromFlow: false,
+          isDeleted: false,
         },
-        // Exclude split parent transactions (only count children)
-        isSplit: false,
-        // Exclude transactions marked as excluded from budget flow
-        excludedFromFlow: false,
-        isDeleted: false,
-      },
-      select: {
-        id: true,
-        type: true,
-        transactionDate: true,
-        amountIls: true,
-        categoryId: true,
-        payeeId: true,
-        paymentMethod: true,
-        notes: true,
-        payee: {
-          select: { id: true, name: true },
+        select: {
+          id: true,
+          type: true,
+          transactionDate: true,
+          amountIls: true,
+          categoryId: true,
+          payeeId: true,
+          paymentMethod: true,
+          notes: true,
+          payee: {
+            select: { id: true, name: true },
+          },
         },
-      },
-    });
+      }),
+    ]);
 
     // Calculate totals
     const incomeTransactions = transactions.filter((tx) => tx.type === 'income');
