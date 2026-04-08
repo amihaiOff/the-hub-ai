@@ -27,8 +27,10 @@ export function CartItemRow({
   const touchStartX = useRef<number>(0);
   const [translateX, setTranslateX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (confirming) return;
     touchStartX.current = e.touches[0].clientX;
     setIsSwiping(true);
   };
@@ -36,17 +38,43 @@ export function CartItemRow({
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isSwiping) return;
     const deltaX = e.touches[0].clientX - touchStartX.current;
-    // Clamp to reasonable range
     setTranslateX(Math.max(-200, Math.min(200, deltaX)));
   };
 
   const handleTouchEnd = () => {
     setIsSwiping(false);
     if (Math.abs(translateX) > 100) {
-      onRemove(id);
+      setConfirming(true);
     }
     setTranslateX(0);
   };
+
+  const handleConfirmRemove = () => {
+    setConfirming(false);
+    onRemove(id);
+  };
+
+  const handleCancelRemove = () => {
+    setConfirming(false);
+  };
+
+  if (confirming) {
+    return (
+      <div className="flex items-center justify-between rounded-md bg-red-600/10 px-4 py-3">
+        <span className="text-sm">
+          Remove <strong>{name}</strong>?
+        </span>
+        <div className="flex gap-2">
+          <Button size="sm" variant="ghost" onClick={handleCancelRemove}>
+            Cancel
+          </Button>
+          <Button size="sm" variant="destructive" onClick={handleConfirmRemove}>
+            Remove
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative overflow-hidden rounded-md">
@@ -109,7 +137,7 @@ export function CartItemRow({
           variant="ghost"
           size="icon"
           className="text-muted-foreground hover:text-destructive hidden h-7 w-7 sm:flex"
-          onClick={() => onRemove(id)}
+          onClick={() => setConfirming(true)}
         >
           <Trash2 className="h-4 w-4" />
         </Button>
