@@ -19,8 +19,8 @@ import {
 
 describe('Navigation Constants', () => {
   describe('navItems array structure', () => {
-    it('should contain exactly 7 navigation items with valid structure', () => {
-      expect(navItems).toHaveLength(7);
+    it('should contain exactly 8 navigation items with valid structure', () => {
+      expect(navItems).toHaveLength(8);
       expect(Array.isArray(navItems)).toBe(true);
 
       navItems.forEach((item) => {

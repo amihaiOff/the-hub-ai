@@ -96,6 +96,11 @@ model Household {
   shoppingCartItems  ShoppingCartItem[]
   shoppingDeliveries ShoppingDelivery[]
 
+  // Moneytor module
+  moneytorTransactions   MoneytorTransaction[]
+  moneytorStockHoldings  MoneytorStockHolding[]
+  moneytorStockSnapshots MoneytorStockSnapshot[]
+
   @@map("households")
 }
 
@@ -651,4 +656,79 @@ model ShoppingCartItem {
   @@unique([householdId, itemId])
   @@index([householdId])
   @@map("shopping_cart_items")
+}
+
+// Moneytor Transactions - read-only mirror of transactions pulled from Moneytor API
+model MoneytorTransaction {
+  id              String   @id // Moneytor's ULID; natural PK for upsert
+  transactionDate DateTime @map("transaction_date") @db.Date
+  amount          Decimal  @db.Decimal(18, 2) // Signed: negative = expense, positive = income
+  currency        String   @default("ILS")
+  description     String
+  category        String // Raw Moneytor category string (e.g. BANK_TRANSFER)
+  accountId       String   @map("account_id")
+  type            String // Moneytor account type (e.g. CHECKING)
+  householdId     String   @map("household_id")
+  syncedAt        DateTime @default(now()) @map("synced_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@index([householdId, transactionDate])
+  @@index([category])
+  @@map("moneytor_transactions")
+}
+
+// Moneytor Stock Holdings - mirror of share-form assets returned by Moneytor /assets.
+// One row per holding inside an account's stocksData[].
+model MoneytorStockHolding {
+  id                String    @id @default(cuid())
+  productId         String    @map("product_id") // Moneytor product id (parent account)
+  accountName       String    @map("account_name")
+  broker            String?
+  stockName         String    @map("stock_name") // ticker / symbol
+  amount            Decimal   @db.Decimal(20, 8) // units held
+  purchasePrice     Decimal?  @map("purchase_price") @db.Decimal(20, 4)
+  purchaseDate      DateTime? @map("purchase_date") @db.Date
+  stockPrice        Decimal   @map("stock_price") @db.Decimal(20, 4)
+  currency          String
+  totalWorthInBase  Decimal   @map("total_worth_in_base") @db.Decimal(18, 2)
+  accountCash       Decimal?  @map("account_cash") @db.Decimal(18, 2) // cash on the parent account
+  householdId       String    @map("household_id")
+  syncedAt          DateTime  @default(now()) @map("synced_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, productId, stockName])
+  @@index([householdId])
+  @@index([householdId, productId])
+  @@map("moneytor_stock_holdings")
+}
+
+// Daily snapshot of each Moneytor holding. Written on every sync; idempotent per (date, holding).
+// Used to draw value-over-time charts since Moneytor's API doesn't expose history.
+model MoneytorStockSnapshot {
+  id               String   @id @default(cuid())
+  snapshotDate     DateTime @map("snapshot_date") @db.Date
+  productId        String   @map("product_id")
+  accountName      String   @map("account_name")
+  stockName        String   @map("stock_name")
+  amount           Decimal  @db.Decimal(20, 8)
+  stockPrice       Decimal  @map("stock_price") @db.Decimal(20, 4)
+  currency         String
+  totalWorthInBase Decimal  @map("total_worth_in_base") @db.Decimal(18, 2)
+  accountCash      Decimal? @map("account_cash") @db.Decimal(18, 2)
+  householdId      String   @map("household_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, snapshotDate, productId, stockName])
+  @@index([householdId, snapshotDate])
+  @@map("moneytor_stock_snapshots")
 }

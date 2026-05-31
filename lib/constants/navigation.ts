@@ -78,6 +78,7 @@ export const navItems: NavItem[] = [
       { href: '/shopping/items', label: 'Items', icon: Package },
     ],
   },
+  { href: '/moneytor-trnx', label: 'Moneytor Trnx', icon: ArrowLeftRight },
 ];
 
 export const settingsItem: NavItem = { href: '/settings', label: 'Settings', icon: Settings };

@@ -946,3 +946,44 @@ Configured in `vercel.json`:
 ## Context 7 Integration
 
 MCP aggregator - to be explored
+
+# Moneytor Integration
+
+Pulls transactions from Moneytor (external aggregator) into a separate, read-only dataset. Kept isolated from `budget_transactions` so the rich budget tooling (categories, payees, tags, splits) is not contaminated with raw external data.
+
+## Components
+
+- **Page** `/moneytor-trnx` — top section: stock holdings grouped by Moneytor account (current price vs. purchase price in green/red, qty, value in ILS, account total + cash). Bottom section: month-scoped transactions list with search/category/type filters. One **Sync now** button covers both.
+- **Database:**
+  - `moneytor_transactions` — id (Moneytor ULID, PK), transaction_date, amount (signed Decimal), currency, description, category (raw enum string e.g. `BANK_TRANSFER`), account_id, type, household_id, synced_at.
+  - `moneytor_stock_holdings` — one row per holding inside a share-form account's `stocksData`. Unique on (household_id, product_id, stock_name). Tracks amount, purchase_price/date, current stock_price, currency, total_worth_in_base (ILS), account_cash.
+  - `moneytor_stock_snapshots` — one row per holding per day. Unique on (household_id, snapshot_date, product_id, stock_name). Written on every sync; second sync the same day overwrites today's row. Drives value-over-time chart on `/portfolio/v2`.
+- **API routes:**
+  - `POST /api/moneytor/sync` — pulls transactions (incremental, 7-day safety window, 100-row `$transaction` chunks) AND share-form assets (full-refresh per account: deletes holdings absent from the latest response, upserts the rest).
+  - `GET /api/moneytor/transactions` — filterable list; returns distinct categories and last-sync time.
+  - `GET /api/moneytor/stocks` — returns holdings grouped by account, with per-account total and cash.
+  - `GET /api/moneytor/portfolio` — returns Moneytor holdings reshaped into the `PortfolioSummary` contract consumed by `/portfolio/v2` (per-account totals/cost-basis/P&L in ILS; per-holding price + cost in native currency).
+  - `GET /api/moneytor/portfolio/history?range=1Y` — daily timeseries built from `moneytor_stock_snapshots`. Returns both `points` (total across all accounts per day) and `accounts: [{ productId, points }]` so per-account sparklines can use real data.
+- **External client** `lib/api/moneytor.ts` — `fetchMoneytorTransactions` + `fetchMoneytorShareAssets`, share a private `moneytorGet` helper that handles auth and typed errors. `MoneytorApiError` covers token-expired / rate-limit / 401 / 403 cases with renewal URL.
+- **Auth:** Bearer JWT stored in `MONEYTOR_API_TOKEN` env var (30-day expiry; renew at app.moneytor.co.il/settings#api).
+
+## Behavior
+
+- Manual sync only (no cron) — user chose this to control API quota (30/hr, 300/day).
+- Transactions upsert keyed on Moneytor's own id so re-syncs are idempotent.
+- Stocks: full refresh per account (delete-then-upsert) since the `/assets` endpoint returns a portfolio snapshot, not deltas — handles removed positions correctly.
+- Snapshot history: written on every sync (one row per holding per day); multiple syncs within the same day overwrite today's row. Forward-only history since Moneytor doesn't expose price history.
+- Token-expired errors surface inline on the page with a "Renew token" link.
+
+## /portfolio/v2 (Moneytor data source)
+
+The "New Design" portfolio page (`/portfolio/v2`) **merges** both data sources: hand-managed accounts from `stock_accounts`/`stock_holdings` and Moneytor-synced accounts from `moneytor_stock_holdings`. Hero totals (value, gain/loss, holdings count, account count) sum across both. Allocation bar combines symbols from both. Per-account sections:
+
+- **Legacy accounts**: keep their Edit/Delete dropdowns and dialogs (writes to `stock_holdings`).
+- **Moneytor accounts**: tagged with a small `MONEYTOR` badge, read-only — no edit/delete buttons.
+
+A single "Sync now" button in the hero only triggers Moneytor sync (no effect on legacy accounts; use `/portfolio` for hand-managed CRUD). The performance chart and per-account header sparklines use real `moneytor_stock_snapshots` history; until at least 2 sync days exist the chart shows "Not enough history yet" and sparklines are hidden (never synthetic). A caption under the chart calls out that history is Moneytor-only — legacy accounts contribute to totals but not to chart trend.
+
+Combined totals use each API's pre-aggregated ILS sums (`legacy.totalValue + moneytor.totalValue`) rather than per-account sums, since per-account `totalValue` is in the account's native currency.
+
+Time range tabs (6M/1Y/3Y/5Y/ALL) are shared via a hoisted query. The legacy `/portfolio` page is unchanged. `AccountSparkline` falls back to synthetic generation when no `points` prop is supplied (preserves v1 behavior). Dashboard net-worth card and snapshot cron still read the legacy tables only.

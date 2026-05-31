@@ -12,6 +12,8 @@ interface AccountSparklineProps {
   formatValue?: (value: number) => string;
   /** Controls chart color: true = green/blue, false = red */
   isPositive?: boolean;
+  /** When provided, use this real time series instead of synthetic generation. */
+  points?: { date: string; value: number }[];
 }
 
 const TIMESPAN_CONFIG: Record<SparklineTimespan, { points: number; gainFraction: number }> = {
@@ -97,12 +99,23 @@ export function AccountSparkline({
   timespan = '1M',
   formatValue,
   isPositive = true,
+  points,
 }: AccountSparklineProps) {
   const id = useId();
-  const data = useMemo(
-    () => generateData(currentValue, totalGainLoss, timespan),
-    [currentValue, totalGainLoss, timespan]
-  );
+  const data = useMemo(() => {
+    // When the caller hands us a real series, always honor it — never fall back to
+    // synthetic so the chart can't lie about history we don't actually have.
+    if (points !== undefined) {
+      return points.map((p) => ({
+        value: Math.max(0, p.value),
+        date: new Date(p.date).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        }),
+      }));
+    }
+    return generateData(currentValue, totalGainLoss, timespan);
+  }, [points, currentValue, totalGainLoss, timespan]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [touchActiveIndex, setTouchActiveIndex] = useState<number | undefined>(undefined);

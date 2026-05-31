@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useId, useRef } from 'react';
+import { useState, useMemo, useCallback, useId } from 'react';
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import {
   ChevronDown,
@@ -8,6 +8,8 @@ import {
   ArrowUpDown,
   TrendingUp,
   AlertCircle,
+  RefreshCw,
+  ExternalLink,
   MoreHorizontal,
   Pencil,
   Trash2,
@@ -19,9 +21,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { usePortfolio, useDeleteHolding } from '@/lib/hooks/use-portfolio';
+import {
+  useMoneytorPortfolio,
+  useMoneytorPortfolioHistory,
+  useSyncMoneytor,
+} from '@/lib/hooks/use-moneytor';
 import { CurrencyProvider, useCurrency } from '@/lib/contexts/currency-context';
 import { calculateAllocation, getCurrencySymbol } from '@/lib/utils/portfolio';
-import type { HoldingValue, AccountSummary } from '@/lib/utils/portfolio';
+import type { AccountSummary, HoldingValue } from '@/lib/utils/portfolio';
 import { AccountSparkline } from '@/components/portfolio/account-sparkline';
 import { OwnerBadges } from '@/components/shared/owner-badges';
 import { EditHoldingDialog } from '@/components/portfolio/edit-holding-dialog';
@@ -29,10 +36,17 @@ import { DeleteConfirmDialog } from '@/components/portfolio/delete-confirm-dialo
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type AccountSource = 'legacy' | 'moneytor';
+
+interface CombinedAccount extends AccountSummary {
+  source: AccountSource;
+}
+
 interface FlatHolding extends HoldingValue {
   accountName: string;
   accountId: string;
   accountCurrency: string;
+  accountSource: AccountSource;
 }
 
 type SortKey = 'symbol' | 'value' | 'gainLossPercent' | 'currentPrice' | 'quantity';
@@ -74,59 +88,26 @@ const CURRENCY_FLAGS: Record<string, string> = {
   CHF: '🇨🇭',
 };
 
-// ─── Chart Data Generator ─────────────────────────────────────────────────────
+// ─── Chart helpers ────────────────────────────────────────────────────────────
 
-function generateChartData(currentValue: number, totalGainLoss: number, timeRange: TimeRange) {
-  const now = new Date();
-  const costBasis = currentValue - totalGainLoss;
+const MONTH_NAMES = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
 
-  const monthsMap: Record<TimeRange, number> = {
-    '6M': 6,
-    '1Y': 12,
-    '3Y': 36,
-    '5Y': 60,
-    ALL: 60,
-  };
-  const monthsBack = monthsMap[timeRange];
-  const interval = timeRange === '5Y' || timeRange === 'ALL' ? 6 : timeRange === '3Y' ? 3 : 1;
-  const numPoints = Math.ceil(monthsBack / interval);
-  const monthNames = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-
-  const data = [];
-  for (let i = 0; i < numPoints; i++) {
-    const progress = i / Math.max(numPoints - 1, 1);
-    const variance = (Math.sin(i * 1.2) * 0.03 + Math.cos(i * 0.8) * 0.02) * costBasis;
-    const value = Math.max(0, costBasis + totalGainLoss * progress + variance);
-
-    const monthsFromStart = i * interval;
-    const targetMonthIdx = (now.getMonth() - monthsBack + 1 + monthsFromStart + 12 * 10) % 12;
-    const yearsBack = Math.floor((monthsBack - 1 - monthsFromStart) / 12);
-    const year = now.getFullYear() - yearsBack;
-
-    data.push({
-      month: `${monthNames[targetMonthIdx]} '${String(year).slice(-2)}`,
-      value,
-    });
-  }
-
-  if (data.length > 0) {
-    data[data.length - 1].value = currentValue;
-  }
-
-  return data;
+function formatPointLabel(isoDate: string): string {
+  const d = new Date(isoDate);
+  return `${MONTH_NAMES[d.getUTCMonth()]} ${d.getUTCDate()} '${String(d.getUTCFullYear()).slice(-2)}`;
 }
 
 // ─── Format helpers ───────────────────────────────────────────────────────────
@@ -289,17 +270,29 @@ function AllocationBar({ accounts }: AllocationBarProps) {
 // ─── Performance Chart ────────────────────────────────────────────────────────
 
 interface PerformanceChartProps {
-  currentValue: number;
   totalGainLoss: number;
+  timeRange: TimeRange;
+  onTimeRangeChange: (r: TimeRange) => void;
+  points: { date: string; value: number }[];
+  isLoading: boolean;
 }
 
-function PerformanceChart({ currentValue, totalGainLoss }: PerformanceChartProps) {
+function PerformanceChart({
+  totalGainLoss,
+  timeRange,
+  onTimeRangeChange,
+  points,
+  isLoading: historyLoading,
+}: PerformanceChartProps) {
   const gradientId = useId();
-  const [timeRange, setTimeRange] = useState<TimeRange>('1Y');
 
   const data = useMemo(
-    () => generateChartData(currentValue, totalGainLoss, timeRange),
-    [currentValue, totalGainLoss, timeRange]
+    () =>
+      points.map((p) => ({
+        month: formatPointLabel(p.date),
+        value: p.value,
+      })),
+    [points]
   );
 
   const isPositive = totalGainLoss >= 0;
@@ -312,7 +305,7 @@ function PerformanceChart({ currentValue, totalGainLoss }: PerformanceChartProps
         {TIME_RANGES.map(({ label, value }) => (
           <button
             key={value}
-            onClick={() => setTimeRange(value)}
+            onClick={() => onTimeRangeChange(value)}
             aria-pressed={timeRange === value}
             aria-label={`Show ${label} time range`}
             className={[
@@ -330,65 +323,77 @@ function PerformanceChart({ currentValue, totalGainLoss }: PerformanceChartProps
 
       {/* Chart — full bleed, no card */}
       <div className="h-64 w-full lg:h-80" aria-hidden="true">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={strokeColor} stopOpacity={isPositive ? 0.25 : 0.12} />
-                <stop offset="75%" stopColor={strokeColor} stopOpacity={0.04} />
-                <stop offset="100%" stopColor={strokeColor} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <XAxis
-              dataKey="month"
-              axisLine={false}
-              tickLine={false}
-              tick={{
-                fontSize: 10,
-                fill: 'rgba(253,251,254,0.4)',
-                fontFamily: 'var(--font-manrope)',
-              }}
-              dy={8}
-              interval="preserveStartEnd"
-            />
-            <YAxis hide domain={['dataMin - 50000', 'dataMax + 50000']} />
-            <Tooltip
-              content={({ active, payload }) => {
-                if (!active || !payload?.length) return null;
-                const point = payload[0].payload as { month: string; value: number };
-                return (
-                  <div className="rounded-xl border border-[#6ab2ff33] bg-[#1a1b1e]/95 px-3 py-2 text-xs shadow-xl backdrop-blur-sm">
-                    <p className="text-[rgba(253,251,254,0.5)]">{point.month}</p>
-                    <p className="mt-0.5 font-semibold text-[#fdfbfe] tabular-nums">
-                      {fmtILS(point.value)}
-                    </p>
-                  </div>
-                );
-              }}
-              cursor={{
-                stroke: '#6ab2ff',
-                strokeWidth: 1,
-                strokeDasharray: '4 4',
-                strokeOpacity: 0.5,
-              }}
-            />
-            <Area
-              type="monotone"
-              dataKey="value"
-              stroke={strokeColor}
-              strokeWidth={2}
-              fill={`url(#${gradientId})`}
-              dot={false}
-              activeDot={{
-                r: 4,
-                fill: strokeColor,
-                stroke: '#0d0e10',
-                strokeWidth: 2,
-              }}
-              isAnimationActive={false}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+        {historyLoading ? (
+          <ChartSkeleton />
+        ) : data.length < 2 ? (
+          <div className="flex h-full items-center justify-center text-xs text-[rgba(253,251,254,0.4)]">
+            Not enough history yet — sync daily to build the chart.
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                  <stop
+                    offset="0%"
+                    stopColor={strokeColor}
+                    stopOpacity={isPositive ? 0.25 : 0.12}
+                  />
+                  <stop offset="75%" stopColor={strokeColor} stopOpacity={0.04} />
+                  <stop offset="100%" stopColor={strokeColor} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis
+                dataKey="month"
+                axisLine={false}
+                tickLine={false}
+                tick={{
+                  fontSize: 10,
+                  fill: 'rgba(253,251,254,0.4)',
+                  fontFamily: 'var(--font-manrope)',
+                }}
+                dy={8}
+                interval="preserveStartEnd"
+              />
+              <YAxis hide domain={['dataMin - 50000', 'dataMax + 50000']} />
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const point = payload[0].payload as { month: string; value: number };
+                  return (
+                    <div className="rounded-xl border border-[#6ab2ff33] bg-[#1a1b1e]/95 px-3 py-2 text-xs shadow-xl backdrop-blur-sm">
+                      <p className="text-[rgba(253,251,254,0.5)]">{point.month}</p>
+                      <p className="mt-0.5 font-semibold text-[#fdfbfe] tabular-nums">
+                        {fmtILS(point.value)}
+                      </p>
+                    </div>
+                  );
+                }}
+                cursor={{
+                  stroke: '#6ab2ff',
+                  strokeWidth: 1,
+                  strokeDasharray: '4 4',
+                  strokeOpacity: 0.5,
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke={strokeColor}
+                strokeWidth={2}
+                fill={`url(#${gradientId})`}
+                dot={false}
+                activeDot={{
+                  r: 4,
+                  fill: strokeColor,
+                  stroke: '#0d0e10',
+                  strokeWidth: 2,
+                }}
+                isAnimationActive={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );
@@ -449,6 +454,8 @@ interface HoldingsTableProps {
   nativeCurrency: string;
   alternateCurrency: string;
   rates?: Record<string, number>;
+  /** Source of the account. Edit/delete only shown for hand-managed (legacy) rows. */
+  source: AccountSource;
 }
 
 function HoldingsTable({
@@ -458,15 +465,15 @@ function HoldingsTable({
   nativeCurrency,
   alternateCurrency,
   rates,
+  source,
 }: HoldingsTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('value');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
-
-  // Dialog state
   const [editHolding, setEditHolding] = useState<FlatHolding | null>(null);
   const [deleteHolding, setDeleteHolding] = useState<FlatHolding | null>(null);
   const deleteMutation = useDeleteHolding();
+  const canEdit = source === 'legacy';
 
   // Compute account total for progress bars (sum of all holdings in this table)
   const accountTotalValue = useMemo(
@@ -571,8 +578,7 @@ function HoldingsTable({
             <SortHeader label="Price" sortable="currentPrice" align="right" {...sh} />
             <SortHeader label="Value" sortable="value" align="right" {...sh} />
             <SortHeader label="P&L %" sortable="gainLossPercent" align="right" {...sh} />
-            {/* Actions column — desktop only */}
-            <th className="hidden w-8 lg:table-cell" aria-hidden="true" />
+            {canEdit && <th className="hidden w-8 lg:table-cell" aria-hidden="true" />}
           </tr>
         </thead>
         <tbody className="divide-y divide-[#6ab2ff1a]">
@@ -677,40 +683,42 @@ function HoldingsTable({
                   </div>
                 </td>
 
-                {/* Actions — desktop only */}
-                <td className="hidden px-2 py-3.5 text-right lg:table-cell">
-                  <div className="opacity-30 transition-opacity duration-150 group-hover:opacity-100 hover:opacity-100">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          aria-label={`Actions for ${h.symbol}`}
-                          className="flex h-7 w-7 items-center justify-center rounded-md text-[rgba(253,251,254,0.4)] transition-colors hover:bg-[#242629] hover:text-[#fdfbfe] active:scale-[0.95]"
+                {/* Actions — desktop only, legacy accounts only */}
+                {canEdit && (
+                  <td className="hidden px-2 py-3.5 text-right lg:table-cell">
+                    <div className="opacity-30 transition-opacity duration-150 group-hover:opacity-100 hover:opacity-100">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            aria-label={`Actions for ${h.symbol}`}
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-[rgba(253,251,254,0.4)] transition-colors hover:bg-[#242629] hover:text-[#fdfbfe] active:scale-[0.95]"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          className="border-[#6ab2ff33] bg-[#1a1b1e] text-[#fdfbfe]"
                         >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="end"
-                        className="border-[#6ab2ff33] bg-[#1a1b1e] text-[#fdfbfe]"
-                      >
-                        <DropdownMenuItem
-                          onClick={() => setEditHolding(h)}
-                          className="cursor-pointer gap-2 text-sm hover:bg-[#242629] focus:bg-[#242629]"
-                        >
-                          <Pencil className="h-3.5 w-3.5 text-[rgba(253,251,254,0.5)]" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setDeleteHolding(h)}
-                          className="cursor-pointer gap-2 text-sm text-[#f87171] hover:bg-[#f8717115] focus:bg-[#f8717115]"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </td>
+                          <DropdownMenuItem
+                            onClick={() => setEditHolding(h)}
+                            className="cursor-pointer gap-2 text-sm hover:bg-[#242629] focus:bg-[#242629]"
+                          >
+                            <Pencil className="h-3.5 w-3.5 text-[rgba(253,251,254,0.5)]" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setDeleteHolding(h)}
+                            className="cursor-pointer gap-2 text-sm text-[#f87171] hover:bg-[#f8717115] focus:bg-[#f8717115]"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </td>
+                )}
               </tr>
             );
           })}
@@ -800,25 +808,26 @@ function HoldingsTable({
                       </div>
                     ))}
                   </div>
-                  {/* Mobile Edit / Delete */}
-                  <div className="mt-3 flex gap-2 border-t border-[#6ab2ff1a] pt-3">
-                    <button
-                      aria-label={`Edit ${h.symbol}`}
-                      onClick={() => setEditHolding(h)}
-                      className="flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#6ab2ff33] bg-[#242629] px-3 text-xs font-medium text-[rgba(253,251,254,0.7)] transition-colors hover:bg-[#2e3035] active:scale-[0.98]"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                      Edit
-                    </button>
-                    <button
-                      aria-label={`Delete ${h.symbol}`}
-                      onClick={() => setDeleteHolding(h)}
-                      className="flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#f8717133] bg-[#f8717108] px-3 text-xs font-medium text-[#f87171] transition-colors hover:bg-[#f8717120] active:scale-[0.98]"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Delete
-                    </button>
-                  </div>
+                  {canEdit && (
+                    <div className="mt-3 flex gap-2 border-t border-[#6ab2ff1a] pt-3">
+                      <button
+                        aria-label={`Edit ${h.symbol}`}
+                        onClick={() => setEditHolding(h)}
+                        className="flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#6ab2ff33] bg-[#242629] px-3 text-xs font-medium text-[rgba(253,251,254,0.7)] transition-colors hover:bg-[#2e3035] active:scale-[0.98]"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Edit
+                      </button>
+                      <button
+                        aria-label={`Delete ${h.symbol}`}
+                        onClick={() => setDeleteHolding(h)}
+                        className="flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#f8717133] bg-[#f8717108] px-3 text-xs font-medium text-[#f87171] transition-colors hover:bg-[#f8717120] active:scale-[0.98]"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -826,8 +835,8 @@ function HoldingsTable({
         })}
       </div>
 
-      {/* Edit Dialog */}
-      {editHolding && (
+      {/* Edit / Delete dialogs (legacy accounts only) */}
+      {canEdit && editHolding && (
         <EditHoldingDialog
           holdingId={editHolding.id}
           holding={editHolding}
@@ -837,9 +846,7 @@ function HoldingsTable({
           }}
         />
       )}
-
-      {/* Delete Dialog */}
-      {deleteHolding && (
+      {canEdit && deleteHolding && (
         <DeleteConfirmDialog
           title={`Delete ${deleteHolding.symbol}?`}
           description={`This will permanently remove ${deleteHolding.symbol} from your portfolio. This action cannot be undone.`}
@@ -860,13 +867,20 @@ function HoldingsTable({
 // ─── Per-Account Section ─────────────────────────────────────────────────────
 
 interface AccountSectionProps {
-  account: AccountSummary;
+  account: CombinedAccount;
   colorMap: Record<string, string>;
   defaultOpen?: boolean;
   delay?: number;
+  sparklinePoints?: { date: string; value: number }[];
 }
 
-function AccountSection({ account, colorMap, defaultOpen = true, delay = 0 }: AccountSectionProps) {
+function AccountSection({
+  account,
+  colorMap,
+  defaultOpen = true,
+  delay = 0,
+  sparklinePoints,
+}: AccountSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [showInAlternate, setShowInAlternate] = useState(false);
 
@@ -886,6 +900,7 @@ function AccountSection({ account, colorMap, defaultOpen = true, delay = 0 }: Ac
     accountName: account.name,
     accountId: account.id,
     accountCurrency: account.currency,
+    accountSource: account.source,
   }));
 
   // Convert rates to plain Record<string, number>
@@ -911,7 +926,14 @@ function AccountSection({ account, colorMap, defaultOpen = true, delay = 0 }: Ac
             aria-hidden="true"
           />
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-[#fdfbfe]">{account.name}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-[#fdfbfe]">{account.name}</p>
+              {account.source === 'moneytor' && (
+                <span className="rounded-full border border-[#6ab2ff33] bg-[#6ab2ff0d] px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-[#6ab2ff] uppercase">
+                  Moneytor
+                </span>
+              )}
+            </div>
             {account.broker && (
               <p className="text-[11px] text-[rgba(253,251,254,0.4)]">{account.broker}</p>
             )}
@@ -971,14 +993,14 @@ function AccountSection({ account, colorMap, defaultOpen = true, delay = 0 }: Ac
               {fmtPct(account.totalGainLossPercent)}
             </p>
           </div>
-          {/* Mini sparkline */}
-          {account.totalValue > 0 && (
+          {/* Mini sparkline — uses real snapshot history when available */}
+          {account.totalValue > 0 && sparklinePoints && sparklinePoints.length >= 2 && (
             <div className="h-8 w-16 shrink-0 opacity-70">
               <AccountSparkline
                 currentValue={account.totalValue}
                 totalGainLoss={account.totalGainLoss}
-                timespan="1M"
                 isPositive={isGain}
+                points={sparklinePoints}
               />
             </div>
           )}
@@ -998,6 +1020,7 @@ function AccountSection({ account, colorMap, defaultOpen = true, delay = 0 }: Ac
           nativeCurrency={nativeCurrency}
           alternateCurrency={alternateCurrency}
           rates={ratesRecord}
+          source={account.source}
         />
 
         {/* Cash balances section */}
@@ -1055,19 +1078,52 @@ function AccountSection({ account, colorMap, defaultOpen = true, delay = 0 }: Ac
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 function PortfolioV2Content() {
-  const { data: portfolio, isLoading, error } = usePortfolio();
+  // Two independent sources: hand-managed (legacy) accounts and Moneytor-synced accounts.
+  // They're merged into one list here so the v2 page shows everything in one view.
+  const { data: legacy, isLoading: legacyLoading, error: legacyError } = usePortfolio();
+  const { data: moneytor, isLoading: moneytorLoading } = useMoneytorPortfolio();
+  const sync = useSyncMoneytor();
+  const [timeRange, setTimeRange] = useState<TimeRange>('1Y');
+  const { data: history, isLoading: historyLoading } = useMoneytorPortfolioHistory(timeRange);
+
+  const isLoading = legacyLoading || moneytorLoading;
+  // Surface the legacy load error since it's the bigger surface; Moneytor errors are
+  // handled inline beside the Sync button.
+  const error = legacyError;
+
+  // Map productId → real per-account snapshot series. Only Moneytor accounts have history.
+  const accountPoints = useMemo(() => {
+    const map: Record<string, { date: string; value: number }[]> = {};
+    for (const a of history?.accounts ?? []) {
+      map[a.productId] = a.points;
+    }
+    return map;
+  }, [history]);
+
+  // Combine accounts from both sources, marking the source so the UI can render
+  // edit/delete buttons only on hand-managed (legacy) accounts.
+  const accounts: CombinedAccount[] = useMemo(() => {
+    const list: CombinedAccount[] = [];
+    for (const a of legacy?.accounts ?? []) {
+      list.push({ ...a, source: 'legacy' });
+    }
+    for (const a of moneytor?.accounts ?? []) {
+      list.push({ ...a, source: 'moneytor' });
+    }
+    return list.sort((a, b) => b.totalValue - a.totalValue);
+  }, [legacy, moneytor]);
 
   const flatHoldings: FlatHolding[] = useMemo(() => {
-    if (!portfolio?.accounts) return [];
-    return portfolio.accounts.flatMap((a) =>
+    return accounts.flatMap((a) =>
       a.holdings.map((h) => ({
         ...h,
         accountName: a.name,
         accountId: a.id,
         accountCurrency: a.currency,
+        accountSource: a.source,
       }))
     );
-  }, [portfolio]);
+  }, [accounts]);
 
   // Build symbol → color map
   const colorMap = useMemo(() => {
@@ -1077,9 +1133,14 @@ function PortfolioV2Content() {
     );
   }, [flatHoldings]);
 
-  const totalValue = portfolio?.totalValue ?? 0;
-  const totalGainLoss = portfolio?.totalGainLoss ?? 0;
-  const totalGainLossPercent = portfolio?.totalGainLossPercent ?? 0;
+  // Combined totals across both sources. Per-account totalValue is in the account's
+  // native currency, so naive summing across e.g. USD + ILS would be wrong. Use each
+  // API's pre-aggregated ILS totals at the top level instead.
+  const totalValue = (legacy?.totalValue ?? 0) + (moneytor?.totalValue ?? 0);
+  const totalCostBasis = (legacy?.totalCostBasis ?? 0) + (moneytor?.totalCostBasis ?? 0);
+  const totalGainLoss = (legacy?.totalGainLoss ?? 0) + (moneytor?.totalGainLoss ?? 0);
+  const totalGainLossPercent = totalCostBasis > 0 ? (totalGainLoss / totalCostBasis) * 100 : 0;
+  const totalHoldings = accounts.reduce((s, a) => s + a.holdings.length, 0);
   const isPositive = totalGainLoss >= 0;
   const gainColor = isPositive ? '#34d399' : '#f87171';
 
@@ -1099,11 +1160,25 @@ function PortfolioV2Content() {
               animation: 'fadeUp 0.5s cubic-bezier(0.32,0.72,0,1) both',
             }}
           >
-            {/* Eyebrow */}
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-[#6ab2ff33] bg-[#6ab2ff0d] px-2.5 py-0.5">
-              <span className="text-[10px] font-bold tracking-[0.15em] text-[#6ab2ff] uppercase">
-                Portfolio
-              </span>
+            {/* Eyebrow row: tag + sync button */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-[#6ab2ff33] bg-[#6ab2ff0d] px-2.5 py-0.5">
+                <span className="text-[10px] font-bold tracking-[0.15em] text-[#6ab2ff] uppercase">
+                  Portfolio
+                </span>
+              </div>
+              <button
+                onClick={() => sync.mutate()}
+                disabled={sync.isPending}
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#6ab2ff33] bg-[#6ab2ff0d] px-3 py-1 text-xs font-medium text-[#6ab2ff] transition-colors hover:bg-[#6ab2ff1f] disabled:opacity-50"
+                aria-label="Sync portfolio from Moneytor"
+              >
+                <RefreshCw
+                  className={sync.isPending ? 'h-3 w-3 animate-spin' : 'h-3 w-3'}
+                  aria-hidden="true"
+                />
+                {sync.isPending ? 'Syncing...' : 'Sync now'}
+              </button>
             </div>
 
             {/* Value */}
@@ -1128,7 +1203,7 @@ function PortfolioV2Content() {
                 {fmtPct(totalGainLossPercent)} all time
               </span>
               <span className="text-xs text-[rgba(253,251,254,0.3)]">
-                · {portfolio?.totalHoldings ?? 0} holdings
+                · {totalHoldings} holdings · {accounts.length} accounts
               </span>
             </div>
           </div>
@@ -1141,13 +1216,23 @@ function PortfolioV2Content() {
           <ChartSkeleton />
         ) : totalValue > 0 ? (
           <div style={{ animation: 'fadeUp 0.5s 0.1s cubic-bezier(0.32,0.72,0,1) both' }}>
-            <PerformanceChart currentValue={totalValue} totalGainLoss={totalGainLoss} />
+            <PerformanceChart
+              totalGainLoss={totalGainLoss}
+              timeRange={timeRange}
+              onTimeRangeChange={setTimeRange}
+              points={history?.points ?? []}
+              isLoading={historyLoading}
+            />
+            <p className="mt-2 text-[10px] text-[rgba(253,251,254,0.4)]">
+              History from Moneytor-synced accounts only · legacy accounts contribute to totals but
+              not to chart trend
+            </p>
           </div>
         ) : null}
       </div>
 
       {/* ── ALLOCATION BAR ────────────────────────────────────────────────── */}
-      {!isLoading && portfolio?.accounts && portfolio.accounts.length > 0 && (
+      {!isLoading && accounts.length > 0 && (
         <div
           className="mt-8 px-4 lg:px-8"
           style={{ animation: 'fadeUp 0.5s 0.18s cubic-bezier(0.32,0.72,0,1) both' }}
@@ -1155,7 +1240,7 @@ function PortfolioV2Content() {
           <p className="mb-3 text-[10px] font-bold tracking-[0.15em] text-[rgba(253,251,254,0.4)] uppercase">
             Allocation
           </p>
-          <AllocationBar accounts={portfolio.accounts} />
+          <AllocationBar accounts={accounts} />
         </div>
       )}
 
@@ -1165,13 +1250,14 @@ function PortfolioV2Content() {
           <TableSkeleton />
         </div>
       ) : (
-        portfolio?.accounts?.map((account, i) => (
+        accounts.map((account, i) => (
           <AccountSection
-            key={account.id}
+            key={`${account.source}-${account.id}`}
             account={account}
             colorMap={colorMap}
             defaultOpen={true}
             delay={0.24 + i * 0.06}
+            sparklinePoints={account.source === 'moneytor' ? accountPoints[account.id] : undefined}
           />
         ))
       )}
@@ -1185,6 +1271,30 @@ function PortfolioV2Content() {
             <p className="mt-0.5 text-xs text-[rgba(253,251,254,0.5)]">
               {error instanceof Error ? error.message : 'An unexpected error occurred'}
             </p>
+          </div>
+        </div>
+      )}
+      {sync.error && (
+        <div className="mx-4 mt-6 flex items-start gap-3 rounded-xl border border-[#f8717133] bg-[#f8717108] p-4 lg:mx-8">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#f87171]" aria-hidden="true" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-[#f87171]">Sync failed</p>
+            <p className="mt-0.5 text-xs text-[rgba(253,251,254,0.5)]">
+              {sync.error instanceof Error ? sync.error.message : 'Unknown sync error'}
+            </p>
+            {(sync.error as Error & { code?: string }).code === 'token_expired' && (
+              <a
+                href={
+                  (sync.error as Error & { renewUrl?: string }).renewUrl ||
+                  'https://app.moneytor.co.il/settings#api'
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-flex items-center gap-1 text-xs text-[#6ab2ff] hover:underline"
+              >
+                Renew Moneytor token <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
           </div>
         </div>
       )}
