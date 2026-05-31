@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Upload, AlertCircle } from 'lucide-react';
+import { Plus, Upload, AlertCircle, RefreshCw } from 'lucide-react';
 import {
   useTransactions,
   useCategoryGroups,
   usePayees,
   useTags,
   useUncategorizedCount,
+  useSyncMoneytor,
   type TransactionFilters as FilterType,
 } from '@/lib/hooks/use-budget';
 import { getCurrentMonth } from '@/lib/utils/budget';
@@ -37,6 +38,7 @@ export default function TransactionsPage() {
   const { data: payees = [] } = usePayees();
   const { data: tags = [] } = useTags();
   const { data: countData } = useUncategorizedCount(selectedMonth);
+  const syncMoneytor = useSyncMoneytor();
 
   const handleRemoveFilter = (key: keyof FilterType) => {
     setFilters((prev) => ({ ...prev, [key]: undefined }));
@@ -65,9 +67,46 @@ export default function TransactionsPage() {
         </Card>
       )}
 
+      {/* Moneytor Sync Feedback */}
+      {syncMoneytor.isError && (
+        <Card className="border-destructive">
+          <CardContent className="flex items-center gap-3 py-3">
+            <AlertCircle className="text-destructive h-5 w-5 shrink-0" />
+            <p className="text-destructive text-sm">
+              Moneytor sync failed:{' '}
+              {syncMoneytor.error instanceof Error
+                ? syncMoneytor.error.message
+                : 'Unexpected error'}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+      {syncMoneytor.isSuccess && (
+        <Card className="border-green-600/40">
+          <CardContent className="py-3 text-sm">
+            <span className="font-medium text-green-600">Moneytor synced.</span>{' '}
+            <span className="text-muted-foreground">
+              {syncMoneytor.data.fetched} fetched · {syncMoneytor.data.budgetCreated} new
+              transactions · {syncMoneytor.data.budgetSkipped} skipped
+              {syncMoneytor.data.latestDate ? ` · latest ${syncMoneytor.data.latestDate}` : ''}
+            </span>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Search, Filters & Add */}
       <div className="flex items-center gap-2">
         <TransactionFilters filters={filters} onFiltersChange={setFilters} />
+        <Button
+          variant="outline"
+          size="icon"
+          className="shrink-0"
+          onClick={() => syncMoneytor.mutate()}
+          disabled={syncMoneytor.isPending}
+          title="Sync with Moneytor"
+        >
+          <RefreshCw className={`h-4 w-4 ${syncMoneytor.isPending ? 'animate-spin' : ''}`} />
+        </Button>
         <Button
           variant="outline"
           size="icon"

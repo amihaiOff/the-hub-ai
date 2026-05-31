@@ -348,6 +348,51 @@ export function useCreateTransaction() {
   });
 }
 
+export interface MoneytorSyncResult {
+  fetched: number;
+  upserted: number;
+  budgetCreated: number;
+  budgetSkipped: number;
+  latestDate: string | null;
+}
+
+interface MoneytorSyncErrorBody {
+  error?: string;
+  code?: string;
+  renewUrl?: string;
+}
+
+/**
+ * Triggers a manual Moneytor sync for the active household and refreshes the
+ * transaction-related queries on success. The endpoint returns an `{ ok }`
+ * envelope (not the `{ success, data }` shape `fetchApi` expects), so it's
+ * fetched directly here.
+ */
+export function useSyncMoneytor() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (): Promise<MoneytorSyncResult> => {
+      const response = await fetch('/api/moneytor/sync', { method: 'POST' });
+      const data: { ok: boolean } & MoneytorSyncResult & MoneytorSyncErrorBody =
+        await response.json();
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'Moneytor sync failed');
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allMonthSummaries() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allUncategorizedCounts() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.analysis() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
+    },
+  });
+}
+
 export function useUpdateTransaction() {
   const queryClient = useQueryClient();
 

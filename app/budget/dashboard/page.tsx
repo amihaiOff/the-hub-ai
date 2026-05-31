@@ -4,7 +4,9 @@ import { useState, Fragment, useMemo } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import { AlertCircle, Loader2 } from 'lucide-react';
+import { MoneytorBalancesCard } from '@/components/dashboard/moneytor-balances-card';
 import {
   DndContext,
   closestCenter,
@@ -509,6 +511,11 @@ export default function BudgetDashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Moneytor balances live below the month-scoped budget content because the
+          month selector at the top doesn't affect them — they're current snapshots. */}
+      <Separator className="my-8" />
+      <MoneytorBalancesCard />
     </div>
   );
 }

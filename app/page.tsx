@@ -8,7 +8,6 @@ import { formatCurrency, formatPercent, convertFromILS } from '@/lib/utils/portf
 import { useExchangeRates } from '@/lib/hooks/use-exchange-rates';
 import { NetWorthChart } from '@/components/dashboard/net-worth-chart';
 import { CurrencySelector, type DashboardCurrency } from '@/components/dashboard/currency-selector';
-import { MoneytorBalancesCard } from '@/components/dashboard/moneytor-balances-card';
 import Link from 'next/link';
 
 export default function DashboardPage() {
@@ -161,9 +160,6 @@ export default function DashboardPage() {
           </Card>
         </Link>
       </div>
-
-      {/* Moneytor Balances (banks + debts, display only) */}
-      <MoneytorBalancesCard />
 
       {/* Net Worth Chart */}
       <Card>
