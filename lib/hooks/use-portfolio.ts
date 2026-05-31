@@ -238,6 +238,41 @@ export function usePortfolio() {
   });
 }
 
+export interface LegacyAccountHistoryResponse {
+  ok: true;
+  range: string;
+  accounts: Array<{
+    accountId: string;
+    points: Array<{ date: string; value: number }>;
+  }>;
+}
+
+/**
+ * Per-legacy-account historical ILS value, built from stock_price_history.
+ * Caveat: uses current holdings and current FX rates for every point.
+ */
+export function usePortfolioAccountHistory(range: string) {
+  return useQuery({
+    queryKey: ['portfolio', 'account-history', range],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<LegacyAccountHistoryResponse> => {
+      const response = await fetch(
+        `/api/portfolio/account-history?range=${encodeURIComponent(range)}`
+      );
+      const data = (await response.json()) as
+        | LegacyAccountHistoryResponse
+        | {
+            ok: false;
+            error: string;
+          };
+      if (!response.ok || data.ok === false) {
+        throw new Error('error' in data ? data.error : `Request failed (${response.status})`);
+      }
+      return data;
+    },
+  });
+}
+
 export function useCreateAccount() {
   const queryClient = useQueryClient();
 

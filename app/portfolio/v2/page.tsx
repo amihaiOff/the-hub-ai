@@ -20,7 +20,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { usePortfolio, useDeleteHolding, useDeleteAccount } from '@/lib/hooks/use-portfolio';
+import {
+  usePortfolio,
+  useDeleteHolding,
+  useDeleteAccount,
+  usePortfolioAccountHistory,
+} from '@/lib/hooks/use-portfolio';
 import {
   useMoneytorPortfolio,
   useMoneytorPortfolioHistory,
@@ -915,7 +920,7 @@ function AccountSection({
       style={{ animation: `fadeUp 0.5s ${delay}s cubic-bezier(0.32,0.72,0,1) both` }}
     >
       {/* Account header row — acts as section divider */}
-      <div className="flex w-full items-center justify-between border-t border-[#6ab2ff33] px-4 py-4 lg:px-8">
+      <div className="flex w-full items-center gap-4 border-t border-[#6ab2ff33] px-4 py-4 lg:px-8">
         {/* Left: collapse button + name + owner badges */}
         <button
           className="flex min-w-0 flex-1 items-center gap-3 text-left transition-colors duration-150 hover:opacity-80 active:scale-[0.995]"
@@ -946,7 +951,22 @@ function AccountSection({
           )}
         </button>
 
-        {/* Right: currency toggle + value + sparkline */}
+        {/* Middle: sparkline — spans roughly a quarter of the title bar width.
+            Hidden on small screens to keep the title legible. */}
+        <div className="hidden h-10 w-1/4 shrink-0 md:block">
+          {account.totalValue > 0 && sparklinePoints && sparklinePoints.length >= 2 ? (
+            <div className="h-full w-full opacity-80">
+              <AccountSparkline
+                currentValue={account.totalValue}
+                totalGainLoss={account.totalGainLoss}
+                isPositive={isGain}
+                points={sparklinePoints}
+              />
+            </div>
+          ) : null}
+        </div>
+
+        {/* Right: currency toggle + value + actions */}
         <div className="flex shrink-0 items-center gap-3">
           {/* Currency toggle */}
           <div
@@ -996,18 +1016,6 @@ function AccountSection({
               {fmtPct(account.totalGainLossPercent)}
             </p>
           </div>
-          {/* Mini sparkline — uses real snapshot history when available */}
-          {account.totalValue > 0 && sparklinePoints && sparklinePoints.length >= 2 && (
-            <div className="h-8 w-16 shrink-0 opacity-70">
-              <AccountSparkline
-                currentValue={account.totalValue}
-                totalGainLoss={account.totalGainLoss}
-                isPositive={isGain}
-                points={sparklinePoints}
-              />
-            </div>
-          )}
-
           {/* Account actions — legacy accounts only */}
           {canDeleteAccount && (
             <DropdownMenu>
@@ -1128,20 +1136,25 @@ function PortfolioV2Content() {
   const sync = useSyncMoneytor();
   const [timeRange, setTimeRange] = useState<TimeRange>('1Y');
   const { data: history, isLoading: historyLoading } = useMoneytorPortfolioHistory(timeRange);
+  const { data: legacyHistory } = usePortfolioAccountHistory(timeRange);
 
   const isLoading = legacyLoading || moneytorLoading;
   // Surface the legacy load error since it's the bigger surface; Moneytor errors are
   // handled inline beside the Sync button.
   const error = legacyError;
 
-  // Map productId → real per-account snapshot series. Only Moneytor accounts have history.
+  // Map account id → real per-account series. Moneytor accounts use snapshot history;
+  // legacy accounts use stock_price_history × current holdings (computed server-side).
   const accountPoints = useMemo(() => {
     const map: Record<string, { date: string; value: number }[]> = {};
     for (const a of history?.accounts ?? []) {
       map[a.productId] = a.points;
     }
+    for (const a of legacyHistory?.accounts ?? []) {
+      map[a.accountId] = a.points;
+    }
     return map;
-  }, [history]);
+  }, [history, legacyHistory]);
 
   // Combine accounts from both sources, marking the source so the UI can render
   // edit/delete buttons only on hand-managed (legacy) accounts.
@@ -1267,8 +1280,8 @@ function PortfolioV2Content() {
               isLoading={historyLoading}
             />
             <p className="mt-2 text-[10px] text-[rgba(253,251,254,0.4)]">
-              History from Moneytor-synced accounts only · legacy accounts contribute to totals but
-              not to chart trend
+              Main chart shows Moneytor-synced history only · per-account sparklines use real data
+              where available (Moneytor snapshots or stock price history)
             </p>
           </div>
         ) : null}
@@ -1300,7 +1313,7 @@ function PortfolioV2Content() {
             colorMap={colorMap}
             defaultOpen={true}
             delay={0.24 + i * 0.06}
-            sparklinePoints={account.source === 'moneytor' ? accountPoints[account.id] : undefined}
+            sparklinePoints={accountPoints[account.id]}
           />
         ))
       )}
