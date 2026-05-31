@@ -7,7 +7,12 @@ import { nonEmptyString, nonNegativeNumber } from './common';
 
 // Enums matching Prisma schema
 export const transactionTypeSchema = z.enum(['income', 'expense']);
-export const transactionSourceSchema = z.enum(['manual', 'bank_import', 'credit_card_import']);
+export const transactionSourceSchema = z.enum([
+  'manual',
+  'bank_import',
+  'credit_card_import',
+  'moneytor_sync',
+]);
 export const paymentMethodSchema = z.enum([
   'cash',
   'credit_card',
@@ -257,6 +262,9 @@ export const importTransactionSchema = z.object({
   source: transactionSourceSchema.optional().default('manual'),
   paymentIdentifier: z.string().max(100).nullable().optional(),
   excludedFromFlow: z.boolean().optional().default(false),
+  // Set only when this row originates from a Moneytor sync. Acts as the natural
+  // dedup key so re-running sync never creates a duplicate budget_transaction.
+  moneytorId: z.string().optional(),
 });
 
 export const importBulkSchema = z.object({

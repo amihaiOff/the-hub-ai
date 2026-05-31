@@ -969,11 +969,18 @@ Pulls transactions from Moneytor (external aggregator) into a separate, read-onl
 
 ## Behavior
 
-- Manual sync only (no cron) — user chose this to control API quota (30/hr, 300/day).
+- Manual sync trigger via the page button + automatic daily sync via the `/api/cron/daily-tasks` cron (Task 3).
 - Transactions upsert keyed on Moneytor's own id so re-syncs are idempotent.
 - Stocks: full refresh per account (delete-then-upsert) since the `/assets` endpoint returns a portfolio snapshot, not deltas — handles removed positions correctly.
 - Snapshot history: written on every sync (one row per holding per day); multiple syncs within the same day overwrite today's row. Forward-only history since Moneytor doesn't expose price history.
 - Token-expired errors surface inline on the page with a "Renew token" link.
+- **Promotion to `budget_transactions`:** every sync also promotes new Moneytor rows into the main budget table so they appear on `/budget/transactions` alongside CSV-imported and manual rows.
+  - Insert-only: rows are inserted once and never overwritten. User edits to category/payee/tags/notes are preserved forever; amount/date corrections from Moneytor (rare) don't propagate.
+  - Dedup via a new `budget_transactions.moneytor_id` unique column.
+  - Conflict with a pre-existing CSV row (same date/payee/amount and no moneytor_id): skip insert and stamp `moneytor_id` onto the existing row so next sync recognises it.
+  - Categorization: reuses the existing `PayeeCategoryRule` system (description-based) and existing payee default categories. No Moneytor-category-specific mapping table.
+  - Payment method mapped from Moneytor's account `type`: `CARD → credit_card`, `CHECKING → bank_transfer`, `CASH → cash`, else `other`.
+  - Sync response includes `budgetCreated` and `budgetSkipped` counts; same fields appear in the daily `cron_run_logs.results.moneytor` JSONB so promotion volume is queryable over time.
 
 ## /portfolio/v2 (Moneytor data source)
 

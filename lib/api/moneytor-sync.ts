@@ -1,5 +1,8 @@
 import { prisma } from '@/lib/db';
 import { fetchMoneytorTransactions, fetchMoneytorShareAssets } from './moneytor';
+import { importTransactions } from '@/lib/utils/import-transactions';
+import type { ImportTransactionInput } from '@/lib/validations/budget';
+import { mapMoneytorTypeToPaymentMethod } from '@/lib/utils/moneytor-mapping';
 
 /**
  * Result of syncing a single household with Moneytor.
@@ -12,6 +15,9 @@ export interface MoneytorSyncSummary {
   stockAccounts: number;
   stocksUpserted: number;
   snapshotsUpserted: number;
+  // Promotion of moneytor_transactions → budget_transactions
+  budgetCreated: number;
+  budgetSkipped: number;
   latestDate: string | null;
   syncedAt: string;
 }
@@ -186,6 +192,57 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
     select: { transactionDate: true },
   });
 
+  // ----- Promote moneytor_transactions → budget_transactions (insert-only) -----
+  // Find every moneytor_transaction whose `id` is not yet present in
+  // budget_transactions.moneytor_id. Build ImportTransactionInput rows and hand
+  // them to the existing importTransactions helper — payee find-or-create,
+  // PayeeCategoryRule application, and (date,payee,amount) dedup all just work.
+  // Pre-filter here instead of relying on a Prisma relation (avoids an extra FK
+  // migration just for this lookup).
+  const allMoneytor = await prisma.moneytorTransaction.findMany({
+    where: { householdId },
+    orderBy: { transactionDate: 'asc' },
+  });
+  const alreadyPromoted = await prisma.budgetTransaction.findMany({
+    where: { householdId, moneytorId: { not: null } },
+    select: { moneytorId: true },
+  });
+  const promotedSet = new Set(
+    alreadyPromoted.map((b) => b.moneytorId).filter((id): id is string => id !== null)
+  );
+  const unpromoted = allMoneytor.filter((m) => !promotedSet.has(m.id));
+
+  let budgetCreated = 0;
+  let budgetSkipped = 0;
+
+  if (unpromoted.length > 0) {
+    const inputs: ImportTransactionInput[] = unpromoted.map((mt) => {
+      const amount = Number(mt.amount);
+      return {
+        type: amount < 0 ? 'expense' : 'income',
+        transactionDate: mt.transactionDate.toISOString().split('T')[0],
+        paymentDate: null,
+        amountIls: Math.abs(amount),
+        currency: mt.currency,
+        amountOriginal: Math.abs(amount),
+        payeeName: mt.description.trim() || '(no description)',
+        riseupCategory: null,
+        paymentMethod: mapMoneytorTypeToPaymentMethod(mt.type),
+        paymentNumber: null,
+        totalPayments: null,
+        notes: null,
+        source: 'moneytor_sync',
+        paymentIdentifier: mt.accountId.slice(-12),
+        excludedFromFlow: false,
+        moneytorId: mt.id,
+      };
+    });
+
+    const result = await importTransactions(householdId, inputs);
+    budgetCreated = result.created;
+    budgetSkipped = result.duplicatesSkipped;
+  }
+
   return {
     householdId,
     fetched: transactions.length,
@@ -193,6 +250,8 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
     stockAccounts: shareAssets.length,
     stocksUpserted,
     snapshotsUpserted,
+    budgetCreated,
+    budgetSkipped,
     latestDate: newLatest?.transactionDate.toISOString().split('T')[0] ?? null,
     syncedAt: new Date().toISOString(),
   };

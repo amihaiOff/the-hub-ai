@@ -36,6 +36,8 @@ export async function GET(request: NextRequest) {
         transactionsUpserted: 0,
         stocksUpserted: 0,
         snapshotsUpserted: 0,
+        budgetCreated: 0,
+        budgetSkipped: 0,
         failures: [] as Array<{ householdId: string; error: string; code?: string }>,
       },
     };
@@ -180,6 +182,8 @@ async function syncMoneytor(results: {
     transactionsUpserted: number;
     stocksUpserted: number;
     snapshotsUpserted: number;
+    budgetCreated: number;
+    budgetSkipped: number;
     failures: Array<{ householdId: string; error: string; code?: string }>;
   };
 }) {
@@ -197,6 +201,8 @@ async function syncMoneytor(results: {
       results.moneytor.transactionsUpserted += summary.upserted;
       results.moneytor.stocksUpserted += summary.stocksUpserted;
       results.moneytor.snapshotsUpserted += summary.snapshotsUpserted;
+      results.moneytor.budgetCreated += summary.budgetCreated;
+      results.moneytor.budgetSkipped += summary.budgetSkipped;
     } catch (err) {
       const error =
         err instanceof MoneytorApiError

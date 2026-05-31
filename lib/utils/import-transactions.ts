@@ -110,12 +110,35 @@ export async function importTransactions(
     },
   });
 
-  // Build duplicate detection set (use toFixed(2) for consistent decimal comparison)
+  // Build duplicate detection set (use toFixed(2) for consistent decimal comparison).
+  // Also map each (date|payee|amount) key to the existing row id + moneytorId, so the
+  // Moneytor sync path can back-stamp `moneytorId` onto a pre-existing CSV row instead
+  // of creating a duplicate.
   const existingKeys = new Set<string>();
+  const existingByKey = new Map<string, { id: string; moneytorId: string | null }>();
+  const existingMoneytorIds = new Set<string>();
   for (const tx of existingTransactions) {
     const payeeName = tx.payee?.name?.toLowerCase().trim() ?? '';
     const key = `${tx.transactionDate.toISOString().split('T')[0]}|${payeeName}|${Number(tx.amountIls).toFixed(2)}`;
     existingKeys.add(key);
+    existingByKey.set(key, { id: tx.id, moneytorId: tx.moneytorId });
+    if (tx.moneytorId) existingMoneytorIds.add(tx.moneytorId);
+  }
+
+  // Also pre-check moneytorId hits OUTSIDE the date window — re-runs of sync after a
+  // backdated transaction was already promoted need to skip it even if the
+  // transactionDate has drifted.
+  const batchMoneytorIds = transactions
+    .map((t) => t.moneytorId)
+    .filter((id): id is string => Boolean(id));
+  if (batchMoneytorIds.length > 0) {
+    const outOfWindow = await prisma.budgetTransaction.findMany({
+      where: { householdId, moneytorId: { in: batchMoneytorIds } },
+      select: { moneytorId: true },
+    });
+    for (const row of outOfWindow) {
+      if (row.moneytorId) existingMoneytorIds.add(row.moneytorId);
+    }
   }
 
   let created = 0;
@@ -125,10 +148,36 @@ export async function importTransactions(
   for (const tx of transactions) {
     const payeeNameLower = tx.payeeName.toLowerCase().trim();
 
+    // Moneytor sync path: if this row was already promoted (matching moneytorId in
+    // budget_transactions), skip it cleanly.
+    if (tx.moneytorId && existingMoneytorIds.has(tx.moneytorId)) {
+      duplicatesSkipped++;
+      continue;
+    }
+
     // Check for duplicate (use toFixed(2) for consistent precision)
     const dupKey = `${tx.transactionDate}|${payeeNameLower}|${tx.amountIls.toFixed(2)}`;
     if (existingKeys.has(dupKey)) {
       duplicatesSkipped++;
+      // If the duplicate came from CSV/manual entry but this incoming row carries a
+      // moneytorId, stamp it onto the existing row so the next sync recognises it
+      // and doesn't keep retrying. Only stamp when the existing row has no moneytorId.
+      if (tx.moneytorId) {
+        const existing = existingByKey.get(dupKey);
+        if (existing && !existing.moneytorId) {
+          try {
+            await prisma.budgetTransaction.update({
+              where: { id: existing.id },
+              data: { moneytorId: tx.moneytorId },
+            });
+            existing.moneytorId = tx.moneytorId;
+            existingMoneytorIds.add(tx.moneytorId);
+          } catch (err) {
+            // Unique-constraint race: the moneytorId was just stamped elsewhere — fine.
+            console.warn('Failed to back-stamp moneytorId on existing row:', err);
+          }
+        }
+      }
       continue;
     }
 
@@ -217,11 +266,13 @@ export async function importTransactions(
         paymentIdentifier: tx.paymentIdentifier ?? null,
         excludedFromFlow: tx.excludedFromFlow,
         householdId,
+        moneytorId: tx.moneytorId ?? null,
       },
     });
 
     // Add to existing keys to prevent duplicates within the same batch
     existingKeys.add(dupKey);
+    if (tx.moneytorId) existingMoneytorIds.add(tx.moneytorId);
     created++;
   }
 
