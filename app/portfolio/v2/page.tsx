@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { usePortfolio, useDeleteHolding } from '@/lib/hooks/use-portfolio';
+import { usePortfolio, useDeleteHolding, useDeleteAccount } from '@/lib/hooks/use-portfolio';
 import {
   useMoneytorPortfolio,
   useMoneytorPortfolioHistory,
@@ -883,6 +883,9 @@ function AccountSection({
 }: AccountSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [showInAlternate, setShowInAlternate] = useState(false);
+  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
+  const deleteAccountMutation = useDeleteAccount();
+  const canDeleteAccount = account.source === 'legacy';
 
   const { rates } = useCurrency();
 
@@ -1004,8 +1007,48 @@ function AccountSection({
               />
             </div>
           )}
+
+          {/* Account actions — legacy accounts only */}
+          {canDeleteAccount && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  aria-label={`Actions for ${account.name}`}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[rgba(253,251,254,0.4)] transition-colors hover:bg-[#242629] hover:text-[#fdfbfe] active:scale-[0.95]"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="border-[#6ab2ff33] bg-[#1a1b1e] text-[#fdfbfe]"
+              >
+                <DropdownMenuItem
+                  onClick={() => setConfirmDeleteAccount(true)}
+                  className="cursor-pointer gap-2 text-sm text-[#f87171] hover:bg-[#f8717115] focus:bg-[#f8717115]"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete account
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
+
+      {/* Delete account confirmation */}
+      {canDeleteAccount && confirmDeleteAccount && (
+        <DeleteConfirmDialog
+          title={`Delete ${account.name}?`}
+          description={`This will permanently remove the "${account.name}" account along with all ${account.holdings.length} holdings and cash balances. This action cannot be undone.`}
+          onConfirm={async () => {
+            await deleteAccountMutation.mutateAsync(account.id);
+            setConfirmDeleteAccount(false);
+          }}
+          open={confirmDeleteAccount}
+          onOpenChange={setConfirmDeleteAccount}
+        />
+      )}
 
       {/* Holdings table — collapses */}
       <div
