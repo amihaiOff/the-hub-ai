@@ -86,7 +86,7 @@ export function MoneytorBalancesCard() {
     <Card>
       <CardHeader>
         <div className="flex items-baseline justify-between gap-2">
-          <CardTitle>Moneytor Balances</CardTitle>
+          <CardTitle>Account Balances</CardTitle>
           <p className="text-muted-foreground text-xs">
             Synced from Moneytor · current snapshot (not affected by the month selector)
           </p>
