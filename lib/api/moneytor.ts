@@ -93,12 +93,52 @@ export interface MoneytorShareAsset {
   updatedAt?: string;
 }
 
-interface MoneytorAsset {
+export interface MoneytorAsset {
   id: string;
   productId: number;
   form: string;
   name: string;
+  balanceInBaseCurrency?: number;
+  partOfPortfolio?: number;
+  updatedAt?: string;
+  currency?: { value?: string; name?: string; sign?: string; rate?: number };
   [key: string]: unknown;
+}
+
+// Bank-form fields we care about (the API may return more — see `[key: string]: unknown`).
+export interface MoneytorBankAsset extends MoneytorAsset {
+  form: 'bank';
+  bank?: string;
+  amount?: number;
+  interest?: number;
+  monthlyDeposit?: number;
+  closeExitPoint?: string;
+  maturityDate?: string;
+  accountType?: { value?: string; name?: string };
+  bankNumber?: string | number;
+  branchNumber?: string | number;
+  accountNumber?: string | number;
+  tax?: number;
+}
+
+export interface MoneytorDebtRoute {
+  remainder?: number;
+  trackInterestType?: { value?: string; name?: string };
+  interest?: number;
+  monthlyRepayment?: number;
+  originalSum?: number;
+  debtPeriodInMonths?: number;
+}
+
+export interface MoneytorDebtAsset extends MoneytorAsset {
+  form: 'debt';
+  debtInstitution?: string;
+  debtType?: string;
+  startDate?: string;
+  routesData?: MoneytorDebtRoute[];
+  returnType?: string;
+  graceType?: { value?: string; name?: string };
+  graceYears?: { value?: number };
 }
 
 interface MoneytorAssetsResponse {
@@ -113,12 +153,20 @@ interface MoneytorAssetsResponse {
   renew_url?: string;
 }
 
-export async function fetchMoneytorShareAssets(): Promise<MoneytorShareAsset[]> {
+/**
+ * Single fetch of /api/v1/assets. The sync filters per-form locally —
+ * Moneytor returns everything in one call, so we should only call it once
+ * per sync (avoids burning the per-hour API quota).
+ */
+export async function fetchMoneytorAssets(): Promise<MoneytorAsset[]> {
   const url = new URL(`${MONEYTOR_BASE_URL}/assets`);
   const data = await moneytorGet<MoneytorAssetsResponse>(url);
-  return (data.assets ?? []).filter(
-    (a): a is MoneytorAsset & MoneytorShareAsset => a.form === 'share'
-  );
+  return data.assets ?? [];
+}
+
+export async function fetchMoneytorShareAssets(): Promise<MoneytorShareAsset[]> {
+  const assets = await fetchMoneytorAssets();
+  return assets.filter((a): a is MoneytorAsset & MoneytorShareAsset => a.form === 'share');
 }
 
 async function moneytorGet<

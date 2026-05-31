@@ -30,7 +30,7 @@ jest.mock('@/lib/db', () => ({
 
 jest.mock('@/lib/api/moneytor', () => ({
   fetchMoneytorTransactions: jest.fn(),
-  fetchMoneytorShareAssets: jest.fn(),
+  fetchMoneytorAssets: jest.fn(),
   MoneytorApiError: class extends Error {},
 }));
 
@@ -40,16 +40,14 @@ jest.mock('@/lib/utils/import-transactions', () => ({
 
 import { syncMoneytorForHousehold } from '../moneytor-sync';
 import { prisma } from '@/lib/db';
-import { fetchMoneytorTransactions, fetchMoneytorShareAssets } from '../moneytor';
+import { fetchMoneytorTransactions, fetchMoneytorAssets } from '../moneytor';
 import { importTransactions } from '@/lib/utils/import-transactions';
 
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 const mockFetchTransactions = fetchMoneytorTransactions as jest.MockedFunction<
   typeof fetchMoneytorTransactions
 >;
-const mockFetchShares = fetchMoneytorShareAssets as jest.MockedFunction<
-  typeof fetchMoneytorShareAssets
->;
+const mockFetchAssets = fetchMoneytorAssets as jest.MockedFunction<typeof fetchMoneytorAssets>;
 const mockImportTransactions = importTransactions as jest.MockedFunction<typeof importTransactions>;
 
 describe('syncMoneytorForHousehold → budget_transactions promotion', () => {
@@ -59,7 +57,7 @@ describe('syncMoneytorForHousehold → budget_transactions promotion', () => {
     // (we don't care about the first two phases in these tests).
     (mockPrisma.moneytorTransaction.findFirst as jest.Mock).mockResolvedValue(null);
     mockFetchTransactions.mockResolvedValue([]);
-    mockFetchShares.mockResolvedValue([]);
+    mockFetchAssets.mockResolvedValue([]);
   });
 
   it('promotes a moneytor row into budget_transactions via importTransactions', async () => {
@@ -185,5 +183,33 @@ describe('syncMoneytorForHousehold → budget_transactions promotion', () => {
 
     expect(summary.budgetCreated).toBe(0);
     expect(summary.budgetSkipped).toBe(1);
+  });
+});
+
+describe('syncMoneytorForHousehold → fetch date window', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockFetchTransactions.mockResolvedValue([]);
+    mockFetchAssets.mockResolvedValue([]);
+    (mockPrisma.moneytorTransaction.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValue([]);
+  });
+
+  it('on first sync (no stored rows) fetches only from May 2026 onward', async () => {
+    (mockPrisma.moneytorTransaction.findFirst as jest.Mock).mockResolvedValue(null);
+
+    await syncMoneytorForHousehold('household-1');
+
+    expect(mockFetchTransactions).toHaveBeenCalledWith({ from: '2026-05-01' });
+  });
+
+  it('on subsequent syncs fetches from latest transaction date minus 7-day safety window', async () => {
+    (mockPrisma.moneytorTransaction.findFirst as jest.Mock).mockResolvedValue({
+      transactionDate: new Date('2026-06-10T00:00:00Z'),
+    });
+
+    await syncMoneytorForHousehold('household-1');
+
+    expect(mockFetchTransactions).toHaveBeenCalledWith({ from: '2026-06-03' });
   });
 });

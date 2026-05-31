@@ -79,6 +79,8 @@ export const moneytorKeys = {
   portfolio: () => [...moneytorKeys.all, 'portfolio'] as const,
   portfolioHistory: (range: string) =>
     [...moneytorKeys.all, 'portfolio', 'history', range] as const,
+  accounts: () => [...moneytorKeys.all, 'accounts'] as const,
+  accountsHistory: (range: string) => [...moneytorKeys.all, 'accounts', 'history', range] as const,
 };
 
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -193,6 +195,39 @@ export function useMoneytorPortfolioHistory(range: string) {
       return getJson<MoneytorPortfolioHistoryResponse>(
         `/api/moneytor/portfolio/history?range=${encodeURIComponent(range)}`
       );
+    },
+  });
+}
+
+export interface MoneytorAccountRow {
+  id: string;
+  productId: string;
+  form: 'bank' | 'debt' | string;
+  name: string;
+  institution: string | null;
+  subtype: string | null;
+  accountNumber: string | null;
+  currency: string;
+  balanceInBase: number;
+  interestRate: number | null;
+  maturityDate: string | null;
+  monthlyPayment: number | null;
+  syncedAt: string;
+}
+
+export interface MoneytorAccountsResponse {
+  ok: true;
+  asOf: string | null;
+  accounts: MoneytorAccountRow[];
+  totals: { bank: number; debt: number; netInScope: number };
+}
+
+export function useMoneytorAccounts() {
+  return useQuery({
+    queryKey: moneytorKeys.accounts(),
+    staleTime: 60_000,
+    queryFn: async (): Promise<MoneytorAccountsResponse> => {
+      return getJson<MoneytorAccountsResponse>('/api/moneytor/accounts');
     },
   });
 }

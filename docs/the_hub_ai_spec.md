@@ -958,12 +958,16 @@ Pulls transactions from Moneytor (external aggregator) into a separate, read-onl
   - `moneytor_transactions` — id (Moneytor ULID, PK), transaction_date, amount (signed Decimal), currency, description, category (raw enum string e.g. `BANK_TRANSFER`), account_id, type, household_id, synced_at.
   - `moneytor_stock_holdings` — one row per holding inside a share-form account's `stocksData`. Unique on (household_id, product_id, stock_name). Tracks amount, purchase_price/date, current stock_price, currency, total_worth_in_base (ILS), account_cash.
   - `moneytor_stock_snapshots` — one row per holding per day. Unique on (household_id, snapshot_date, product_id, stock_name). Written on every sync; second sync the same day overwrites today's row. Drives value-over-time chart on `/portfolio/v2`.
+  - `moneytor_accounts` — unified table for all non-share Moneytor product forms (currently `bank` + `debt`; schema generic enough to add `crypto`/`pension`/`realestate` later without migration). `balance_in_base` is signed (positive=asset, negative=debt). `raw_data` JSONB column stashes the original Moneytor object.
+  - `moneytor_account_snapshots` — one row per account per day. Unique on (household_id, snapshot_date, product_id). Same overwrite-today semantics as the stock snapshots. Powers `/api/moneytor/accounts/history` for sparklines.
 - **API routes:**
   - `POST /api/moneytor/sync` — pulls transactions (incremental, 7-day safety window, 100-row `$transaction` chunks) AND share-form assets (full-refresh per account: deletes holdings absent from the latest response, upserts the rest).
   - `GET /api/moneytor/transactions` — filterable list; returns distinct categories and last-sync time.
   - `GET /api/moneytor/stocks` — returns holdings grouped by account, with per-account total and cash.
   - `GET /api/moneytor/portfolio` — returns Moneytor holdings reshaped into the `PortfolioSummary` contract consumed by `/portfolio/v2` (per-account totals/cost-basis/P&L in ILS; per-holding price + cost in native currency).
   - `GET /api/moneytor/portfolio/history?range=1Y` — daily timeseries built from `moneytor_stock_snapshots`. Returns both `points` (total across all accounts per day) and `accounts: [{ productId, points }]` so per-account sparklines can use real data.
+  - `GET /api/moneytor/accounts` — bank + debt accounts with per-form totals (bank, debt, netInScope).
+  - `GET /api/moneytor/accounts/history?range=1Y` — daily balance timeseries per account.
 - **External client** `lib/api/moneytor.ts` — `fetchMoneytorTransactions` + `fetchMoneytorShareAssets`, share a private `moneytorGet` helper that handles auth and typed errors. `MoneytorApiError` covers token-expired / rate-limit / 401 / 403 cases with renewal URL.
 - **Auth:** Bearer JWT stored in `MONEYTOR_API_TOKEN` env var (30-day expiry; renew at app.moneytor.co.il/settings#api).
 
@@ -974,6 +978,7 @@ Pulls transactions from Moneytor (external aggregator) into a separate, read-onl
 - Stocks: full refresh per account (delete-then-upsert) since the `/assets` endpoint returns a portfolio snapshot, not deltas — handles removed positions correctly.
 - Snapshot history: written on every sync (one row per holding per day); multiple syncs within the same day overwrite today's row. Forward-only history since Moneytor doesn't expose price history.
 - Token-expired errors surface inline on the page with a "Renew token" link.
+- **Bank + debt account balances**: every sync also upserts `moneytor_accounts` + a per-account daily snapshot. Banks store positive balances; debts (loans, mortgages, credit cards) store **negative** balances so downstream charts get the right sign without per-row logic. Display only — these don't roll into Net Worth (which would double-count any overlapping manual `misc_assets`). The Dashboard's "Moneytor Balances" card shows banks vs debts side by side with totals and last-synced time.
 - **Promotion to `budget_transactions`:** every sync also promotes new Moneytor rows into the main budget table so they appear on `/budget/transactions` alongside CSV-imported and manual rows.
   - Insert-only: rows are inserted once and never overwritten. User edits to category/payee/tags/notes are preserved forever; amount/date corrections from Moneytor (rare) don't propagate.
   - Dedup via a new `budget_transactions.moneytor_id` unique column.

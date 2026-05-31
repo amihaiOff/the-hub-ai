@@ -97,9 +97,11 @@ model Household {
   shoppingDeliveries ShoppingDelivery[]
 
   // Moneytor module
-  moneytorTransactions   MoneytorTransaction[]
-  moneytorStockHoldings  MoneytorStockHolding[]
-  moneytorStockSnapshots MoneytorStockSnapshot[]
+  moneytorTransactions     MoneytorTransaction[]
+  moneytorStockHoldings    MoneytorStockHolding[]
+  moneytorStockSnapshots   MoneytorStockSnapshot[]
+  moneytorAccounts         MoneytorAccount[]
+  moneytorAccountSnapshots MoneytorAccountSnapshot[]
 
   @@map("households")
 }
@@ -751,4 +753,53 @@ model CronRunLog {
   @@index([cronPath, startedAt(sort: Desc)])
   @@index([startedAt(sort: Desc)])
   @@map("cron_run_logs")
+}
+
+// Moneytor accounts — banks, debts, and (extensible) other non-share product forms.
+// One row per Moneytor product. Updated on every sync.
+model MoneytorAccount {
+  id             String    @id @default(cuid())
+  productId      String    @map("product_id")
+  form           String // 'bank' | 'debt' | future forms
+  name           String
+  institution    String?
+  subtype        String? // bank: 'balance'|'saving'; debt: 'loan'|'mortgage'|'credit_card'
+  accountNumber  String?   @map("account_number")
+  currency       String
+  balanceInBase  Decimal   @map("balance_in_base") @db.Decimal(18, 2) // signed: positive=asset, negative=debt
+  interestRate   Decimal?  @map("interest_rate") @db.Decimal(8, 4)
+  maturityDate   DateTime? @map("maturity_date") @db.Date
+  monthlyPayment Decimal?  @map("monthly_payment") @db.Decimal(18, 2)
+  rawData        Json?     @map("raw_data")
+  householdId    String    @map("household_id")
+  syncedAt       DateTime  @default(now()) @map("synced_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, productId])
+  @@index([householdId])
+  @@index([householdId, form])
+  @@map("moneytor_accounts")
+}
+
+// Daily snapshot per Moneytor account. Idempotent per (household, date, productId).
+model MoneytorAccountSnapshot {
+  id            String   @id @default(cuid())
+  snapshotDate  DateTime @map("snapshot_date") @db.Date
+  productId     String   @map("product_id")
+  form          String
+  name          String
+  balanceInBase Decimal  @map("balance_in_base") @db.Decimal(18, 2)
+  currency      String
+  householdId   String   @map("household_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, snapshotDate, productId])
+  @@index([householdId, snapshotDate])
+  @@map("moneytor_account_snapshots")
 }
