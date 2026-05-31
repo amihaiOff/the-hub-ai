@@ -218,3 +218,17 @@ export function useSyncMoneytor() {
     },
   });
 }
+
+export function useDeleteMoneytorAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (productId: string): Promise<void> => {
+      await getJson(`/api/moneytor/stocks/${encodeURIComponent(productId)}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: moneytorKeys.all });
+    },
+  });
+}

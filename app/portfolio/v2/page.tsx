@@ -11,6 +11,7 @@ import {
   RefreshCw,
   ExternalLink,
   MoreHorizontal,
+  MoreVertical,
   Pencil,
   Trash2,
 } from 'lucide-react';
@@ -30,6 +31,7 @@ import {
   useMoneytorPortfolio,
   useMoneytorPortfolioHistory,
   useSyncMoneytor,
+  useDeleteMoneytorAccount,
 } from '@/lib/hooks/use-moneytor';
 import { CurrencyProvider, useCurrency } from '@/lib/contexts/currency-context';
 import { calculateAllocation, getCurrencySymbol } from '@/lib/utils/portfolio';
@@ -889,8 +891,10 @@ function AccountSection({
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [showInAlternate, setShowInAlternate] = useState(false);
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
-  const deleteAccountMutation = useDeleteAccount();
-  const canDeleteAccount = account.source === 'legacy';
+  const deleteLegacyAccount = useDeleteAccount();
+  const deleteMoneytorAccount = useDeleteMoneytorAccount();
+  const isMoneytor = account.source === 'moneytor';
+  const deleteMutation = isMoneytor ? deleteMoneytorAccount : deleteLegacyAccount;
 
   const { rates } = useCurrency();
 
@@ -919,11 +923,15 @@ function AccountSection({
       className="mt-6"
       style={{ animation: `fadeUp 0.5s ${delay}s cubic-bezier(0.32,0.72,0,1) both` }}
     >
-      {/* Account header row — acts as section divider */}
-      <div className="flex w-full items-center gap-4 border-t border-[#6ab2ff33] px-4 py-4 lg:px-8">
+      {/* Account header row — 3-column grid: left (name) | middle (sparkline) | right (value + actions).
+          Sparkline is centered in the title bar at ~25% width. */}
+      <div
+        className="grid w-full items-center gap-4 border-t border-[#6ab2ff33] px-4 py-4 lg:px-8"
+        style={{ gridTemplateColumns: '1fr 25% 1fr' }}
+      >
         {/* Left: collapse button + name + owner badges */}
         <button
-          className="flex min-w-0 flex-1 items-center gap-3 text-left transition-colors duration-150 hover:opacity-80 active:scale-[0.995]"
+          className="flex min-w-0 items-center gap-3 text-left transition-colors duration-150 hover:opacity-80 active:scale-[0.995]"
           onClick={() => setIsOpen((o) => !o)}
           aria-expanded={isOpen}
           aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${account.name}`}
@@ -951,9 +959,9 @@ function AccountSection({
           )}
         </button>
 
-        {/* Middle: sparkline — spans roughly a quarter of the title bar width.
+        {/* Middle: sparkline — centered, ~25% of title bar width.
             Hidden on small screens to keep the title legible. */}
-        <div className="hidden h-10 w-1/4 shrink-0 md:block">
+        <div className="hidden h-10 md:block">
           {account.totalValue > 0 && sparklinePoints && sparklinePoints.length >= 2 ? (
             <div className="h-full w-full opacity-80">
               <AccountSparkline
@@ -967,7 +975,7 @@ function AccountSection({
         </div>
 
         {/* Right: currency toggle + value + actions */}
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex items-center justify-end gap-3">
           {/* Currency toggle */}
           <div
             className="flex items-center rounded-full border border-[#6ab2ff22] bg-[#1a1b1e] p-0.5"
@@ -1016,41 +1024,44 @@ function AccountSection({
               {fmtPct(account.totalGainLossPercent)}
             </p>
           </div>
-          {/* Account actions — legacy accounts only */}
-          {canDeleteAccount && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  aria-label={`Actions for ${account.name}`}
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[rgba(253,251,254,0.4)] transition-colors hover:bg-[#242629] hover:text-[#fdfbfe] active:scale-[0.95]"
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="border-[#6ab2ff33] bg-[#1a1b1e] text-[#fdfbfe]"
+          {/* Account actions */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                aria-label={`Actions for ${account.name}`}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[rgba(253,251,254,0.4)] transition-colors hover:bg-[#242629] hover:text-[#fdfbfe] active:scale-[0.95]"
               >
-                <DropdownMenuItem
-                  onClick={() => setConfirmDeleteAccount(true)}
-                  className="cursor-pointer gap-2 text-sm text-[#f87171] hover:bg-[#f8717115] focus:bg-[#f8717115]"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Delete account
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+                <MoreVertical className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="border-[#6ab2ff33] bg-[#1a1b1e] text-[#fdfbfe]"
+            >
+              <DropdownMenuItem
+                onClick={() => setConfirmDeleteAccount(true)}
+                className="cursor-pointer gap-2 text-sm text-[#f87171] hover:bg-[#f8717115] focus:bg-[#f8717115]"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete account
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
-      {/* Delete account confirmation */}
-      {canDeleteAccount && confirmDeleteAccount && (
+      {/* Delete account confirmation. Legacy accounts are permanently removed; Moneytor
+          accounts are only removed from the local mirror — they'll re-appear on next sync. */}
+      {confirmDeleteAccount && (
         <DeleteConfirmDialog
           title={`Delete ${account.name}?`}
-          description={`This will permanently remove the "${account.name}" account along with all ${account.holdings.length} holdings and cash balances. This action cannot be undone.`}
+          description={
+            isMoneytor
+              ? `This removes the local mirror of "${account.name}" (${account.holdings.length} holdings) along with its sync history. The account will re-appear on the next Moneytor sync unless you remove it from Moneytor first.`
+              : `This will permanently remove the "${account.name}" account along with all ${account.holdings.length} holdings and cash balances. This action cannot be undone.`
+          }
           onConfirm={async () => {
-            await deleteAccountMutation.mutateAsync(account.id);
+            await deleteMutation.mutateAsync(account.id);
             setConfirmDeleteAccount(false);
           }}
           open={confirmDeleteAccount}
