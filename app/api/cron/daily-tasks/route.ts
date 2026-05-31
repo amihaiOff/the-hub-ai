@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { updateStockPriceCache, isStockPriceError } from '@/lib/api/stock-price';
 import { syncMoneytorForHousehold } from '@/lib/api/moneytor-sync';
 import { MoneytorApiError } from '@/lib/api/moneytor';
+import { withCronLog } from '@/lib/utils/cron-logger';
 
 // Extend timeout for cron job processing many stock symbols
 export const maxDuration = 60;
@@ -16,7 +17,8 @@ export const maxDuration = 60;
  * Protected by CRON_SECRET in production
  */
 export async function GET(request: NextRequest) {
-  // Verify cron secret in production
+  // Verify cron secret in production. Skip logging unauthorised hits — they're
+  // typically scanners, not real cron invocations.
   if (process.env.NODE_ENV === 'production') {
     const authHeader = request.headers.get('authorization');
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -24,46 +26,45 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const results = {
-    stockPrices: { updated: 0, failed: 0, symbols: [] as string[] },
-    notifications: { created: 0, checked: 0 },
-    moneytor: {
-      skipped: false as boolean | string,
-      households: 0,
-      transactionsUpserted: 0,
-      stocksUpserted: 0,
-      snapshotsUpserted: 0,
-      failures: [] as Array<{ householdId: string; error: string; code?: string }>,
-    },
-  };
-
-  try {
-    // Task 1: Update stock prices
-    await updateStockPrices(results);
-
-    // Task 2: Check for missing pension deposits
-    await checkMissingDeposits(results);
-
-    // Task 3: Sync Moneytor for every household
-    await syncMoneytor(results);
-
-    return NextResponse.json({
-      success: true,
-      message: 'Daily tasks completed',
-      results,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error('Error running daily tasks:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to complete daily tasks',
-        partialResults: results,
+  return withCronLog('/api/cron/daily-tasks', async () => {
+    const results = {
+      stockPrices: { updated: 0, failed: 0, symbols: [] as string[] },
+      notifications: { created: 0, checked: 0 },
+      moneytor: {
+        skipped: false as boolean | string,
+        households: 0,
+        transactionsUpserted: 0,
+        stocksUpserted: 0,
+        snapshotsUpserted: 0,
+        failures: [] as Array<{ householdId: string; error: string; code?: string }>,
       },
-      { status: 500 }
-    );
-  }
+    };
+
+    try {
+      await updateStockPrices(results);
+      await checkMissingDeposits(results);
+      await syncMoneytor(results);
+
+      return {
+        body: {
+          success: true,
+          message: 'Daily tasks completed',
+          results,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    } catch (error) {
+      console.error('Error running daily tasks:', error);
+      return {
+        body: {
+          success: false,
+          error: 'Failed to complete daily tasks',
+          partialResults: results,
+        },
+        status: 500,
+      };
+    }
+  });
 }
 
 /**

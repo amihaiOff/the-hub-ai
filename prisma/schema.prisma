@@ -732,3 +732,21 @@ model MoneytorStockSnapshot {
   @@index([householdId, snapshotDate])
   @@map("moneytor_stock_snapshots")
 }
+
+// Persistent log of cron invocations — one row per run. Survives Vercel's short
+// runtime-log retention window and lets us query "did sync fail last Tuesday?"
+model CronRunLog {
+  id            String   @id @default(cuid())
+  cronPath      String   @map("cron_path") // e.g. "/api/cron/daily-tasks"
+  startedAt     DateTime @map("started_at")
+  completedAt   DateTime @map("completed_at")
+  durationMs    Int      @map("duration_ms")
+  success       Boolean
+  errorMessage  String?  @map("error_message")
+  results       Json?    // raw response body (per-task counts, failures, etc.)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([cronPath, startedAt(sort: Desc)])
+  @@index([startedAt(sort: Desc)])
+  @@map("cron_run_logs")
+}
