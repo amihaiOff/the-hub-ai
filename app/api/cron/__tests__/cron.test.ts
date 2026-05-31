@@ -121,15 +121,19 @@ describe('Daily Tasks Cron', () => {
     it('should check for missing pension deposits', async () => {
       (mockPrisma.stockHolding.findMany as jest.Mock).mockResolvedValue([]);
 
-      const threeMonthsAgo = new Date();
-      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      // Use 4 full months ago (anchored to day 1) so the `> 2 months` check
+      // fires regardless of which day of the month the test runs. Using
+      // `setMonth(getMonth() - 3)` on the 31st rolls into the wrong month
+      // because Feb/Apr/etc. have fewer days, leaving exactly 2 months gap.
+      const now = new Date();
+      const fourMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 4, 1);
 
       (mockPrisma.pensionAccount.findMany as jest.Mock).mockResolvedValue([
         {
           id: 'account-1',
           deposits: [
             {
-              salaryMonth: threeMonthsAgo,
+              salaryMonth: fourMonthsAgo,
               amount: { toNumber: () => 5000 },
             },
           ],

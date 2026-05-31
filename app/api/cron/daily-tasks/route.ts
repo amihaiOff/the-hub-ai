@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { updateStockPriceCache, isStockPriceError } from '@/lib/api/stock-price';
+import { syncMoneytorForHousehold } from '@/lib/api/moneytor-sync';
+import { MoneytorApiError } from '@/lib/api/moneytor';
 
 // Extend timeout for cron job processing many stock symbols
 export const maxDuration = 60;
@@ -25,6 +27,14 @@ export async function GET(request: NextRequest) {
   const results = {
     stockPrices: { updated: 0, failed: 0, symbols: [] as string[] },
     notifications: { created: 0, checked: 0 },
+    moneytor: {
+      skipped: false as boolean | string,
+      households: 0,
+      transactionsUpserted: 0,
+      stocksUpserted: 0,
+      snapshotsUpserted: 0,
+      failures: [] as Array<{ householdId: string; error: string; code?: string }>,
+    },
   };
 
   try {
@@ -33,6 +43,9 @@ export async function GET(request: NextRequest) {
 
     // Task 2: Check for missing pension deposits
     await checkMissingDeposits(results);
+
+    // Task 3: Sync Moneytor for every household
+    await syncMoneytor(results);
 
     return NextResponse.json({
       success: true,
@@ -149,6 +162,57 @@ async function checkMissingDeposits(results: {
         console.log(
           `Deposit anomaly for account ${account.id}: ${(percentChange * 100).toFixed(1)}% change from average`
         );
+      }
+    }
+  }
+}
+
+/**
+ * Sync Moneytor transactions, stock holdings, and daily snapshots for every
+ * household. Skipped entirely if MONEYTOR_API_TOKEN is not configured so we do
+ * not log a stack of failures on installs that do not use Moneytor.
+ */
+async function syncMoneytor(results: {
+  moneytor: {
+    skipped: boolean | string;
+    households: number;
+    transactionsUpserted: number;
+    stocksUpserted: number;
+    snapshotsUpserted: number;
+    failures: Array<{ householdId: string; error: string; code?: string }>;
+  };
+}) {
+  if (!process.env.MONEYTOR_API_TOKEN) {
+    results.moneytor.skipped = 'MONEYTOR_API_TOKEN not set';
+    return;
+  }
+
+  const households = await prisma.household.findMany({ select: { id: true } });
+
+  for (const { id: householdId } of households) {
+    try {
+      const summary = await syncMoneytorForHousehold(householdId);
+      results.moneytor.households++;
+      results.moneytor.transactionsUpserted += summary.upserted;
+      results.moneytor.stocksUpserted += summary.stocksUpserted;
+      results.moneytor.snapshotsUpserted += summary.snapshotsUpserted;
+    } catch (err) {
+      const error =
+        err instanceof MoneytorApiError
+          ? { error: err.message, code: err.code }
+          : { error: err instanceof Error ? err.message : 'Unknown error' };
+      console.error(`Moneytor sync failed for household ${householdId}:`, err);
+      results.moneytor.failures.push({ householdId, ...error });
+
+      // If the token is expired or revoked, stop early — every subsequent
+      // household call would hit the same failure.
+      if (
+        err instanceof MoneytorApiError &&
+        (err.code === 'token_expired' ||
+          err.code === 'invalid_token' ||
+          err.code === 'missing_token')
+      ) {
+        break;
       }
     }
   }
