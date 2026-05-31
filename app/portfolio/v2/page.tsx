@@ -19,6 +19,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -974,42 +978,8 @@ function AccountSection({
           ) : null}
         </div>
 
-        {/* Right: currency toggle + value + actions */}
+        {/* Right: value + actions (currency toggle lives inside the actions menu) */}
         <div className="flex items-center justify-end gap-3">
-          {/* Currency toggle */}
-          <div
-            className="flex items-center rounded-full border border-[#6ab2ff22] bg-[#1a1b1e] p-0.5"
-            role="group"
-            aria-label="Currency display toggle"
-          >
-            <button
-              onClick={() => setShowInAlternate(false)}
-              aria-pressed={!showInAlternate}
-              aria-label={`Show in ${nativeCurrency}`}
-              className={[
-                'min-h-[28px] min-w-[28px] rounded-full px-2 text-[10px] font-bold transition-all duration-200 active:scale-[0.95]',
-                !showInAlternate
-                  ? 'bg-[#6ab2ff] text-[#0d0e10]'
-                  : 'text-[rgba(253,251,254,0.4)] hover:text-[#fdfbfe]',
-              ].join(' ')}
-            >
-              {nativeSym}
-            </button>
-            <button
-              onClick={() => setShowInAlternate(true)}
-              aria-pressed={showInAlternate}
-              aria-label={`Show in ${alternateCurrency}`}
-              className={[
-                'min-h-[28px] min-w-[28px] rounded-full px-2 text-[10px] font-bold transition-all duration-200 active:scale-[0.95]',
-                showInAlternate
-                  ? 'bg-[#6ab2ff] text-[#0d0e10]'
-                  : 'text-[rgba(253,251,254,0.4)] hover:text-[#fdfbfe]',
-              ].join(' ')}
-            >
-              {altSym}
-            </button>
-          </div>
-
           {/* Value + gain% */}
           <div className="text-right">
             <p className="text-sm font-semibold text-[#fdfbfe] tabular-nums">
@@ -1038,6 +1008,27 @@ function AccountSection({
               align="end"
               className="border-[#6ab2ff33] bg-[#1a1b1e] text-[#fdfbfe]"
             >
+              <DropdownMenuLabel className="text-[10px] font-bold tracking-wider text-[rgba(253,251,254,0.4)] uppercase">
+                Display currency
+              </DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={showInAlternate ? alternateCurrency : nativeCurrency}
+                onValueChange={(v) => setShowInAlternate(v === alternateCurrency)}
+              >
+                <DropdownMenuRadioItem
+                  value={nativeCurrency}
+                  className="cursor-pointer text-sm hover:bg-[#242629] focus:bg-[#242629]"
+                >
+                  {nativeSym} {nativeCurrency}
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem
+                  value={alternateCurrency}
+                  className="cursor-pointer text-sm hover:bg-[#242629] focus:bg-[#242629]"
+                >
+                  {altSym} {alternateCurrency}
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+              <DropdownMenuSeparator className="bg-[#6ab2ff33]" />
               <DropdownMenuItem
                 onClick={() => setConfirmDeleteAccount(true)}
                 className="cursor-pointer gap-2 text-sm text-[#f87171] hover:bg-[#f8717115] focus:bg-[#f8717115]"
