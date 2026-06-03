@@ -11,11 +11,13 @@ function validateMonth(month: unknown): string | null {
 }
 
 function validateAmount(amount: unknown): number | null {
+  // Zero is allowed: it represents a deliberate "no savings this month" entry,
+  // distinguishing it from a month that hasn't been recorded yet.
   if (
     amount == null ||
     typeof amount !== 'number' ||
     !isFinite(amount) ||
-    amount <= 0 ||
+    amount < 0 ||
     amount > 999999999
   )
     return null;
@@ -204,9 +206,9 @@ export async function POST(request: NextRequest) {
     }
 
     const amount = validateAmount(rawAmount);
-    if (!amount) {
+    if (amount === null) {
       return NextResponse.json(
-        { success: false, error: 'amount must be a positive number (max 999,999,999)' },
+        { success: false, error: 'amount must be a non-negative number (max 999,999,999)' },
         { status: 400 }
       );
     }
@@ -269,9 +271,9 @@ export async function PUT(request: NextRequest) {
     }
 
     const amount = validateAmount(rawAmount);
-    if (!amount) {
+    if (amount === null) {
       return NextResponse.json(
-        { success: false, error: 'amount must be a positive number (max 999,999,999)' },
+        { success: false, error: 'amount must be a non-negative number (max 999,999,999)' },
         { status: 400 }
       );
     }

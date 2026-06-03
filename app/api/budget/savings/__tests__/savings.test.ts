@@ -586,18 +586,33 @@ describe('Budget Savings API', () => {
         const data = await response.json();
 
         expect(response.status).toBe(400);
-        expect(data.error).toBe('amount must be a positive number (max 999,999,999)');
+        expect(data.error).toBe('amount must be a non-negative number (max 999,999,999)');
       });
 
-      it('should reject zero amount', async () => {
+      it('should accept zero amount (deliberate "no savings this month")', async () => {
         mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+        mockSavingsCategoryExists('cat-savings-1');
+
+        const mockTransaction = {
+          id: 'tx-zero',
+          type: 'expense',
+          transactionDate: new Date('2025-03-01'),
+          amountIls: 0,
+          amountOriginal: 0,
+          currency: 'ILS',
+          categoryId: 'cat-savings-1',
+          source: 'manual',
+          householdId: 'household-1',
+        };
+        (mockPrisma.budgetTransaction.create as jest.Mock).mockResolvedValueOnce(mockTransaction);
 
         const request = createRequest({ month: '2025-03', amount: 0 });
         const response = await POST(request);
         const data = await response.json();
 
-        expect(response.status).toBe(400);
-        expect(data.error).toBe('amount must be a positive number (max 999,999,999)');
+        expect(response.status).toBe(200);
+        expect(data.success).toBe(true);
+        expect(data.data.amount).toBe(0);
       });
 
       it('should reject negative amount', async () => {
@@ -608,7 +623,7 @@ describe('Budget Savings API', () => {
         const data = await response.json();
 
         expect(response.status).toBe(400);
-        expect(data.error).toBe('amount must be a positive number (max 999,999,999)');
+        expect(data.error).toBe('amount must be a non-negative number (max 999,999,999)');
       });
 
       it('should reject non-number amount', async () => {
@@ -619,7 +634,7 @@ describe('Budget Savings API', () => {
         const data = await response.json();
 
         expect(response.status).toBe(400);
-        expect(data.error).toBe('amount must be a positive number (max 999,999,999)');
+        expect(data.error).toBe('amount must be a non-negative number (max 999,999,999)');
       });
 
       it('should accept positive decimal amount', async () => {
@@ -819,7 +834,7 @@ describe('Budget Savings API', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('amount must be a positive number (max 999,999,999)');
+      expect(data.error).toBe('amount must be a non-negative number (max 999,999,999)');
     });
 
     it('should return 404 when no savings category exists', async () => {

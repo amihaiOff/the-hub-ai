@@ -42,7 +42,7 @@ export default function SavingsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const numAmount = Math.round(parseFloat(amount) * 100) / 100;
-    if (!month || isNaN(numAmount) || numAmount <= 0) return;
+    if (!month || isNaN(numAmount) || numAmount < 0) return;
 
     try {
       await addEntry.mutateAsync({ month, amount: numAmount });
@@ -90,7 +90,7 @@ export default function SavingsPage() {
                   id="amount"
                   type="number"
                   step="0.01"
-                  min="0.01"
+                  min="0"
                   placeholder="0"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
