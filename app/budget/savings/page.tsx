@@ -13,12 +13,15 @@ import {
 } from '@/components/ui/dialog';
 import { Plus, Loader2, AlertCircle, PiggyBank } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { useSavings, useAddSavingsEntry } from '@/lib/hooks/use-budget';
+import { useSavings, useUpdateSavingsEntry } from '@/lib/hooks/use-budget';
 import { formatCurrencyILS, formatMonth, getCurrentMonth } from '@/lib/utils/budget';
 
 export default function SavingsPage() {
   const { data, isLoading, error } = useSavings();
-  const addEntry = useAddSavingsEntry();
+  // PUT (replace) semantics — submitting an amount sets the month's total
+  // instead of appending. Lets the user "edit" by re-submitting, and lets
+  // them effectively cancel a month by submitting 0.
+  const addEntry = useUpdateSavingsEntry();
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState(getCurrentMonth());
   const [amount, setAmount] = useState('');
