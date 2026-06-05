@@ -128,8 +128,10 @@ export function AddItemSheet({ open, onOpenChange }: AddItemSheetProps) {
             </div>
           )}
 
-          {/* Items list */}
-          <ScrollArea className="flex-1 px-4">
+          {/* Items list. min-h-0 lets the ScrollArea actually constrain its height
+              inside the parent flex column — without it the list grows past the
+              sheet and stops scrolling. */}
+          <ScrollArea className="min-h-0 flex-1 px-4">
             {itemsLoading && (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
