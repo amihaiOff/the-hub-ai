@@ -117,8 +117,10 @@ export function Sidebar() {
           <Logo />
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 space-y-1 p-4">
+        {/* Navigation. min-h-0 + overflow-y-auto lets the nav scroll on its own
+            when expanded submenus push it past the sidebar's fixed height,
+            instead of overflowing and hiding Settings/the user footer below. */}
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto p-4">
           {navItems.map((item) => (
             <NavItemComponent
               key={item.href}
