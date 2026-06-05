@@ -17,6 +17,7 @@ import {
   Sparkles,
   ShoppingCart,
   Package,
+  FlaskConical,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -78,7 +79,15 @@ export const navItems: NavItem[] = [
       { href: '/shopping/items', label: 'Items', icon: Package },
     ],
   },
-  { href: '/moneytor-trnx', label: 'Moneytor Trnx', icon: ArrowLeftRight },
+  {
+    // Labs — experimental/raw-debug pages. The parent's href is used only by
+    // `isParentActive` (pathname.startsWith) so the section highlights when
+    // the user is on any of its subitems.
+    href: '/moneytor-trnx',
+    label: 'Labs',
+    icon: FlaskConical,
+    subItems: [{ href: '/moneytor-trnx', label: 'Moneytor Trnx', icon: ArrowLeftRight }],
+  },
 ];
 
 export const settingsItem: NavItem = { href: '/settings', label: 'Settings', icon: Settings };
