@@ -18,17 +18,17 @@ export async function GET() {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch all data from all tables
+    // Fetch all data from the tables we back up. Intentionally excluded:
+    //   - moneytor_transactions (raw archive; they're promoted into budget_transactions)
+    //   - stock_accounts / stock_holdings / stock_account_cash / stock_account_owners /
+    //     stock_price_history ("portfolio old design" — superseded by Moneytor accounts)
+    //   - verification_tokens (auth artifacts)
+    //   - cron_run_logs (runtime telemetry)
     const [
       users,
       profiles,
       households,
       householdMembers,
-      stockAccounts,
-      stockAccountOwners,
-      stockHoldings,
-      stockAccountCash,
-      stockPriceHistory,
       pensionAccounts,
       pensionAccountOwners,
       pensionDeposits,
@@ -44,20 +44,20 @@ export async function GET() {
       budgetTransactionTags,
       riseupCategories,
       payeeCategoryRules,
+      insurancePolicies,
       shoppingCategories,
       shoppingItems,
       shoppingCartItems,
       shoppingDeliveries,
+      moneytorStockHoldings,
+      moneytorStockSnapshots,
+      moneytorAccounts,
+      moneytorAccountSnapshots,
     ] = await Promise.all([
       prisma.user.findMany(),
       prisma.profile.findMany(),
       prisma.household.findMany(),
       prisma.householdMember.findMany(),
-      prisma.stockAccount.findMany(),
-      prisma.stockAccountOwner.findMany(),
-      prisma.stockHolding.findMany(),
-      prisma.stockAccountCash.findMany(),
-      prisma.stockPriceHistory.findMany(),
       prisma.pensionAccount.findMany(),
       prisma.pensionAccountOwner.findMany(),
       prisma.pensionDeposit.findMany(),
@@ -73,27 +73,27 @@ export async function GET() {
       prisma.budgetTransactionTag.findMany(),
       prisma.riseupCategory.findMany(),
       prisma.payeeCategoryRule.findMany(),
+      prisma.insurancePolicy.findMany(),
       prisma.shoppingCategory.findMany(),
       prisma.shoppingItem.findMany(),
       prisma.shoppingCartItem.findMany(),
       prisma.shoppingDelivery.findMany(),
+      prisma.moneytorStockHolding.findMany(),
+      prisma.moneytorStockSnapshot.findMany(),
+      prisma.moneytorAccount.findMany(),
+      prisma.moneytorAccountSnapshot.findMany(),
     ]);
 
     // Create backup metadata
     const metadata = {
       backupDate: new Date().toISOString(),
-      schemaVersion: '1.2',
+      schemaVersion: '1.3',
       createdBy: user.email,
       counts: {
         users: users.length,
         profiles: profiles.length,
         households: households.length,
         householdMembers: householdMembers.length,
-        stockAccounts: stockAccounts.length,
-        stockAccountOwners: stockAccountOwners.length,
-        stockHoldings: stockHoldings.length,
-        stockAccountCash: stockAccountCash.length,
-        stockPriceHistory: stockPriceHistory.length,
         pensionAccounts: pensionAccounts.length,
         pensionAccountOwners: pensionAccountOwners.length,
         pensionDeposits: pensionDeposits.length,
@@ -109,10 +109,15 @@ export async function GET() {
         budgetTransactionTags: budgetTransactionTags.length,
         riseupCategories: riseupCategories.length,
         payeeCategoryRules: payeeCategoryRules.length,
+        insurancePolicies: insurancePolicies.length,
         shoppingCategories: shoppingCategories.length,
         shoppingItems: shoppingItems.length,
         shoppingCartItems: shoppingCartItems.length,
         shoppingDeliveries: shoppingDeliveries.length,
+        moneytorStockHoldings: moneytorStockHoldings.length,
+        moneytorStockSnapshots: moneytorStockSnapshots.length,
+        moneytorAccounts: moneytorAccounts.length,
+        moneytorAccountSnapshots: moneytorAccountSnapshots.length,
       },
     };
 
@@ -128,11 +133,6 @@ export async function GET() {
     zip.file('profiles.json', JSON.stringify(profiles, jsonSerializer, 2));
     zip.file('households.json', JSON.stringify(households, jsonSerializer, 2));
     zip.file('household_members.json', JSON.stringify(householdMembers, jsonSerializer, 2));
-    zip.file('stock_accounts.json', JSON.stringify(stockAccounts, jsonSerializer, 2));
-    zip.file('stock_account_owners.json', JSON.stringify(stockAccountOwners, jsonSerializer, 2));
-    zip.file('stock_holdings.json', JSON.stringify(stockHoldings, jsonSerializer, 2));
-    zip.file('stock_account_cash.json', JSON.stringify(stockAccountCash, jsonSerializer, 2));
-    zip.file('stock_price_history.json', JSON.stringify(stockPriceHistory, jsonSerializer, 2));
     zip.file('pension_accounts.json', JSON.stringify(pensionAccounts, jsonSerializer, 2));
     zip.file(
       'pension_account_owners.json',
@@ -157,10 +157,24 @@ export async function GET() {
     );
     zip.file('riseup_categories.json', JSON.stringify(riseupCategories, jsonSerializer, 2));
     zip.file('payee_category_rules.json', JSON.stringify(payeeCategoryRules, jsonSerializer, 2));
+    zip.file('insurance_policies.json', JSON.stringify(insurancePolicies, jsonSerializer, 2));
     zip.file('shopping_categories.json', JSON.stringify(shoppingCategories, jsonSerializer, 2));
     zip.file('shopping_items.json', JSON.stringify(shoppingItems, jsonSerializer, 2));
     zip.file('shopping_cart_items.json', JSON.stringify(shoppingCartItems, jsonSerializer, 2));
     zip.file('shopping_deliveries.json', JSON.stringify(shoppingDeliveries, jsonSerializer, 2));
+    zip.file(
+      'moneytor_stock_holdings.json',
+      JSON.stringify(moneytorStockHoldings, jsonSerializer, 2)
+    );
+    zip.file(
+      'moneytor_stock_snapshots.json',
+      JSON.stringify(moneytorStockSnapshots, jsonSerializer, 2)
+    );
+    zip.file('moneytor_accounts.json', JSON.stringify(moneytorAccounts, jsonSerializer, 2));
+    zip.file(
+      'moneytor_account_snapshots.json',
+      JSON.stringify(moneytorAccountSnapshots, jsonSerializer, 2)
+    );
 
     // Generate ZIP as Blob
     const zipBlob = await zip.generateAsync({ type: 'blob' });

@@ -53,10 +53,15 @@ const mockPrisma = {
   budgetTransactionTag: createMockFns('budgetTransactionTag'),
   riseupCategory: createMockFns('riseupCategory'),
   payeeCategoryRule: createMockFns('payeeCategoryRule'),
+  insurancePolicy: createMockFns('insurancePolicy'),
   shoppingCategory: createMockFns('shoppingCategory'),
   shoppingItem: createMockFns('shoppingItem'),
   shoppingCartItem: createMockFns('shoppingCartItem'),
   shoppingDelivery: createMockFns('shoppingDelivery'),
+  moneytorStockHolding: createMockFns('moneytorStockHolding'),
+  moneytorStockSnapshot: createMockFns('moneytorStockSnapshot'),
+  moneytorAccount: createMockFns('moneytorAccount'),
+  moneytorAccountSnapshot: createMockFns('moneytorAccountSnapshot'),
 };
 
 jest.mock('@/lib/db', () => ({

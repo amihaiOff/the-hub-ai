@@ -114,6 +114,18 @@ export async function POST(request: NextRequest) {
     const shoppingItems = await parseFile<Record<string, unknown>>('shopping_items.json');
     const shoppingCartItems = await parseFile<Record<string, unknown>>('shopping_cart_items.json');
     const shoppingDeliveries = await parseFile<Record<string, unknown>>('shopping_deliveries.json');
+    // Schema version 1.3+ tables (empty for older backups)
+    const insurancePolicies = await parseFile<Record<string, unknown>>('insurance_policies.json');
+    const moneytorStockHoldings = await parseFile<Record<string, unknown>>(
+      'moneytor_stock_holdings.json'
+    );
+    const moneytorStockSnapshots = await parseFile<Record<string, unknown>>(
+      'moneytor_stock_snapshots.json'
+    );
+    const moneytorAccounts = await parseFile<Record<string, unknown>>('moneytor_accounts.json');
+    const moneytorAccountSnapshots = await parseFile<Record<string, unknown>>(
+      'moneytor_account_snapshots.json'
+    );
 
     // Execute operations sequentially without transaction
     // Neon serverless doesn't support long-running transactions well
@@ -121,6 +133,13 @@ export async function POST(request: NextRequest) {
 
     // Delete all existing data in reverse order of dependencies
     console.log('Deleting existing data...');
+    // Moneytor tables (no children other than household — safe to wipe first)
+    await prisma.moneytorAccountSnapshot.deleteMany();
+    await prisma.moneytorAccount.deleteMany();
+    await prisma.moneytorStockSnapshot.deleteMany();
+    await prisma.moneytorStockHolding.deleteMany();
+    // Insurance
+    await prisma.insurancePolicy.deleteMany();
     // Shopping tables (children first)
     await prisma.shoppingDelivery.deleteMany();
     await prisma.shoppingCartItem.deleteMany();
@@ -598,6 +617,117 @@ export async function POST(request: NextRequest) {
           itemCount: sd.itemCount as number,
           householdId: sd.householdId as string,
           createdAt: new Date(sd.createdAt as string),
+        },
+      });
+    }
+
+    // 26. Insurance Policies (depends on profile + household)
+    for (const ip of insurancePolicies) {
+      await prisma.insurancePolicy.create({
+        data: {
+          id: ip.id as string,
+          profileId: ip.profileId as string,
+          householdId: ip.householdId as string,
+          mainBranch: ip.mainBranch as string,
+          subBranch: (ip.subBranch as string | null) ?? null,
+          productType: (ip.productType as string | null) ?? null,
+          company: (ip.company as string | null) ?? null,
+          insurancePeriod: (ip.insurancePeriod as string | null) ?? null,
+          additionalDetails: (ip.additionalDetails as string | null) ?? null,
+          premiumIls: ip.premiumIls != null ? (ip.premiumIls as number | string) : null,
+          premiumType: (ip.premiumType as string | null) ?? null,
+          policyNumber: (ip.policyNumber as string | null) ?? null,
+          planClassification: (ip.planClassification as string | null) ?? null,
+          createdAt: new Date(ip.createdAt as string),
+          updatedAt: new Date(ip.updatedAt as string),
+        },
+      });
+    }
+
+    // 27. Moneytor Stock Holdings (current snapshot of share-form assets)
+    for (const msh of moneytorStockHoldings) {
+      await prisma.moneytorStockHolding.create({
+        data: {
+          id: msh.id as string,
+          productId: msh.productId as string,
+          accountName: msh.accountName as string,
+          broker: (msh.broker as string | null) ?? null,
+          stockName: msh.stockName as string,
+          amount: msh.amount as number | string,
+          purchasePrice: msh.purchasePrice != null ? (msh.purchasePrice as number | string) : null,
+          purchaseDate: msh.purchaseDate ? new Date(msh.purchaseDate as string) : null,
+          stockPrice: msh.stockPrice as number | string,
+          currency: msh.currency as string,
+          totalWorthInBase: msh.totalWorthInBase as number | string,
+          accountCash: msh.accountCash != null ? (msh.accountCash as number | string) : null,
+          householdId: msh.householdId as string,
+          syncedAt: new Date(msh.syncedAt as string),
+          createdAt: new Date(msh.createdAt as string),
+          updatedAt: new Date(msh.updatedAt as string),
+        },
+      });
+    }
+
+    // 28. Moneytor Stock Snapshots (daily history)
+    for (const mss of moneytorStockSnapshots) {
+      await prisma.moneytorStockSnapshot.create({
+        data: {
+          id: mss.id as string,
+          snapshotDate: new Date(mss.snapshotDate as string),
+          productId: mss.productId as string,
+          accountName: mss.accountName as string,
+          stockName: mss.stockName as string,
+          amount: mss.amount as number | string,
+          stockPrice: mss.stockPrice as number | string,
+          currency: mss.currency as string,
+          totalWorthInBase: mss.totalWorthInBase as number | string,
+          accountCash: mss.accountCash != null ? (mss.accountCash as number | string) : null,
+          householdId: mss.householdId as string,
+          createdAt: new Date(mss.createdAt as string),
+          updatedAt: new Date(mss.updatedAt as string),
+        },
+      });
+    }
+
+    // 29. Moneytor Accounts (bank + debt balances)
+    for (const ma of moneytorAccounts) {
+      await prisma.moneytorAccount.create({
+        data: {
+          id: ma.id as string,
+          productId: ma.productId as string,
+          form: ma.form as string,
+          name: ma.name as string,
+          institution: (ma.institution as string | null) ?? null,
+          subtype: (ma.subtype as string | null) ?? null,
+          accountNumber: (ma.accountNumber as string | null) ?? null,
+          currency: ma.currency as string,
+          balanceInBase: ma.balanceInBase as number | string,
+          interestRate: ma.interestRate != null ? (ma.interestRate as number | string) : null,
+          maturityDate: ma.maturityDate ? new Date(ma.maturityDate as string) : null,
+          monthlyPayment: ma.monthlyPayment != null ? (ma.monthlyPayment as number | string) : null,
+          rawData: (ma.rawData as object) ?? undefined,
+          householdId: ma.householdId as string,
+          syncedAt: new Date(ma.syncedAt as string),
+          createdAt: new Date(ma.createdAt as string),
+          updatedAt: new Date(ma.updatedAt as string),
+        },
+      });
+    }
+
+    // 30. Moneytor Account Snapshots (daily balance history)
+    for (const mas of moneytorAccountSnapshots) {
+      await prisma.moneytorAccountSnapshot.create({
+        data: {
+          id: mas.id as string,
+          snapshotDate: new Date(mas.snapshotDate as string),
+          productId: mas.productId as string,
+          form: mas.form as string,
+          name: mas.name as string,
+          balanceInBase: mas.balanceInBase as number | string,
+          currency: mas.currency as string,
+          householdId: mas.householdId as string,
+          createdAt: new Date(mas.createdAt as string),
+          updatedAt: new Date(mas.updatedAt as string),
         },
       });
     }

@@ -20,11 +20,6 @@ jest.mock('@/lib/db', () => ({
     profile: { findMany: jest.fn() },
     household: { findMany: jest.fn() },
     householdMember: { findMany: jest.fn() },
-    stockAccount: { findMany: jest.fn() },
-    stockAccountOwner: { findMany: jest.fn() },
-    stockHolding: { findMany: jest.fn() },
-    stockAccountCash: { findMany: jest.fn() },
-    stockPriceHistory: { findMany: jest.fn() },
     pensionAccount: { findMany: jest.fn() },
     pensionAccountOwner: { findMany: jest.fn() },
     pensionDeposit: { findMany: jest.fn() },
@@ -40,10 +35,15 @@ jest.mock('@/lib/db', () => ({
     budgetTransactionTag: { findMany: jest.fn() },
     riseupCategory: { findMany: jest.fn() },
     payeeCategoryRule: { findMany: jest.fn() },
+    insurancePolicy: { findMany: jest.fn() },
     shoppingCategory: { findMany: jest.fn() },
     shoppingItem: { findMany: jest.fn() },
     shoppingCartItem: { findMany: jest.fn() },
     shoppingDelivery: { findMany: jest.fn() },
+    moneytorStockHolding: { findMany: jest.fn() },
+    moneytorStockSnapshot: { findMany: jest.fn() },
+    moneytorAccount: { findMany: jest.fn() },
+    moneytorAccountSnapshot: { findMany: jest.fn() },
   },
 }));
 
@@ -118,39 +118,6 @@ describe('Backup API', () => {
           profileId: 'profile-1',
           role: 'owner',
           joinedAt: new Date('2024-01-01'),
-        },
-      ];
-      const mockStockAccounts = [
-        {
-          id: 'stock-account-1',
-          name: 'Brokerage',
-          broker: 'Fidelity',
-          currency: 'USD',
-          userId: 'user-1',
-          createdAt: new Date('2024-01-01'),
-          updatedAt: new Date('2024-01-01'),
-        },
-      ];
-      const mockStockAccountOwners = [
-        { id: 'owner-1', accountId: 'stock-account-1', profileId: 'profile-1' },
-      ];
-      const mockStockHoldings = [
-        {
-          id: 'holding-1',
-          symbol: 'AAPL',
-          quantity: createDecimal(10),
-          avgCostBasis: createDecimal(150),
-          accountId: 'stock-account-1',
-          createdAt: new Date('2024-01-01'),
-          updatedAt: new Date('2024-01-01'),
-        },
-      ];
-      const mockStockPriceHistory = [
-        {
-          id: 'price-1',
-          symbol: 'AAPL',
-          price: createDecimal(175),
-          timestamp: new Date('2024-01-15'),
         },
       ];
       const mockPensionAccounts = [
@@ -302,15 +269,6 @@ describe('Backup API', () => {
       (mockPrisma.householdMember.findMany as jest.Mock).mockResolvedValueOnce(
         mockHouseholdMembers
       );
-      (mockPrisma.stockAccount.findMany as jest.Mock).mockResolvedValueOnce(mockStockAccounts);
-      (mockPrisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(
-        mockStockAccountOwners
-      );
-      (mockPrisma.stockHolding.findMany as jest.Mock).mockResolvedValueOnce(mockStockHoldings);
-      (mockPrisma.stockAccountCash.findMany as jest.Mock).mockResolvedValueOnce([]);
-      (mockPrisma.stockPriceHistory.findMany as jest.Mock).mockResolvedValueOnce(
-        mockStockPriceHistory
-      );
       (mockPrisma.pensionAccount.findMany as jest.Mock).mockResolvedValueOnce(mockPensionAccounts);
       (mockPrisma.pensionAccountOwner.findMany as jest.Mock).mockResolvedValueOnce(
         mockPensionAccountOwners
@@ -336,10 +294,15 @@ describe('Backup API', () => {
       );
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce(mockRiseupCategories);
       (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.insurancePolicy.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.shoppingCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.shoppingItem.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.shoppingCartItem.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.shoppingDelivery.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.moneytorStockHolding.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.moneytorStockSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.moneytorAccount.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.moneytorAccountSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const response = await GET();
 
@@ -361,11 +324,6 @@ describe('Backup API', () => {
       expect(zip.file('profiles.json')).not.toBeNull();
       expect(zip.file('households.json')).not.toBeNull();
       expect(zip.file('household_members.json')).not.toBeNull();
-      expect(zip.file('stock_accounts.json')).not.toBeNull();
-      expect(zip.file('stock_account_owners.json')).not.toBeNull();
-      expect(zip.file('stock_holdings.json')).not.toBeNull();
-      expect(zip.file('stock_account_cash.json')).not.toBeNull();
-      expect(zip.file('stock_price_history.json')).not.toBeNull();
       expect(zip.file('pension_accounts.json')).not.toBeNull();
       expect(zip.file('pension_account_owners.json')).not.toBeNull();
       expect(zip.file('pension_deposits.json')).not.toBeNull();
@@ -381,26 +339,32 @@ describe('Backup API', () => {
       expect(zip.file('budget_transaction_tags.json')).not.toBeNull();
       expect(zip.file('riseup_categories.json')).not.toBeNull();
       expect(zip.file('payee_category_rules.json')).not.toBeNull();
+      expect(zip.file('insurance_policies.json')).not.toBeNull();
       expect(zip.file('shopping_categories.json')).not.toBeNull();
       expect(zip.file('shopping_items.json')).not.toBeNull();
       expect(zip.file('shopping_cart_items.json')).not.toBeNull();
       expect(zip.file('shopping_deliveries.json')).not.toBeNull();
+      expect(zip.file('moneytor_stock_holdings.json')).not.toBeNull();
+      expect(zip.file('moneytor_stock_snapshots.json')).not.toBeNull();
+      expect(zip.file('moneytor_accounts.json')).not.toBeNull();
+      expect(zip.file('moneytor_account_snapshots.json')).not.toBeNull();
+      // Legacy "portfolio old design" tables are intentionally excluded
+      expect(zip.file('stock_accounts.json')).toBeNull();
+      expect(zip.file('stock_holdings.json')).toBeNull();
+      expect(zip.file('stock_account_cash.json')).toBeNull();
+      expect(zip.file('stock_account_owners.json')).toBeNull();
+      expect(zip.file('stock_price_history.json')).toBeNull();
 
       // Verify metadata content
       const metadataContent = await zip.file('metadata.json')!.async('string');
       const metadata = JSON.parse(metadataContent);
-      expect(metadata.schemaVersion).toBe('1.2');
+      expect(metadata.schemaVersion).toBe('1.3');
       expect(metadata.createdBy).toBe('test@example.com');
       expect(metadata.counts).toEqual({
         users: 1,
         profiles: 1,
         households: 1,
         householdMembers: 1,
-        stockAccounts: 1,
-        stockAccountOwners: 1,
-        stockHoldings: 1,
-        stockAccountCash: 0,
-        stockPriceHistory: 1,
         pensionAccounts: 1,
         pensionAccountOwners: 1,
         pensionDeposits: 1,
@@ -416,10 +380,15 @@ describe('Backup API', () => {
         budgetTransactionTags: 1,
         riseupCategories: 1,
         payeeCategoryRules: 0,
+        insurancePolicies: 0,
         shoppingCategories: 0,
         shoppingItems: 0,
         shoppingCartItems: 0,
         shoppingDeliveries: 0,
+        moneytorStockHoldings: 0,
+        moneytorStockSnapshots: 0,
+        moneytorAccounts: 0,
+        moneytorAccountSnapshots: 0,
       });
 
       // Verify data files contain correct data
@@ -428,11 +397,9 @@ describe('Backup API', () => {
       expect(users).toHaveLength(1);
       expect(users[0].email).toBe('test@example.com');
 
-      const holdingsContent = await zip.file('stock_holdings.json')!.async('string');
-      const holdings = JSON.parse(holdingsContent);
-      expect(holdings).toHaveLength(1);
-      expect(holdings[0].symbol).toBe('AAPL');
-      expect(holdings[0].quantity).toBe('10'); // Decimal converted to string for precision
+      // Moneytor tables are present (empty here but file exists)
+      const moneytorAccountsContent = await zip.file('moneytor_accounts.json')!.async('string');
+      expect(JSON.parse(moneytorAccountsContent)).toEqual([]);
     });
 
     it('should handle empty database tables', async () => {
@@ -444,11 +411,6 @@ describe('Backup API', () => {
       (mockPrisma.profile.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.household.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.householdMember.findMany as jest.Mock).mockResolvedValueOnce([]);
-      (mockPrisma.stockAccount.findMany as jest.Mock).mockResolvedValueOnce([]);
-      (mockPrisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce([]);
-      (mockPrisma.stockHolding.findMany as jest.Mock).mockResolvedValueOnce([]);
-      (mockPrisma.stockAccountCash.findMany as jest.Mock).mockResolvedValueOnce([]);
-      (mockPrisma.stockPriceHistory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.pensionAccount.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.pensionAccountOwner.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.pensionDeposit.findMany as jest.Mock).mockResolvedValueOnce([]);
@@ -464,10 +426,15 @@ describe('Backup API', () => {
       (mockPrisma.budgetTransactionTag.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.insurancePolicy.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.shoppingCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.shoppingItem.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.shoppingCartItem.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.shoppingDelivery.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.moneytorStockHolding.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.moneytorStockSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.moneytorAccount.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.moneytorAccountSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const response = await GET();
 
@@ -504,26 +471,12 @@ describe('Backup API', () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
 
-      // Set up minimal mocks with Decimal values
+      // Set up minimal mocks; put Decimal values on a Moneytor holding so we
+      // exercise the serializer against a table that's actually in the backup.
       (mockPrisma.user.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.profile.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.household.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.householdMember.findMany as jest.Mock).mockResolvedValueOnce([]);
-      (mockPrisma.stockAccount.findMany as jest.Mock).mockResolvedValueOnce([]);
-      (mockPrisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce([]);
-      (mockPrisma.stockHolding.findMany as jest.Mock).mockResolvedValueOnce([
-        {
-          id: 'holding-1',
-          symbol: 'TSLA',
-          quantity: createDecimal(5.5),
-          avgCostBasis: createDecimal(200.25),
-          accountId: 'account-1',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      ]);
-      (mockPrisma.stockAccountCash.findMany as jest.Mock).mockResolvedValueOnce([]);
-      (mockPrisma.stockPriceHistory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.pensionAccount.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.pensionAccountOwner.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.pensionDeposit.findMany as jest.Mock).mockResolvedValueOnce([]);
@@ -539,23 +492,47 @@ describe('Backup API', () => {
       (mockPrisma.budgetTransactionTag.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.insurancePolicy.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.shoppingCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.shoppingItem.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.shoppingCartItem.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.shoppingDelivery.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.moneytorStockHolding.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'msh-1',
+          productId: 'prod-1',
+          accountName: 'Brokerage',
+          broker: null,
+          stockName: 'TSLA',
+          amount: createDecimal(5.5),
+          purchasePrice: createDecimal(200.25),
+          purchaseDate: null,
+          stockPrice: createDecimal(300),
+          currency: 'USD',
+          totalWorthInBase: createDecimal(6000),
+          accountCash: null,
+          householdId: 'household-1',
+          syncedAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+      (mockPrisma.moneytorStockSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.moneytorAccount.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.moneytorAccountSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const response = await GET();
       const blob = await response.blob();
       const arrayBuffer = await blob.arrayBuffer();
       const zip = await JSZip.loadAsync(arrayBuffer);
 
-      const holdingsContent = await zip.file('stock_holdings.json')!.async('string');
+      const holdingsContent = await zip.file('moneytor_stock_holdings.json')!.async('string');
       const holdings = JSON.parse(holdingsContent);
 
       // Verify Decimal values are converted to strings (for precision)
-      expect(typeof holdings[0].quantity).toBe('string');
-      expect(holdings[0].quantity).toBe('5.5');
-      expect(holdings[0].avgCostBasis).toBe('200.25');
+      expect(typeof holdings[0].amount).toBe('string');
+      expect(holdings[0].amount).toBe('5.5');
+      expect(holdings[0].purchasePrice).toBe('200.25');
     });
   });
 });
