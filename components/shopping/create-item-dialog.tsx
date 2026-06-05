@@ -33,6 +33,9 @@ interface CreateItemDialogProps {
 }
 
 export function CreateItemDialog({ open, onOpenChange, defaultName = '' }: CreateItemDialogProps) {
+  // useState(defaultName) picks up the current defaultName whenever this
+  // component mounts. The parent ensures a fresh mount on each open by
+  // changing the dialog's `key`, so the pre-fill happens reliably.
   const [name, setName] = useState(defaultName);
   const [categoryId, setCategoryId] = useState('');
   const [showNewCategory, setShowNewCategory] = useState(false);
@@ -86,12 +89,7 @@ export function CreateItemDialog({ open, onOpenChange, defaultName = '' }: Creat
     <Dialog
       open={open}
       onOpenChange={(value) => {
-        if (value) {
-          setName(defaultName);
-          setError(null);
-        } else {
-          resetForm();
-        }
+        if (!value) resetForm();
         onOpenChange(value);
       }}
     >

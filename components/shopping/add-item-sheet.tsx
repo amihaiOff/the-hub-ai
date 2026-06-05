@@ -194,7 +194,12 @@ export function AddItemSheet({ open, onOpenChange }: AddItemSheetProps) {
         </SheetContent>
       </Sheet>
 
+      {/* `key` forces a fresh mount of the dialog whenever the search text it
+          should pre-fill changes, so useState(defaultName) inside the dialog
+          picks up the current value. Without this React keeps the existing
+          dialog state (which was initialised when search was empty). */}
       <CreateItemDialog
+        key={showCreateDialog ? `open-${search}` : 'closed'}
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         defaultName={search}
