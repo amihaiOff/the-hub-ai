@@ -13,6 +13,17 @@ import type { ImportTransactionInput } from '@/lib/validations/budget';
 import { mapMoneytorTypeToPaymentMethod } from '@/lib/utils/moneytor-mapping';
 
 /**
+ * Hard floor for any Moneytor data flowing into budget_transactions. Anything
+ * earlier than this is considered "already imported via CSV" and is ignored —
+ * both at fetch time (don't ask Moneytor for it) and at promotion time (don't
+ * insert it into budget_transactions even if it's already in moneytor_transactions).
+ *
+ * Keep these in sync if the cutoff ever moves.
+ */
+const INITIAL_SYNC_FROM = '2026-05-01';
+const INITIAL_SYNC_FROM_DATE = new Date(`${INITIAL_SYNC_FROM}T00:00:00Z`);
+
+/**
  * Result of syncing a single household with Moneytor.
  * Same shape returned by the manual sync UI and the cron job.
  */
@@ -50,9 +61,8 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
   });
 
   // On the very first sync (no stored transactions yet) we only pull from
-  // May 2026 onward so we don't overwrite/duplicate transactions that were
-  // already imported for earlier months by other means.
-  const INITIAL_SYNC_FROM = '2026-05-01';
+  // INITIAL_SYNC_FROM onward so we don't overwrite/duplicate transactions
+  // that were already imported for earlier months by other means.
   const SAFETY_DAYS = 7;
   let from: string | undefined;
   if (latest) {
@@ -226,8 +236,15 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
   // PayeeCategoryRule application, and (date,payee,amount) dedup all just work.
   // Pre-filter here instead of relying on a Prisma relation (avoids an extra FK
   // migration just for this lookup).
+  //
+  // Hard floor on transactionDate >= INITIAL_SYNC_FROM. moneytor_transactions may
+  // still contain older rows from before this guard existed; they must not be
+  // promoted because they'd duplicate CSV imports for those months.
   const allMoneytor = await prisma.moneytorTransaction.findMany({
-    where: { householdId },
+    where: {
+      householdId,
+      transactionDate: { gte: INITIAL_SYNC_FROM_DATE },
+    },
     orderBy: { transactionDate: 'asc' },
   });
   const alreadyPromoted = await prisma.budgetTransaction.findMany({
