@@ -65,7 +65,7 @@ export function CategorySelect({
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search categories..." />
-          <CommandList>
+          <CommandList className="scrollbar-hide max-h-[50vh]">
             <CommandEmpty>No category found.</CommandEmpty>
             {allowNone && (
               <CommandGroup>
