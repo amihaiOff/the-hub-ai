@@ -235,7 +235,6 @@ function CategoryTableRow({
   const status = getBudgetStatus(category.budgeted, category.spent);
   const color = availableColor(isSavings, status);
   const displayAvailable = isSavings ? category.spent : category.available;
-  const spent = category.budgeted - category.available;
 
   return (
     <>
@@ -254,15 +253,14 @@ function CategoryTableRow({
             showStats={false}
           />
         </td>
-        <td className="w-24 py-2.5 pr-3 pl-2 text-right">
-          <span className={cn('text-sm font-medium tabular-nums', color)}>
-            {formatCurrencyILS(displayAvailable)}
+        <td className="py-2.5 pr-3 pl-2 text-right">
+          <span className="text-sm whitespace-nowrap tabular-nums" dir="ltr">
+            <bdi className={cn('font-medium', color)}>{formatCurrencyILS(displayAvailable)}</bdi>
+            <span className="text-muted-foreground/60">
+              {' / '}
+              <bdi>{formatCurrencyILS(category.budgeted)}</bdi>
+            </span>
           </span>
-          {!isSavings && spent > 0 && (
-            <div className="text-muted-foreground text-[10px] tabular-nums">
-              {spent.toLocaleString('he-IL')} used
-            </div>
-          )}
         </td>
       </tr>
       {isExpanded && (
@@ -308,7 +306,6 @@ function SortableGroupRow({
   const groupStatus = getBudgetStatus(group.totalBudgeted, group.totalSpent);
   const color = availableColor(isGroupSavings, groupStatus);
   const groupDisplayAvailable = isGroupSavings ? group.totalSpent : group.totalAvailable;
-  const groupSpent = group.totalBudgeted - group.totalAvailable;
 
   return (
     <Fragment>
@@ -335,14 +332,13 @@ function SortableGroupRow({
           />
         </td>
         <td className="py-3 pr-3 pl-2 text-right">
-          <span className={cn('font-semibold tabular-nums', color)}>
-            {formatCurrencyILS(groupDisplayAvailable)}
+          <span className="font-semibold whitespace-nowrap tabular-nums" dir="ltr">
+            <bdi className={color}>{formatCurrencyILS(groupDisplayAvailable)}</bdi>
+            <span className="text-muted-foreground/60 font-normal">
+              {' / '}
+              <bdi>{formatCurrencyILS(group.totalBudgeted)}</bdi>
+            </span>
           </span>
-          {!isGroupSavings && groupSpent > 0 && (
-            <div className="text-muted-foreground text-[10px] tabular-nums">
-              {groupSpent.toLocaleString('he-IL')} used
-            </div>
-          )}
         </td>
       </tr>
 
