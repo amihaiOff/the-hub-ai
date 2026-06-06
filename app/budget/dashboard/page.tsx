@@ -117,10 +117,14 @@ function MobileCategoryRow({
             <span className="truncate text-sm">{category.categoryName}</span>
           </div>
           <span className="shrink-0 text-sm tabular-nums" dir="ltr">
-            <span className={cn('font-medium', color)}>{formatCurrencyILS(displayAvailable)}</span>
+            {/* <bdi> isolates each formatted currency from bidi reordering.
+                The ₪ inside formatCurrencyILS is a strong RTL char and
+                without isolation it dragged the slash + neighbour number
+                into the wrong visual order. */}
+            <bdi className={cn('font-medium', color)}>{formatCurrencyILS(displayAvailable)}</bdi>
             <span className="text-muted-foreground/60">
               {' / '}
-              {formatCurrencyILS(category.budgeted)}
+              <bdi>{formatCurrencyILS(category.budgeted)}</bdi>
             </span>
           </span>
         </div>
@@ -173,10 +177,10 @@ function MobileGroupCard({
         <div className="flex items-center justify-between gap-2">
           <span className="truncate font-semibold">{group.name}</span>
           <span className="shrink-0 font-semibold tabular-nums" dir="ltr">
-            <span className={color}>{formatCurrencyILS(groupDisplayAvailable)}</span>
+            <bdi className={color}>{formatCurrencyILS(groupDisplayAvailable)}</bdi>
             <span className="text-muted-foreground/60 font-normal">
               {' / '}
-              {formatCurrencyILS(group.totalBudgeted)}
+              <bdi>{formatCurrencyILS(group.totalBudgeted)}</bdi>
             </span>
           </span>
         </div>
