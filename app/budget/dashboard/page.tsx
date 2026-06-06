@@ -116,8 +116,12 @@ function MobileCategoryRow({
             <span className="text-muted-foreground/50 shrink-0 text-xs">└</span>
             <span className="truncate text-sm">{category.categoryName}</span>
           </div>
-          <span className={cn('shrink-0 text-sm font-medium tabular-nums', color)}>
-            {formatCurrencyILS(displayAvailable)}
+          <span className="shrink-0 text-sm tabular-nums">
+            <span className={cn('font-medium', color)}>{formatCurrencyILS(displayAvailable)}</span>
+            <span className="text-muted-foreground/60">
+              {' / '}
+              {formatCurrencyILS(category.budgeted)}
+            </span>
           </span>
         </div>
         <div className="mt-1.5 pl-4">
