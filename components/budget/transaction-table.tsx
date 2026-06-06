@@ -20,6 +20,7 @@ import { BulkActionsBar } from './bulk-actions-bar';
 import { EditTransactionDialog } from './edit-transaction-dialog';
 import { SplitTransactionDialog } from './split-transaction-dialog';
 import { PayeeCategoryPrompt } from './payee-category-prompt';
+import { TransactionActionsPanel } from './transaction-actions-panel';
 import { useDeleteTransaction } from '@/lib/hooks/use-budget';
 
 function groupTransactionsByDate(transactions: BudgetTransaction[]) {
@@ -56,6 +57,7 @@ export function TransactionTable({
   const [mobileSelectionMode, setMobileSelectionMode] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<BudgetTransaction | null>(null);
   const [splittingTransaction, setSplittingTransaction] = useState<BudgetTransaction | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [payeeCategoryPrompt, setPayeeCategoryPrompt] = useState<PayeeCategoryPromptData | null>(
     null
   );
@@ -89,6 +91,7 @@ export function TransactionTable({
   const handleMobileLongPress = useCallback((id: string) => {
     setMobileSelectionMode(true);
     setSelectedIds(new Set([id]));
+    setExpandedId(null);
   }, []);
 
   const exitMobileSelectionMode = useCallback(() => {
@@ -148,23 +151,52 @@ export function TransactionTable({
               </span>
               <div className="bg-border h-px flex-1" />
             </div>
-            {group.transactions.map((transaction) => (
-              <TransactionRowMobile
-                key={transaction.id}
-                transaction={transaction}
-                categoryGroups={categoryGroups}
-                payees={payees}
-                tags={tags}
-                isSelected={selectedIds.has(transaction.id)}
-                selectionMode={mobileSelectionMode}
-                onSelect={(selected) => toggleSelect(transaction.id, selected)}
-                onLongPress={() => handleMobileLongPress(transaction.id)}
-                onEdit={() => setEditingTransaction(transaction)}
-                onDelete={() => handleDelete(transaction.id)}
-                onSplit={() => setSplittingTransaction(transaction)}
-                onPromptPayeeCategory={setPayeeCategoryPrompt}
-              />
-            ))}
+            {group.transactions.map((transaction) => {
+              const isExpanded = expandedId === transaction.id;
+              return (
+                <div key={transaction.id}>
+                  <TransactionRowMobile
+                    transaction={transaction}
+                    categoryGroups={categoryGroups}
+                    payees={payees}
+                    tags={tags}
+                    isSelected={selectedIds.has(transaction.id)}
+                    selectionMode={mobileSelectionMode}
+                    isExpanded={isExpanded}
+                    onSelect={(selected) => toggleSelect(transaction.id, selected)}
+                    onLongPress={() => handleMobileLongPress(transaction.id)}
+                    onTap={() =>
+                      setExpandedId((prev) => (prev === transaction.id ? null : transaction.id))
+                    }
+                    onEdit={() => setEditingTransaction(transaction)}
+                    onDelete={() => handleDelete(transaction.id)}
+                    onSplit={() => setSplittingTransaction(transaction)}
+                    onPromptPayeeCategory={setPayeeCategoryPrompt}
+                  />
+                  {isExpanded && (
+                    <TransactionActionsPanel
+                      transaction={transaction}
+                      categoryGroups={categoryGroups}
+                      payees={payees}
+                      tags={tags}
+                      onEdit={() => {
+                        setEditingTransaction(transaction);
+                        setExpandedId(null);
+                      }}
+                      onSplit={() => {
+                        setSplittingTransaction(transaction);
+                        setExpandedId(null);
+                      }}
+                      onDelete={() => {
+                        setExpandedId(null);
+                        handleDelete(transaction.id);
+                      }}
+                      onPromptPayeeCategory={setPayeeCategoryPrompt}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>

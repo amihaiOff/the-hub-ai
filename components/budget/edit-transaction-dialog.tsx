@@ -5,20 +5,12 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2 } from 'lucide-react';
 import {
@@ -27,7 +19,7 @@ import {
   usePayees,
   useTags,
 } from '@/lib/hooks/use-budget';
-import { type BudgetTransaction } from '@/lib/utils/budget';
+import { type BudgetTransaction, getPayeeName } from '@/lib/utils/budget';
 import { cn } from '@/lib/utils';
 import { CategorySelect } from './category-select';
 
@@ -49,7 +41,6 @@ function EditTransactionForm({
   const [date, setDate] = useState(transaction.transactionDate);
   const [amount, setAmount] = useState(transaction.amountIls.toString());
   const [categoryId, setCategoryId] = useState(transaction.categoryId || '');
-  const [payeeId, setPayeeId] = useState(transaction.payeeId || '');
   const [notes, setNotes] = useState(transaction.notes || '');
   const [selectedTags, setSelectedTags] = useState<string[]>(transaction.tagIds);
 
@@ -57,6 +48,8 @@ function EditTransactionForm({
   const { data: payees = [] } = usePayees();
   const { data: tags = [] } = useTags();
   const updateTransaction = useUpdateTransaction();
+
+  const payeeName = getPayeeName(transaction.payeeId, payees);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +62,6 @@ function EditTransactionForm({
       transactionDate: date,
       amountIls: amountNum,
       categoryId: categoryId || null,
-      payeeId: payeeId || null,
       notes: notes || null,
       tagIds: selectedTags,
     });
@@ -86,8 +78,7 @@ function EditTransactionForm({
   return (
     <form onSubmit={handleSubmit}>
       <DialogHeader>
-        <DialogTitle>Edit Transaction</DialogTitle>
-        <DialogDescription>Update the transaction details.</DialogDescription>
+        <DialogTitle className="truncate text-lg">{payeeName}</DialogTitle>
       </DialogHeader>
 
       <div className="grid gap-4 py-4">
@@ -156,27 +147,6 @@ function EditTransactionForm({
             />
           </div>
         )}
-
-        {/* Payee */}
-        <div className="grid gap-2">
-          <Label htmlFor="edit-payee">Payee</Label>
-          <Select
-            value={payeeId || '__none__'}
-            onValueChange={(v) => setPayeeId(v === '__none__' ? '' : v)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select payee" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">No payee</SelectItem>
-              {payees.map((payee) => (
-                <SelectItem key={payee.id} value={payee.id}>
-                  {payee.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
 
         {/* Tags */}
         <div className="grid gap-2">

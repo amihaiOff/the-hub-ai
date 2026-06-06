@@ -29,9 +29,11 @@ import {
   type BudgetTag,
   formatDate,
   formatCurrencyILS,
+  getCategoryWithGroup,
   getPayeeName,
 } from '@/lib/utils/budget';
 import { useUpdateTransaction } from '@/lib/hooks/use-budget';
+import { CategoryGroupIcon, getGroupIconColor } from '@/lib/utils/category-group-icons';
 export interface PayeeCategoryPromptData {
   categoryId: string;
   categoryName: string;
@@ -47,8 +49,10 @@ export interface TransactionRowProps {
   tags: BudgetTag[];
   isSelected: boolean;
   selectionMode?: boolean;
+  isExpanded?: boolean;
   onSelect: (selected: boolean) => void;
   onLongPress?: () => void;
+  onTap?: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onSplit: () => void;
@@ -345,25 +349,23 @@ export function TransactionRowMobile({
   tags,
   isSelected,
   selectionMode,
+  isExpanded,
   onSelect,
   onLongPress,
-  onEdit,
-  onDelete,
-  onSplit,
-  onPromptPayeeCategory,
+  onTap,
 }: TransactionRowProps) {
   const payeeName = getPayeeName(transaction.payeeId, payees);
   const transactionTags = tags.filter((t) => transaction.tagIds.includes(t.id));
   const isIncome = transaction.type === 'income';
-  const { updateTransaction, handleCategoryChange } = useCategoryChange(
-    transaction,
-    categoryGroups,
-    payees,
-    onPromptPayeeCategory
-  );
+  const groupInfo = getCategoryWithGroup(transaction.categoryId, categoryGroups);
+  const iconType = isIncome ? 'income' : 'expense';
+  const iconColor = getGroupIconColor(groupInfo?.groupName ?? null, { type: iconType });
 
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didLongPress = useRef(false);
+  // Suppress the synthetic click that fires after a touch ends, so a single
+  // tap doesn't trigger onTap twice (touchEnd + click).
+  const touchHandled = useRef(false);
 
   const handleTouchStart = () => {
     didLongPress.current = false;
@@ -378,80 +380,97 @@ export function TransactionRowMobile({
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
-    // In selection mode, a normal tap toggles selection
-    if (selectionMode && !didLongPress.current) {
+    touchHandled.current = true;
+    if (didLongPress.current) return;
+    if (selectionMode) {
       onSelect(!isSelected);
+    } else {
+      onTap?.();
     }
   };
 
   const handleTouchMove = () => {
-    // Cancel long press if finger moves (scrolling)
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
   };
 
+  const categoryBadgeText = groupInfo
+    ? groupInfo.categoryName
+    : isIncome
+      ? 'Income'
+      : 'Uncategorized';
+
   return (
     <div
       className={cn(
-        'border-border/40 flex items-start gap-2 border-b px-2 py-1.5 transition-colors duration-150',
-        isSelected && 'bg-primary/10',
-        selectionMode && 'select-none'
+        'bg-card border-border/40 mx-2 mt-1.5 flex items-center gap-3 rounded-xl border p-3 transition-colors duration-150 select-none',
+        isExpanded ? 'mb-0 rounded-b-none border-b-0' : 'mb-1.5',
+        isSelected && 'ring-primary bg-primary/10 ring-2',
+        'active:bg-card/70'
       )}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onTouchMove={handleTouchMove}
+      onClick={() => {
+        // On mobile, touchEnd already handled this — skip the synthetic click.
+        if (touchHandled.current) {
+          touchHandled.current = false;
+          return;
+        }
+        if (selectionMode) {
+          onSelect(!isSelected);
+        } else {
+          onTap?.();
+        }
+      }}
       onContextMenu={(e) => e.preventDefault()}
+      role="button"
+      tabIndex={0}
     >
-      {/* Left: Payee + Notes */}
+      <span
+        className={cn(
+          'flex h-11 w-11 shrink-0 items-center justify-center rounded-full',
+          iconColor
+        )}
+      >
+        <CategoryGroupIcon
+          groupName={groupInfo?.groupName ?? null}
+          type={iconType}
+          className="h-5 w-5"
+        />
+      </span>
+
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">{payeeName}</span>
           {transactionTags.map((tag) => (
             <TagDot key={tag.id} tag={tag} />
           ))}
         </div>
+        <div className="mt-0.5 flex items-center gap-2">
+          <span
+            className={cn(
+              'bg-muted/70 text-muted-foreground inline-flex max-w-full items-center truncate rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase',
+              !groupInfo && 'italic'
+            )}
+          >
+            {categoryBadgeText}
+          </span>
+        </div>
         {transaction.notes && (
-          <div className="text-muted-foreground truncate text-xs">{transaction.notes}</div>
+          <div className="text-muted-foreground mt-1 truncate text-xs">{transaction.notes}</div>
         )}
       </div>
 
-      {/* Right: Amount + Category */}
-      <div className="flex shrink-0 flex-col items-end">
-        <span className={cn('text-sm font-medium tabular-nums', isIncome ? 'text-green-500' : '')}>
-          {isIncome ? '+' : '-'}
-          {formatCurrencyILS(transaction.amountIls)}
-        </span>
-        <CategorySelect
-          transaction={transaction}
-          categoryGroups={categoryGroups}
-          payeeName={payeeName}
-          isIncome={isIncome}
-          isPending={updateTransaction.isPending}
-          onCategoryChange={handleCategoryChange}
-          align="end"
-          triggerClassName={cn(
-            'h-auto w-auto max-w-[120px] justify-end border-0 bg-transparent px-0 py-0 text-xs shadow-none',
-            'hover:bg-muted/50 focus:ring-0 focus:ring-offset-0',
-            'text-muted-foreground'
-          )}
-        />
+      <div
+        dir="ltr"
+        className={cn('shrink-0 text-sm font-semibold tabular-nums', isIncome && 'text-green-500')}
+      >
+        {isIncome ? '+' : '-'}
+        <bdi>{formatCurrencyILS(transaction.amountIls)}</bdi>
       </div>
-
-      {/* Actions - hidden during selection mode */}
-      {!selectionMode && (
-        <div className="flex shrink-0 items-center pt-0.5">
-          <TransactionActions
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onSplit={onSplit}
-            isSplit={transaction.isSplit}
-            buttonClassName="h-7 w-7"
-            iconClassName="h-3.5 w-3.5"
-          />
-        </div>
-      )}
     </div>
   );
 }
