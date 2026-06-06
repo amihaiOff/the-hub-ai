@@ -172,8 +172,12 @@ function MobileGroupCard({
       <div className="cursor-pointer px-4 pt-4 pb-3 active:bg-[#6ab2ff]/5" onClick={onToggleExpand}>
         <div className="flex items-center justify-between gap-2">
           <span className="truncate font-semibold">{group.name}</span>
-          <span className={cn('shrink-0 font-semibold tabular-nums', color)}>
-            {formatCurrencyILS(groupDisplayAvailable)}
+          <span className="shrink-0 font-semibold tabular-nums">
+            <span className={color}>{formatCurrencyILS(groupDisplayAvailable)}</span>
+            <span className="text-muted-foreground/60 font-normal">
+              {' / '}
+              {formatCurrencyILS(group.totalBudgeted)}
+            </span>
           </span>
         </div>
         <div className="mt-2">
