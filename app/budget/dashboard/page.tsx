@@ -116,7 +116,7 @@ function MobileCategoryRow({
             <span className="text-muted-foreground/50 shrink-0 text-xs">└</span>
             <span className="truncate text-sm">{category.categoryName}</span>
           </div>
-          <span className="shrink-0 text-sm tabular-nums">
+          <span className="shrink-0 text-sm tabular-nums" dir="ltr">
             <span className={cn('font-medium', color)}>{formatCurrencyILS(displayAvailable)}</span>
             <span className="text-muted-foreground/60">
               {' / '}
@@ -172,7 +172,7 @@ function MobileGroupCard({
       <div className="cursor-pointer px-4 pt-4 pb-3 active:bg-[#6ab2ff]/5" onClick={onToggleExpand}>
         <div className="flex items-center justify-between gap-2">
           <span className="truncate font-semibold">{group.name}</span>
-          <span className="shrink-0 font-semibold tabular-nums">
+          <span className="shrink-0 font-semibold tabular-nums" dir="ltr">
             <span className={color}>{formatCurrencyILS(groupDisplayAvailable)}</span>
             <span className="text-muted-foreground/60 font-normal">
               {' / '}
