@@ -27,6 +27,14 @@ jest.mock('@/lib/db', () => ({
     moneytorAccountSnapshot: {
       upsert: jest.fn(),
     },
+    moneytorPensionFund: {
+      findMany: jest.fn().mockResolvedValue([]),
+      deleteMany: jest.fn(),
+      upsert: jest.fn(),
+    },
+    moneytorPensionSnapshot: {
+      upsert: jest.fn(),
+    },
     budgetTransaction: {
       findMany: jest.fn(),
     },

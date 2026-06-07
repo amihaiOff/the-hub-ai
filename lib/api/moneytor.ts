@@ -141,6 +141,52 @@ export interface MoneytorDebtAsset extends MoneytorAsset {
   graceYears?: { value?: number };
 }
 
+// Pension and hishtalmut (study fund) come back under form="pension"; the
+// productType.value field distinguishes them ("קרן פנסיה" vs "קרן השתלמות").
+// A single fund with multiple investment tracks appears as multiple rows.
+export interface MoneytorPensionAsset extends MoneytorAsset {
+  form: 'pension';
+  institution?: { value?: string; name?: string };
+  productType?: { value?: string; name?: string };
+  route?: { value?: string; name?: string };
+  number?: { value?: string; name?: string };
+  amount?: number;
+  profitsFromLastYear?: number;
+  accountNumber?: string | number;
+  accountOwner?: string;
+  fundOpeningDate?: string;
+  managementFeeFromSavings?: number;
+  managementFeeFromDeposit?: number;
+  depositFrequency?: { value?: string; name?: string };
+  monthlyDepositEmployee?: number;
+  monthlyDepositEmployer?: number;
+  monthlyDepositSum?: number;
+  employerProvisionPercentage?: number;
+  compensationProvisionPercentage?: number;
+  yearsToRetirement?: number;
+  fundId?: string;
+  sugKupa?: number | string;
+  sugKerenPensia?: string;
+  projectedMonthlyPension?: number;
+  projectedSavingsWithPremiums?: number;
+  projectedSavingsWithoutPremiums?: number;
+  schumKitzbatZikna?: number;
+  matsavMishpachti?: string;
+  taarichLeyda?: string;
+  gender?: string;
+  gilPrisha?: number;
+  sumHafkadotPitsuyim?: number;
+  sumHafkadotLoPitsuyim?: number;
+  pitzuimMaasikNochechi?: number;
+  pitzuimMarkivLemas?: number;
+  investmentDistribution?: Array<{
+    amount?: number;
+    routeCode?: string;
+    routeName?: string;
+    depositPercentage?: number;
+  }>;
+}
+
 interface MoneytorAssetsResponse {
   ok: boolean;
   asOf?: string;

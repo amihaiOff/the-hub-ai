@@ -86,7 +86,10 @@ export const navItems: NavItem[] = [
     href: '/moneytor-trnx',
     label: 'Labs',
     icon: FlaskConical,
-    subItems: [{ href: '/moneytor-trnx', label: 'Moneytor Trnx', icon: ArrowLeftRight }],
+    subItems: [
+      { href: '/moneytor-trnx', label: 'Moneytor Trnx', icon: ArrowLeftRight },
+      { href: '/moneytor-pension', label: 'Moneytor Pension', icon: PiggyBank },
+    ],
   },
 ];
 

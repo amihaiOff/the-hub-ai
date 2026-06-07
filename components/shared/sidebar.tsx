@@ -22,7 +22,14 @@ function NavItemComponent({
   uncategorizedCount?: number;
 }) {
   const hasSubItems = item.subItems && item.subItems.length > 0;
-  const isParentActive = pathname.startsWith(item.href) && item.href !== '/';
+  // Parent is active when the route matches the parent's prefix OR any of its
+  // sub-items. Without the subItems check, sections like Labs whose entries
+  // live on unrelated prefixes (e.g. /moneytor-trnx vs /moneytor-pension)
+  // wouldn't highlight when the user is on one of the non-parent subitems.
+  const subItemActive = hasSubItems
+    ? (item.subItems ?? []).some((s) => pathname === s.href || pathname.startsWith(`${s.href}/`))
+    : false;
+  const isParentActive = (pathname.startsWith(item.href) && item.href !== '/') || subItemActive;
   const isExactActive = pathname === item.href;
   const isActive = hasSubItems ? isParentActive : isExactActive;
 

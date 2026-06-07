@@ -62,6 +62,8 @@ const mockPrisma = {
   moneytorStockSnapshot: createMockFns('moneytorStockSnapshot'),
   moneytorAccount: createMockFns('moneytorAccount'),
   moneytorAccountSnapshot: createMockFns('moneytorAccountSnapshot'),
+  moneytorPensionFund: createMockFns('moneytorPensionFund'),
+  moneytorPensionSnapshot: createMockFns('moneytorPensionSnapshot'),
 };
 
 jest.mock('@/lib/db', () => ({

@@ -1,6 +1,5 @@
 'use client';
 
-import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import {
@@ -11,6 +10,7 @@ import {
 } from '@/lib/utils/budget';
 import { CategoryRow } from './category-row';
 import { CategoryProgressBar } from './category-progress-bar';
+import { CategoryGroupIcon, getGroupIconColor } from '@/lib/utils/category-group-icons';
 
 interface CategoryGroupProps {
   group: CategoryGroupSummary;
@@ -30,82 +30,69 @@ export function CategoryGroup({
   onToggleCategory,
 }: CategoryGroupProps) {
   const status = getBudgetStatus(group.totalBudgeted, group.totalSpent);
-  const availableColor =
+  const iconColor = getGroupIconColor(group.name);
+
+  const leftColor =
     status === 'overspent'
       ? 'text-red-500'
       : status === 'funded'
-        ? 'text-green-500'
+        ? 'text-foreground'
         : status === 'underfunded'
-          ? 'text-yellow-500'
+          ? 'text-foreground'
           : 'text-muted-foreground';
+
+  const usedPercent = group.totalBudgeted > 0 ? (group.totalSpent / group.totalBudgeted) * 100 : 0;
+  const usedColor = status === 'overspent' ? 'text-red-500' : 'text-muted-foreground';
 
   return (
     <Card>
-      {/* Group Header */}
       <CardHeader className="p-0">
         <button
           onClick={onToggleExpand}
-          className="hover:bg-muted/50 flex w-full items-center gap-2 px-3 py-3 text-left transition-colors sm:gap-3 sm:px-4 sm:py-4"
+          className="hover:bg-muted/40 active:bg-muted/60 flex w-full flex-col gap-3 rounded-xl p-4 text-left transition-colors"
+          aria-expanded={isExpanded}
         >
-          {/* Expand Icon */}
-          <span className="text-muted-foreground shrink-0">
-            {isExpanded ? (
-              <ChevronDown className="h-5 w-5" />
-            ) : (
-              <ChevronRight className="h-5 w-5" />
-            )}
-          </span>
+          {/* Top row: icon + name + right-side amounts */}
+          <div className="flex items-center gap-3">
+            <span
+              className={cn(
+                'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl',
+                iconColor
+              )}
+            >
+              <CategoryGroupIcon groupName={group.name} className="h-6 w-6" />
+            </span>
 
-          {/* Group Name */}
-          <span className="flex-1 text-base font-semibold sm:text-lg">{group.name}</span>
+            <span className="flex-1 truncate text-xl font-bold sm:text-2xl">{group.name}</span>
 
-          {/* Desktop: Full stats */}
-          <div className="hidden items-center gap-4 sm:flex">
-            {/* Progress Bar */}
-            <div className="w-32">
-              <CategoryProgressBar budgeted={group.totalBudgeted} spent={group.totalSpent} />
-            </div>
-
-            {/* Budgeted */}
-            <div className="w-24 text-right">
-              <span className="text-muted-foreground text-xs">Budget</span>
-              <p className="text-sm font-semibold tabular-nums">
-                {formatCurrencyILS(group.totalBudgeted)}
-              </p>
-            </div>
-
-            {/* Spent */}
-            <div className="w-24 text-right">
-              <span className="text-muted-foreground text-xs">Spent</span>
-              <p className="text-sm font-semibold tabular-nums">
-                {formatCurrencyILS(group.totalSpent)}
-              </p>
-            </div>
-
-            {/* Available */}
-            <div className="w-24 text-right">
-              <span className="text-muted-foreground text-xs">Available</span>
-              <p className={cn('text-sm font-semibold tabular-nums', availableColor)}>
-                {formatCurrencyILS(group.totalAvailable)}
-              </p>
+            <div className="shrink-0 text-right">
+              <div className={cn('text-base font-semibold tabular-nums', leftColor)} dir="ltr">
+                <bdi>{formatCurrencyILS(group.totalAvailable)}</bdi> left
+              </div>
+              <div className="text-muted-foreground text-xs tabular-nums" dir="ltr">
+                of <bdi>{formatCurrencyILS(group.totalBudgeted)}</bdi>
+              </div>
             </div>
           </div>
 
-          {/* Mobile: Compact stats */}
-          <div className="flex flex-col items-end gap-0.5 sm:hidden">
-            <span className={cn('text-sm font-semibold tabular-nums', availableColor)}>
-              {formatCurrencyILS(group.totalAvailable)}
+          {/* Progress bar (full width, no inline stats) */}
+          <CategoryProgressBar
+            budgeted={group.totalBudgeted}
+            spent={group.totalSpent}
+            showStats={false}
+            showDateIndicator={false}
+          />
+
+          {/* Bottom row: Spent left, % used right */}
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground tabular-nums" dir="ltr">
+              Spent: <bdi>{formatCurrencyILS(group.totalSpent)}</bdi>
             </span>
-            <span className="text-muted-foreground text-xs tabular-nums">
-              {formatCurrencyILS(group.totalSpent)} / {formatCurrencyILS(group.totalBudgeted)}
+            <span className={cn('font-medium tabular-nums', usedColor)}>
+              {usedPercent.toFixed(usedPercent >= 10 ? 0 : 1)}% used
             </span>
           </div>
         </button>
-
-        {/* Mobile Progress Bar */}
-        <div className="px-10 pb-3 sm:hidden">
-          <CategoryProgressBar budgeted={group.totalBudgeted} spent={group.totalSpent} />
-        </div>
       </CardHeader>
 
       {/* Categories */}

@@ -60,11 +60,40 @@ export function getGroupIcon(
   return Tag;
 }
 
+// Tints by group name — first matching keyword wins. Falls back to a neutral
+// muted bubble when nothing matches (Hebrew-only names, custom groups, etc.).
+const COLOR_RULES: Array<[string, string]> = [
+  ['essential', 'bg-blue-500/15 text-blue-400'],
+  ['lifestyle', 'bg-pink-500/15 text-pink-400'],
+  ['savings & investments', 'bg-emerald-500/15 text-emerald-400'],
+  ['savings', 'bg-emerald-500/15 text-emerald-400'],
+  ['investment', 'bg-emerald-500/15 text-emerald-400'],
+  ['groceries', 'bg-amber-500/15 text-amber-400'],
+  ['food', 'bg-amber-500/15 text-amber-400'],
+  ['coffee', 'bg-amber-500/15 text-amber-400'],
+  ['cafe', 'bg-amber-500/15 text-amber-400'],
+  ['restaurant', 'bg-amber-500/15 text-amber-400'],
+  ['dining', 'bg-amber-500/15 text-amber-400'],
+  ['health', 'bg-red-500/15 text-red-400'],
+  ['medical', 'bg-red-500/15 text-red-400'],
+  ['transport', 'bg-cyan-500/15 text-cyan-400'],
+  ['transit', 'bg-cyan-500/15 text-cyan-400'],
+  ['car', 'bg-cyan-500/15 text-cyan-400'],
+  ['entertainment', 'bg-purple-500/15 text-purple-400'],
+  ['bill', 'bg-indigo-500/15 text-indigo-400'],
+  ['utilit', 'bg-indigo-500/15 text-indigo-400'],
+];
+
 export function getGroupIconColor(
   groupName: string | null | undefined,
   opts: GetGroupIconOpts = {}
 ): string {
   if (opts.type === 'income') return 'bg-green-500/15 text-green-500';
+  if (!groupName) return 'bg-muted text-muted-foreground';
+  const normalized = groupName.trim().toLowerCase();
+  for (const [keyword, classes] of COLOR_RULES) {
+    if (normalized.includes(keyword)) return classes;
+  }
   return 'bg-muted text-muted-foreground';
 }
 
