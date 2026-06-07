@@ -6,6 +6,7 @@ import {
   type MoneytorAsset,
   type MoneytorBankAsset,
   type MoneytorDebtAsset,
+  type MoneytorPensionAsset,
   type MoneytorShareAsset,
 } from './moneytor';
 import { importTransactions } from '@/lib/utils/import-transactions';
@@ -36,6 +37,8 @@ export interface MoneytorSyncSummary {
   snapshotsUpserted: number;
   accountsUpserted: number;
   accountSnapshotsUpserted: number;
+  pensionFundsUpserted: number;
+  pensionSnapshotsUpserted: number;
   // Promotion of moneytor_transactions → budget_transactions
   budgetCreated: number;
   budgetSkipped: number;
@@ -108,7 +111,7 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
     );
   }
 
-  // ----- Assets (one /assets call returns share + bank + debt + others) -----
+  // ----- Assets (one /assets call returns share + bank + debt + pension) -----
   const allAssets = await fetchMoneytorAssets();
   const shareAssets = allAssets.filter(
     (a): a is MoneytorAsset & MoneytorShareAsset => a.form === 'share'
@@ -118,6 +121,9 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
   );
   const debtAssets = allAssets.filter(
     (a): a is MoneytorAsset & MoneytorDebtAsset => a.form === 'debt'
+  );
+  const pensionAssets = allAssets.filter(
+    (a): a is MoneytorAsset & MoneytorPensionAsset => a.form === 'pension'
   );
 
   // ----- Stock holdings (full refresh per account) + daily snapshot -----
@@ -391,6 +397,169 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
     accountSnapshotsUpserted++;
   }
 
+  // ----- Pension + hishtalmut funds -----
+  // One row per (productId, routeName). A single fund with multiple investment
+  // tracks shows up as multiple rows from Moneytor — we keep them separate.
+  // Snapshot frequency is monthly: bucket date is the first of the current
+  // month (UTC). Subsequent syncs in the same month overwrite the row, so the
+  // snapshot ends up reflecting the latest observation for that month.
+  let pensionFundsUpserted = 0;
+  let pensionSnapshotsUpserted = 0;
+
+  const monthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+
+  // Remove fund rows no longer present in the response (entire household).
+  const seenPensionKeys = new Set(
+    pensionAssets.map((a) => `${String(a.productId ?? a.id)}::${(a.route?.value ?? '').trim()}`)
+  );
+  const existingPensionFunds = await prisma.moneytorPensionFund.findMany({
+    where: { householdId },
+    select: { id: true, productId: true, routeName: true },
+  });
+  const toDelete = existingPensionFunds
+    .filter((f) => !seenPensionKeys.has(`${f.productId}::${f.routeName}`))
+    .map((f) => f.id);
+  if (toDelete.length > 0) {
+    await prisma.moneytorPensionFund.deleteMany({ where: { id: { in: toDelete } } });
+  }
+
+  for (const asset of pensionAssets) {
+    const productId = String(asset.productId ?? asset.id);
+    const routeName = (asset.route?.value ?? '').trim() || 'default';
+    const productType = asset.productType?.value ?? 'unknown';
+    const institution = asset.institution?.value ?? null;
+    const balanceInBase = Number(asset.balanceInBaseCurrency ?? asset.amount ?? 0);
+    const amount = Number(asset.amount ?? balanceInBase);
+    const currency = asset.currency?.value || 'ILS';
+    const fundOpening = asset.fundOpeningDate
+      ? new Date(`${asset.fundOpeningDate.slice(0, 10)}T00:00:00Z`)
+      : null;
+    const taarichLeyda = asset.taarichLeyda
+      ? new Date(`${asset.taarichLeyda.slice(0, 10)}T00:00:00Z`)
+      : null;
+
+    await prisma.moneytorPensionFund.upsert({
+      where: {
+        householdId_productId_routeName: { householdId, productId, routeName },
+      },
+      create: {
+        productId,
+        routeName,
+        routeCode: asset.investmentDistribution?.[0]?.routeCode ?? null,
+        name: asset.name,
+        institution,
+        productType,
+        sugKupa: asset.sugKupa != null && asset.sugKupa !== '' ? Number(asset.sugKupa) : null,
+        sugKerenPensia: asset.sugKerenPensia ?? null,
+        accountNumber: asset.accountNumber != null ? String(asset.accountNumber) : null,
+        accountOwner: asset.accountOwner ?? null,
+        fundId: asset.fundId ?? null,
+        fundOpeningDate: fundOpening,
+        amount,
+        currency,
+        balanceInBase,
+        profitsFromLastYear: asset.profitsFromLastYear ?? null,
+        monthlyDepositEmployee: asset.monthlyDepositEmployee ?? null,
+        monthlyDepositEmployer: asset.monthlyDepositEmployer ?? null,
+        monthlyDepositSum: asset.monthlyDepositSum ?? null,
+        depositFrequency: asset.depositFrequency?.value ?? null,
+        employerProvisionPct: asset.employerProvisionPercentage ?? null,
+        compensationProvisionPct: asset.compensationProvisionPercentage ?? null,
+        mgmtFeeFromSavings: asset.managementFeeFromSavings ?? null,
+        mgmtFeeFromDeposit: asset.managementFeeFromDeposit ?? null,
+        projectedMonthlyPension: asset.projectedMonthlyPension ?? null,
+        projectedSavingsWithPremiums: asset.projectedSavingsWithPremiums ?? null,
+        projectedSavingsWithoutPremiums: asset.projectedSavingsWithoutPremiums ?? null,
+        yearsToRetirement: asset.yearsToRetirement ?? null,
+        gilPrisha: asset.gilPrisha ?? null,
+        sumHafkadotPitsuyim: asset.sumHafkadotPitsuyim ?? null,
+        sumHafkadotLoPitsuyim: asset.sumHafkadotLoPitsuyim ?? null,
+        pitzuimMaasikNochechi: asset.pitzuimMaasikNochechi ?? null,
+        pitzuimMarkivLemas: asset.pitzuimMarkivLemas ?? null,
+        gender: asset.gender ?? null,
+        taarichLeyda,
+        matsavMishpachti: asset.matsavMishpachti ?? null,
+        rawData: asset as unknown as Prisma.InputJsonValue,
+        householdId,
+      },
+      update: {
+        routeCode: asset.investmentDistribution?.[0]?.routeCode ?? null,
+        name: asset.name,
+        institution,
+        productType,
+        sugKupa: asset.sugKupa != null && asset.sugKupa !== '' ? Number(asset.sugKupa) : null,
+        sugKerenPensia: asset.sugKerenPensia ?? null,
+        accountNumber: asset.accountNumber != null ? String(asset.accountNumber) : null,
+        accountOwner: asset.accountOwner ?? null,
+        fundId: asset.fundId ?? null,
+        fundOpeningDate: fundOpening,
+        amount,
+        currency,
+        balanceInBase,
+        profitsFromLastYear: asset.profitsFromLastYear ?? null,
+        monthlyDepositEmployee: asset.monthlyDepositEmployee ?? null,
+        monthlyDepositEmployer: asset.monthlyDepositEmployer ?? null,
+        monthlyDepositSum: asset.monthlyDepositSum ?? null,
+        depositFrequency: asset.depositFrequency?.value ?? null,
+        employerProvisionPct: asset.employerProvisionPercentage ?? null,
+        compensationProvisionPct: asset.compensationProvisionPercentage ?? null,
+        mgmtFeeFromSavings: asset.managementFeeFromSavings ?? null,
+        mgmtFeeFromDeposit: asset.managementFeeFromDeposit ?? null,
+        projectedMonthlyPension: asset.projectedMonthlyPension ?? null,
+        projectedSavingsWithPremiums: asset.projectedSavingsWithPremiums ?? null,
+        projectedSavingsWithoutPremiums: asset.projectedSavingsWithoutPremiums ?? null,
+        yearsToRetirement: asset.yearsToRetirement ?? null,
+        gilPrisha: asset.gilPrisha ?? null,
+        sumHafkadotPitsuyim: asset.sumHafkadotPitsuyim ?? null,
+        sumHafkadotLoPitsuyim: asset.sumHafkadotLoPitsuyim ?? null,
+        pitzuimMaasikNochechi: asset.pitzuimMaasikNochechi ?? null,
+        pitzuimMarkivLemas: asset.pitzuimMarkivLemas ?? null,
+        gender: asset.gender ?? null,
+        taarichLeyda,
+        matsavMishpachti: asset.matsavMishpachti ?? null,
+        rawData: asset as unknown as Prisma.InputJsonValue,
+        syncedAt: new Date(),
+      },
+    });
+    pensionFundsUpserted++;
+
+    await prisma.moneytorPensionSnapshot.upsert({
+      where: {
+        householdId_snapshotMonth_productId_routeName: {
+          householdId,
+          snapshotMonth: monthStart,
+          productId,
+          routeName,
+        },
+      },
+      create: {
+        snapshotMonth: monthStart,
+        productId,
+        routeName,
+        name: asset.name,
+        institution,
+        productType,
+        amount,
+        balanceInBase,
+        currency,
+        monthlyDepositSum: asset.monthlyDepositSum ?? null,
+        profitsFromLastYear: asset.profitsFromLastYear ?? null,
+        householdId,
+      },
+      update: {
+        name: asset.name,
+        institution,
+        productType,
+        amount,
+        balanceInBase,
+        currency,
+        monthlyDepositSum: asset.monthlyDepositSum ?? null,
+        profitsFromLastYear: asset.profitsFromLastYear ?? null,
+      },
+    });
+    pensionSnapshotsUpserted++;
+  }
+
   return {
     householdId,
     fetched: transactions.length,
@@ -400,6 +569,8 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
     snapshotsUpserted,
     accountsUpserted,
     accountSnapshotsUpserted,
+    pensionFundsUpserted,
+    pensionSnapshotsUpserted,
     budgetCreated,
     budgetSkipped,
     latestDate: newLatest?.transactionDate.toISOString().split('T')[0] ?? null,

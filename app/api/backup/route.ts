@@ -53,6 +53,8 @@ export async function GET() {
       moneytorStockSnapshots,
       moneytorAccounts,
       moneytorAccountSnapshots,
+      moneytorPensionFunds,
+      moneytorPensionSnapshots,
     ] = await Promise.all([
       prisma.user.findMany(),
       prisma.profile.findMany(),
@@ -82,12 +84,14 @@ export async function GET() {
       prisma.moneytorStockSnapshot.findMany(),
       prisma.moneytorAccount.findMany(),
       prisma.moneytorAccountSnapshot.findMany(),
+      prisma.moneytorPensionFund.findMany(),
+      prisma.moneytorPensionSnapshot.findMany(),
     ]);
 
     // Create backup metadata
     const metadata = {
       backupDate: new Date().toISOString(),
-      schemaVersion: '1.3',
+      schemaVersion: '1.4',
       createdBy: user.email,
       counts: {
         users: users.length,
@@ -118,6 +122,8 @@ export async function GET() {
         moneytorStockSnapshots: moneytorStockSnapshots.length,
         moneytorAccounts: moneytorAccounts.length,
         moneytorAccountSnapshots: moneytorAccountSnapshots.length,
+        moneytorPensionFunds: moneytorPensionFunds.length,
+        moneytorPensionSnapshots: moneytorPensionSnapshots.length,
       },
     };
 
@@ -174,6 +180,14 @@ export async function GET() {
     zip.file(
       'moneytor_account_snapshots.json',
       JSON.stringify(moneytorAccountSnapshots, jsonSerializer, 2)
+    );
+    zip.file(
+      'moneytor_pension_funds.json',
+      JSON.stringify(moneytorPensionFunds, jsonSerializer, 2)
+    );
+    zip.file(
+      'moneytor_pension_snapshots.json',
+      JSON.stringify(moneytorPensionSnapshots, jsonSerializer, 2)
     );
 
     // Generate ZIP as Blob

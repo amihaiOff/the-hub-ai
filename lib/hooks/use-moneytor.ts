@@ -81,6 +81,8 @@ export const moneytorKeys = {
     [...moneytorKeys.all, 'portfolio', 'history', range] as const,
   accounts: () => [...moneytorKeys.all, 'accounts'] as const,
   accountsHistory: (range: string) => [...moneytorKeys.all, 'accounts', 'history', range] as const,
+  pension: () => [...moneytorKeys.all, 'pension'] as const,
+  pensionHistory: () => [...moneytorKeys.all, 'pension', 'history'] as const,
 };
 
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -228,6 +230,80 @@ export function useMoneytorAccounts() {
     staleTime: 60_000,
     queryFn: async (): Promise<MoneytorAccountsResponse> => {
       return getJson<MoneytorAccountsResponse>('/api/moneytor/accounts');
+    },
+  });
+}
+
+export interface MoneytorPensionFundRow {
+  id: string;
+  productId: string;
+  routeName: string;
+  routeCode: string | null;
+  name: string;
+  institution: string | null;
+  productType: string;
+  sugKupa: number | null;
+  accountNumber: string | null;
+  accountOwner: string | null;
+  fundId: string | null;
+  fundOpeningDate: string | null;
+  amount: number;
+  currency: string;
+  balanceInBase: number;
+  profitsFromLastYear: number | null;
+  monthlyDepositEmployee: number | null;
+  monthlyDepositEmployer: number | null;
+  monthlyDepositSum: number | null;
+  depositFrequency: string | null;
+  employerProvisionPct: number | null;
+  compensationProvisionPct: number | null;
+  mgmtFeeFromSavings: number | null;
+  mgmtFeeFromDeposit: number | null;
+  projectedMonthlyPension: number | null;
+  projectedSavingsWithPremiums: number | null;
+  projectedSavingsWithoutPremiums: number | null;
+  yearsToRetirement: number | null;
+  gilPrisha: number | null;
+  sumHafkadotPitsuyim: number | null;
+  sumHafkadotLoPitsuyim: number | null;
+  syncedAt: string;
+}
+
+export interface MoneytorPensionResponse {
+  ok: true;
+  asOf: string | null;
+  funds: MoneytorPensionFundRow[];
+  totals: { pension: number; hishtalmut: number; total: number };
+}
+
+export interface MoneytorPensionHistoryPoint {
+  month: string; // YYYY-MM-01
+  pension: number;
+  hishtalmut: number;
+  total: number;
+}
+
+export interface MoneytorPensionHistoryResponse {
+  ok: true;
+  history: MoneytorPensionHistoryPoint[];
+}
+
+export function useMoneytorPension() {
+  return useQuery({
+    queryKey: moneytorKeys.pension(),
+    staleTime: 60_000,
+    queryFn: async (): Promise<MoneytorPensionResponse> => {
+      return getJson<MoneytorPensionResponse>('/api/moneytor/pension');
+    },
+  });
+}
+
+export function useMoneytorPensionHistory() {
+  return useQuery({
+    queryKey: moneytorKeys.pensionHistory(),
+    staleTime: 60_000,
+    queryFn: async (): Promise<MoneytorPensionHistoryResponse> => {
+      return getJson<MoneytorPensionHistoryResponse>('/api/moneytor/pension/history');
     },
   });
 }

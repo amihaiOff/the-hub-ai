@@ -102,6 +102,8 @@ model Household {
   moneytorStockSnapshots   MoneytorStockSnapshot[]
   moneytorAccounts         MoneytorAccount[]
   moneytorAccountSnapshots MoneytorAccountSnapshot[]
+  moneytorPensionFunds     MoneytorPensionFund[]
+  moneytorPensionSnapshots MoneytorPensionSnapshot[]
 
   @@map("households")
 }
@@ -802,4 +804,100 @@ model MoneytorAccountSnapshot {
   @@unique([householdId, snapshotDate, productId])
   @@index([householdId, snapshotDate])
   @@map("moneytor_account_snapshots")
+}
+
+// Moneytor pension funds — covers both pension ("קרן פנסיה", sugKupa=1) and
+// hishtalmut ("קרן השתלמות", sugKupa=3). Kept as separate rows per route — a
+// single fund with multiple investment tracks appears multiple times. Uniqueness
+// is (household, productId, routeName) so each track survives.
+model MoneytorPensionFund {
+  id                              String    @id @default(cuid())
+  productId                       String    @map("product_id") // Moneytor product id
+  routeName                       String    @map("route_name") // investment track name
+  routeCode                       String?   @map("route_code")
+  // Identity
+  name                            String
+  institution                     String?
+  productType                     String    @map("product_type") // "קרן פנסיה" | "קרן השתלמות"
+  sugKupa                         Int?      @map("sug_kupa") // 1=pension, 3=hishtalmut
+  sugKerenPensia                  String?   @map("sug_keren_pensia")
+  accountNumber                   String?   @map("account_number")
+  accountOwner                    String?   @map("account_owner")
+  fundId                          String?   @map("fund_id")
+  fundOpeningDate                 DateTime? @map("fund_opening_date") @db.Date
+  // Balance
+  amount                          Decimal   @db.Decimal(18, 2)
+  currency                        String    @default("ILS")
+  balanceInBase                   Decimal   @map("balance_in_base") @db.Decimal(18, 2)
+  // Performance
+  profitsFromLastYear             Decimal?  @map("profits_from_last_year") @db.Decimal(8, 4)
+  // Deposits
+  monthlyDepositEmployee          Decimal?  @map("monthly_deposit_employee") @db.Decimal(18, 2)
+  monthlyDepositEmployer          Decimal?  @map("monthly_deposit_employer") @db.Decimal(18, 2)
+  monthlyDepositSum               Decimal?  @map("monthly_deposit_sum") @db.Decimal(18, 2)
+  depositFrequency                String?   @map("deposit_frequency")
+  employerProvisionPct            Decimal?  @map("employer_provision_pct") @db.Decimal(8, 4)
+  compensationProvisionPct        Decimal?  @map("compensation_provision_pct") @db.Decimal(8, 4)
+  // Fees
+  mgmtFeeFromSavings              Decimal?  @map("mgmt_fee_from_savings") @db.Decimal(8, 4)
+  mgmtFeeFromDeposit              Decimal?  @map("mgmt_fee_from_deposit") @db.Decimal(8, 4)
+  // Pension projections (null for hishtalmut)
+  projectedMonthlyPension         Decimal?  @map("projected_monthly_pension") @db.Decimal(18, 2)
+  projectedSavingsWithPremiums    Decimal?  @map("projected_savings_with_premiums") @db.Decimal(18, 2)
+  projectedSavingsWithoutPremiums Decimal?  @map("projected_savings_without_premiums") @db.Decimal(18, 2)
+  yearsToRetirement               Int?      @map("years_to_retirement")
+  gilPrisha                       Int?      @map("gil_prisha")
+  // Severance
+  sumHafkadotPitsuyim             Decimal?  @map("sum_hafkadot_pitsuyim") @db.Decimal(18, 2)
+  sumHafkadotLoPitsuyim           Decimal?  @map("sum_hafkadot_lo_pitsuyim") @db.Decimal(18, 2)
+  pitzuimMaasikNochechi           Decimal?  @map("pitzuim_maasik_nochechi") @db.Decimal(18, 2)
+  pitzuimMarkivLemas              Decimal?  @map("pitzuim_markiv_lemas") @db.Decimal(18, 2)
+  // Owner
+  gender                          String?
+  taarichLeyda                    DateTime? @map("taarich_leyda") @db.Date
+  matsavMishpachti                String?   @map("matsav_mishpachti")
+  // Catch-all for unmodeled fields (full Moneytor record)
+  rawData                         Json?     @map("raw_data")
+  householdId                     String    @map("household_id")
+  syncedAt                        DateTime  @default(now()) @map("synced_at")
+  createdAt                       DateTime  @default(now()) @map("created_at")
+  updatedAt                       DateTime  @updatedAt @map("updated_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, productId, routeName])
+  @@index([householdId])
+  @@index([householdId, productType])
+  @@map("moneytor_pension_funds")
+}
+
+// Monthly snapshot per pension/hishtalmut fund track. Snapshot date is the
+// first of the month (UTC). Multiple syncs in the same month overwrite the
+// same row, so the snapshot reflects the most recent observation for that
+// month. Used to draw value-over-time charts.
+model MoneytorPensionSnapshot {
+  id                  String   @id @default(cuid())
+  snapshotMonth       DateTime @map("snapshot_month") @db.Date // first of month
+  productId           String   @map("product_id")
+  routeName           String   @map("route_name")
+  // identity (denormalized so snapshots survive fund deletion)
+  name                String
+  institution         String?
+  productType         String   @map("product_type")
+  // balance
+  amount              Decimal  @db.Decimal(18, 2)
+  balanceInBase       Decimal  @map("balance_in_base") @db.Decimal(18, 2)
+  currency            String
+  // useful monthly stats
+  monthlyDepositSum   Decimal? @map("monthly_deposit_sum") @db.Decimal(18, 2)
+  profitsFromLastYear Decimal? @map("profits_from_last_year") @db.Decimal(8, 4)
+  householdId         String   @map("household_id")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, snapshotMonth, productId, routeName])
+  @@index([householdId, snapshotMonth])
+  @@map("moneytor_pension_snapshots")
 }

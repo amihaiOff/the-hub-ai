@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     // Accept all backups produced since the format stabilised. Older versions
     // simply have empty arrays for tables added in later releases.
-    const supportedVersions = ['1.0', '1.1', '1.2', '1.3'];
+    const supportedVersions = ['1.0', '1.1', '1.2', '1.3', '1.4'];
     if (!supportedVersions.includes(metadata.schemaVersion)) {
       return NextResponse.json(
         { success: false, error: `Unsupported schema version: ${metadata.schemaVersion}` },
@@ -127,6 +127,13 @@ export async function POST(request: NextRequest) {
     const moneytorAccountSnapshots = await parseFile<Record<string, unknown>>(
       'moneytor_account_snapshots.json'
     );
+    // Schema version 1.4+ tables (empty for older backups)
+    const moneytorPensionFunds = await parseFile<Record<string, unknown>>(
+      'moneytor_pension_funds.json'
+    );
+    const moneytorPensionSnapshots = await parseFile<Record<string, unknown>>(
+      'moneytor_pension_snapshots.json'
+    );
 
     // Execute operations sequentially without transaction
     // Neon serverless doesn't support long-running transactions well
@@ -135,6 +142,8 @@ export async function POST(request: NextRequest) {
     // Delete all existing data in reverse order of dependencies
     console.log('Deleting existing data...');
     // Moneytor tables (no children other than household — safe to wipe first)
+    await prisma.moneytorPensionSnapshot.deleteMany();
+    await prisma.moneytorPensionFund.deleteMany();
     await prisma.moneytorAccountSnapshot.deleteMany();
     await prisma.moneytorAccount.deleteMany();
     await prisma.moneytorStockSnapshot.deleteMany();
@@ -729,6 +738,83 @@ export async function POST(request: NextRequest) {
           householdId: mas.householdId as string,
           createdAt: new Date(mas.createdAt as string),
           updatedAt: new Date(mas.updatedAt as string),
+        },
+      });
+    }
+
+    // 31. Moneytor Pension Funds (pension + hishtalmut per investment track)
+    for (const pf of moneytorPensionFunds) {
+      const num = (k: string) => (pf[k] != null ? (pf[k] as number | string) : null);
+      const date = (k: string) => (pf[k] ? new Date(pf[k] as string) : null);
+      await prisma.moneytorPensionFund.create({
+        data: {
+          id: pf.id as string,
+          productId: pf.productId as string,
+          routeName: pf.routeName as string,
+          routeCode: (pf.routeCode as string | null) ?? null,
+          name: pf.name as string,
+          institution: (pf.institution as string | null) ?? null,
+          productType: pf.productType as string,
+          sugKupa: (pf.sugKupa as number | null) ?? null,
+          sugKerenPensia: (pf.sugKerenPensia as string | null) ?? null,
+          accountNumber: (pf.accountNumber as string | null) ?? null,
+          accountOwner: (pf.accountOwner as string | null) ?? null,
+          fundId: (pf.fundId as string | null) ?? null,
+          fundOpeningDate: date('fundOpeningDate'),
+          amount: pf.amount as number | string,
+          currency: pf.currency as string,
+          balanceInBase: pf.balanceInBase as number | string,
+          profitsFromLastYear: num('profitsFromLastYear'),
+          monthlyDepositEmployee: num('monthlyDepositEmployee'),
+          monthlyDepositEmployer: num('monthlyDepositEmployer'),
+          monthlyDepositSum: num('monthlyDepositSum'),
+          depositFrequency: (pf.depositFrequency as string | null) ?? null,
+          employerProvisionPct: num('employerProvisionPct'),
+          compensationProvisionPct: num('compensationProvisionPct'),
+          mgmtFeeFromSavings: num('mgmtFeeFromSavings'),
+          mgmtFeeFromDeposit: num('mgmtFeeFromDeposit'),
+          projectedMonthlyPension: num('projectedMonthlyPension'),
+          projectedSavingsWithPremiums: num('projectedSavingsWithPremiums'),
+          projectedSavingsWithoutPremiums: num('projectedSavingsWithoutPremiums'),
+          yearsToRetirement: (pf.yearsToRetirement as number | null) ?? null,
+          gilPrisha: (pf.gilPrisha as number | null) ?? null,
+          sumHafkadotPitsuyim: num('sumHafkadotPitsuyim'),
+          sumHafkadotLoPitsuyim: num('sumHafkadotLoPitsuyim'),
+          pitzuimMaasikNochechi: num('pitzuimMaasikNochechi'),
+          pitzuimMarkivLemas: num('pitzuimMarkivLemas'),
+          gender: (pf.gender as string | null) ?? null,
+          taarichLeyda: date('taarichLeyda'),
+          matsavMishpachti: (pf.matsavMishpachti as string | null) ?? null,
+          rawData: (pf.rawData as object) ?? undefined,
+          householdId: pf.householdId as string,
+          syncedAt: new Date(pf.syncedAt as string),
+          createdAt: new Date(pf.createdAt as string),
+          updatedAt: new Date(pf.updatedAt as string),
+        },
+      });
+    }
+
+    // 32. Moneytor Pension Snapshots (monthly balance history per track)
+    for (const ps of moneytorPensionSnapshots) {
+      await prisma.moneytorPensionSnapshot.create({
+        data: {
+          id: ps.id as string,
+          snapshotMonth: new Date(ps.snapshotMonth as string),
+          productId: ps.productId as string,
+          routeName: ps.routeName as string,
+          name: ps.name as string,
+          institution: (ps.institution as string | null) ?? null,
+          productType: ps.productType as string,
+          amount: ps.amount as number | string,
+          balanceInBase: ps.balanceInBase as number | string,
+          currency: ps.currency as string,
+          monthlyDepositSum:
+            ps.monthlyDepositSum != null ? (ps.monthlyDepositSum as number | string) : null,
+          profitsFromLastYear:
+            ps.profitsFromLastYear != null ? (ps.profitsFromLastYear as number | string) : null,
+          householdId: ps.householdId as string,
+          createdAt: new Date(ps.createdAt as string),
+          updatedAt: new Date(ps.updatedAt as string),
         },
       });
     }
