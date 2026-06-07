@@ -366,22 +366,38 @@ export function TransactionRowMobile({
   // Suppress the synthetic click that fires after a touch ends, so a single
   // tap doesn't trigger onTap twice (touchEnd + click).
   const touchHandled = useRef(false);
+  // Tap-slop tracking: if the finger moves more than TOUCH_SLOP_PX from where
+  // it started, treat the gesture as a scroll/swipe and skip onTap. Otherwise
+  // every list-scroll fires onTap on whatever row the swipe started on.
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+  const touchMoved = useRef(false);
+  const TOUCH_SLOP_PX = 10;
 
-  const handleTouchStart = () => {
+  const handleTouchStart = (e: React.TouchEvent) => {
     didLongPress.current = false;
+    touchMoved.current = false;
+    const t = e.touches[0];
+    touchStartPos.current = t ? { x: t.clientX, y: t.clientY } : null;
     longPressTimer.current = setTimeout(() => {
       didLongPress.current = true;
       onLongPress?.();
     }, 500);
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
     touchHandled.current = true;
+    // Suppress the synthetic click the browser emits ~50-300ms after touchend.
+    // Without this, the click fires at the *original* touch coordinates, but
+    // by then our onTap may have collapsed/expanded panels and shifted the
+    // layout — so the click can land on Edit/Delete in a panel that wasn't
+    // even there when the user tapped.
+    if (e.cancelable) e.preventDefault();
     if (didLongPress.current) return;
+    if (touchMoved.current) return;
     if (selectionMode) {
       onSelect(!isSelected);
     } else {
@@ -389,10 +405,18 @@ export function TransactionRowMobile({
     }
   };
 
-  const handleTouchMove = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPos.current) return;
+    const t = e.touches[0];
+    if (!t) return;
+    const dx = t.clientX - touchStartPos.current.x;
+    const dy = t.clientY - touchStartPos.current.y;
+    if (dx * dx + dy * dy > TOUCH_SLOP_PX * TOUCH_SLOP_PX) {
+      touchMoved.current = true;
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
     }
   };
 
