@@ -214,6 +214,7 @@ export interface MoneytorAccountRow {
   interestRate: number | null;
   maturityDate: string | null;
   monthlyPayment: number | null;
+  customSubtitle: string | null;
   syncedAt: string;
 }
 
@@ -230,6 +231,26 @@ export function useMoneytorAccounts() {
     staleTime: 60_000,
     queryFn: async (): Promise<MoneytorAccountsResponse> => {
       return getJson<MoneytorAccountsResponse>('/api/moneytor/accounts');
+    },
+  });
+}
+
+export interface UpdateMoneytorAccountInput {
+  id: string;
+  customSubtitle?: string | null;
+}
+
+export function useUpdateMoneytorAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: UpdateMoneytorAccountInput) => {
+      return getJson<{ ok: true; account: { id: string; customSubtitle: string | null } }>(
+        `/api/moneytor/accounts/${encodeURIComponent(id)}`,
+        { method: 'PATCH', body: JSON.stringify(patch) }
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: moneytorKeys.accounts() });
     },
   });
 }

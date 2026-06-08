@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, Fragment, useMemo } from 'react';
+import { useState, useRef, useEffect, Fragment } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -10,25 +10,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Plus, MoreVertical, Pencil, Trash2, AlertCircle, Loader2, X, Merge } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Plus, MoreVertical, Pencil, Trash2, AlertCircle, Loader2, Merge } from 'lucide-react';
 import {
   useCategoryGroups,
   useDeleteCategory,
   useDeleteCategoryGroup,
   useUpdateCategory,
-  useRiseupCategories,
-  useUpdateRiseupCategoryMapping,
   useApplyRiseupMappings,
-  type RiseupCategory,
 } from '@/lib/hooks/use-budget';
 import { type BudgetCategory, formatCurrencyILS } from '@/lib/utils/budget';
 import { AddCategoryDialog, EditCategoryDialog, AddCategoryGroupDialog } from '@/components/budget';
@@ -47,11 +35,9 @@ export default function CategoriesPage() {
   const cancelledRef = useRef(false);
 
   const { data: categoryGroups = [], isLoading, error } = useCategoryGroups();
-  const { data: riseupCategories = [] } = useRiseupCategories();
   const deleteCategory = useDeleteCategory();
   const deleteCategoryGroup = useDeleteCategoryGroup();
   const updateCategory = useUpdateCategory();
-  const updateRiseupMapping = useUpdateRiseupCategoryMapping();
   const applyRiseupMappings = useApplyRiseupMappings();
 
   useEffect(() => {
@@ -107,33 +93,6 @@ export default function CategoriesPage() {
         console.error('Failed to delete category group:', error);
       }
     }
-  };
-
-  // Build map of budget category ID → mapped Riseup categories
-  const mappedByCategory = useMemo(() => {
-    const map = new Map<string, RiseupCategory[]>();
-    for (const rc of riseupCategories) {
-      if (rc.budgetCategoryId) {
-        const list = map.get(rc.budgetCategoryId) ?? [];
-        list.push(rc);
-        map.set(rc.budgetCategoryId, list);
-      }
-    }
-    return map;
-  }, [riseupCategories]);
-
-  // Unmapped riseup categories (computed once)
-  const unmappedRiseupCategories = useMemo(
-    () => riseupCategories.filter((rc) => !rc.budgetCategoryId),
-    [riseupCategories]
-  );
-
-  const handleAssignRiseup = (riseupId: string, budgetCategoryId: string) => {
-    updateRiseupMapping.mutate({ id: riseupId, budgetCategoryId });
-  };
-
-  const handleUnassignRiseup = (riseupId: string) => {
-    updateRiseupMapping.mutate({ id: riseupId, budgetCategoryId: null });
   };
 
   return (
@@ -205,9 +164,6 @@ export default function CategoriesPage() {
               <thead>
                 <tr className="bg-muted/50 border-b">
                   <th className="px-2 py-2 text-left text-sm font-medium sm:px-4 sm:py-3">Name</th>
-                  <th className="px-2 py-2 text-left text-sm font-medium sm:px-4 sm:py-3">
-                    Riseup
-                  </th>
                   <th className="w-16 px-1 py-2 text-center text-sm font-medium sm:w-20 sm:px-2 sm:py-3">
                     Essential
                   </th>
@@ -228,7 +184,6 @@ export default function CategoriesPage() {
                           ({group.categories.length})
                         </span>
                       </td>
-                      <td className="px-2 py-3 sm:px-4 sm:py-4"></td>
                       <td className="px-1 py-3 sm:px-2 sm:py-4"></td>
                       <td className="px-2 py-3 text-right sm:px-4 sm:py-4">
                         <span className="text-muted-foreground text-sm tabular-nums">
@@ -264,7 +219,7 @@ export default function CategoriesPage() {
                     {/* Category Rows */}
                     {group.categories.length === 0 ? (
                       <tr key={`empty-${group.id}`} className="border-b">
-                        <td colSpan={5} className="px-2 py-2 pl-6 sm:px-4 sm:py-3 sm:pl-8">
+                        <td colSpan={4} className="px-2 py-2 pl-6 sm:px-4 sm:py-3 sm:pl-8">
                           <p className="text-muted-foreground text-sm italic">
                             No categories in this group
                           </p>
@@ -272,8 +227,6 @@ export default function CategoriesPage() {
                       </tr>
                     ) : (
                       group.categories.map((category) => {
-                        const mapped = mappedByCategory.get(category.id) ?? [];
-
                         return (
                           <tr
                             key={category.id}
@@ -282,63 +235,6 @@ export default function CategoriesPage() {
                             {/* Name */}
                             <td className="px-2 py-2 pl-6 sm:px-4 sm:py-3 sm:pl-8">
                               <span className="text-sm font-medium">{category.name}</span>
-                            </td>
-
-                            {/* Riseup Mapping */}
-                            <td className="px-2 py-2 sm:px-4 sm:py-3">
-                              <div className="flex flex-wrap items-center gap-1">
-                                {mapped.map((rc) => (
-                                  <Badge
-                                    key={rc.id}
-                                    variant="secondary"
-                                    className="gap-1 py-0.5 text-xs"
-                                    dir="rtl"
-                                  >
-                                    {rc.name}
-                                    <button
-                                      onClick={() => handleUnassignRiseup(rc.id)}
-                                      className="hover:text-destructive rounded-sm"
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </button>
-                                  </Badge>
-                                ))}
-                                {unmappedRiseupCategories.length > 0 && (
-                                  <Select
-                                    value=""
-                                    onValueChange={(riseupId) =>
-                                      handleAssignRiseup(riseupId, category.id)
-                                    }
-                                  >
-                                    <SelectTrigger
-                                      aria-label={`Map Riseup category to ${category.name}`}
-                                      className={cn(
-                                        'h-auto w-auto border-0 bg-transparent px-1 py-1 text-xs shadow-none',
-                                        'hover:bg-muted/50 focus:ring-0 focus:ring-offset-0',
-                                        'text-muted-foreground italic',
-                                        'min-w-0 sm:max-w-[160px] sm:min-w-[100px]',
-                                        '[&>svg.opacity-50]:hidden'
-                                      )}
-                                    >
-                                      <SelectValue
-                                        placeholder={
-                                          <>
-                                            <Plus className="h-3.5 w-3.5" />
-                                            <span className="hidden sm:inline">Add mapping</span>
-                                          </>
-                                        }
-                                      />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {unmappedRiseupCategories.map((rc) => (
-                                        <SelectItem key={rc.id} value={rc.id} className="text-sm">
-                                          <span dir="rtl">{rc.name}</span>
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                )}
-                              </div>
                             </td>
 
                             {/* Essential */}

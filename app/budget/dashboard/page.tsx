@@ -347,6 +347,22 @@ function SortableGroupRow({
   const groupStatus = getBudgetStatus(group.totalBudgeted, group.totalSpent);
   const color = availableColor(isGroupSavings, groupStatus);
   const groupDisplayAvailable = isGroupSavings ? group.totalSpent : group.totalAvailable;
+  const iconColor = getGroupIconColor(group.name);
+  const subtitle =
+    group.categories.length > 0
+      ? group.categories
+          .slice(0, 3)
+          .map((c) => c.categoryName)
+          .join(', ') + (group.categories.length > 3 ? '…' : '')
+      : null;
+  const remainingPct =
+    group.totalBudgeted > 0
+      ? Math.max(0, ((group.totalBudgeted - group.totalSpent) / group.totalBudgeted) * 100)
+      : 0;
+  const availableLabel =
+    groupStatus === 'overspent'
+      ? 'Critical Alert'
+      : `${remainingPct.toFixed(remainingPct >= 10 ? 0 : 1)}% Remaining`;
 
   return (
     <Fragment>
@@ -362,24 +378,50 @@ function SortableGroupRow({
         )}
       >
         <td className="py-3 pr-2 pl-3">
-          <span className="truncate font-semibold">{group.name}</span>
+          <div className="flex items-center gap-3">
+            <span
+              className={cn(
+                'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+                iconColor
+              )}
+            >
+              <CategoryGroupIcon groupName={group.name} className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <div className="truncate font-semibold">{group.name}</div>
+              {subtitle && <div className="text-muted-foreground truncate text-xs">{subtitle}</div>}
+            </div>
+          </div>
         </td>
-        <td className="px-2 py-3">
+        <td className="px-4 py-3">
           <CategoryProgressBar
             budgeted={group.totalBudgeted}
             spent={group.totalSpent}
             selectedMonth={selectedMonth}
             showStats={false}
+            showDateIndicator={false}
           />
+          <div className="mt-1.5 flex items-center justify-between text-xs">
+            <span className="text-foreground tabular-nums" dir="ltr">
+              <bdi>{formatCurrencyILS(group.totalSpent)}</bdi> spent
+            </span>
+            <span className="text-muted-foreground tabular-nums" dir="ltr">
+              Goal: <bdi>{formatCurrencyILS(group.totalBudgeted)}</bdi>
+            </span>
+          </div>
         </td>
         <td className="py-3 pr-3 pl-2 text-right">
-          <span className="font-semibold whitespace-nowrap tabular-nums" dir="ltr">
-            <bdi className={color}>{formatCurrencyILS(groupDisplayAvailable)}</bdi>
-            <span className="text-muted-foreground/60 font-normal">
-              {' / '}
-              <bdi>{formatCurrencyILS(group.totalBudgeted)}</bdi>
-            </span>
-          </span>
+          <div className={cn('font-semibold whitespace-nowrap tabular-nums', color)} dir="ltr">
+            <bdi>{formatCurrencyILS(groupDisplayAvailable)}</bdi>
+          </div>
+          <div
+            className={cn(
+              'mt-0.5 text-xs',
+              groupStatus === 'overspent' ? 'text-red-500' : 'text-muted-foreground'
+            )}
+          >
+            {availableLabel}
+          </div>
         </td>
       </tr>
 
@@ -521,10 +563,10 @@ export default function BudgetDashboardPage() {
                 >
                   <table className="w-full">
                     <thead>
-                      <tr className="bg-secondary border-b text-xs">
-                        <th className="w-44 py-2.5 pr-2 pl-3 text-left font-medium">Category</th>
-                        <th className="px-2 py-2.5 text-left font-medium">Progress</th>
-                        <th className="w-24 py-2.5 pr-3 pl-2 text-right font-medium">Available</th>
+                      <tr className="bg-secondary text-muted-foreground border-b text-xs tracking-wider uppercase">
+                        <th className="w-72 py-2.5 pr-2 pl-3 text-left font-medium">Category</th>
+                        <th className="px-4 py-2.5 text-left font-medium">Spent</th>
+                        <th className="w-32 py-2.5 pr-3 pl-2 text-right font-medium">Available</th>
                       </tr>
                     </thead>
                     <SortableContext items={order} strategy={verticalListSortingStrategy}>
