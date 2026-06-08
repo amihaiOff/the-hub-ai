@@ -33,6 +33,7 @@ export async function GET() {
       interestRate: r.interestRate != null ? Number(r.interestRate) : null,
       maturityDate: r.maturityDate ? r.maturityDate.toISOString().split('T')[0] : null,
       monthlyPayment: r.monthlyPayment != null ? Number(r.monthlyPayment) : null,
+      customSubtitle: r.customSubtitle,
       syncedAt: r.syncedAt.toISOString(),
     }));
 

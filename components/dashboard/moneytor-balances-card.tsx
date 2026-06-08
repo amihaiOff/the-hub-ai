@@ -1,8 +1,14 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useMoneytorAccounts, type MoneytorAccountRow } from '@/lib/hooks/use-moneytor';
+import { Landmark, CreditCard } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  useMoneytorAccounts,
+  useUpdateMoneytorAccount,
+  type MoneytorAccountRow,
+} from '@/lib/hooks/use-moneytor';
 import { cn } from '@/lib/utils';
 
 function formatIls(value: number): string {
@@ -24,24 +30,198 @@ function formatRelative(iso: string | null): string {
   return new Date(iso).toLocaleDateString();
 }
 
-function AccountRow({ account }: { account: MoneytorAccountRow }) {
-  const isDebt = account.form === 'debt';
+/**
+ * Bank-account grouping: the only signal we have is `subtype` from Moneytor.
+ *   'balance' → checking accounts ("Current Accounts")
+ *   everything else (saving, etc.) → deposits / FX bucket
+ * If we ever let the user override the bucket, replace this with a stored
+ * field on MoneytorAccount.
+ */
+function bankBucket(account: MoneytorAccountRow): 'current' | 'deposits' {
+  return account.subtype === 'balance' ? 'current' : 'deposits';
+}
+
+interface EditableSubtitleProps {
+  accountId: string;
+  value: string | null;
+  placeholder?: string;
+  className?: string;
+}
+
+function EditableSubtitle({
+  accountId,
+  value,
+  placeholder = 'Add a note',
+  className,
+}: EditableSubtitleProps) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? '');
+  const cancelledRef = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const update = useUpdateMoneytorAccount();
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const startEditing = () => {
+    // Seed the draft from the current upstream value each time we enter edit
+    // mode, so stale React state from a previous edit doesn't carry over.
+    setDraft(value ?? '');
+    setEditing(true);
+  };
+
+  const save = () => {
+    if (cancelledRef.current) {
+      cancelledRef.current = false;
+      setEditing(false);
+      setDraft(value ?? '');
+      return;
+    }
+    const next = draft.trim();
+    const current = value ?? '';
+    if (next === current) {
+      setEditing(false);
+      return;
+    }
+    update.mutate({ id: accountId, customSubtitle: next || null });
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+          if (e.key === 'Escape') {
+            cancelledRef.current = true;
+            e.currentTarget.blur();
+          }
+        }}
+        className={cn(
+          'text-muted-foreground bg-transparent text-xs outline-none',
+          'focus-visible:border-ring/40 focus-visible:ring-ring/30 focus-visible:rounded-sm focus-visible:border focus-visible:px-1 focus-visible:ring-2',
+          className
+        )}
+        placeholder={placeholder}
+        aria-label="Edit account subtitle"
+      />
+    );
+  }
+
   return (
-    <div className="flex items-center justify-between gap-2 py-2">
+    <button
+      type="button"
+      onClick={startEditing}
+      className={cn(
+        'text-muted-foreground hover:text-foreground/80 cursor-text text-left text-xs transition-colors',
+        !value && 'italic opacity-60',
+        className
+      )}
+      aria-label="Edit account subtitle"
+    >
+      {value || placeholder}
+    </button>
+  );
+}
+
+function AccountRow({ account, isDebt }: { account: MoneytorAccountRow; isDebt: boolean }) {
+  return (
+    <div className="flex items-start justify-between gap-3 py-3">
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{account.name}</p>
-        <p className="text-muted-foreground truncate text-xs">
-          {[account.institution, account.subtype].filter(Boolean).join(' · ') || '—'}
-        </p>
+        <div className="truncate font-medium">{account.name}</div>
+        <EditableSubtitle accountId={account.id} value={account.customSubtitle} />
       </div>
       <div
+        dir="ltr"
         className={cn(
-          'shrink-0 text-sm font-semibold tabular-nums',
-          isDebt ? 'text-red-600 dark:text-red-400' : 'text-foreground'
+          'shrink-0 font-semibold tabular-nums',
+          isDebt && 'text-rose-500 dark:text-rose-400'
         )}
       >
         {formatIls(account.balanceInBase)}
       </div>
+    </div>
+  );
+}
+
+function SubSection({
+  title,
+  accounts,
+  isDebt,
+}: {
+  title?: string;
+  accounts: MoneytorAccountRow[];
+  isDebt: boolean;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-0">
+        {title && (
+          <div className="border-border/40 border-b px-4 py-3">
+            <h3 className="text-sm font-semibold">{title}</h3>
+          </div>
+        )}
+        <div className="divide-border/30 divide-y px-4">
+          {accounts.map((a) => (
+            <AccountRow key={a.id} account={a} isDebt={isDebt} />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DebtSection({ accounts, total }: { accounts: MoneytorAccountRow[]; total: number }) {
+  return (
+    <Card>
+      <CardContent className="p-0">
+        <div className="divide-border/30 divide-y px-4">
+          {accounts.map((a) => (
+            <AccountRow key={a.id} account={a} isDebt />
+          ))}
+        </div>
+        {accounts.length > 0 && (
+          <div className="border-border/40 flex items-center justify-between border-t px-4 py-3">
+            <span className="text-base font-medium">Total</span>
+            <span
+              dir="ltr"
+              className="text-lg font-semibold text-rose-500 tabular-nums dark:text-rose-400"
+            >
+              {formatIls(total)}
+            </span>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SectionHeader({
+  icon: Icon,
+  label,
+  iconColor,
+}: {
+  icon: typeof Landmark;
+  label: string;
+  iconColor: string;
+}) {
+  return (
+    <div className="mb-3 flex items-center gap-3">
+      <span
+        className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', iconColor)}
+      >
+        <Icon className="h-5 w-5" />
+      </span>
+      <h2 className="text-xl font-bold">{label}</h2>
     </div>
   );
 }
@@ -82,67 +262,57 @@ export function MoneytorBalancesCard() {
   const debts = accounts.filter((a) => a.form === 'debt');
   const totals = data?.totals;
 
+  const currentBanks = banks.filter((a) => bankBucket(a) === 'current');
+  const depositBanks = banks.filter((a) => bankBucket(a) === 'deposits');
+
+  if (isLoading && accounts.length === 0) {
+    return (
+      <div>
+        <Skeleton />
+      </div>
+    );
+  }
+
+  if (accounts.length === 0) {
+    return <EmptyState />;
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-baseline justify-between gap-2">
-          <CardTitle>Account Balances</CardTitle>
-          <p className="text-muted-foreground text-xs">
-            Synced from Moneytor · current snapshot (not affected by the month selector)
-          </p>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <Skeleton />
-        ) : accounts.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2">
-            <div>
-              <h3 className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
-                Bank Accounts
-              </h3>
-              {banks.length === 0 ? (
-                <p className="text-muted-foreground mt-2 text-sm">No bank accounts.</p>
-              ) : (
-                <div className="divide-border mt-1 divide-y">
-                  {banks.map((a) => (
-                    <AccountRow key={a.id} account={a} />
-                  ))}
-                </div>
-              )}
-            </div>
-            <div>
-              <h3 className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
-                Debts / Credit Cards
-              </h3>
-              {debts.length === 0 ? (
-                <p className="text-muted-foreground mt-2 text-sm">No debts.</p>
-              ) : (
-                <div className="divide-border mt-1 divide-y">
-                  {debts.map((a) => (
-                    <AccountRow key={a.id} account={a} />
-                  ))}
-                </div>
+    <div className="space-y-4">
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Bank Accounts */}
+        {banks.length > 0 && (
+          <div>
+            <SectionHeader
+              icon={Landmark}
+              label="Bank Accounts"
+              iconColor="bg-blue-500/15 text-blue-400"
+            />
+            <div className="space-y-4">
+              {currentBanks.length > 0 && <SubSection accounts={currentBanks} isDebt={false} />}
+              {depositBanks.length > 0 && (
+                <SubSection title="Deposits & Forex" accounts={depositBanks} isDebt={false} />
               )}
             </div>
           </div>
         )}
 
-        {totals && accounts.length > 0 && (
-          <div className="text-muted-foreground mt-4 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs">
-            <span>
-              Banks total{' '}
-              <span className="text-foreground font-semibold">{formatIls(totals.bank)}</span> ·
-              Debts total{' '}
-              <span className="text-foreground font-semibold">{formatIls(totals.debt)}</span> · Net{' '}
-              <span className="text-foreground font-semibold">{formatIls(totals.netInScope)}</span>
-            </span>
-            <span>Synced {formatRelative(data?.asOf ?? null)}</span>
+        {/* Debts & Credit Cards */}
+        {debts.length > 0 && (
+          <div>
+            <SectionHeader
+              icon={CreditCard}
+              label="Debts & Credit Cards"
+              iconColor="bg-rose-500/15 text-rose-400"
+            />
+            <DebtSection accounts={debts} total={totals?.debt ?? 0} />
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+
+      <p className="text-muted-foreground text-right text-xs">
+        Synced {formatRelative(data?.asOf ?? null)}
+      </p>
+    </div>
   );
 }

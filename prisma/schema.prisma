@@ -772,6 +772,7 @@ model MoneytorAccount {
   interestRate   Decimal?  @map("interest_rate") @db.Decimal(8, 4)
   maturityDate   DateTime? @map("maturity_date") @db.Date
   monthlyPayment Decimal?  @map("monthly_payment") @db.Decimal(18, 2)
+  customSubtitle String?   @map("custom_subtitle") // user-editable label shown under the account name
   rawData        Json?     @map("raw_data")
   householdId    String    @map("household_id")
   syncedAt       DateTime  @default(now()) @map("synced_at")
