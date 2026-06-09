@@ -2,13 +2,18 @@
 
 import { Building2 } from 'lucide-react';
 import { usePension } from '@/lib/hooks/use-pension';
-import { AddAccountDialog, AccountCard, UploadDepositsDialog } from '@/components/pension';
+import {
+  AddAccountDialog,
+  AccountCard,
+  MoneytorPensionSection,
+  UploadDepositsDialog,
+} from '@/components/pension';
 
 export default function PensionPage() {
   const { data, isLoading, error } = usePension();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Pension & Hishtalmut</h1>
@@ -22,8 +27,11 @@ export default function PensionPage() {
         </div>
       )}
 
-      {/* Accounts List */}
-      <div className="space-y-4">
+      {/* Synced (Moneytor) section — hides itself when there's no data and no error. */}
+      <MoneytorPensionSection />
+
+      {/* Manual Accounts List */}
+      <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Your Accounts</h2>
           <AddAccountDialog />
@@ -55,7 +63,7 @@ export default function PensionPage() {
             </div>
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }
