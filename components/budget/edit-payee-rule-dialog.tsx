@@ -46,22 +46,26 @@ function EditPayeeRuleForm({
   const [name, setName] = useState(rule.name);
   const [operator, setOperator] = useState<RuleOperator>(rule.operator as RuleOperator);
   const [value, setValue] = useState(rule.value);
-  const [categoryId, setCategoryId] = useState(rule.categoryId);
+  const [categoryId, setCategoryId] = useState(rule.categoryId ?? '');
+  const [markNeverDefault, setMarkNeverDefault] = useState(rule.markNeverDefault === true);
   const [isActive, setIsActive] = useState(rule.isActive);
 
   const { data: categoryGroups = [] } = useCategoryGroups();
   const updateRule = useUpdatePayeeCategoryRule();
 
+  const canSubmit = !!name.trim() && !!value.trim() && (markNeverDefault ? true : !!categoryId);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !value.trim() || !categoryId) return;
+    if (!canSubmit) return;
 
     await updateRule.mutateAsync({
       id: rule.id,
       name: name.trim(),
       operator,
       value: value.trim(),
-      categoryId,
+      categoryId: markNeverDefault ? null : categoryId,
+      markNeverDefault,
       isActive,
     });
 
@@ -120,7 +124,7 @@ function EditPayeeRuleForm({
 
         <div className="grid gap-2">
           <Label>Target Category</Label>
-          <Select value={categoryId} onValueChange={setCategoryId}>
+          <Select value={categoryId} onValueChange={setCategoryId} disabled={markNeverDefault}>
             <SelectTrigger>
               <SelectValue placeholder="Select a category" />
             </SelectTrigger>
@@ -141,6 +145,23 @@ function EditPayeeRuleForm({
           </Select>
         </div>
 
+        <div className="flex items-start space-x-2">
+          <Checkbox
+            id="edit-rule-never-default"
+            checked={markNeverDefault}
+            onCheckedChange={(checked) => setMarkNeverDefault(checked === true)}
+            className="mt-0.5"
+          />
+          <div className="grid gap-1">
+            <Label htmlFor="edit-rule-never-default" className="cursor-pointer text-sm font-normal">
+              Never set a default category
+            </Label>
+            <p className="text-muted-foreground text-xs">
+              Mark matching payees as &quot;never default&quot; instead of assigning a category.
+            </p>
+          </div>
+        </div>
+
         <div className="flex items-center space-x-2">
           <Checkbox
             id="edit-rule-active"
@@ -157,10 +178,7 @@ function EditPayeeRuleForm({
         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
           Cancel
         </Button>
-        <Button
-          type="submit"
-          disabled={updateRule.isPending || !name.trim() || !value.trim() || !categoryId}
-        >
+        <Button type="submit" disabled={updateRule.isPending || !canSubmit}>
           {updateRule.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Save Changes
         </Button>

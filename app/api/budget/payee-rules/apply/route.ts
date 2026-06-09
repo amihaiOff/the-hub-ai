@@ -21,7 +21,13 @@ export async function POST() {
     const rules = await prisma.payeeCategoryRule.findMany({
       where: { householdId, isActive: true },
       orderBy: { sortOrder: 'asc' },
-      select: { operator: true, value: true, categoryId: true, isActive: true },
+      select: {
+        operator: true,
+        value: true,
+        categoryId: true,
+        markNeverDefault: true,
+        isActive: true,
+      },
     });
 
     if (rules.length === 0) {
@@ -37,11 +43,15 @@ export async function POST() {
       select: { id: true, name: true },
     });
 
-    // Group matched payees by categoryId for batched updates
+    // Split matched payees by mode: category assignment vs. never-default flagging.
     const updatesByCategory = new Map<string, string[]>();
+    const neverDefaultPayeeIds: string[] = [];
     for (const payee of allPayees) {
       const match = findMatchingRule(rules, payee.name);
-      if (match) {
+      if (!match) continue;
+      if (match.markNeverDefault) {
+        neverDefaultPayeeIds.push(payee.id);
+      } else if (match.categoryId) {
         const ids = updatesByCategory.get(match.categoryId) ?? [];
         ids.push(payee.id);
         updatesByCategory.set(match.categoryId, ids);
@@ -51,6 +61,22 @@ export async function POST() {
     const BATCH_SIZE = 5;
     let matched = 0;
     let transactionsUpdated = 0;
+
+    // Apply never-default flag to matched payees (and clear any existing
+    // category default). Transactions are NOT bulk-updated for this mode —
+    // the flag only affects future behaviour.
+    for (let i = 0; i < neverDefaultPayeeIds.length; i += BATCH_SIZE) {
+      await Promise.all(
+        neverDefaultPayeeIds.slice(i, i + BATCH_SIZE).map((payeeId) =>
+          prisma.budgetPayee.update({
+            where: { id: payeeId },
+            data: { neverDefault: true, categoryId: null },
+          })
+        )
+      );
+    }
+    matched += neverDefaultPayeeIds.length;
+
     for (const [categoryId, payeeIds] of updatesByCategory) {
       // Update payee default categories in parallel batches
       // Note: Using individual update() calls instead of updateMany() due to

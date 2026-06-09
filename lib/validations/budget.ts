@@ -225,23 +225,42 @@ export const createSplitSchema = z.object({
 
 export const ruleOperatorSchema = z.enum(['contains', 'starts_with', 'ends_with', 'equals']);
 
-export const createPayeeCategoryRuleSchema = z.object({
-  name: nonEmptyString('Rule name is required').max(200),
-  operator: ruleOperatorSchema,
-  value: nonEmptyString('Match value is required').max(200),
-  categoryId: nonEmptyString('Category is required'),
-  sortOrder: z.number().int().optional(),
-  isActive: z.boolean().optional().default(true),
-});
+export const createPayeeCategoryRuleSchema = z
+  .object({
+    name: nonEmptyString('Rule name is required').max(200),
+    operator: ruleOperatorSchema,
+    value: nonEmptyString('Match value is required').max(200),
+    categoryId: z.string().nullable().optional(),
+    markNeverDefault: z.boolean().optional().default(false),
+    sortOrder: z.number().int().optional(),
+    isActive: z.boolean().optional().default(true),
+  })
+  .refine(
+    (data) =>
+      (data.markNeverDefault === true && !data.categoryId) ||
+      (data.markNeverDefault !== true && !!data.categoryId),
+    {
+      message: 'Provide either a category or set markNeverDefault, not both',
+      path: ['categoryId'],
+    }
+  );
 
-export const updatePayeeCategoryRuleSchema = z.object({
-  name: nonEmptyString('Rule name cannot be empty').optional(),
-  operator: ruleOperatorSchema.optional(),
-  value: nonEmptyString('Match value cannot be empty').optional(),
-  categoryId: nonEmptyString('Category cannot be empty').optional(),
-  sortOrder: z.number().int().optional(),
-  isActive: z.boolean().optional(),
-});
+export const updatePayeeCategoryRuleSchema = z
+  .object({
+    name: nonEmptyString('Rule name cannot be empty').optional(),
+    operator: ruleOperatorSchema.optional(),
+    value: nonEmptyString('Match value cannot be empty').optional(),
+    categoryId: z.string().nullable().optional(),
+    markNeverDefault: z.boolean().optional(),
+    sortOrder: z.number().int().optional(),
+    isActive: z.boolean().optional(),
+  })
+  .refine(
+    // Disallow setting both at once. The route is responsible for ensuring the
+    // resulting record still has exactly one of (categoryId, markNeverDefault).
+    (data) => !(data.markNeverDefault === true && !!data.categoryId),
+    { message: 'Cannot set both a category and markNeverDefault', path: ['categoryId'] }
+  );
 
 // ============================================
 // Import Schemas (Riseup CSV)

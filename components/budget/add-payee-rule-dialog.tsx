@@ -36,6 +36,7 @@ export function AddPayeeRuleDialog({ open, onOpenChange }: AddPayeeRuleDialogPro
   const [operator, setOperator] = useState<RuleOperator>('contains');
   const [value, setValue] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [markNeverDefault, setMarkNeverDefault] = useState(false);
   const [isActive, setIsActive] = useState(true);
 
   const { data: categoryGroups = [] } = useCategoryGroups();
@@ -46,18 +47,22 @@ export function AddPayeeRuleDialog({ open, onOpenChange }: AddPayeeRuleDialogPro
     setOperator('contains');
     setValue('');
     setCategoryId('');
+    setMarkNeverDefault(false);
     setIsActive(true);
   };
 
+  const canSubmit = !!name.trim() && !!value.trim() && (markNeverDefault ? true : !!categoryId);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !value.trim() || !categoryId) return;
+    if (!canSubmit) return;
 
     await createRule.mutateAsync({
       name: name.trim(),
       operator,
       value: value.trim(),
-      categoryId,
+      categoryId: markNeverDefault ? null : categoryId,
+      markNeverDefault,
       isActive,
     });
 
@@ -127,7 +132,7 @@ export function AddPayeeRuleDialog({ open, onOpenChange }: AddPayeeRuleDialogPro
 
             <div className="grid gap-2">
               <Label>Target Category</Label>
-              <Select value={categoryId} onValueChange={setCategoryId}>
+              <Select value={categoryId} onValueChange={setCategoryId} disabled={markNeverDefault}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
@@ -148,6 +153,23 @@ export function AddPayeeRuleDialog({ open, onOpenChange }: AddPayeeRuleDialogPro
               </Select>
             </div>
 
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                id="rule-never-default"
+                checked={markNeverDefault}
+                onCheckedChange={(checked) => setMarkNeverDefault(checked === true)}
+                className="mt-0.5"
+              />
+              <div className="grid gap-1">
+                <Label htmlFor="rule-never-default" className="cursor-pointer text-sm font-normal">
+                  Never set a default category
+                </Label>
+                <p className="text-muted-foreground text-xs">
+                  Mark matching payees as &quot;never default&quot; instead of assigning a category.
+                </p>
+              </div>
+            </div>
+
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="rule-active"
@@ -164,10 +186,7 @@ export function AddPayeeRuleDialog({ open, onOpenChange }: AddPayeeRuleDialogPro
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={createRule.isPending || !name.trim() || !value.trim() || !categoryId}
-            >
+            <Button type="submit" disabled={createRule.isPending || !canSubmit}>
               {createRule.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Add Rule
             </Button>

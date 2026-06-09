@@ -109,7 +109,16 @@ export function PayeeRulesTable({ rules, onEdit, onDelete }: PayeeRulesTableProp
                 </span>
               </td>
               <td className="px-2 py-2 sm:px-4 sm:py-3">
-                <span className="text-sm">{rule.categoryName}</span>
+                {rule.markNeverDefault ? (
+                  <span
+                    className="border-border bg-muted text-muted-foreground rounded-sm border px-1.5 py-0.5 text-[10px] leading-none uppercase"
+                    title="Marks matching payees as never-default"
+                  >
+                    Never default
+                  </span>
+                ) : (
+                  <span className="text-sm">{rule.categoryName}</span>
+                )}
               </td>
               <td className="px-2 py-2 text-center sm:px-4 sm:py-3">
                 <Switch

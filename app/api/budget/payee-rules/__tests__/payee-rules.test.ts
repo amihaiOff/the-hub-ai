@@ -209,6 +209,12 @@ describe('Payee Category Rules API', () => {
       (mockPrisma.payeeCategoryRule.findFirst as jest.Mock).mockResolvedValueOnce({
         id: 'rule-1',
         householdId: 'household-1',
+        categoryId: 'cat-1',
+        markNeverDefault: false,
+      });
+      (mockPrisma.budgetCategory.findFirst as jest.Mock).mockResolvedValueOnce({
+        id: 'cat-1',
+        name: 'Groceries',
       });
       (mockPrisma.payeeCategoryRule.update as jest.Mock).mockResolvedValueOnce({
         id: 'rule-1',

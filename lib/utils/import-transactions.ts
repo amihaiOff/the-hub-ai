@@ -28,7 +28,13 @@ export async function importTransactions(
   const payeeCategoryRules = await prisma.payeeCategoryRule.findMany({
     where: { householdId, isActive: true },
     orderBy: { sortOrder: 'asc' },
-    select: { operator: true, value: true, categoryId: true, isActive: true },
+    select: {
+      operator: true,
+      value: true,
+      categoryId: true,
+      markNeverDefault: true,
+      isActive: true,
+    },
   });
 
   // Fetch all existing payees for the household
@@ -219,16 +225,25 @@ export async function importTransactions(
       payeeLookup.set(payeeNameLower, payeeInfo);
 
       // Apply payee category rules to newly created payees without a category,
-      // unless the payee is marked neverDefault.
+      // unless the payee is already marked neverDefault.
       if (!payeeInfo.categoryId && !payeeInfo.neverDefault && payeeCategoryRules.length > 0) {
         const matched = findMatchingRule(payeeCategoryRules, tx.payeeName.trim());
         if (matched) {
           try {
-            await prisma.budgetPayee.update({
-              where: { id: payeeInfo.id },
-              data: { categoryId: matched.categoryId },
-            });
-            payeeInfo.categoryId = matched.categoryId;
+            if (matched.markNeverDefault) {
+              await prisma.budgetPayee.update({
+                where: { id: payeeInfo.id },
+                data: { neverDefault: true, categoryId: null },
+              });
+              payeeInfo.neverDefault = true;
+              payeeInfo.categoryId = null;
+            } else if (matched.categoryId) {
+              await prisma.budgetPayee.update({
+                where: { id: payeeInfo.id },
+                data: { categoryId: matched.categoryId },
+              });
+              payeeInfo.categoryId = matched.categoryId;
+            }
           } catch (err) {
             console.warn('Failed to apply payee category rule:', err);
           }
