@@ -97,6 +97,90 @@ export function getGroupIconColor(
   return 'bg-muted text-muted-foreground';
 }
 
+// Tailwind bar-fill classes per group keyword. Kept as literal strings so the
+// Tailwind JIT actually emits them — building class names with .replace()
+// would silently drop the variant from the bundle.
+const BAR_FILL_RULES: Array<[string, string]> = [
+  ['essential', 'bg-blue-500/60'],
+  ['lifestyle', 'bg-pink-500/60'],
+  ['savings & investments', 'bg-emerald-500/60'],
+  ['savings', 'bg-emerald-500/60'],
+  ['investment', 'bg-emerald-500/60'],
+  ['groceries', 'bg-amber-500/60'],
+  ['food', 'bg-amber-500/60'],
+  ['coffee', 'bg-amber-500/60'],
+  ['cafe', 'bg-amber-500/60'],
+  ['restaurant', 'bg-amber-500/60'],
+  ['dining', 'bg-amber-500/60'],
+  ['health', 'bg-red-500/60'],
+  ['medical', 'bg-red-500/60'],
+  ['transport', 'bg-cyan-500/60'],
+  ['transit', 'bg-cyan-500/60'],
+  ['car', 'bg-cyan-500/60'],
+  ['entertainment', 'bg-purple-500/60'],
+  ['bill', 'bg-indigo-500/60'],
+  ['utilit', 'bg-indigo-500/60'],
+];
+
+export function getGroupBarFillClass(
+  groupName: string | null | undefined,
+  opts: GetGroupIconOpts = {}
+): string {
+  if (opts.type === 'income') return 'bg-green-500/60';
+  if (!groupName) return 'bg-foreground/40';
+  const normalized = groupName.trim().toLowerCase();
+  for (const [keyword, classes] of BAR_FILL_RULES) {
+    if (normalized.includes(keyword)) return classes;
+  }
+  return 'bg-foreground/40';
+}
+
+// Hex colors for chart libraries (recharts) — mirrors the keyword rules above
+// so the donut/bar chart matches the row icon tint.
+const CHART_COLOR_RULES: Array<[string, string]> = [
+  ['essential', '#3b82f6'], // blue-500
+  ['lifestyle', '#ec4899'], // pink-500
+  ['savings & investments', '#10b981'], // emerald-500
+  ['savings', '#10b981'],
+  ['investment', '#10b981'],
+  ['groceries', '#f59e0b'], // amber-500
+  ['food', '#f59e0b'],
+  ['coffee', '#f59e0b'],
+  ['cafe', '#f59e0b'],
+  ['restaurant', '#f59e0b'],
+  ['dining', '#f59e0b'],
+  ['health', '#ef4444'], // red-500
+  ['medical', '#ef4444'],
+  ['transport', '#06b6d4'], // cyan-500
+  ['transit', '#06b6d4'],
+  ['car', '#06b6d4'],
+  ['entertainment', '#a855f7'], // purple-500
+  ['bill', '#6366f1'], // indigo-500
+  ['utilit', '#6366f1'],
+];
+
+const CHART_COLOR_FALLBACKS = [
+  '#94a3b8', // slate-400
+  '#fb923c', // orange-400
+  '#facc15', // yellow-400
+  '#4ade80', // green-400
+  '#22d3ee', // cyan-400
+  '#a78bfa', // violet-400
+  '#f472b6', // pink-400
+];
+
+export function getGroupChartColor(
+  groupName: string | null | undefined,
+  fallbackIndex = 0
+): string {
+  if (!groupName) return CHART_COLOR_FALLBACKS[fallbackIndex % CHART_COLOR_FALLBACKS.length]!;
+  const normalized = groupName.trim().toLowerCase();
+  for (const [keyword, color] of CHART_COLOR_RULES) {
+    if (normalized.includes(keyword)) return color;
+  }
+  return CHART_COLOR_FALLBACKS[fallbackIndex % CHART_COLOR_FALLBACKS.length]!;
+}
+
 // Stable wrapper that picks the icon and renders it. Avoids the
 // `react-hooks/static-components` lint rule that fires when a capitalized
 // variable is assigned a function-call result inside a render body.
