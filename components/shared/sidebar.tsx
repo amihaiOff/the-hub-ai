@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -39,8 +39,21 @@ function NavItemComponent({
   // Use manual state if set, otherwise default to expanded when active
   const isExpanded = manualExpanded !== null ? manualExpanded : isParentActive;
 
+  const subItemsRef = useRef<HTMLDivElement>(null);
+
   const handleToggle = () => {
-    setManualExpanded(isExpanded ? false : true);
+    const nextExpanded = !isExpanded;
+    setManualExpanded(nextExpanded);
+    if (nextExpanded) {
+      // The submenu may be below the sidebar's scroll viewport — bring its last
+      // subitem into view after the expand animation paints.
+      requestAnimationFrame(() => {
+        subItemsRef.current?.lastElementChild?.scrollIntoView({
+          block: 'nearest',
+          behavior: 'smooth',
+        });
+      });
+    }
   };
 
   const Icon = item.icon;
@@ -64,7 +77,10 @@ function NavItemComponent({
           <ChevronDown className={cn('h-4 w-4 transition-transform', isExpanded && 'rotate-180')} />
         </button>
         {isExpanded && (
-          <div className="border-sidebar-border/30 mt-1 ml-4 space-y-1 border-l pl-3">
+          <div
+            ref={subItemsRef}
+            className="border-sidebar-border/30 mt-1 ml-4 space-y-1 border-l pl-3"
+          >
             {item.subItems!.map((subItem) => {
               const isSubActive = pathname === subItem.href;
               const SubIcon = subItem.icon;
@@ -126,8 +142,10 @@ export function Sidebar() {
 
         {/* Navigation. min-h-0 + overflow-y-auto lets the nav scroll on its own
             when expanded submenus push it past the sidebar's fixed height,
-            instead of overflowing and hiding Settings/the user footer below. */}
-        <nav className="scrollbar-hide min-h-0 flex-1 space-y-1 overflow-y-auto p-4">
+            instead of overflowing and hiding Settings/the user footer below.
+            A thin scrollbar appears only when content overflows so users
+            discover that the nav scrolls. */}
+        <nav className="sidebar-scroll min-h-0 flex-1 space-y-1 overflow-y-auto p-4">
           {navItems.map((item) => (
             <NavItemComponent
               key={item.href}

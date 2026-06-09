@@ -199,4 +199,25 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Thin sidebar scrollbar — visible only when content overflows, dim by
+     default and slightly brighter on hover so users discover the scroll. */
+  .sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-sidebar-border) transparent;
+  }
+  .sidebar-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+  .sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .sidebar-scroll::-webkit-scrollbar-thumb {
+    background-color: var(--color-sidebar-border);
+    border-radius: 9999px;
+  }
+  .sidebar-scroll:hover::-webkit-scrollbar-thumb {
+    background-color: var(--color-sidebar-foreground);
+    opacity: 0.4;
+  }
 }
