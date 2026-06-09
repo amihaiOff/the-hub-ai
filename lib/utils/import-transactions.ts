@@ -34,13 +34,20 @@ export async function importTransactions(
   // Fetch all existing payees for the household
   const existingPayees = await prisma.budgetPayee.findMany({
     where: { householdId },
-    select: { id: true, name: true, categoryId: true },
+    select: { id: true, name: true, categoryId: true, neverDefault: true },
   });
 
   // Build case-insensitive lookup map
-  const payeeLookup = new Map<string, { id: string; categoryId: string | null }>();
+  const payeeLookup = new Map<
+    string,
+    { id: string; categoryId: string | null; neverDefault: boolean }
+  >();
   for (const p of existingPayees) {
-    payeeLookup.set(p.name.toLowerCase().trim(), { id: p.id, categoryId: p.categoryId });
+    payeeLookup.set(p.name.toLowerCase().trim(), {
+      id: p.id,
+      categoryId: p.categoryId,
+      neverDefault: p.neverDefault,
+    });
   }
 
   // Fetch all Riseup categories for DB-driven mapping
@@ -191,24 +198,29 @@ export async function importTransactions(
             householdId,
           },
         });
-        payeeInfo = { id: newPayee.id, categoryId: null };
+        payeeInfo = { id: newPayee.id, categoryId: null, neverDefault: false };
         payeesCreated.push(tx.payeeName.trim());
       } catch {
         // Handle unique constraint violation (concurrent import)
         const existing = await prisma.budgetPayee.findFirst({
           where: { householdId, name: tx.payeeName.trim() },
-          select: { id: true, categoryId: true },
+          select: { id: true, categoryId: true, neverDefault: true },
         });
         if (existing) {
-          payeeInfo = { id: existing.id, categoryId: existing.categoryId };
+          payeeInfo = {
+            id: existing.id,
+            categoryId: existing.categoryId,
+            neverDefault: existing.neverDefault,
+          };
         } else {
           throw new Error(`Failed to create or find payee: ${tx.payeeName.trim()}`);
         }
       }
       payeeLookup.set(payeeNameLower, payeeInfo);
 
-      // Apply payee category rules to newly created payees without a category
-      if (!payeeInfo.categoryId && payeeCategoryRules.length > 0) {
+      // Apply payee category rules to newly created payees without a category,
+      // unless the payee is marked neverDefault.
+      if (!payeeInfo.categoryId && !payeeInfo.neverDefault && payeeCategoryRules.length > 0) {
         const matched = findMatchingRule(payeeCategoryRules, tx.payeeName.trim());
         if (matched) {
           try {
@@ -231,7 +243,8 @@ export async function importTransactions(
       categoryId = riseupMapping.get(riseupName) ?? null;
 
       // Set payee default category from Riseup mapping if payee has no default yet
-      if (categoryId && !payeeInfo.categoryId) {
+      // and the payee is not marked neverDefault.
+      if (categoryId && !payeeInfo.categoryId && !payeeInfo.neverDefault) {
         try {
           await prisma.budgetPayee.update({
             where: { id: payeeInfo.id },

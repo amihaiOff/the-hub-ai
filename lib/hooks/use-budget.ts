@@ -309,6 +309,7 @@ interface UpdatePayeeInput {
   name?: string;
   categoryId?: string | null;
   recategorizeTransactions?: boolean;
+  neverDefault?: boolean;
 }
 
 interface CreateTagInput {

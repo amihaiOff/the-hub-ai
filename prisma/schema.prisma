@@ -442,12 +442,13 @@ model BudgetCategory {
 
 // Budget Payees - who you transact with
 model BudgetPayee {
-  id          String   @id @default(cuid())
-  name        String
-  categoryId  String?  @map("category_id") // Default category for this payee
-  householdId String   @map("household_id")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(cuid())
+  name         String
+  categoryId   String?  @map("category_id") // Default category for this payee
+  neverDefault Boolean  @default(false) @map("never_default") // If true, never set/prompt a default category for this payee
+  householdId  String   @map("household_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relations
   category     BudgetCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)

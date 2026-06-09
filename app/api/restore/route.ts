@@ -477,6 +477,7 @@ export async function POST(request: NextRequest) {
           id: bp.id as string,
           name: bp.name as string,
           categoryId: (bp.categoryId as string | null) ?? null,
+          neverDefault: (bp.neverDefault as boolean | undefined) ?? false,
           householdId: bp.householdId as string,
           createdAt: new Date(bp.createdAt as string),
           updatedAt: new Date(bp.updatedAt as string),

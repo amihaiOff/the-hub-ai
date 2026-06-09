@@ -121,51 +121,63 @@ export function PayeeTable({
                 />
               </td>
               <td className="px-2 py-2 sm:px-4 sm:py-3">
-                <div>
+                <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-sm font-medium">{payee.name}</span>
+                  {payee.neverDefault && (
+                    <span
+                      className="border-border bg-muted text-muted-foreground rounded-sm border px-1.5 py-0.5 text-[10px] leading-none uppercase"
+                      title="This payee never gets a default category"
+                    >
+                      Never default
+                    </span>
+                  )}
                   <span className="text-muted-foreground ml-1 text-xs sm:hidden">
                     ({payee.transactionCount} txn{payee.transactionCount !== 1 ? 's' : ''})
                   </span>
                 </div>
               </td>
               <td className="px-2 py-2 sm:px-4 sm:py-3">
-                <Select
-                  value={payee.categoryId || '__none__'}
-                  onValueChange={(value) => handleCategoryChange(payee.id, value)}
-                  disabled={updatePayee.isPending}
-                >
-                  <SelectTrigger
-                    aria-label={`Select default category for ${payee.name}`}
-                    className={cn(
-                      'h-auto w-full max-w-[140px] border-0 bg-transparent px-1 py-1 text-sm whitespace-normal shadow-none sm:max-w-[180px]',
-                      'hover:bg-muted/50 focus:ring-0 focus:ring-offset-0',
-                      !payee.categoryId && 'text-muted-foreground italic'
-                    )}
+                {payee.neverDefault ? (
+                  <span className="text-muted-foreground text-sm italic">—</span>
+                ) : (
+                  <Select
+                    value={payee.categoryId || '__none__'}
+                    onValueChange={(value) => handleCategoryChange(payee.id, value)}
+                    disabled={updatePayee.isPending}
                   >
-                    <SelectValue placeholder="No default" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">
-                      <span className="italic">No default</span>
-                    </SelectItem>
-                    {categoryGroups.map((group) => (
-                      <SelectGroup key={group.id}>
-                        <SelectLabel className="text-foreground text-xs font-semibold tracking-wide uppercase">
-                          {group.name}
-                        </SelectLabel>
-                        {group.categories.map((category) => (
-                          <SelectItem
-                            key={category.id}
-                            value={category.id}
-                            className="text-muted-foreground"
-                          >
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    ))}
-                  </SelectContent>
-                </Select>
+                    <SelectTrigger
+                      aria-label={`Select default category for ${payee.name}`}
+                      className={cn(
+                        'h-auto w-full max-w-[140px] border-0 bg-transparent px-1 py-1 text-sm whitespace-normal shadow-none sm:max-w-[180px]',
+                        'hover:bg-muted/50 focus:ring-0 focus:ring-offset-0',
+                        !payee.categoryId && 'text-muted-foreground italic'
+                      )}
+                    >
+                      <SelectValue placeholder="No default" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">
+                        <span className="italic">No default</span>
+                      </SelectItem>
+                      {categoryGroups.map((group) => (
+                        <SelectGroup key={group.id}>
+                          <SelectLabel className="text-foreground text-xs font-semibold tracking-wide uppercase">
+                            {group.name}
+                          </SelectLabel>
+                          {group.categories.map((category) => (
+                            <SelectItem
+                              key={category.id}
+                              value={category.id}
+                              className="text-muted-foreground"
+                            >
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </td>
               <td className="text-muted-foreground hidden px-2 py-2 text-right text-sm tabular-nums sm:table-cell sm:px-4 sm:py-3">
                 {payee.transactionCount}

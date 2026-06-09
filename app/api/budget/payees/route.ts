@@ -36,6 +36,7 @@ export async function GET() {
       name: payee.name,
       categoryId: payee.categoryId,
       categoryName: payee.category?.name ?? null,
+      neverDefault: payee.neverDefault,
       transactionCount: payee._count.transactions,
       householdId: payee.householdId,
       createdAt: payee.createdAt,

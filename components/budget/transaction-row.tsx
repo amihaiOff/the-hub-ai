@@ -89,6 +89,7 @@ function useCategoryChange(
           if (!newCategoryId || !transaction.payeeId) return;
           const payee = payees.find((p) => p.id === transaction.payeeId);
           if (!payee) return;
+          if (payee.neverDefault) return;
           if (payee.categoryId === newCategoryId) return;
           const oldDefaultName = payee.categoryId ? getCategoryName(payee.categoryId) : null;
           onPromptPayeeCategory({

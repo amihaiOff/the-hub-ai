@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -39,6 +40,7 @@ function EditPayeeForm({
 }) {
   const [name, setName] = useState(payee.name);
   const [categoryId, setCategoryId] = useState(payee.categoryId || '');
+  const [neverDefault, setNeverDefault] = useState(payee.neverDefault ?? false);
 
   const { data: categoryGroups = [] } = useCategoryGroups();
   const updatePayee = useUpdatePayee();
@@ -50,7 +52,10 @@ function EditPayeeForm({
     await updatePayee.mutateAsync({
       id: payee.id,
       name: name.trim(),
-      categoryId: categoryId || null,
+      // If neverDefault is on, the API force-clears categoryId anyway. Send
+      // null to keep the client/server view consistent.
+      categoryId: neverDefault ? null : categoryId || null,
+      neverDefault,
     });
 
     onOpenChange(false);
@@ -78,6 +83,7 @@ function EditPayeeForm({
           <Select
             value={categoryId || '__none__'}
             onValueChange={(v) => setCategoryId(v === '__none__' ? '' : v)}
+            disabled={neverDefault}
           >
             <SelectTrigger>
               <SelectValue placeholder="No default category" />
@@ -101,6 +107,25 @@ function EditPayeeForm({
           <p className="text-muted-foreground text-xs">
             New transactions with this payee will use this category by default
           </p>
+        </div>
+
+        {/* Never default */}
+        <div className="flex items-start gap-2">
+          <Checkbox
+            id="payee-never-default"
+            checked={neverDefault}
+            onCheckedChange={(v) => setNeverDefault(v === true)}
+            className="mt-0.5"
+          />
+          <div className="grid gap-1">
+            <Label htmlFor="payee-never-default" className="cursor-pointer">
+              Never set a default category
+            </Label>
+            <p className="text-muted-foreground text-xs">
+              Skip the &quot;make this the default category?&quot; prompt for this payee, and
+              don&apos;t auto-assign one during import.
+            </p>
+          </div>
         </div>
       </div>
 
