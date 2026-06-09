@@ -675,7 +675,8 @@ interface CreatePayeeCategoryRuleInput {
   name: string;
   operator: string;
   value: string;
-  categoryId: string;
+  categoryId?: string | null;
+  markNeverDefault?: boolean;
   sortOrder?: number;
   isActive?: boolean;
 }
@@ -685,7 +686,8 @@ interface UpdatePayeeCategoryRuleInput {
   name?: string;
   operator?: string;
   value?: string;
-  categoryId?: string;
+  categoryId?: string | null;
+  markNeverDefault?: boolean;
   sortOrder?: number;
   isActive?: boolean;
 }

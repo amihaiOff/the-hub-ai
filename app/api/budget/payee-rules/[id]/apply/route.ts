@@ -21,7 +21,13 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
     // Fetch the rule and verify it belongs to household
     const rule = await prisma.payeeCategoryRule.findFirst({
       where: { id, householdId },
-      select: { operator: true, value: true, categoryId: true, isActive: true },
+      select: {
+        operator: true,
+        value: true,
+        categoryId: true,
+        markNeverDefault: true,
+        isActive: true,
+      },
     });
 
     if (!rule) {
@@ -49,36 +55,51 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
     const BATCH_SIZE = 5;
     let transactionsUpdated = 0;
     if (matchedIds.length > 0) {
-      // Update payee default categories in parallel batches
-      // Note: Using individual update() calls instead of updateMany() due to
-      // Neon poolQueryViaFetch compatibility (updateMany silently fails like createMany)
-      for (let i = 0; i < matchedIds.length; i += BATCH_SIZE) {
-        await Promise.all(
-          matchedIds.slice(i, i + BATCH_SIZE).map((payeeId) =>
-            prisma.budgetPayee.update({
-              where: { id: payeeId },
-              data: { categoryId: rule.categoryId },
-            })
-          )
-        );
-      }
+      if (rule.markNeverDefault) {
+        // Mark matched payees as neverDefault (and clear any existing default).
+        // Don't bulk-recategorize transactions in this mode.
+        for (let i = 0; i < matchedIds.length; i += BATCH_SIZE) {
+          await Promise.all(
+            matchedIds.slice(i, i + BATCH_SIZE).map((payeeId) =>
+              prisma.budgetPayee.update({
+                where: { id: payeeId },
+                data: { neverDefault: true, categoryId: null },
+              })
+            )
+          );
+        }
+      } else if (rule.categoryId) {
+        // Update payee default categories in parallel batches
+        // Note: Using individual update() calls instead of updateMany() due to
+        // Neon poolQueryViaFetch compatibility (updateMany silently fails like createMany)
+        for (let i = 0; i < matchedIds.length; i += BATCH_SIZE) {
+          await Promise.all(
+            matchedIds.slice(i, i + BATCH_SIZE).map((payeeId) =>
+              prisma.budgetPayee.update({
+                where: { id: payeeId },
+                data: { categoryId: rule.categoryId },
+              })
+            )
+          );
+        }
 
-      // Also update existing non-deleted transactions for matched payees
-      const txsToUpdate = await prisma.budgetTransaction.findMany({
-        where: { payeeId: { in: matchedIds }, householdId, isDeleted: false },
-        select: { id: true },
-      });
-      for (let i = 0; i < txsToUpdate.length; i += BATCH_SIZE) {
-        await Promise.all(
-          txsToUpdate.slice(i, i + BATCH_SIZE).map((tx) =>
-            prisma.budgetTransaction.update({
-              where: { id: tx.id },
-              data: { categoryId: rule.categoryId },
-            })
-          )
-        );
+        // Also update existing non-deleted transactions for matched payees
+        const txsToUpdate = await prisma.budgetTransaction.findMany({
+          where: { payeeId: { in: matchedIds }, householdId, isDeleted: false },
+          select: { id: true },
+        });
+        for (let i = 0; i < txsToUpdate.length; i += BATCH_SIZE) {
+          await Promise.all(
+            txsToUpdate.slice(i, i + BATCH_SIZE).map((tx) =>
+              prisma.budgetTransaction.update({
+                where: { id: tx.id },
+                data: { categoryId: rule.categoryId },
+              })
+            )
+          );
+        }
+        transactionsUpdated = txsToUpdate.length;
       }
-      transactionsUpdated = txsToUpdate.length;
     }
 
     return NextResponse.json({

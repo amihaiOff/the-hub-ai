@@ -77,17 +77,17 @@ describe('findMatchingRule', () => {
 
   it('should return first matching rule', () => {
     const result = findMatchingRule(rules, 'Shufersal Deal');
-    expect(result).toEqual({ categoryId: 'cat-groceries' });
+    expect(result).toEqual({ categoryId: 'cat-groceries', markNeverDefault: false });
   });
 
   it('should match equals rule', () => {
     const result = findMatchingRule(rules, 'Netflix');
-    expect(result).toEqual({ categoryId: 'cat-entertainment' });
+    expect(result).toEqual({ categoryId: 'cat-entertainment', markNeverDefault: false });
   });
 
   it('should match starts_with rule', () => {
     const result = findMatchingRule(rules, 'Wolt - Order #123');
-    expect(result).toEqual({ categoryId: 'cat-dining' });
+    expect(result).toEqual({ categoryId: 'cat-dining', markNeverDefault: false });
   });
 
   it('should skip inactive rules', () => {
@@ -111,6 +111,6 @@ describe('findMatchingRule', () => {
       { operator: 'contains', value: 'shop', categoryId: 'cat-2', isActive: true },
     ];
     const result = findMatchingRule(orderedRules, 'The Shop');
-    expect(result).toEqual({ categoryId: 'cat-1' });
+    expect(result).toEqual({ categoryId: 'cat-1', markNeverDefault: false });
   });
 });

@@ -39,10 +39,34 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const data = validation.data;
 
-    // If categoryId is being updated, verify it belongs to household
-    if (data.categoryId) {
+    // Determine the post-update mode (markNeverDefault wins; otherwise infer from
+    // categoryId if it was provided; otherwise leave existing values alone).
+    const willMarkNeverDefault =
+      data.markNeverDefault !== undefined ? data.markNeverDefault : existingRule.markNeverDefault;
+    const willCategoryId =
+      data.markNeverDefault === true
+        ? null
+        : data.categoryId !== undefined
+          ? data.categoryId
+          : existingRule.categoryId;
+
+    if (willMarkNeverDefault && willCategoryId) {
+      return NextResponse.json(
+        { success: false, error: 'A rule cannot have both a category and markNeverDefault' },
+        { status: 400 }
+      );
+    }
+    if (!willMarkNeverDefault && !willCategoryId) {
+      return NextResponse.json(
+        { success: false, error: 'A rule must have either a category or markNeverDefault' },
+        { status: 400 }
+      );
+    }
+
+    // If a category will be set, verify it belongs to household
+    if (willCategoryId) {
       const category = await prisma.budgetCategory.findFirst({
-        where: { id: data.categoryId, householdId },
+        where: { id: willCategoryId, householdId },
       });
       if (!category) {
         return NextResponse.json({ success: false, error: 'Category not found' }, { status: 404 });
@@ -51,7 +75,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const updatedRule = await prisma.payeeCategoryRule.update({
       where: { id },
-      data,
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.operator !== undefined && { operator: data.operator }),
+        ...(data.value !== undefined && { value: data.value }),
+        ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
+        ...(data.isActive !== undefined && { isActive: data.isActive }),
+        categoryId: willCategoryId,
+        markNeverDefault: willMarkNeverDefault,
+      },
       include: {
         category: { select: { name: true } },
       },
@@ -65,7 +97,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         operator: updatedRule.operator,
         value: updatedRule.value,
         categoryId: updatedRule.categoryId,
-        categoryName: updatedRule.category.name,
+        categoryName: updatedRule.category?.name ?? null,
+        markNeverDefault: updatedRule.markNeverDefault,
         sortOrder: updatedRule.sortOrder,
         isActive: updatedRule.isActive,
         householdId: updatedRule.householdId,

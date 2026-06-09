@@ -108,8 +108,11 @@ export interface PayeeCategoryRule {
   name: string;
   operator: RuleOperator;
   value: string;
-  categoryId: string;
-  categoryName?: string;
+  // Either categoryId is set (assign a default category) OR markNeverDefault is
+  // true (mark matching payees as neverDefault). Never both.
+  categoryId: string | null;
+  categoryName?: string | null;
+  markNeverDefault?: boolean;
   sortOrder: number;
   isActive: boolean;
   householdId: string;
@@ -151,13 +154,22 @@ export function matchesPayeeRule(
  * Rules must be pre-sorted by sortOrder ascending.
  */
 export function findMatchingRule(
-  rules: { operator: string; value: string; categoryId: string; isActive: boolean }[],
+  rules: {
+    operator: string;
+    value: string;
+    categoryId: string | null;
+    markNeverDefault?: boolean;
+    isActive: boolean;
+  }[],
   payeeName: string
-): { categoryId: string } | null {
+): { categoryId: string | null; markNeverDefault: boolean } | null {
   for (const rule of rules) {
     if (!rule.isActive) continue;
     if (matchesPayeeRule(payeeName, rule.operator as RuleOperator, rule.value)) {
-      return { categoryId: rule.categoryId };
+      return {
+        categoryId: rule.categoryId,
+        markNeverDefault: rule.markNeverDefault === true,
+      };
     }
   }
   return null;

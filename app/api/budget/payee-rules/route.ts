@@ -33,7 +33,8 @@ export async function GET() {
       operator: rule.operator,
       value: rule.value,
       categoryId: rule.categoryId,
-      categoryName: rule.category.name,
+      categoryName: rule.category?.name ?? null,
+      markNeverDefault: rule.markNeverDefault,
       sortOrder: rule.sortOrder,
       isActive: rule.isActive,
       householdId: rule.householdId,
@@ -74,15 +75,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, operator, value, categoryId, sortOrder, isActive } = validation.data;
+    const { name, operator, value, categoryId, markNeverDefault, sortOrder, isActive } =
+      validation.data;
 
-    // Verify category belongs to household
-    const category = await prisma.budgetCategory.findFirst({
-      where: { id: categoryId, householdId },
-    });
+    // Require exactly one mode: assign a category OR mark never-default.
+    if (!markNeverDefault && !categoryId) {
+      return NextResponse.json(
+        { success: false, error: 'Rule must either set a category or markNeverDefault' },
+        { status: 400 }
+      );
+    }
 
-    if (!category) {
-      return NextResponse.json({ success: false, error: 'Category not found' }, { status: 404 });
+    // Verify category belongs to household (only when assigning a category)
+    let categoryName: string | null = null;
+    if (categoryId) {
+      const category = await prisma.budgetCategory.findFirst({
+        where: { id: categoryId, householdId },
+      });
+      if (!category) {
+        return NextResponse.json({ success: false, error: 'Category not found' }, { status: 404 });
+      }
+      categoryName = category.name;
     }
 
     // If no sortOrder provided, set to max + 1
@@ -101,7 +114,8 @@ export async function POST(request: NextRequest) {
         name,
         operator,
         value,
-        categoryId,
+        categoryId: categoryId ?? null,
+        markNeverDefault: markNeverDefault === true,
         sortOrder: finalSortOrder,
         isActive,
         householdId,
@@ -112,7 +126,7 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         ...rule,
-        categoryName: category.name,
+        categoryName,
       },
     });
   } catch (error) {
