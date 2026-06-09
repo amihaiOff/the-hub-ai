@@ -99,6 +99,7 @@ export const updatePayeeSchema = z.object({
   name: nonEmptyString('Payee name cannot be empty').optional(),
   categoryId: z.string().nullable().optional(),
   recategorizeTransactions: z.boolean().optional(),
+  neverDefault: z.boolean().optional(),
 });
 
 // ============================================

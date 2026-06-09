@@ -45,6 +45,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         name: payee.name,
         categoryId: payee.categoryId,
         categoryName: payee.category?.name ?? null,
+        neverDefault: payee.neverDefault,
         transactionCount: payee._count.transactions,
         householdId: payee.householdId,
         createdAt: payee.createdAt,
@@ -90,12 +91,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { name, categoryId, recategorizeTransactions } = validation.data;
+    const { name, categoryId, recategorizeTransactions, neverDefault } = validation.data;
 
-    // If categoryId provided, verify it belongs to household
-    if (categoryId) {
+    // Setting neverDefault=true is exclusive with having a default category — clear it.
+    const effectiveCategoryId =
+      neverDefault === true ? null : categoryId !== undefined ? categoryId : undefined;
+
+    // If a non-null effective categoryId was requested, verify it belongs to household
+    if (effectiveCategoryId) {
       const category = await prisma.budgetCategory.findFirst({
-        where: { id: categoryId, householdId },
+        where: { id: effectiveCategoryId, householdId },
       });
 
       if (!category) {
@@ -103,19 +108,19 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    const payeeUpdateData = {
+      ...(name !== undefined && { name }),
+      ...(effectiveCategoryId !== undefined && { categoryId: effectiveCategoryId }),
+      ...(neverDefault !== undefined && { neverDefault }),
+    };
+
     // Optionally re-categorize all transactions for this payee (atomically with payee update)
     let recategorizedCount = 0;
-    const shouldRecategorize = recategorizeTransactions && categoryId;
+    const shouldRecategorize = recategorizeTransactions && effectiveCategoryId;
 
     if (shouldRecategorize) {
       // Sequential queries for Neon serverless compatibility (no $transaction)
-      await prisma.budgetPayee.update({
-        where: { id },
-        data: {
-          ...(name !== undefined && { name }),
-          ...(categoryId !== undefined && { categoryId }),
-        },
-      });
+      await prisma.budgetPayee.update({ where: { id }, data: payeeUpdateData });
 
       // Find and update non-deleted transactions for this payee in parallel batches
       const transactionsToUpdate = await prisma.budgetTransaction.findMany({
@@ -129,7 +134,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
           transactionsToUpdate.slice(i, i + BATCH_SIZE).map((tx) =>
             prisma.budgetTransaction.update({
               where: { id: tx.id },
-              data: { categoryId },
+              data: { categoryId: effectiveCategoryId },
             })
           )
         );
@@ -137,13 +142,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
       recategorizedCount = transactionsToUpdate.length;
     } else {
-      await prisma.budgetPayee.update({
-        where: { id },
-        data: {
-          ...(name !== undefined && { name }),
-          ...(categoryId !== undefined && { categoryId }),
-        },
-      });
+      await prisma.budgetPayee.update({ where: { id }, data: payeeUpdateData });
     }
 
     const payee = await prisma.budgetPayee.findUnique({
@@ -165,6 +164,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         name: payee!.name,
         categoryId: payee!.categoryId,
         categoryName: payee!.category?.name ?? null,
+        neverDefault: payee!.neverDefault,
         transactionCount: payee!._count.transactions,
         householdId: payee!.householdId,
         createdAt: payee!.createdAt,

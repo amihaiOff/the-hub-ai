@@ -56,6 +56,7 @@ export interface BudgetPayee {
   name: string;
   categoryId: string | null;
   categoryName?: string | null;
+  neverDefault?: boolean;
   transactionCount: number;
   householdId: string;
 }
