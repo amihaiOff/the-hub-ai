@@ -7,3 +7,4 @@ export { AddDepositDialog } from './add-deposit-dialog';
 export { EditDepositDialog } from './edit-deposit-dialog';
 export { UploadDepositsDialog } from './upload-deposits-dialog';
 export { UploadDepositsPreview } from './upload-deposits-preview';
+export { MoneytorPensionSection } from './moneytor-pension-section';

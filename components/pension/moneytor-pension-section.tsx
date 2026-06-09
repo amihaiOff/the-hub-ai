@@ -67,7 +67,7 @@ function isHishtalmut(productType: string) {
   return productType.includes('השתלמות');
 }
 
-export default function MoneytorPensionPage() {
+export function MoneytorPensionSection() {
   const pensionQuery = useMoneytorPension();
   const historyQuery = useMoneytorPensionHistory();
   const sync = useSyncMoneytor();
@@ -76,7 +76,6 @@ export default function MoneytorPensionPage() {
   const totals = pensionQuery.data?.totals;
   const history = historyQuery.data?.history ?? [];
 
-  // Group funds by productType for the per-section breakdown
   const grouped = useMemo(() => {
     const pension = funds.filter((f) => isPension(f.productType));
     const hishtalmut = funds.filter((f) => isHishtalmut(f.productType));
@@ -84,13 +83,23 @@ export default function MoneytorPensionPage() {
     return { pension, hishtalmut, other };
   }, [funds]);
 
+  // Hide the entire section when Moneytor returns nothing AND nothing is loading;
+  // keeps the page clean for users who don't use Moneytor.
+  if (
+    !pensionQuery.isLoading &&
+    funds.length === 0 &&
+    history.length === 0 &&
+    !pensionQuery.error
+  ) {
+    return null;
+  }
+
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      {/* Header */}
+    <section className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Pension &amp; Hishtalmut</h1>
-          <p className="text-muted-foreground text-sm">
+          <h2 className="text-lg font-semibold">Synced from Moneytor</h2>
+          <p className="text-muted-foreground text-xs">
             From Moneytor / Masleka — last synced{' '}
             {formatRelativeTime(pensionQuery.data?.asOf ?? null)}
           </p>
@@ -113,18 +122,16 @@ export default function MoneytorPensionPage() {
         </Card>
       )}
 
-      {/* Totals */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <TotalCard label="Pension" value={totals?.pension ?? 0} accent="primary" />
         <TotalCard label="Hishtalmut" value={totals?.hishtalmut ?? 0} accent="secondary" />
         <TotalCard label="Total" value={totals?.total ?? 0} accent="strong" />
       </div>
 
-      {/* History chart */}
       <Card>
         <CardContent className="p-4">
           <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="text-base font-semibold">Monthly history</h2>
+            <h3 className="text-base font-semibold">Monthly history</h3>
             <span className="text-muted-foreground text-xs">
               {history.length} month{history.length === 1 ? '' : 's'}
             </span>
@@ -191,7 +198,6 @@ export default function MoneytorPensionPage() {
         </CardContent>
       </Card>
 
-      {/* Funds grouped by type */}
       {pensionQuery.isLoading && funds.length === 0 ? (
         <div className="text-muted-foreground p-8 text-center text-sm">Loading…</div>
       ) : (
@@ -214,7 +220,7 @@ export default function MoneytorPensionPage() {
           )}
         </>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -261,7 +267,7 @@ function FundsSection({
   return (
     <div>
       <div className="mb-2 flex items-baseline justify-between px-1">
-        <h2 className="text-base font-semibold">{title}</h2>
+        <h3 className="text-base font-semibold">{title}</h3>
         <span className="text-muted-foreground text-sm tabular-nums" dir="ltr">
           {formatCurrencyILS(subtotal)}
         </span>
