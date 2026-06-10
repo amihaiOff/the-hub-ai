@@ -28,6 +28,15 @@ jest.mock('@/lib/db', () => ({
     netWorthSnapshot: {
       upsert: jest.fn(),
     },
+    moneytorPensionFund: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    moneytorAccount: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    moneytorStockHolding: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
   },
 }));
 
@@ -218,6 +227,11 @@ describe('Create Snapshot Cron', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     delete process.env.CRON_SECRET;
+    // Default Moneytor tables to empty so calculateHouseholdNetWorth doesn't
+    // hit a real DB. Individual tests can override if they exercise Moneytor.
+    (mockPrisma.moneytorPensionFund.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.moneytorAccount.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.moneytorStockHolding.findMany as jest.Mock).mockResolvedValue([]);
   });
 
   afterEach(() => {

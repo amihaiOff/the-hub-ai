@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { getStockPrices, isStockPriceError } from '@/lib/api/stock-price';
 import { fetchExchangeRates, ExchangeRates } from '@/lib/api/exchange-rates';
 import { withCronLog } from '@/lib/utils/cron-logger';
+import { getMoneytorNetWorthTotals } from '@/lib/utils/moneytor-net-worth';
 
 // Extend timeout for snapshot creation with many holdings
 export const maxDuration = 60;
@@ -48,8 +49,8 @@ export async function GET(request: NextRequest) {
       for (const household of households) {
         const profileIds = household.members.map((m) => m.profileId);
 
-        // Calculate net worth for this household
-        const breakdown = await calculateHouseholdNetWorth(profileIds, rates);
+        // Calculate net worth for this household (manual tables + Moneytor)
+        const breakdown = await calculateHouseholdNetWorth(profileIds, household.id, rates);
 
         // Find all users in this household and persist a snapshot for each
         const memberUserIds = household.members
@@ -103,7 +104,8 @@ export async function GET(request: NextRequest) {
 
       for (const user of usersWithoutHousehold) {
         if (user.profile) {
-          const breakdown = await calculateHouseholdNetWorth([user.profile.id], rates);
+          // No household → Moneytor data isn't reachable for this user; pass null.
+          const breakdown = await calculateHouseholdNetWorth([user.profile.id], null, rates);
 
           await prisma.netWorthSnapshot.upsert({
             where: {
@@ -164,6 +166,7 @@ interface NetWorthBreakdown {
  */
 async function calculateHouseholdNetWorth(
   profileIds: string[],
+  householdId: string | null,
   rates: ExchangeRates | null
 ): Promise<NetWorthBreakdown> {
   let portfolioTotal = 0;
@@ -235,6 +238,13 @@ async function calculateHouseholdNetWorth(
   for (const asset of miscAssets) {
     assetsTotal += asset.currentValue.toNumber();
   }
+
+  // 4. Moneytor-sourced balances (pension funds, stock holdings, bank/debt
+  // accounts). Scoped per household so legacy users without one get zeros.
+  const moneytor = await getMoneytorNetWorthTotals(householdId);
+  portfolioTotal += moneytor.portfolio;
+  pensionTotal += moneytor.pension;
+  assetsTotal += moneytor.assetsNet;
 
   return {
     portfolio: portfolioTotal,
