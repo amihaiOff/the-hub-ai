@@ -351,6 +351,41 @@ export function useSyncMoneytor() {
   });
 }
 
+export interface ForceResyncMoneytorInput {
+  from: string; // YYYY-MM-DD
+  to: string; // YYYY-MM-DD
+  preserveEdits: boolean;
+}
+
+export interface ForceResyncMoneytorResult {
+  ok: true;
+  householdId: string;
+  from: string;
+  to: string;
+  deletedMoneytor: number;
+  deletedBudget: number;
+  fetched: number;
+  upserted: number;
+  budgetCreated: number;
+  editsPreserved: number;
+  syncedAt: string;
+}
+
+export function useForceResyncMoneytor() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ForceResyncMoneytorInput): Promise<ForceResyncMoneytorResult> => {
+      return getJson<ForceResyncMoneytorResult>('/api/moneytor/force-resync', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: moneytorKeys.all });
+    },
+  });
+}
+
 export function useDeleteMoneytorAccount() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -15,6 +15,7 @@ import {
 import { MonthSelector } from '@/components/budget/month-selector';
 import { MoneytorTransactionTable } from '@/components/moneytor/moneytor-transaction-table';
 import { MoneytorStocksSection } from '@/components/moneytor/moneytor-stocks-section';
+import { ForceResyncDialog } from '@/components/moneytor/force-resync-dialog';
 import { getCurrentMonth } from '@/lib/utils/budget';
 import {
   useMoneytorTransactions,
@@ -43,6 +44,7 @@ export default function MoneytorTrnxPage() {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string>(ALL_CATEGORIES);
   const [type, setType] = useState<string>(ALL_TYPES);
+  const [forceResyncOpen, setForceResyncOpen] = useState(false);
 
   const filters: MoneytorTransactionFilters = useMemo(
     () => ({
@@ -152,6 +154,9 @@ export default function MoneytorTrnxPage() {
           <RefreshCw className={sync.isPending ? 'mr-2 h-4 w-4 animate-spin' : 'mr-2 h-4 w-4'} />
           {sync.isPending ? 'Syncing...' : 'Sync now'}
         </Button>
+        <Button variant="outline" onClick={() => setForceResyncOpen(true)} className="shrink-0">
+          Force re-sync...
+        </Button>
       </div>
 
       {/* Stocks Section */}
@@ -174,6 +179,8 @@ export default function MoneytorTrnxPage() {
       </div>
 
       <MoneytorTransactionTable transactions={transactions} isLoading={isLoading} />
+
+      <ForceResyncDialog open={forceResyncOpen} onOpenChange={setForceResyncOpen} />
     </div>
   );
 }
