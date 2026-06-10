@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Upload, AlertCircle, RefreshCw } from 'lucide-react';
+import { Plus, Upload, AlertCircle, RefreshCw, History } from 'lucide-react';
 import {
   useTransactions,
   useCategoryGroups,
@@ -22,10 +22,12 @@ import {
   ImportCsvDialog,
   MonthSelector,
 } from '@/components/budget';
+import { ForceResyncDialog } from '@/components/moneytor/force-resync-dialog';
 
 export default function TransactionsPage() {
   const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [showImportCsv, setShowImportCsv] = useState(false);
+  const [showForceResync, setShowForceResync] = useState(false);
   const [filters, setFilters] = useState<FilterType>({});
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
 
@@ -111,6 +113,15 @@ export default function TransactionsPage() {
           variant="outline"
           size="icon"
           className="shrink-0"
+          onClick={() => setShowForceResync(true)}
+          title="Force re-sync a date range from Moneytor"
+        >
+          <History className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="shrink-0"
           onClick={() => setShowImportCsv(true)}
           title="Import CSV"
         >
@@ -164,6 +175,9 @@ export default function TransactionsPage() {
 
       {/* Import CSV Dialog */}
       <ImportCsvDialog open={showImportCsv} onOpenChange={setShowImportCsv} />
+
+      {/* Force Re-sync Dialog */}
+      <ForceResyncDialog open={showForceResync} onOpenChange={setShowForceResync} />
     </div>
   );
 }
