@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { getStockPrices, isStockPriceError } from '@/lib/api/stock-price';
 import {
@@ -8,6 +8,7 @@ import {
   HoldingWithPrice,
 } from '@/lib/utils/portfolio';
 import { fetchExchangeRates, convertPrice } from '@/lib/api/exchange-rates';
+import { getMoneytorNetWorthTotals } from '@/lib/utils/moneytor-net-worth';
 
 /**
  * GET /api/dashboard
@@ -15,14 +16,15 @@ import { fetchExchangeRates, convertPrice } from '@/lib/api/exchange-rates';
  */
 export async function GET() {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    const userId = user.id;
+    const userId = context.user.id;
+    const householdId = context.activeHousehold?.id ?? null;
 
     // Fetch all data in parallel
-    const [stockAccounts, pensionAccounts, miscAssets] = await Promise.all([
+    const [stockAccounts, pensionAccounts, miscAssets, moneytor] = await Promise.all([
       prisma.stockAccount.findMany({
         where: { userId },
         include: { holdings: true },
@@ -33,6 +35,7 @@ export async function GET() {
       prisma.miscAsset.findMany({
         where: { userId },
       }),
+      getMoneytorNetWorthTotals(householdId),
     ]);
 
     // Calculate stock portfolio value
@@ -83,10 +86,14 @@ export async function GET() {
     }
     const portfolioSummary = rates ? convertSummaryToILS(rawSummary, rates) : rawSummary;
 
-    // Calculate pension totals
-    const pensionTotal = pensionAccounts.reduce((sum, acc) => sum + Number(acc.currentValue), 0);
+    // Calculate pension totals (manual + Moneytor)
+    const manualPensionTotal = pensionAccounts.reduce(
+      (sum, acc) => sum + Number(acc.currentValue),
+      0
+    );
+    const pensionTotal = manualPensionTotal + moneytor.pension;
 
-    // Calculate assets totals
+    // Calculate assets totals (manual + Moneytor banks/debts)
     let assetsTotal = 0;
     let liabilitiesTotal = 0;
     for (const asset of miscAssets) {
@@ -97,30 +104,36 @@ export async function GET() {
         liabilitiesTotal += Math.abs(value);
       }
     }
+    assetsTotal += moneytor.assetsPositive;
+    liabilitiesTotal += moneytor.assetsNegative;
     const assetsNetValue = assetsTotal - liabilitiesTotal;
 
-    // Calculate total net worth
-    const netWorth = portfolioSummary.totalValue + pensionTotal + assetsNetValue;
+    // Portfolio: manual is gain/loss aware; Moneytor stock holdings ship a flat
+    // `totalWorthInBase` (no cost basis), so we just add their value to the
+    // total. Gain/loss numbers shown to the user reflect only the manual side.
+    const portfolioTotalValue = portfolioSummary.totalValue + moneytor.portfolio;
+
+    const netWorth = portfolioTotalValue + pensionTotal + assetsNetValue;
 
     return NextResponse.json({
       success: true,
       data: {
         netWorth,
         portfolio: {
-          totalValue: portfolioSummary.totalValue,
+          totalValue: portfolioTotalValue,
           totalGain: portfolioSummary.totalGainLoss,
           totalGainPercent: portfolioSummary.totalGainLossPercent,
-          holdingsCount: portfolioSummary.totalHoldings,
+          holdingsCount: portfolioSummary.totalHoldings + moneytor.portfolioHoldingsCount,
         },
         pension: {
           totalValue: pensionTotal,
-          accountsCount: pensionAccounts.length,
+          accountsCount: pensionAccounts.length + moneytor.pensionFundsCount,
         },
         assets: {
           totalAssets: assetsTotal,
           totalLiabilities: liabilitiesTotal,
           netValue: assetsNetValue,
-          itemsCount: miscAssets.length,
+          itemsCount: miscAssets.length + moneytor.accountsCount,
         },
       },
     });

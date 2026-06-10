@@ -29,12 +29,21 @@ jest.mock('@/lib/db', () => ({
     miscAsset: {
       findMany: jest.fn(),
     },
+    moneytorPensionFund: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    moneytorAccount: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    moneytorStockHolding: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
   },
 }));
 
 // Mock auth utilities
 jest.mock('@/lib/auth-utils', () => ({
-  getCurrentUser: jest.fn(),
+  getCurrentContext: jest.fn(),
 }));
 
 // Mock stock price utilities
@@ -89,13 +98,26 @@ jest.mock('@/lib/utils/portfolio', () => ({
 }));
 
 import { prisma } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
 import { getStockPrices } from '@/lib/api/stock-price';
 import { GET } from '../route';
 
-const mockGetCurrentUser = getCurrentUser as jest.MockedFunction<typeof getCurrentUser>;
+const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 const mockGetStockPrices = getStockPrices as jest.MockedFunction<typeof getStockPrices>;
+
+// Minimal context shape — the route reads only context.user.id and
+// context.activeHousehold.id.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function makeContext(user: { id: string; email: string; name: string }): any {
+  return {
+    user,
+    profile: { id: 'profile-1', name: user.name, image: null, color: null, userId: user.id },
+    households: [{ id: 'household-1', name: 'Test', description: null, role: 'owner' }],
+    activeHousehold: { id: 'household-1', name: 'Test', description: null, role: 'owner' },
+    householdProfiles: [],
+  };
+}
 
 /**
  * Helper: mock computeCurrentValues dependencies to return zero-value results.
@@ -178,6 +200,11 @@ describe('Dashboard History API', () => {
     (convertSummaryToILS as jest.Mock).mockImplementation(
       (summary: { totalValue: number }) => summary
     );
+
+    // Re-apply Moneytor empty-array defaults after resetAllMocks clears them.
+    (mockPrisma.moneytorPensionFund.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.moneytorAccount.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.moneytorStockHolding.findMany as jest.Mock).mockResolvedValue([]);
   });
 
   describe('GET /api/dashboard/history', () => {
@@ -208,7 +235,7 @@ describe('Dashboard History API', () => {
         },
       ];
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       // computeCurrentValues is called first (before snapshot check)
       mockEmptyCurrentValues();
       (mockPrisma.netWorthSnapshot.findMany as jest.Mock).mockResolvedValueOnce(mockSnapshots);
@@ -251,7 +278,7 @@ describe('Dashboard History API', () => {
     });
 
     it('should return 401 when not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(null);
 
       const response = await GET();
       const data = await response.json();
@@ -309,7 +336,7 @@ describe('Dashboard History API', () => {
         ],
       ]);
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       // computeCurrentValues mocks
       mockCurrentValues({
         stockAccounts: mockStockAccounts,
@@ -335,7 +362,7 @@ describe('Dashboard History API', () => {
     it('should handle empty portfolio/pension/assets in fallback mode', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       // computeCurrentValues with empty data
       mockEmptyCurrentValues();
       (mockPrisma.netWorthSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
@@ -371,7 +398,7 @@ describe('Dashboard History API', () => {
         },
       ];
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockEmptyCurrentValues();
       (mockPrisma.netWorthSnapshot.findMany as jest.Mock).mockResolvedValueOnce(mockSnapshots);
 
@@ -400,7 +427,7 @@ describe('Dashboard History API', () => {
         },
       ];
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockEmptyCurrentValues();
       (mockPrisma.netWorthSnapshot.findMany as jest.Mock).mockResolvedValueOnce(mockSnapshots);
 
@@ -430,7 +457,7 @@ describe('Dashboard History API', () => {
         },
       ];
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockEmptyCurrentValues();
       (mockPrisma.netWorthSnapshot.findMany as jest.Mock).mockResolvedValueOnce(mockSnapshots);
 
@@ -481,7 +508,7 @@ describe('Dashboard History API', () => {
         },
       ];
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockEmptyCurrentValues();
       (mockPrisma.netWorthSnapshot.findMany as jest.Mock).mockResolvedValueOnce(mockSnapshots);
 
@@ -501,7 +528,7 @@ describe('Dashboard History API', () => {
     it('should limit to 24 snapshots', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockEmptyCurrentValues();
       (mockPrisma.netWorthSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
 
@@ -517,7 +544,7 @@ describe('Dashboard History API', () => {
     it('should handle database error gracefully', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       // computeCurrentValues will fail if stockAccount.findMany rejects
       (mockPrisma.stockAccount.findMany as jest.Mock).mockRejectedValueOnce(
         new Error('Database connection error')
@@ -548,7 +575,7 @@ describe('Dashboard History API', () => {
         },
       ];
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockEmptyCurrentValues();
       (mockPrisma.netWorthSnapshot.findMany as jest.Mock).mockResolvedValueOnce(mockSnapshots);
 
@@ -562,7 +589,7 @@ describe('Dashboard History API', () => {
     it('should only return snapshots for the authenticated user', async () => {
       const mockUser = { id: 'user-specific', email: 'test@example.com', name: 'Test User' };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockEmptyCurrentValues();
       (mockPrisma.netWorthSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
 
@@ -596,7 +623,7 @@ describe('Dashboard History API', () => {
         },
       ];
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockEmptyCurrentValues();
       (mockPrisma.netWorthSnapshot.findMany as jest.Mock).mockResolvedValueOnce(mockSnapshots);
 
@@ -625,7 +652,7 @@ describe('Dashboard History API', () => {
         },
       ];
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockEmptyCurrentValues();
       (mockPrisma.netWorthSnapshot.findMany as jest.Mock).mockResolvedValueOnce(mockSnapshots);
 
@@ -657,7 +684,7 @@ describe('Dashboard History API', () => {
         },
       ];
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockEmptyCurrentValues();
       (mockPrisma.netWorthSnapshot.findMany as jest.Mock).mockResolvedValueOnce(mockSnapshots);
 
@@ -735,7 +762,7 @@ describe('Dashboard History API', () => {
         },
       ];
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockCurrentValues({
         stockAccounts: mockStockAccounts,
         pensionAccounts: mockPensionAccounts,

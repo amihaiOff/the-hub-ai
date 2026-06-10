@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { getStockPrices, isStockPriceError } from '@/lib/api/stock-price';
 import {
@@ -8,6 +8,7 @@ import {
   HoldingWithPrice,
 } from '@/lib/utils/portfolio';
 import { fetchExchangeRates, convertPrice } from '@/lib/api/exchange-rates';
+import { getMoneytorNetWorthTotals } from '@/lib/utils/moneytor-net-worth';
 
 export interface NetWorthDataPoint {
   date: string;
@@ -25,11 +26,12 @@ export interface NetWorthDataPoint {
  */
 export async function GET() {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    const userId = user.id;
+    const userId = context.user.id;
+    const householdId = context.activeHousehold?.id ?? null;
 
     // Fetch snapshots and compute current values in parallel
     const [snapshots, current] = await Promise.all([
@@ -38,7 +40,7 @@ export async function GET() {
         orderBy: { date: 'desc' },
         take: 24,
       }),
-      computeCurrentValues(userId),
+      computeCurrentValues(userId, householdId),
     ]);
 
     const todayStr = new Date().toISOString().split('T')[0];
@@ -99,8 +101,8 @@ export async function GET() {
  * Compute current net worth breakdown in ILS.
  * Mirrors the dashboard API calculation to ensure consistency.
  */
-async function computeCurrentValues(userId: string) {
-  const [stockAccounts, pensionAccounts, miscAssets] = await Promise.all([
+async function computeCurrentValues(userId: string, householdId: string | null) {
+  const [stockAccounts, pensionAccounts, miscAssets, moneytor] = await Promise.all([
     prisma.stockAccount.findMany({
       where: { userId },
       include: { holdings: true },
@@ -111,6 +113,7 @@ async function computeCurrentValues(userId: string) {
     prisma.miscAsset.findMany({
       where: { userId },
     }),
+    getMoneytorNetWorthTotals(householdId),
   ]);
 
   const allSymbols = new Set<string>();
@@ -157,14 +160,16 @@ async function computeCurrentValues(userId: string) {
     console.warn('Exchange rates unavailable, history net worth may mix currencies');
   }
   const portfolioSummary = rates ? convertSummaryToILS(rawSummary, rates) : rawSummary;
-  const portfolio = portfolioSummary.totalValue;
+  const portfolio = portfolioSummary.totalValue + moneytor.portfolio;
 
-  const pension = pensionAccounts.reduce((sum, acc) => sum + Number(acc.currentValue), 0);
+  const manualPension = pensionAccounts.reduce((sum, acc) => sum + Number(acc.currentValue), 0);
+  const pension = manualPension + moneytor.pension;
 
   let assets = 0;
   for (const asset of miscAssets) {
     assets += Number(asset.currentValue);
   }
+  assets += moneytor.assetsNet;
 
   return {
     portfolio,
