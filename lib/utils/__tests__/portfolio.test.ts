@@ -7,10 +7,14 @@ import {
   calculateAccountSummary,
   calculatePortfolioSummary,
   calculateAllocation,
+  convertSummaryToILS,
+  convertFromILS,
+  getCurrencySymbol,
   formatCurrency,
   formatPercent,
   formatQuantity,
   type HoldingWithPrice,
+  type PortfolioSummary,
 } from '../portfolio';
 
 describe('Portfolio Calculations', () => {
@@ -406,6 +410,192 @@ describe('Portfolio Calculations', () => {
       const result = calculateAllocation([]);
       expect(result).toHaveLength(0);
     });
+  });
+});
+
+describe('convertSummaryToILS', () => {
+  const rates = { USD: 3.7, EUR: 4.0, GBP: 4.7, ILS: 1 };
+
+  function makeSummary(accounts: PortfolioSummary['accounts']): PortfolioSummary {
+    const totalHoldingsValue = accounts.reduce((s, a) => s + a.totalHoldingsValue, 0);
+    const totalCash = accounts.reduce((s, a) => s + a.totalCash, 0);
+    const totalCostBasis = accounts.reduce((s, a) => s + a.totalCostBasis, 0);
+    const totalValue = totalHoldingsValue + totalCash;
+    return {
+      totalValue,
+      totalHoldingsValue,
+      totalCash,
+      totalCostBasis,
+      totalGainLoss: totalHoldingsValue - totalCostBasis,
+      totalGainLossPercent:
+        totalCostBasis === 0 ? 0 : ((totalHoldingsValue - totalCostBasis) / totalCostBasis) * 100,
+      totalHoldings: accounts.reduce((s, a) => s + a.holdings.length, 0),
+      accounts,
+    };
+  }
+
+  function makeAccount(
+    currency: string,
+    totalValue: number,
+    totalHoldingsValue: number,
+    totalCash: number,
+    totalCostBasis: number
+  ): PortfolioSummary['accounts'][number] {
+    return {
+      id: `acc-${currency}`,
+      name: `${currency} Account`,
+      broker: null,
+      currency,
+      totalValue,
+      totalHoldingsValue,
+      totalCash,
+      totalCostBasis,
+      totalGainLoss: totalHoldingsValue - totalCostBasis,
+      totalGainLossPercent:
+        totalCostBasis === 0 ? 0 : ((totalHoldingsValue - totalCostBasis) / totalCostBasis) * 100,
+      holdings: [],
+      cashBalances: [],
+    };
+  }
+
+  it('should convert a single USD account to ILS', () => {
+    const usdAccount = makeAccount('USD', 1000, 1000, 0, 800);
+    const summary = makeSummary([usdAccount]);
+
+    const result = convertSummaryToILS(summary, rates);
+
+    expect(result.totalValue).toBeCloseTo(3700, 0); // 1000 * 3.7
+    expect(result.totalHoldingsValue).toBeCloseTo(3700, 0);
+    expect(result.totalCostBasis).toBeCloseTo(2960, 0); // 800 * 3.7
+    expect(result.totalGainLoss).toBeCloseTo(740, 0); // 200 * 3.7
+  });
+
+  it('should convert multi-account multi-currency portfolio to ILS', () => {
+    const usdAccount = makeAccount('USD', 1000, 1000, 0, 800);
+    const eurAccount = makeAccount('EUR', 500, 500, 0, 400);
+    const ilsAccount = makeAccount('ILS', 2000, 1800, 200, 1500);
+
+    const summary = makeSummary([usdAccount, eurAccount, ilsAccount]);
+    const result = convertSummaryToILS(summary, rates);
+
+    // USD: 1000 * 3.7 = 3700, EUR: 500 * 4.0 = 2000, ILS: 2000 * 1 = 2000
+    expect(result.totalValue).toBeCloseTo(7700, 0);
+
+    // USD holdings: 1000 * 3.7 = 3700, EUR: 500 * 4.0 = 2000, ILS: 1800 * 1 = 1800
+    expect(result.totalHoldingsValue).toBeCloseTo(7500, 0);
+
+    // USD cash: 0, EUR cash: 0, ILS cash: 200 * 1 = 200
+    expect(result.totalCash).toBeCloseTo(200, 0);
+
+    // Cost basis in ILS: 800*3.7 + 400*4.0 + 1500*1 = 2960 + 1600 + 1500 = 6060
+    expect(result.totalCostBasis).toBeCloseTo(6060, 0);
+  });
+
+  it('should preserve account-level data unchanged', () => {
+    const usdAccount = makeAccount('USD', 1000, 1000, 0, 800);
+    const summary = makeSummary([usdAccount]);
+
+    const result = convertSummaryToILS(summary, rates);
+
+    // Account-level values should not be changed
+    expect(result.accounts[0].totalValue).toBe(1000);
+    expect(result.accounts[0].currency).toBe('USD');
+  });
+
+  it('should handle empty accounts list', () => {
+    const summary = makeSummary([]);
+    const result = convertSummaryToILS(summary, rates);
+
+    expect(result.totalValue).toBe(0);
+    expect(result.totalHoldingsValue).toBe(0);
+    expect(result.totalCash).toBe(0);
+    expect(result.totalCostBasis).toBe(0);
+    expect(result.totalGainLoss).toBe(0);
+    expect(result.totalGainLossPercent).toBe(0);
+  });
+
+  it('should fall back to USD rate for unsupported currency', () => {
+    // Use a made-up currency code 'XYZ' which is not in rates
+    const unknownAccount = makeAccount('XYZ', 1000, 1000, 0, 800);
+    const summary = makeSummary([unknownAccount]);
+
+    const result = convertSummaryToILS(summary, rates);
+
+    // Falls back to USD rate (3.7)
+    expect(result.totalValue).toBeCloseTo(3700, 0);
+  });
+
+  it('should recalculate gain/loss totals from converted values', () => {
+    const usdAccount = makeAccount('USD', 1000, 1000, 0, 800);
+    const summary = makeSummary([usdAccount]);
+
+    const result = convertSummaryToILS(summary, rates);
+
+    // totalGainLoss should = totalHoldingsValue - totalCostBasis
+    const expectedGainLoss = result.totalHoldingsValue - result.totalCostBasis;
+    expect(result.totalGainLoss).toBeCloseTo(expectedGainLoss, 5);
+  });
+});
+
+describe('convertFromILS', () => {
+  const rates = { USD: 3.7, EUR: 4.0, GBP: 4.7, ILS: 1 };
+
+  it('should return original value when target currency is ILS', () => {
+    expect(convertFromILS(1000, 'ILS', rates)).toBe(1000);
+  });
+
+  it('should return original value when rates are undefined', () => {
+    expect(convertFromILS(1000, 'USD', undefined)).toBe(1000);
+  });
+
+  it('should convert ILS to USD', () => {
+    // 370 ILS / 3.7 = 100 USD
+    expect(convertFromILS(370, 'USD', rates)).toBeCloseTo(100, 2);
+  });
+
+  it('should convert ILS to EUR', () => {
+    // 400 ILS / 4.0 = 100 EUR
+    expect(convertFromILS(400, 'EUR', rates)).toBeCloseTo(100, 2);
+  });
+
+  it('should convert ILS to GBP', () => {
+    // 470 ILS / 4.7 = 100 GBP
+    expect(convertFromILS(470, 'GBP', rates)).toBeCloseTo(100, 2);
+  });
+
+  it('should return original value when rate is zero (zero-rate guard)', () => {
+    const ratesWithZero = { USD: 0, EUR: 0, GBP: 0, ILS: 1 };
+    expect(convertFromILS(1000, 'USD', ratesWithZero)).toBe(1000);
+  });
+
+  it('should return original value when currency not in rates', () => {
+    expect(convertFromILS(1000, 'XYZ', rates)).toBe(1000);
+  });
+
+  it('should handle zero value', () => {
+    expect(convertFromILS(0, 'USD', rates)).toBe(0);
+  });
+});
+
+describe('getCurrencySymbol', () => {
+  it('should return $ for USD', () => {
+    expect(getCurrencySymbol('USD')).toBe('$');
+  });
+
+  it('should return ₪ for ILS', () => {
+    expect(getCurrencySymbol('ILS')).toBe('₪');
+  });
+
+  it('should return € for EUR', () => {
+    expect(getCurrencySymbol('EUR')).toBe('€');
+  });
+
+  it('should return £ for GBP', () => {
+    expect(getCurrencySymbol('GBP')).toBe('£');
+  });
+
+  it('should fall back to currency code for unknown currency', () => {
+    expect(getCurrencySymbol('XYZ')).toBe('XYZ');
   });
 });
 

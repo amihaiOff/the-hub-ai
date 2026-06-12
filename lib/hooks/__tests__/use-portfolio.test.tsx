@@ -8,12 +8,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode } from 'react';
 import {
   usePortfolio,
+  usePortfolioAccountHistory,
   useCreateAccount,
   useUpdateAccount,
   useDeleteAccount,
   useCreateHolding,
   useUpdateHolding,
   useDeleteHolding,
+  useCreateCashBalance,
+  useUpdateCashBalance,
+  useDeleteCashBalance,
 } from '../use-portfolio';
 
 // Mock global fetch
@@ -799,6 +803,273 @@ describe('Portfolio Hooks', () => {
 
       await act(async () => {
         await result.current.mutateAsync('hold-1');
+      });
+
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['portfolio'] });
+    });
+  });
+
+  describe('usePortfolioAccountHistory', () => {
+    it('should fetch per-account history successfully', async () => {
+      const mockHistory = {
+        ok: true,
+        range: '3M',
+        accounts: [
+          {
+            accountId: 'acc-1',
+            points: [
+              { date: '2026-03-01', value: 9000 },
+              { date: '2026-06-01', value: 10000 },
+            ],
+          },
+        ],
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockHistory,
+      });
+
+      const { result } = renderHook(() => usePortfolioAccountHistory('3M'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(result.current.data).toEqual(mockHistory);
+      expect(mockFetch).toHaveBeenCalledWith('/api/portfolio/account-history?range=3M');
+    });
+
+    it('should handle account history fetch error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ ok: false, error: 'Not found' }),
+        status: 404,
+      });
+
+      const { result } = renderHook(() => usePortfolioAccountHistory('1Y'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+    });
+  });
+
+  describe('useCreateCashBalance', () => {
+    it('should create cash balance successfully', async () => {
+      const newCashBalance = {
+        id: 'cash-1',
+        currency: 'USD',
+        amount: 5000,
+        accountId: 'acc-1',
+        createdAt: '2024-01-01',
+        updatedAt: '2024-01-01',
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: newCashBalance }),
+      });
+
+      const { result } = renderHook(() => useCreateCashBalance(), {
+        wrapper: createWrapper(),
+      });
+
+      await act(async () => {
+        const created = await result.current.mutateAsync({
+          accountId: 'acc-1',
+          currency: 'USD',
+          amount: 5000,
+        });
+        expect(created).toEqual(newCashBalance);
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith('/api/portfolio/accounts/acc-1/cash', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currency: 'USD', amount: 5000 }),
+      });
+    });
+
+    it('should handle cash balance creation error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: false, error: 'Account not found' }),
+      });
+
+      const { result } = renderHook(() => useCreateCashBalance(), {
+        wrapper: createWrapper(),
+      });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync({
+            accountId: 'invalid',
+            currency: 'USD',
+            amount: 1000,
+          });
+        })
+      ).rejects.toThrow('Account not found');
+    });
+
+    it('should invalidate portfolio cache after creating cash balance', async () => {
+      const queryClient = createTestQueryClient();
+      const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      );
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: { id: 'cash-1', currency: 'EUR', amount: 2000, accountId: 'acc-1' },
+        }),
+      });
+
+      const { result } = renderHook(() => useCreateCashBalance(), { wrapper });
+
+      await act(async () => {
+        await result.current.mutateAsync({ accountId: 'acc-1', currency: 'EUR', amount: 2000 });
+      });
+
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['portfolio'] });
+    });
+  });
+
+  describe('useUpdateCashBalance', () => {
+    it('should update cash balance amount', async () => {
+      const updatedBalance = {
+        id: 'cash-1',
+        currency: 'USD',
+        amount: 7500,
+        accountId: 'acc-1',
+        createdAt: '2024-01-01',
+        updatedAt: '2024-01-02',
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: updatedBalance }),
+      });
+
+      const { result } = renderHook(() => useUpdateCashBalance(), {
+        wrapper: createWrapper(),
+      });
+
+      await act(async () => {
+        const updated = await result.current.mutateAsync({
+          accountId: 'acc-1',
+          cashId: 'cash-1',
+          amount: 7500,
+        });
+        expect(updated).toEqual(updatedBalance);
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith('/api/portfolio/accounts/acc-1/cash/cash-1', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: 7500 }),
+      });
+    });
+
+    it('should handle cash balance update error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: false, error: 'Cash balance not found' }),
+      });
+
+      const { result } = renderHook(() => useUpdateCashBalance(), {
+        wrapper: createWrapper(),
+      });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync({ accountId: 'acc-1', cashId: 'invalid', amount: 1000 });
+        })
+      ).rejects.toThrow('Cash balance not found');
+    });
+
+    it('should invalidate portfolio cache after updating cash balance', async () => {
+      const queryClient = createTestQueryClient();
+      const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      );
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: { id: 'cash-1', amount: 8000 },
+        }),
+      });
+
+      const { result } = renderHook(() => useUpdateCashBalance(), { wrapper });
+
+      await act(async () => {
+        await result.current.mutateAsync({ accountId: 'acc-1', cashId: 'cash-1', amount: 8000 });
+      });
+
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['portfolio'] });
+    });
+  });
+
+  describe('useDeleteCashBalance', () => {
+    it('should delete cash balance successfully', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
+      const { result } = renderHook(() => useDeleteCashBalance(), {
+        wrapper: createWrapper(),
+      });
+
+      await act(async () => {
+        await result.current.mutateAsync({ accountId: 'acc-1', cashId: 'cash-1' });
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith('/api/portfolio/accounts/acc-1/cash/cash-1', {
+        method: 'DELETE',
+      });
+    });
+
+    it('should handle cash balance deletion error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: false, error: 'Cash balance not found' }),
+      });
+
+      const { result } = renderHook(() => useDeleteCashBalance(), {
+        wrapper: createWrapper(),
+      });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync({ accountId: 'acc-1', cashId: 'invalid' });
+        })
+      ).rejects.toThrow('Cash balance not found');
+    });
+
+    it('should invalidate portfolio cache after deleting cash balance', async () => {
+      const queryClient = createTestQueryClient();
+      const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      );
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
+      const { result } = renderHook(() => useDeleteCashBalance(), { wrapper });
+
+      await act(async () => {
+        await result.current.mutateAsync({ accountId: 'acc-1', cashId: 'cash-1' });
       });
 
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['portfolio'] });
