@@ -263,6 +263,23 @@ export const updatePayeeCategoryRuleSchema = z
   );
 
 // ============================================
+// Moneytor Schemas
+// ============================================
+
+const dateOnlyRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+export const forceResyncMoneytorSchema = z
+  .object({
+    from: z.string().regex(dateOnlyRegex, 'from must be YYYY-MM-DD'),
+    to: z.string().regex(dateOnlyRegex, 'to must be YYYY-MM-DD'),
+    preserveEdits: z.boolean(),
+  })
+  .refine((d) => d.from <= d.to, {
+    message: 'from must be on or before to',
+    path: ['from'],
+  });
+
+// ============================================
 // Import Schemas (Riseup CSV)
 // ============================================
 

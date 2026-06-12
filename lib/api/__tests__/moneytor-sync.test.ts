@@ -13,6 +13,7 @@ jest.mock('@/lib/db', () => ({
       findFirst: jest.fn(),
       upsert: jest.fn(),
       findMany: jest.fn(),
+      deleteMany: jest.fn(),
     },
     moneytorStockHolding: {
       deleteMany: jest.fn(),
@@ -37,6 +38,11 @@ jest.mock('@/lib/db', () => ({
     },
     budgetTransaction: {
       findMany: jest.fn(),
+      deleteMany: jest.fn(),
+      update: jest.fn(),
+    },
+    budgetTransactionTag: {
+      create: jest.fn(),
     },
     $transaction: jest.fn((calls) => Promise.all(calls)),
   },
@@ -52,7 +58,11 @@ jest.mock('@/lib/utils/import-transactions', () => ({
   importTransactions: jest.fn(),
 }));
 
-import { syncMoneytorForHousehold } from '../moneytor-sync';
+import {
+  syncMoneytorForHousehold,
+  forceResyncMoneytorTransactionsForHousehold,
+  ForceResyncRangeError,
+} from '../moneytor-sync';
 import { prisma } from '@/lib/db';
 import { fetchMoneytorTransactions, fetchMoneytorAssets } from '../moneytor';
 import { importTransactions } from '@/lib/utils/import-transactions';
@@ -225,5 +235,226 @@ describe('syncMoneytorForHousehold → fetch date window', () => {
     await syncMoneytorForHousehold('household-1');
 
     expect(mockFetchTransactions).toHaveBeenCalledWith({ from: '2026-06-03' });
+  });
+});
+
+describe('forceResyncMoneytorTransactionsForHousehold', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockFetchTransactions.mockResolvedValue([]);
+    (mockPrisma.moneytorTransaction.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
+    (mockPrisma.budgetTransaction.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
+    (mockPrisma.budgetTransaction.update as jest.Mock).mockResolvedValue({});
+    (mockPrisma.budgetTransactionTag.create as jest.Mock).mockResolvedValue({});
+  });
+
+  it('rejects pre-cutoff ranges', async () => {
+    await expect(
+      forceResyncMoneytorTransactionsForHousehold('household-1', {
+        from: '2026-04-01',
+        to: '2026-04-30',
+        preserveEdits: false,
+      })
+    ).rejects.toBeInstanceOf(ForceResyncRangeError);
+  });
+
+  it('rejects from > to', async () => {
+    await expect(
+      forceResyncMoneytorTransactionsForHousehold('household-1', {
+        from: '2026-06-10',
+        to: '2026-06-01',
+        preserveEdits: false,
+      })
+    ).rejects.toBeInstanceOf(ForceResyncRangeError);
+  });
+
+  it('deletes in-range moneytor rows, re-fetches, and re-promotes', async () => {
+    // Existing in-range moneytor rows we'll be deleting
+    (mockPrisma.moneytorTransaction.findMany as jest.Mock)
+      // first call: collect ids to delete
+      .mockResolvedValueOnce([{ id: 'mt-a' }, { id: 'mt-b' }])
+      // second call (post-delete): in-range rows for promotion
+      .mockResolvedValueOnce([
+        {
+          id: 'mt-a',
+          transactionDate: new Date('2026-06-05T00:00:00Z'),
+          amount: -100,
+          currency: 'ILS',
+          description: 'COFFEE',
+          category: 'FOOD',
+          accountId: 'AAA',
+          type: 'CARD',
+        },
+      ]);
+
+    (mockPrisma.budgetTransaction.deleteMany as jest.Mock).mockResolvedValue({ count: 2 });
+    (mockPrisma.moneytorTransaction.deleteMany as jest.Mock).mockResolvedValue({ count: 2 });
+
+    mockFetchTransactions.mockResolvedValue([
+      {
+        id: 'mt-a',
+        date: '2026-06-05',
+        amount: -100,
+        currency: 'ILS',
+        description: 'COFFEE',
+        category: 'FOOD',
+        accountId: 'AAA',
+        type: 'CARD',
+      },
+    ]);
+
+    mockImportTransactions.mockResolvedValue({
+      created: 1,
+      duplicatesSkipped: 0,
+      payeesCreated: [],
+    });
+
+    const summary = await forceResyncMoneytorTransactionsForHousehold('household-1', {
+      from: '2026-06-01',
+      to: '2026-06-10',
+      preserveEdits: false,
+    });
+
+    expect(summary.deletedMoneytor).toBe(2);
+    expect(summary.deletedBudget).toBe(2);
+    expect(summary.fetched).toBe(1);
+    expect(summary.budgetCreated).toBe(1);
+    expect(summary.editsPreserved).toBe(0);
+
+    // Moneytor API was called with the exact window we asked for
+    expect(mockFetchTransactions).toHaveBeenCalledWith({ from: '2026-06-01', to: '2026-06-10' });
+    // Budget rows in the deleted moneytor id set were nuked
+    expect(mockPrisma.budgetTransaction.deleteMany).toHaveBeenCalledWith({
+      where: { householdId: 'household-1', moneytorId: { in: ['mt-a', 'mt-b'] } },
+    });
+  });
+
+  it('preserves user edits when preserveEdits=true', async () => {
+    (mockPrisma.moneytorTransaction.findMany as jest.Mock)
+      .mockResolvedValueOnce([{ id: 'mt-x' }])
+      .mockResolvedValueOnce([
+        {
+          id: 'mt-x',
+          transactionDate: new Date('2026-06-05T00:00:00Z'),
+          amount: -50,
+          currency: 'ILS',
+          description: 'STORE',
+          category: 'OTHER',
+          accountId: 'AAA',
+          type: 'CARD',
+        },
+      ]);
+
+    // Snapshot reads: linked budget rows with user edits + the promoted result
+    (mockPrisma.budgetTransaction.findMany as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          moneytorId: 'mt-x',
+          categoryId: 'cat-1',
+          notes: 'paid in cash',
+          excludedFromFlow: true,
+          payeeId: 'payee-7',
+          tags: [{ tagId: 'tag-1' }, { tagId: 'tag-2' }],
+        },
+      ])
+      .mockResolvedValueOnce([{ id: 'bt-new-1', moneytorId: 'mt-x' }]);
+
+    (mockPrisma.budgetTransaction.deleteMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (mockPrisma.moneytorTransaction.deleteMany as jest.Mock).mockResolvedValue({ count: 1 });
+
+    mockFetchTransactions.mockResolvedValue([
+      {
+        id: 'mt-x',
+        date: '2026-06-05',
+        amount: -50,
+        currency: 'ILS',
+        description: 'STORE',
+        category: 'OTHER',
+        accountId: 'AAA',
+        type: 'CARD',
+      },
+    ]);
+
+    mockImportTransactions.mockResolvedValue({
+      created: 1,
+      duplicatesSkipped: 0,
+      payeesCreated: [],
+    });
+
+    const summary = await forceResyncMoneytorTransactionsForHousehold('household-1', {
+      from: '2026-06-01',
+      to: '2026-06-10',
+      preserveEdits: true,
+    });
+
+    expect(summary.editsPreserved).toBe(1);
+
+    // The new budget row gets the previous edits applied
+    expect(mockPrisma.budgetTransaction.update).toHaveBeenCalledWith({
+      where: { id: 'bt-new-1' },
+      data: {
+        categoryId: 'cat-1',
+        notes: 'paid in cash',
+        excludedFromFlow: true,
+        payeeId: 'payee-7',
+      },
+    });
+
+    // Tags are re-created
+    expect(mockPrisma.budgetTransactionTag.create).toHaveBeenCalledWith({
+      data: { transactionId: 'bt-new-1', tagId: 'tag-1' },
+    });
+    expect(mockPrisma.budgetTransactionTag.create).toHaveBeenCalledWith({
+      data: { transactionId: 'bt-new-1', tagId: 'tag-2' },
+    });
+  });
+
+  it('skips edit-restoration when preserveEdits=false', async () => {
+    (mockPrisma.moneytorTransaction.findMany as jest.Mock)
+      .mockResolvedValueOnce([{ id: 'mt-x' }])
+      .mockResolvedValueOnce([
+        {
+          id: 'mt-x',
+          transactionDate: new Date('2026-06-05T00:00:00Z'),
+          amount: -50,
+          currency: 'ILS',
+          description: 'STORE',
+          category: 'OTHER',
+          accountId: 'AAA',
+          type: 'CARD',
+        },
+      ]);
+
+    (mockPrisma.budgetTransaction.deleteMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (mockPrisma.moneytorTransaction.deleteMany as jest.Mock).mockResolvedValue({ count: 1 });
+
+    mockFetchTransactions.mockResolvedValue([
+      {
+        id: 'mt-x',
+        date: '2026-06-05',
+        amount: -50,
+        currency: 'ILS',
+        description: 'STORE',
+        category: 'OTHER',
+        accountId: 'AAA',
+        type: 'CARD',
+      },
+    ]);
+
+    mockImportTransactions.mockResolvedValue({
+      created: 1,
+      duplicatesSkipped: 0,
+      payeesCreated: [],
+    });
+
+    const summary = await forceResyncMoneytorTransactionsForHousehold('household-1', {
+      from: '2026-06-01',
+      to: '2026-06-10',
+      preserveEdits: false,
+    });
+
+    expect(summary.editsPreserved).toBe(0);
+    expect(mockPrisma.budgetTransaction.update).not.toHaveBeenCalled();
+    expect(mockPrisma.budgetTransactionTag.create).not.toHaveBeenCalled();
   });
 });
