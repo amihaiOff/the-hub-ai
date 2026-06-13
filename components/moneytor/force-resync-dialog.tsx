@@ -49,13 +49,6 @@ export function ForceResyncDialog({ open, onOpenChange }: ForceResyncDialogProps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Auto-close ~1.5s after a successful run so the user sees the summary.
-  useEffect(() => {
-    if (!resync.isSuccess) return;
-    const t = setTimeout(() => onOpenChange(false), 1500);
-    return () => clearTimeout(t);
-  }, [resync.isSuccess, onOpenChange]);
-
   const canSubmit = !!fromDate && !!toDate && !resync.isPending;
 
   const handleSubmit = () => {
@@ -114,13 +107,28 @@ export function ForceResyncDialog({ open, onOpenChange }: ForceResyncDialogProps
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={resync.isPending}>
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={handleSubmit} disabled={!canSubmit}>
-            {resync.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Replace transactions
-          </Button>
+          {resync.isSuccess ? (
+            // After a successful run, swap the action buttons for a single
+            // dismiss so the user controls when to close — the summary stays
+            // on screen until they acknowledge it.
+            <Button onClick={() => onOpenChange(false)} className="w-full sm:w-auto">
+              OK
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={resync.isPending}
+              >
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleSubmit} disabled={!canSubmit}>
+                {resync.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Replace transactions
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
