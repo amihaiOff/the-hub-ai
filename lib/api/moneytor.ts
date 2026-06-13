@@ -246,8 +246,24 @@ async function moneytorGet<
   try {
     data = (await response.json()) as T;
   } catch {
+    // Some Moneytor endpoints respond with text/plain (e.g. "Unexpected Server
+    // Error") on 5xx — try to surface that body instead of a generic message.
+    let preview = '';
+    try {
+      preview = (await response.text()).trim().slice(0, 120);
+    } catch {
+      // ignore
+    }
+    if (response.status >= 500) {
+      const body = preview || 'no response body';
+      throw new MoneytorApiError(
+        `Moneytor server error (${response.status}): ${body}. The Moneytor API is having issues — try again in a few minutes.`,
+        'unknown',
+        response.status
+      );
+    }
     throw new MoneytorApiError(
-      `Moneytor returned non-JSON response (status ${response.status})`,
+      `Moneytor returned non-JSON response (status ${response.status})${preview ? `: ${preview}` : ''}`,
       'unknown',
       response.status
     );
