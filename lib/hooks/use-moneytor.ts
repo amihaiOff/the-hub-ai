@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { budgetKeys } from './use-budget';
 
 export interface MoneytorTransactionRow {
   id: string;
@@ -346,7 +347,11 @@ export function useSyncMoneytor() {
       return getJson<MoneytorSyncResult>('/api/moneytor/sync', { method: 'POST' });
     },
     onSuccess: () => {
+      // Sync promotes Moneytor rows into budget_transactions and creates new
+      // budget_payees. Invalidate budget queries too so the transactions list
+      // doesn't render new rows as "Unknown" while the payee cache is stale.
       queryClient.invalidateQueries({ queryKey: moneytorKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
     },
   });
 }
@@ -381,6 +386,7 @@ export function useForceResyncMoneytor() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: moneytorKeys.all });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.all });
     },
   });
 }
