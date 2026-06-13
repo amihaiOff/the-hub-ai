@@ -568,7 +568,6 @@ describe('Moneytor Hooks', () => {
         const res = await result.current.mutateAsync({
           from: '2026-01-01',
           to: '2026-06-12',
-          preserveEdits: true,
         });
         expect(res).toEqual(resyncResult);
       });
@@ -577,7 +576,7 @@ describe('Moneytor Hooks', () => {
         '/api/moneytor/force-resync',
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify({ from: '2026-01-01', to: '2026-06-12', preserveEdits: true }),
+          body: JSON.stringify({ from: '2026-01-01', to: '2026-06-12' }),
         })
       );
     });

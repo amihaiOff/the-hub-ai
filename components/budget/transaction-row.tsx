@@ -11,16 +11,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { MoreVertical, Pencil, Trash2, Split } from 'lucide-react';
+import { MoreVertical, Pencil, Trash2, Split, ChevronsUpDown } from 'lucide-react';
+import { CategoryPickerSheet } from './category-picker-sheet';
 import { cn } from '@/lib/utils';
 import {
   type BudgetTransaction,
@@ -108,58 +100,6 @@ function useCategoryChange(
   };
 
   return { updateTransaction, handleCategoryChange };
-}
-
-function CategorySelect({
-  transaction,
-  categoryGroups,
-  payeeName,
-  isIncome,
-  isPending,
-  onCategoryChange,
-  triggerClassName,
-  align,
-}: {
-  transaction: BudgetTransaction;
-  categoryGroups: BudgetCategoryGroup[];
-  payeeName: string;
-  isIncome: boolean;
-  isPending: boolean;
-  onCategoryChange: (categoryId: string) => void;
-  triggerClassName: string;
-  align?: 'start' | 'end' | 'center';
-}) {
-  return (
-    <Select
-      value={transaction.categoryId || '__uncategorized__'}
-      onValueChange={(value) => onCategoryChange(value === '__uncategorized__' ? '' : value)}
-      disabled={isPending}
-    >
-      <SelectTrigger
-        aria-label={`Select category for ${payeeName || 'transaction'}`}
-        className={cn(triggerClassName, !transaction.categoryId && 'italic')}
-      >
-        <SelectValue placeholder={isIncome ? 'Income' : 'Uncategorized'} />
-      </SelectTrigger>
-      <SelectContent align={align}>
-        <SelectItem value="__uncategorized__">
-          <span className="italic">{isIncome ? 'Income' : 'Uncategorized'}</span>
-        </SelectItem>
-        {categoryGroups.map((group) => (
-          <SelectGroup key={group.id}>
-            <SelectLabel className="text-foreground text-xs font-semibold tracking-wide uppercase">
-              {group.name}
-            </SelectLabel>
-            {group.categories.map((category) => (
-              <SelectItem key={category.id} value={category.id} className="text-muted-foreground">
-                {category.name}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        ))}
-      </SelectContent>
-    </Select>
-  );
 }
 
 function TransactionActions({
@@ -256,12 +196,15 @@ export function TransactionRow({
   const payeeName = getPayeeName(transaction.payeeId, payees);
   const transactionTags = tags.filter((t) => transaction.tagIds.includes(t.id));
   const isIncome = transaction.type === 'income';
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const { updateTransaction, handleCategoryChange } = useCategoryChange(
     transaction,
     categoryGroups,
     payees,
     onPromptPayeeCategory
   );
+  const groupInfo = getCategoryWithGroup(transaction.categoryId, categoryGroups);
+  const categoryLabel = groupInfo ? groupInfo.categoryName : isIncome ? 'Income' : 'Uncategorized';
 
   return (
     <tr className="hover:bg-muted/50 border-b transition-colors">
@@ -285,18 +228,26 @@ export function TransactionRow({
 
       {/* Category */}
       <td className="px-4 py-2">
-        <CategorySelect
-          transaction={transaction}
-          categoryGroups={categoryGroups}
-          payeeName={payeeName}
-          isIncome={isIncome}
-          isPending={updateTransaction.isPending}
-          onCategoryChange={handleCategoryChange}
-          triggerClassName={cn(
-            'h-auto w-full max-w-[180px] border-0 bg-transparent px-1 py-1 text-sm shadow-none',
-            'hover:bg-muted/50 focus:ring-0 focus:ring-offset-0',
-            !transaction.categoryId && 'text-muted-foreground'
+        <button
+          type="button"
+          onClick={() => setCategoryPickerOpen(true)}
+          disabled={updateTransaction.isPending}
+          aria-label={`Select category for ${payeeName || 'transaction'}`}
+          className={cn(
+            'flex h-auto w-full max-w-[180px] items-center justify-between gap-1 rounded-md px-2 py-1 text-left text-sm transition-colors',
+            'hover:bg-muted/50 disabled:opacity-50',
+            !transaction.categoryId && 'text-muted-foreground italic'
           )}
+        >
+          <span className="truncate">{categoryLabel}</span>
+          <ChevronsUpDown className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+        </button>
+        <CategoryPickerSheet
+          open={categoryPickerOpen}
+          onOpenChange={setCategoryPickerOpen}
+          currentCategoryId={transaction.categoryId}
+          categoryGroups={categoryGroups}
+          onSelect={(categoryId) => handleCategoryChange(categoryId ?? '')}
         />
       </td>
 

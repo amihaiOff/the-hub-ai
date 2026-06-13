@@ -354,7 +354,6 @@ export function useSyncMoneytor() {
 export interface ForceResyncMoneytorInput {
   from: string; // YYYY-MM-DD
   to: string; // YYYY-MM-DD
-  preserveEdits: boolean;
 }
 
 export interface ForceResyncMoneytorResult {

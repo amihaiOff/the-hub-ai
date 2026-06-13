@@ -11,7 +11,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { DateRangePicker } from '@/components/budget/analysis/date-range-picker';
 import { useForceResyncMoneytor } from '@/lib/hooks/use-moneytor';
@@ -36,7 +35,6 @@ export function ForceResyncDialog({ open, onOpenChange }: ForceResyncDialogProps
   const [{ from: initialFrom, to: initialTo }] = useState(defaultRange);
   const [fromDate, setFromDate] = useState<Date | undefined>(initialFrom);
   const [toDate, setToDate] = useState<Date | undefined>(initialTo);
-  const [preserveEdits, setPreserveEdits] = useState(true);
   const resync = useForceResyncMoneytor();
 
   // Reset transient state whenever the dialog opens so a previous run's
@@ -47,7 +45,6 @@ export function ForceResyncDialog({ open, onOpenChange }: ForceResyncDialogProps
       const { from, to } = defaultRange();
       setFromDate(from);
       setToDate(to);
-      setPreserveEdits(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -66,7 +63,6 @@ export function ForceResyncDialog({ open, onOpenChange }: ForceResyncDialogProps
     resync.mutate({
       from: toIsoDate(fromDate),
       to: toIsoDate(toDate),
-      preserveEdits,
     });
   };
 
@@ -76,8 +72,9 @@ export function ForceResyncDialog({ open, onOpenChange }: ForceResyncDialogProps
         <DialogHeader>
           <DialogTitle>Force re-sync from Moneytor</DialogTitle>
           <DialogDescription>
-            Replaces all transactions in the selected range with a fresh copy from Moneytor. Use
-            this when Moneytor has corrected data on their side.
+            Replaces all transactions in the selected range with a fresh copy from Moneytor. Matches
+            by description, date, amount and account, so your category, tags and notes stay attached
+            even if Moneytor reassigns the underlying id.
           </DialogDescription>
         </DialogHeader>
 
@@ -93,24 +90,6 @@ export function ForceResyncDialog({ open, onOpenChange }: ForceResyncDialogProps
             <p className="text-muted-foreground text-xs">Default: last 7 days.</p>
           </div>
 
-          <div className="flex items-start gap-2">
-            <Checkbox
-              id="force-resync-preserve"
-              checked={preserveEdits}
-              onCheckedChange={(v) => setPreserveEdits(v === true)}
-              className="mt-0.5"
-            />
-            <div className="grid gap-1">
-              <Label htmlFor="force-resync-preserve" className="cursor-pointer">
-                Keep my category, tags, and notes
-              </Label>
-              <p className="text-muted-foreground text-xs">
-                Transactions whose Moneytor id matches an existing one keep your edits after the
-                re-sync.
-              </p>
-            </div>
-          </div>
-
           {resync.error && (
             <div className="border-destructive/40 bg-destructive/5 flex items-start gap-2 rounded-md border p-2">
               <AlertCircle className="text-destructive mt-0.5 h-4 w-4 shrink-0" />
@@ -120,13 +99,13 @@ export function ForceResyncDialog({ open, onOpenChange }: ForceResyncDialogProps
 
           {resync.isSuccess && resync.data && (
             <div className="border-border bg-muted/40 rounded-md border p-2 text-sm">
-              Replaced <span className="font-semibold">{resync.data.deletedMoneytor}</span>{' '}
-              transactions, created{' '}
-              <span className="font-semibold">{resync.data.budgetCreated}</span> fresh ones
-              {preserveEdits && (
+              Fetched <span className="font-semibold">{resync.data.fetched}</span>, kept{' '}
+              <span className="font-semibold">{resync.data.editsPreserved}</span> existing, created{' '}
+              <span className="font-semibold">{resync.data.budgetCreated}</span> new
+              {resync.data.deletedBudget > 0 && (
                 <>
-                  , preserved <span className="font-semibold">{resync.data.editsPreserved}</span>{' '}
-                  edits
+                  , dropped <span className="font-semibold">{resync.data.deletedBudget}</span>{' '}
+                  orphaned
                 </>
               )}
               .

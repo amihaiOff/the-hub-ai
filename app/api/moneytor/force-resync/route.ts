@@ -14,7 +14,7 @@ import { getFirstZodError } from '@/lib/validations/common';
  * Moneytor has corrected upstream data and the upsert-based incremental sync
  * doesn't surface the fix locally.
  *
- * Body: { from: 'YYYY-MM-DD', to: 'YYYY-MM-DD', preserveEdits: boolean }
+ * Body: { from: 'YYYY-MM-DD', to: 'YYYY-MM-DD' }
  */
 export async function POST(request: NextRequest) {
   try {

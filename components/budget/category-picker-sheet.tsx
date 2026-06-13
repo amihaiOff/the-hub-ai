@@ -54,7 +54,10 @@ export function CategoryPickerSheet({
         if (!o) setSearch('');
       }}
     >
-      <SheetContent side="bottom" className="flex h-[85vh] flex-col gap-0 rounded-t-2xl p-0">
+      <SheetContent
+        side="bottom"
+        className="flex h-[85vh] flex-col gap-0 rounded-t-2xl p-0 sm:bottom-4 sm:mx-auto sm:h-[60vh] sm:max-w-lg sm:rounded-2xl sm:border"
+      >
         <SheetHeader className="border-border/40 border-b p-4">
           <SheetTitle>{title}</SheetTitle>
         </SheetHeader>

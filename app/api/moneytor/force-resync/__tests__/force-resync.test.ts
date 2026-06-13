@@ -84,7 +84,7 @@ describe('POST /api/moneytor/force-resync', () => {
 
     const request = new NextRequest('http://localhost/api/moneytor/force-resync', {
       method: 'POST',
-      body: JSON.stringify({ from: '2026-01-01', to: '2026-06-12', preserveEdits: true }),
+      body: JSON.stringify({ from: '2026-01-01', to: '2026-06-12' }),
     });
 
     const response = await POST(request);
@@ -99,7 +99,7 @@ describe('POST /api/moneytor/force-resync', () => {
 
     const request = new NextRequest('http://localhost/api/moneytor/force-resync', {
       method: 'POST',
-      body: JSON.stringify({ from: 'invalid-date', to: '2026-06-12', preserveEdits: true }),
+      body: JSON.stringify({ from: 'invalid-date', to: '2026-06-12' }),
     });
 
     const response = await POST(request);
@@ -129,7 +129,7 @@ describe('POST /api/moneytor/force-resync', () => {
 
     const request = new NextRequest('http://localhost/api/moneytor/force-resync', {
       method: 'POST',
-      body: JSON.stringify({ from: '2026-01-01', to: '2026-06-12', preserveEdits: true }),
+      body: JSON.stringify({ from: '2026-01-01', to: '2026-06-12' }),
     });
 
     const response = await POST(request);
@@ -147,7 +147,7 @@ describe('POST /api/moneytor/force-resync', () => {
 
     const request = new NextRequest('http://localhost/api/moneytor/force-resync', {
       method: 'POST',
-      body: JSON.stringify({ from: '2020-01-01', to: '2026-06-12', preserveEdits: false }),
+      body: JSON.stringify({ from: '2020-01-01', to: '2026-06-12' }),
     });
 
     const response = await POST(request);
@@ -166,7 +166,7 @@ describe('POST /api/moneytor/force-resync', () => {
 
     const request = new NextRequest('http://localhost/api/moneytor/force-resync', {
       method: 'POST',
-      body: JSON.stringify({ from: '2026-01-01', to: '2026-06-12', preserveEdits: false }),
+      body: JSON.stringify({ from: '2026-01-01', to: '2026-06-12' }),
     });
 
     const response = await POST(request);
@@ -184,7 +184,7 @@ describe('POST /api/moneytor/force-resync', () => {
 
     const request = new NextRequest('http://localhost/api/moneytor/force-resync', {
       method: 'POST',
-      body: JSON.stringify({ from: '2026-01-01', to: '2026-06-12', preserveEdits: false }),
+      body: JSON.stringify({ from: '2026-01-01', to: '2026-06-12' }),
     });
 
     const response = await POST(request);
