@@ -582,11 +582,13 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
  * Destructive transaction-only re-sync. Used when Moneytor has corrected data
  * on their side and the normal upsert-based sync doesn't pick the change up.
  *
- * Deletes everything in [from, to] (both moneytor_transactions and the linked
- * budget_transactions) and re-pulls fresh data. When `preserveEdits` is true,
- * user-edited fields on budget_transactions (category, notes, tags, payeeId,
- * excludedFromFlow) are snapshotted before deletion and re-applied to the
- * re-promoted rows whose moneytorId matches.
+ * Fetches fresh data for [from, to], then greedy fuzzy-matches each fresh row
+ * to an existing one by (description, transactionDate, amount, accountId). On
+ * a match: the existing `budget_transaction` is re-pointed to the fresh
+ * Moneytor id, preserving the user's category / notes / tags / payee /
+ * excludedFromFlow. Old Moneytor rows without a fresh match are deleted along
+ * with any linked budget_transactions. The fresh Moneytor row stamps
+ * `replacesMoneytorId` for audit.
  */
 export interface ForceResyncSummary {
   householdId: string;
@@ -604,7 +606,6 @@ export interface ForceResyncSummary {
 export interface ForceResyncOptions {
   from: string; // YYYY-MM-DD
   to: string; // YYYY-MM-DD
-  preserveEdits: boolean;
 }
 
 export class ForceResyncRangeError extends Error {
@@ -614,11 +615,30 @@ export class ForceResyncRangeError extends Error {
   }
 }
 
+/**
+ * Key used to recognize a fresh Moneytor row as the "same logical transaction"
+ * as one we already had stored — even if Moneytor reassigned its id during a
+ * data correction. The mark on `moneytor_transactions.replaces_moneytor_id`
+ * records the previous id this row supersedes.
+ */
+function fuzzyKey(input: {
+  description: string;
+  transactionDate: Date;
+  amount: number | { toString(): string };
+  accountId: string;
+}): string {
+  const dateStr = input.transactionDate.toISOString().split('T')[0];
+  const amountStr = String(input.amount);
+  // description is normalized only by trim — Moneytor returns the same string
+  // when nothing was changed about the description.
+  return `${input.description.trim()}|${dateStr}|${amountStr}|${input.accountId}`;
+}
+
 export async function forceResyncMoneytorTransactionsForHousehold(
   householdId: string,
   opts: ForceResyncOptions
 ): Promise<ForceResyncSummary> {
-  const { from, to, preserveEdits } = opts;
+  const { from, to } = opts;
 
   if (from > to) {
     throw new ForceResyncRangeError('from must be on or before to');
@@ -632,79 +652,71 @@ export async function forceResyncMoneytorTransactionsForHousehold(
   const fromDate = new Date(`${from}T00:00:00Z`);
   const toDate = new Date(`${to}T23:59:59.999Z`);
 
-  // 1. Find existing moneytor rows in range
+  // 1. Snapshot existing moneytor rows in range with the fields we'll fuzzy-
+  // match on. We can't drop them yet — we need them to drive the match.
   const existingMoneytor = await prisma.moneytorTransaction.findMany({
     where: {
       householdId,
       transactionDate: { gte: fromDate, lte: toDate },
     },
-    select: { id: true },
-  });
-  const moneytorIds = existingMoneytor.map((m) => m.id);
-
-  // 2. Snapshot user edits on linked budget rows (when preserving)
-  const preservedByMoneytorId = new Map<
-    string,
-    {
-      categoryId: string | null;
-      notes: string | null;
-      excludedFromFlow: boolean;
-      payeeId: string | null;
-      tagIds: string[];
-    }
-  >();
-  let deletedBudget = 0;
-
-  if (moneytorIds.length > 0) {
-    if (preserveEdits) {
-      const linkedBudget = await prisma.budgetTransaction.findMany({
-        where: { householdId, moneytorId: { in: moneytorIds } },
-        select: {
-          moneytorId: true,
-          categoryId: true,
-          notes: true,
-          excludedFromFlow: true,
-          payeeId: true,
-          tags: { select: { tagId: true } },
-        },
-      });
-      for (const tx of linkedBudget) {
-        if (!tx.moneytorId) continue;
-        preservedByMoneytorId.set(tx.moneytorId, {
-          categoryId: tx.categoryId,
-          notes: tx.notes,
-          excludedFromFlow: tx.excludedFromFlow,
-          payeeId: tx.payeeId,
-          tagIds: tx.tags.map((t) => t.tagId),
-        });
-      }
-    }
-
-    const deletedBudgetRes = await prisma.budgetTransaction.deleteMany({
-      where: { householdId, moneytorId: { in: moneytorIds } },
-    });
-    deletedBudget = deletedBudgetRes.count;
-  }
-
-  // 3. Delete moneytor rows in range
-  const deletedMoneytorRes = await prisma.moneytorTransaction.deleteMany({
-    where: {
-      householdId,
-      transactionDate: { gte: fromDate, lte: toDate },
+    select: {
+      id: true,
+      description: true,
+      transactionDate: true,
+      amount: true,
+      accountId: true,
     },
   });
-  const deletedMoneytor = deletedMoneytorRes.count;
 
-  // 4. Fetch fresh from Moneytor
+  // 2. Fetch fresh data from Moneytor.
   const fresh = await fetchMoneytorTransactions({ from, to });
 
-  // 5. Re-upsert moneytor_transactions (same chunked pattern as syncMoneytorForHousehold)
+  // 3. Greedy fuzzy match: for each fresh row, find the first not-yet-consumed
+  // existing row with the same (description, date, amount, accountId). Records
+  // the link as freshId → oldId so we can later (a) write `replacesMoneytorId`
+  // and (b) re-point any budget_transaction.moneytorId from old to fresh.
+  const existingByKey = new Map<string, string[]>(); // key → queue of existing ids
+  for (const e of existingMoneytor) {
+    const k = fuzzyKey({
+      description: e.description,
+      transactionDate: e.transactionDate,
+      amount: Number(e.amount),
+      accountId: e.accountId,
+    });
+    const list = existingByKey.get(k) ?? [];
+    list.push(e.id);
+    existingByKey.set(k, list);
+  }
+  const freshToOld = new Map<string, string>(); // freshId → oldId
+  for (const f of fresh) {
+    const k = fuzzyKey({
+      description: f.description,
+      transactionDate: new Date(`${f.date}T00:00:00Z`),
+      amount: f.amount,
+      accountId: f.accountId,
+    });
+    const queue = existingByKey.get(k);
+    if (queue && queue.length > 0) {
+      const oldId = queue.shift()!;
+      freshToOld.set(f.id, oldId);
+    }
+  }
+  const matchedOldIds = new Set(freshToOld.values());
+
+  // 4. Insert fresh moneytor rows. New ids get a fresh row; ids that already
+  // exist (Moneytor kept the id) get upserted in place. When a fresh row is a
+  // fuzzy successor for a different old id, stamp `replaces_moneytor_id`.
+  // Done before the delete so that even if step 5/6 fails we don't lose data.
   const CHUNK_SIZE = 100;
   for (let i = 0; i < fresh.length; i += CHUNK_SIZE) {
     const chunk = fresh.slice(i, i + CHUNK_SIZE);
     await prisma.$transaction(
-      chunk.map((tx) =>
-        prisma.moneytorTransaction.upsert({
+      chunk.map((tx) => {
+        const replacesId = freshToOld.get(tx.id);
+        // If a fresh row's id equals the old id (no fuzzy switch needed), we
+        // don't need a self-reference.
+        const replaces = replacesId && replacesId !== tx.id ? replacesId : null;
+        return prisma.moneytorTransaction.upsert({
           where: { id: tx.id },
           create: {
             id: tx.id,
@@ -715,6 +727,7 @@ export async function forceResyncMoneytorTransactionsForHousehold(
             category: tx.category,
             accountId: tx.accountId,
             type: tx.type,
+            replacesMoneytorId: replaces,
             householdId,
           },
           update: {
@@ -725,28 +738,92 @@ export async function forceResyncMoneytorTransactionsForHousehold(
             category: tx.category,
             accountId: tx.accountId,
             type: tx.type,
+            replacesMoneytorId: replaces,
             syncedAt: new Date(),
           },
-        })
-      )
+        });
+      })
     );
   }
 
-  // 6. Promote in the same date range only — we just nuked everything in this
-  // window, so all in-range moneytor rows need promoting. We still call into
-  // importTransactions (payee resolution, payee-rules, dedup) to keep behavior
-  // consistent with the incremental sync path.
-  const moneytorInRange = await prisma.moneytorTransaction.findMany({
-    where: {
-      householdId,
-      transactionDate: { gte: fromDate, lte: toDate },
-    },
+  // 5. Re-link / delete budget_transactions linked to in-range old moneytor ids.
+  //   - Old id had a fresh successor → repoint budget_transaction.moneytorId.
+  //     The budget row is preserved as-is, with all user edits intact.
+  //   - Old id had no successor → delete the budget row (Moneytor no longer
+  //     reports this transaction).
+  const inRangeOldIds = existingMoneytor.map((e) => e.id);
+  let deletedBudget = 0;
+  let relinked = 0;
+  if (inRangeOldIds.length > 0) {
+    const linkedBudget = await prisma.budgetTransaction.findMany({
+      where: { householdId, moneytorId: { in: inRangeOldIds } },
+      select: { id: true, moneytorId: true },
+    });
+
+    // Invert the freshToOld map for lookup by oldId.
+    const oldToFresh = new Map<string, string>();
+    for (const [freshId, oldId] of freshToOld) oldToFresh.set(oldId, freshId);
+
+    const toRelink = linkedBudget.filter((b) => b.moneytorId && oldToFresh.has(b.moneytorId));
+    const toDelete = linkedBudget.filter((b) => !b.moneytorId || !oldToFresh.has(b.moneytorId));
+
+    // Re-link via per-row updates (Neon poolQuery + updateMany don't mix —
+    // see CLAUDE.md).
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < toRelink.length; i += BATCH_SIZE) {
+      const batch = toRelink.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map((b) =>
+          prisma.budgetTransaction.update({
+            where: { id: b.id },
+            data: { moneytorId: oldToFresh.get(b.moneytorId!) ?? null },
+          })
+        )
+      );
+    }
+    relinked = toRelink.length;
+
+    if (toDelete.length > 0) {
+      const deletedBudgetRes = await prisma.budgetTransaction.deleteMany({
+        where: { id: { in: toDelete.map((b) => b.id) } },
+      });
+      deletedBudget = deletedBudgetRes.count;
+    }
+  }
+
+  // 6. Delete the old moneytor rows that were NOT kept by a fresh upsert and
+  // whose key wasn't fuzzy-matched. Anything still referenced by a re-linked
+  // budget_transaction has been pointed to the fresh row already.
+  // We delete every old id that isn't also a fresh id — fresh ones reusing the
+  // same id were already overwritten by the upsert in step 4.
+  const freshIds = new Set(fresh.map((f) => f.id));
+  const oldIdsToDelete = inRangeOldIds.filter((id) => !freshIds.has(id));
+  let deletedMoneytor = 0;
+  if (oldIdsToDelete.length > 0) {
+    const deletedMoneytorRes = await prisma.moneytorTransaction.deleteMany({
+      where: { householdId, id: { in: oldIdsToDelete } },
+    });
+    deletedMoneytor = deletedMoneytorRes.count;
+  }
+
+  // 7. Promote any fresh rows that aren't yet linked to a budget_transaction.
+  // Fresh rows that took over an old id via upsert already had a link (no
+  // promotion needed). Fuzzy-matched rows were re-linked in step 5. The rest
+  // are new transactions for which we run the normal importTransactions path.
+  const freshMoneytorRows = await prisma.moneytorTransaction.findMany({
+    where: { householdId, transactionDate: { gte: fromDate, lte: toDate } },
     orderBy: { transactionDate: 'asc' },
   });
+  const alreadyLinked = await prisma.budgetTransaction.findMany({
+    where: { householdId, moneytorId: { in: freshMoneytorRows.map((m) => m.id) } },
+    select: { moneytorId: true },
+  });
+  const linkedSet = new Set(alreadyLinked.map((b) => b.moneytorId).filter((x): x is string => !!x));
+  const unpromoted = freshMoneytorRows.filter((m) => !linkedSet.has(m.id));
 
   let budgetCreated = 0;
-  if (moneytorInRange.length > 0) {
-    const inputs: ImportTransactionInput[] = moneytorInRange.map((mt) => {
+  if (unpromoted.length > 0) {
+    const inputs: ImportTransactionInput[] = unpromoted.map((mt) => {
       const amount = Number(mt.amount);
       return {
         type: amount < 0 ? 'expense' : 'income',
@@ -771,53 +848,13 @@ export async function forceResyncMoneytorTransactionsForHousehold(
     budgetCreated = result.created;
   }
 
-  // 7. Restore preserved edits on rows whose moneytorId matched a deleted one.
-  let editsPreserved = 0;
-  if (preserveEdits && preservedByMoneytorId.size > 0) {
-    const newPromoted = await prisma.budgetTransaction.findMany({
-      where: {
-        householdId,
-        moneytorId: { in: Array.from(preservedByMoneytorId.keys()) },
-      },
-      select: { id: true, moneytorId: true },
-    });
-
-    const BATCH_SIZE = 5;
-    for (let i = 0; i < newPromoted.length; i += BATCH_SIZE) {
-      const batch = newPromoted.slice(i, i + BATCH_SIZE);
-      // Sequential per-row update + tag re-create (createMany silently fails
-      // on Neon poolQueryViaFetch — see CLAUDE.md).
-      const counted = await Promise.all(
-        batch.map(async (tx) => {
-          if (!tx.moneytorId) return 0;
-          const preserved = preservedByMoneytorId.get(tx.moneytorId);
-          if (!preserved) return 0;
-
-          await prisma.budgetTransaction.update({
-            where: { id: tx.id },
-            data: {
-              categoryId: preserved.categoryId,
-              notes: preserved.notes,
-              excludedFromFlow: preserved.excludedFromFlow,
-              payeeId: preserved.payeeId,
-            },
-          });
-
-          for (const tagId of preserved.tagIds) {
-            try {
-              await prisma.budgetTransactionTag.create({
-                data: { transactionId: tx.id, tagId },
-              });
-            } catch {
-              // Unique conflict or missing tag — skip silently.
-            }
-          }
-          return 1;
-        })
-      );
-      editsPreserved += counted.reduce<number>((a, b) => a + b, 0);
-    }
-  }
+  // Edits "preserved" in the new model = the count of budget rows we re-linked
+  // (those still carry the user's category/notes/tags). Same number reported
+  // to the UI for continuity.
+  const editsPreserved = relinked;
+  // matchedOldIds is unused at runtime but kept readable in the summary —
+  // surface as deletedMoneytor delta for now.
+  void matchedOldIds;
 
   return {
     householdId,

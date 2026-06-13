@@ -45,6 +45,16 @@ jest.mock('@/lib/utils/budget', () => ({
     const payee = payees.find((p) => p.id === payeeId);
     return payee?.name || 'Unknown';
   }),
+  getCategoryWithGroup: jest.fn(
+    (categoryId: string | null, categoryGroups: BudgetCategoryGroup[]) => {
+      if (!categoryId) return null;
+      for (const group of categoryGroups) {
+        const category = group.categories.find((c) => c.id === categoryId);
+        if (category) return { groupName: group.name, categoryName: category.name };
+      }
+      return null;
+    }
+  ),
 }));
 
 // Mock cn utility
@@ -433,9 +443,9 @@ describe('TransactionRow', () => {
           </tbody>
         </table>
       );
-      // Radix Select uses combobox role for the trigger
-      const triggers = screen.getAllByRole('combobox');
-      expect(triggers).toHaveLength(1);
+      // The category cell is now a button that opens the category picker sheet
+      const trigger = screen.getByRole('button', { name: /select category for/i });
+      expect(trigger).toBeInTheDocument();
     });
 
     it('should show current category name in the trigger', () => {
@@ -484,7 +494,7 @@ describe('TransactionRow', () => {
           </tbody>
         </table>
       );
-      const trigger = screen.getByRole('combobox');
+      const trigger = screen.getByRole('button', { name: 'Select category for Test Payee' });
       expect(trigger).toHaveAttribute('aria-label', 'Select category for Test Payee');
     });
   });
@@ -518,7 +528,7 @@ describe('TransactionRow', () => {
           </tbody>
         </table>
       );
-      const trigger = screen.getByRole('combobox');
+      const trigger = screen.getByRole('button', { name: /select category for/i });
       expect(trigger).toBeDisabled();
     });
 
@@ -531,7 +541,7 @@ describe('TransactionRow', () => {
           </tbody>
         </table>
       );
-      const trigger = screen.getByRole('combobox');
+      const trigger = screen.getByRole('button', { name: /select category for/i });
       expect(trigger).not.toBeDisabled();
     });
   });

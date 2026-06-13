@@ -676,6 +676,11 @@ model MoneytorTransaction {
   category        String // Raw Moneytor category string (e.g. BANK_TRANSFER)
   accountId       String   @map("account_id")
   type            String // Moneytor account type (e.g. CHECKING)
+  // Set by force-resync when a fresh row is a fuzzy match for a previously-
+  // stored Moneytor id (Moneytor may issue new ids when they fix data).
+  // Audit-only: by the time this is set, the referenced old row is already
+  // deleted. Lets you spot which transactions were carried across a resync.
+  replacesMoneytorId String? @map("replaces_moneytor_id")
   householdId     String   @map("household_id")
   syncedAt        DateTime @default(now()) @map("synced_at")
   createdAt       DateTime @default(now()) @map("created_at")
