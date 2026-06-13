@@ -51,7 +51,7 @@ export function BulkActionsBar({
     <>
       {/* Count + Clear live in the sticky header above the list, so the bar
           only carries the actions themselves. */}
-      <div className="bg-muted/95 fixed right-0 bottom-0 left-0 z-[60] flex items-center justify-end gap-2 border-t px-3 py-2 backdrop-blur sm:px-4 sm:py-3">
+      <div className="bg-muted/95 fixed right-0 bottom-0 left-0 z-[60] flex items-center justify-between gap-2 border-t px-3 py-2 backdrop-blur sm:px-4 sm:py-3">
         <Button
           variant="outline"
           size="sm"
