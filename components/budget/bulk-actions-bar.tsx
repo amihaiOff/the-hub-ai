@@ -55,7 +55,7 @@ export function BulkActionsBar({
   };
 
   return (
-    <div className="bg-muted/80 fixed right-0 bottom-0 left-0 z-50 flex items-center justify-between gap-2 border-t px-3 py-2 backdrop-blur sm:px-4 sm:py-3">
+    <div className="bg-muted/95 fixed right-0 bottom-0 left-0 z-[60] flex items-center justify-between gap-2 border-t px-3 py-2 backdrop-blur sm:px-4 sm:py-3">
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium">{selectedCount} selected</span>
         <Button variant="ghost" size="sm" onClick={onClearSelection}>
