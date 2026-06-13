@@ -1,20 +1,14 @@
 'use client';
 
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Trash2, FolderTree, X } from 'lucide-react';
+import { FolderTree, Trash2 } from 'lucide-react';
 import {
   useCategoryGroups,
   useBulkDeleteTransactions,
   useBulkCategorizeTransactions,
 } from '@/lib/hooks/use-budget';
-import { useState } from 'react';
+import { CategoryPickerSheet } from './category-picker-sheet';
 
 interface BulkActionsBarProps {
   selectedCount: number;
@@ -27,7 +21,7 @@ export function BulkActionsBar({
   selectedIds,
   onClearSelection,
 }: BulkActionsBarProps) {
-  const [categoryId, setCategoryId] = useState<string>('');
+  const [pickerOpen, setPickerOpen] = useState(false);
   const { data: categoryGroups = [] } = useCategoryGroups();
   const bulkDelete = useBulkDeleteTransactions();
   const bulkCategorize = useBulkCategorizeTransactions();
@@ -43,11 +37,10 @@ export function BulkActionsBar({
     }
   };
 
-  const handleCategorize = async () => {
-    if (!categoryId) return;
+  const handleCategorize = async (categoryId: string | null) => {
+    if (!categoryId) return; // bulk categorize requires a target category
     try {
       await bulkCategorize.mutateAsync({ ids: selectedIds, categoryId });
-      setCategoryId('');
       onClearSelection();
     } catch (error) {
       console.error('Failed to categorize transactions:', error);
@@ -55,49 +48,19 @@ export function BulkActionsBar({
   };
 
   return (
-    <div className="bg-muted/95 fixed right-0 bottom-0 left-0 z-[60] flex items-center justify-between gap-2 border-t px-3 py-2 backdrop-blur sm:px-4 sm:py-3">
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium">{selectedCount} selected</span>
-        <Button variant="ghost" size="sm" onClick={onClearSelection}>
-          <X className="mr-1 h-4 w-4" />
-          Clear
+    <>
+      {/* Count + Clear live in the sticky header above the list, so the bar
+          only carries the actions themselves. */}
+      <div className="bg-muted/95 fixed right-0 bottom-0 left-0 z-[60] flex items-center justify-end gap-2 border-t px-3 py-2 backdrop-blur sm:px-4 sm:py-3">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setPickerOpen(true)}
+          disabled={bulkCategorize.isPending}
+        >
+          <FolderTree className="mr-1 h-4 w-4" />
+          Set Category
         </Button>
-      </div>
-
-      <div className="flex items-center gap-2">
-        {/* Categorize */}
-        <div className="flex items-center gap-1">
-          <Select value={categoryId} onValueChange={setCategoryId}>
-            <SelectTrigger className="h-8 w-[140px] sm:w-[180px]">
-              <SelectValue placeholder="Category..." />
-            </SelectTrigger>
-            <SelectContent>
-              {categoryGroups.map((group) => (
-                <div key={group.id}>
-                  <div className="text-muted-foreground px-2 py-1.5 text-xs font-semibold">
-                    {group.name}
-                  </div>
-                  {group.categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </div>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCategorize}
-            disabled={!categoryId || bulkCategorize.isPending}
-          >
-            <FolderTree className="mr-1 h-4 w-4" />
-            <span className="hidden sm:inline">Set Category</span>
-          </Button>
-        </div>
-
-        {/* Delete */}
         <Button
           variant="destructive"
           size="sm"
@@ -105,9 +68,19 @@ export function BulkActionsBar({
           disabled={bulkDelete.isPending}
         >
           <Trash2 className="mr-1 h-4 w-4" />
-          <span className="hidden sm:inline">Delete</span>
+          Delete
         </Button>
       </div>
-    </div>
+
+      <CategoryPickerSheet
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        currentCategoryId={null}
+        categoryGroups={categoryGroups}
+        onSelect={handleCategorize}
+        allowNone={false}
+        title={`Categorize ${selectedCount} transaction${selectedCount > 1 ? 's' : ''}`}
+      />
+    </>
   );
 }
