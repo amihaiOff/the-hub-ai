@@ -71,6 +71,14 @@ async function main() {
   await prisma.budgetPayee.deleteMany();
   await prisma.budgetCategory.deleteMany();
   await prisma.budgetCategoryGroup.deleteMany();
+  // Moneytor cleanup (no FK between these and budget; safe order is any)
+  await prisma.moneytorPensionSnapshot.deleteMany();
+  await prisma.moneytorPensionFund.deleteMany();
+  await prisma.moneytorAccountSnapshot.deleteMany();
+  await prisma.moneytorAccount.deleteMany();
+  await prisma.moneytorStockSnapshot.deleteMany();
+  await prisma.moneytorStockHolding.deleteMany();
+  await prisma.moneytorTransaction.deleteMany();
   // Core entities
   await prisma.householdMember.deleteMany();
   await prisma.household.deleteMany();
@@ -918,6 +926,359 @@ async function main() {
     });
   }
 
+  // ============================================================
+  // Moneytor mock data (banks, debts, stock holdings, pension funds,
+  // transactions + their daily/monthly snapshots). Scoped to the household
+  // we created above so /moneytor-trnx, the budget dashboard balances card,
+  // and the pension page's Moneytor section all have data on the dev deploy.
+  // ============================================================
+  console.log('🔌 Creating Moneytor mock data...');
+
+  const moneytorAccountsCreated: Array<{ id: string; name: string; productId: string }> = [];
+
+  // Bank accounts (positive balanceInBase = asset)
+  const banks = [
+    {
+      productId: 'mt-bank-leumi-checking',
+      name: 'Leumi Checking',
+      institution: 'Bank Leumi',
+      subtype: 'balance',
+      accountNumber: '****-1234',
+      balance: 24_500,
+    },
+    {
+      productId: 'mt-bank-leumi-savings',
+      name: 'Leumi Saver',
+      institution: 'Bank Leumi',
+      subtype: 'saving',
+      accountNumber: '****-5678',
+      balance: 65_000,
+    },
+    {
+      productId: 'mt-bank-discount-usd',
+      name: 'Discount USD',
+      institution: 'Bank Discount',
+      subtype: 'saving',
+      accountNumber: '****-9012',
+      balance: 18_200,
+    },
+  ];
+  for (const b of banks) {
+    const acc = await prisma.moneytorAccount.create({
+      data: {
+        productId: b.productId,
+        form: 'bank',
+        name: b.name,
+        institution: b.institution,
+        subtype: b.subtype,
+        accountNumber: b.accountNumber,
+        currency: 'ILS',
+        balanceInBase: b.balance,
+        householdId: household.id,
+      },
+    });
+    moneytorAccountsCreated.push({ id: acc.id, name: acc.name, productId: acc.productId });
+  }
+
+  // Debt accounts (negative balanceInBase)
+  const debts = [
+    {
+      productId: 'mt-debt-mortgage',
+      name: 'Mortgage',
+      institution: 'Mizrahi Tefahot',
+      subtype: 'mortgage',
+      balance: -780_000,
+      monthlyPayment: 8_400,
+    },
+    {
+      productId: 'mt-debt-car-loan',
+      name: 'Car Loan',
+      institution: 'Bank Leumi',
+      subtype: 'loan',
+      balance: -52_000,
+      monthlyPayment: 1_800,
+    },
+    {
+      productId: 'mt-debt-credit-card',
+      name: 'Cal Credit Card',
+      institution: 'CAL',
+      subtype: 'credit_card',
+      balance: -7_300,
+      monthlyPayment: null,
+    },
+  ];
+  for (const d of debts) {
+    const acc = await prisma.moneytorAccount.create({
+      data: {
+        productId: d.productId,
+        form: 'debt',
+        name: d.name,
+        institution: d.institution,
+        subtype: d.subtype,
+        currency: 'ILS',
+        balanceInBase: d.balance,
+        monthlyPayment: d.monthlyPayment ?? null,
+        householdId: household.id,
+      },
+    });
+    moneytorAccountsCreated.push({ id: acc.id, name: acc.name, productId: acc.productId });
+  }
+
+  // One snapshot per account (today). Enough to prove the snapshot upsert
+  // path is exercised; a real install gets one per sync.
+  const today = new Date();
+  const todayDateOnly = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
+  );
+  for (const b of banks) {
+    await prisma.moneytorAccountSnapshot.create({
+      data: {
+        snapshotDate: todayDateOnly,
+        productId: b.productId,
+        form: 'bank',
+        name: b.name,
+        balanceInBase: b.balance,
+        currency: 'ILS',
+        householdId: household.id,
+      },
+    });
+  }
+  for (const d of debts) {
+    await prisma.moneytorAccountSnapshot.create({
+      data: {
+        snapshotDate: todayDateOnly,
+        productId: d.productId,
+        form: 'debt',
+        name: d.name,
+        balanceInBase: d.balance,
+        currency: 'ILS',
+        householdId: household.id,
+      },
+    });
+  }
+
+  // Moneytor stock holdings — one account, several holdings.
+  const moneytorStocks = [
+    { stockName: 'AAPL', amount: 12, stockPrice: 178.5, currency: 'USD', totalWorthInBase: 7_800 },
+    { stockName: 'VOO', amount: 8, stockPrice: 485, currency: 'USD', totalWorthInBase: 14_200 },
+    {
+      stockName: 'TEVA.TA',
+      amount: 200,
+      stockPrice: 62.5,
+      currency: 'ILS',
+      totalWorthInBase: 12_500,
+    },
+    {
+      stockName: 'BTC-USD',
+      amount: 0.15,
+      stockPrice: 64_000,
+      currency: 'USD',
+      totalWorthInBase: 35_500,
+    },
+  ];
+  const moneytorBrokerProductId = 'mt-broker-mtds';
+  for (const s of moneytorStocks) {
+    await prisma.moneytorStockHolding.create({
+      data: {
+        productId: moneytorBrokerProductId,
+        accountName: 'Meitav Trade',
+        broker: 'Meitav',
+        stockName: s.stockName,
+        amount: s.amount,
+        stockPrice: s.stockPrice,
+        currency: s.currency,
+        totalWorthInBase: s.totalWorthInBase,
+        accountCash: 1_200,
+        householdId: household.id,
+      },
+    });
+    await prisma.moneytorStockSnapshot.create({
+      data: {
+        snapshotDate: todayDateOnly,
+        productId: moneytorBrokerProductId,
+        accountName: 'Meitav Trade',
+        stockName: s.stockName,
+        amount: s.amount,
+        stockPrice: s.stockPrice,
+        currency: s.currency,
+        totalWorthInBase: s.totalWorthInBase,
+        accountCash: 1_200,
+        householdId: household.id,
+      },
+    });
+  }
+
+  // Moneytor pension funds — one pension, one hishtalmut. Both get 6 monthly
+  // snapshots so the history chart on /pension shows a real line.
+  const moneytorPensionFunds = [
+    {
+      productId: 'mt-pension-meitav',
+      routeName: 'מסלול כללי',
+      name: 'Meitav Pension',
+      institution: 'Meitav',
+      productType: 'קרן פנסיה',
+      sugKupa: 1,
+      balance: 565_000,
+      monthlyDeposit: 4_500,
+      profits: 7.5,
+      pension: true,
+    },
+    {
+      productId: 'mt-pension-altshuler-hish',
+      routeName: 'מניות',
+      name: 'Altshuler Hishtalmut',
+      institution: 'Altshuler Shaham',
+      productType: 'קרן השתלמות',
+      sugKupa: 3,
+      balance: 165_000,
+      monthlyDeposit: 2_500,
+      profits: 9.1,
+      pension: false,
+    },
+  ];
+  for (const f of moneytorPensionFunds) {
+    await prisma.moneytorPensionFund.create({
+      data: {
+        productId: f.productId,
+        routeName: f.routeName,
+        name: f.name,
+        institution: f.institution,
+        productType: f.productType,
+        sugKupa: f.sugKupa,
+        accountNumber: '****-' + f.productId.slice(-4),
+        accountOwner: 'Ami Haio',
+        amount: f.balance,
+        currency: 'ILS',
+        balanceInBase: f.balance,
+        profitsFromLastYear: f.profits,
+        monthlyDepositSum: f.monthlyDeposit,
+        monthlyDepositEmployee: f.monthlyDeposit * 0.4,
+        monthlyDepositEmployer: f.monthlyDeposit * 0.6,
+        mgmtFeeFromSavings: 0.25,
+        mgmtFeeFromDeposit: 1.5,
+        projectedMonthlyPension: f.pension ? 9_500 : null,
+        yearsToRetirement: f.pension ? 22 : null,
+        gilPrisha: f.pension ? 67 : null,
+        householdId: household.id,
+      },
+    });
+    // 6 monthly snapshots (first-of-month UTC). Values trend up to today's balance.
+    for (let monthsAgo = 5; monthsAgo >= 0; monthsAgo--) {
+      const snapshotMonth = new Date(
+        Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - monthsAgo, 1)
+      );
+      const balance = f.balance * (1 - monthsAgo * 0.015); // grow ~1.5%/mo
+      await prisma.moneytorPensionSnapshot.create({
+        data: {
+          snapshotMonth,
+          productId: f.productId,
+          routeName: f.routeName,
+          name: f.name,
+          institution: f.institution,
+          productType: f.productType,
+          amount: balance,
+          balanceInBase: balance,
+          currency: 'ILS',
+          monthlyDepositSum: f.monthlyDeposit,
+          profitsFromLastYear: f.profits,
+          householdId: household.id,
+        },
+      });
+    }
+  }
+
+  // Moneytor transactions — last 30 days, mix of card spend, bank transfers, and salary.
+  const moneytorTxnTemplates = [
+    {
+      offset: 1,
+      amount: -42.5,
+      description: 'SHUFERSAL DEAL',
+      category: 'GROCERIES',
+      type: 'CARD',
+    },
+    {
+      offset: 1,
+      amount: -18,
+      description: 'CAFE ARCAFFE',
+      category: 'COFFEE_&_SNACKS',
+      type: 'CARD',
+    },
+    { offset: 2, amount: -89.9, description: 'WOLT TLV', category: 'RESTAURANTS', type: 'CARD' },
+    { offset: 3, amount: -240, description: 'PAZ GAS', category: 'TRANSPORT', type: 'CARD' },
+    {
+      offset: 4,
+      amount: -1_300,
+      description: 'IEC ELECTRIC',
+      category: 'UTILITIES',
+      type: 'BANK_TRANSFER',
+    },
+    { offset: 5, amount: -68, description: 'NETFLIX', category: 'SUBSCRIPTIONS', type: 'CARD' },
+    { offset: 7, amount: -310, description: 'AM:PM GROCERY', category: 'GROCERIES', type: 'CARD' },
+    { offset: 8, amount: -55, description: 'SPOTIFY', category: 'SUBSCRIPTIONS', type: 'CARD' },
+    { offset: 10, amount: -180, description: 'HALPER FARM', category: 'GROCERIES', type: 'CARD' },
+    { offset: 12, amount: -750, description: 'SUPERPHARM', category: 'HEALTH', type: 'CARD' },
+    {
+      offset: 13,
+      amount: 18_500,
+      description: 'TECH COMPANY LTD - SALARY',
+      category: 'INCOME',
+      type: 'CHECKING',
+    },
+    {
+      offset: 14,
+      amount: -2_100,
+      description: 'BITUACH LEUMI',
+      category: 'TAXES',
+      type: 'BANK_TRANSFER',
+    },
+    { offset: 16, amount: -135, description: 'STORYTEL', category: 'SUBSCRIPTIONS', type: 'CARD' },
+    { offset: 18, amount: -420, description: 'IKEA RISHON', category: 'HOME', type: 'CARD' },
+    { offset: 19, amount: -90, description: 'CAFELIX', category: 'COFFEE_&_SNACKS', type: 'CARD' },
+    {
+      offset: 21,
+      amount: -260,
+      description: 'SHUFERSAL ONLINE',
+      category: 'GROCERIES',
+      type: 'CARD',
+    },
+    {
+      offset: 22,
+      amount: -1_800,
+      description: 'CAR LOAN PAYMENT',
+      category: 'LOAN_PAYMENT',
+      type: 'BANK_TRANSFER',
+    },
+    {
+      offset: 23,
+      amount: -8_400,
+      description: 'MORTGAGE PAYMENT',
+      category: 'MORTGAGE_PAYMENT',
+      type: 'BANK_TRANSFER',
+    },
+    { offset: 25, amount: -65, description: 'ROLADIN', category: 'COFFEE_&_SNACKS', type: 'CARD' },
+    { offset: 26, amount: -140, description: 'GETT TAXI', category: 'TRANSPORT', type: 'CARD' },
+    { offset: 28, amount: -210, description: 'M.YOCHANANOF', category: 'GROCERIES', type: 'CARD' },
+  ];
+  for (let i = 0; i < moneytorTxnTemplates.length; i++) {
+    const t = moneytorTxnTemplates[i];
+    const txnDate = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - t.offset)
+    );
+    await prisma.moneytorTransaction.create({
+      data: {
+        id: `mt-tx-seed-${String(i).padStart(3, '0')}`,
+        transactionDate: txnDate,
+        amount: t.amount,
+        currency: 'ILS',
+        description: t.description,
+        category: t.category,
+        accountId: 'mt-bank-leumi-checking', // pretend they all hit the checking acct
+        type: t.type,
+        householdId: household.id,
+      },
+    });
+  }
+
   console.log('✅ Seed completed!');
   console.log('');
   console.log('📊 Summary:');
@@ -935,6 +1296,12 @@ async function main() {
   console.log(`   Budget Payees: 11`);
   console.log(`   Budget Tags: 3`);
   console.log(`   Budget Transactions: ${transactionIds.length}`);
+  console.log(`   Moneytor Accounts: ${moneytorAccountsCreated.length} (banks + debts)`);
+  console.log(`   Moneytor Stock Holdings: ${moneytorStocks.length}`);
+  console.log(
+    `   Moneytor Pension Funds: ${moneytorPensionFunds.length} (+6 monthly snapshots each)`
+  );
+  console.log(`   Moneytor Transactions: ${moneytorTxnTemplates.length}`);
 }
 
 main()
