@@ -384,7 +384,7 @@ export async function importTransactions(
     }
 
     // Create the transaction
-    await prisma.budgetTransaction.create({
+    const newTx = await prisma.budgetTransaction.create({
       data: {
         type: tx.type,
         transactionDate: new Date(tx.transactionDate),
@@ -404,6 +404,7 @@ export async function importTransactions(
         householdId,
         moneytorId: tx.moneytorId ?? null,
       },
+      select: { id: true },
     });
 
     // Add to existing keys to prevent duplicates within the same batch
@@ -416,9 +417,7 @@ export async function importTransactions(
       const txDate = new Date(tx.transactionDate);
       if (ccGenericNames.has(payeeNameLower)) {
         const arr = genericByAmount.get(amtKey) ?? [];
-        // We only reach here if this generic was NOT skipped (no match found)
-        // so it shouldn't block a future non-generic, but track it anyway
-        arr.push({ id: '', date: txDate });
+        arr.push({ id: newTx.id, date: txDate });
         genericByAmount.set(amtKey, arr);
       } else {
         const arr = nonGenericByAmount.get(amtKey) ?? [];

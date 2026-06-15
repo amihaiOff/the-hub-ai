@@ -28,6 +28,8 @@ jest.mock('@/lib/db', () => ({
     budgetTransaction: {
       findMany: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
     },
     budgetCategory: {
       findFirst: jest.fn(),
@@ -753,6 +755,396 @@ describe('Import Transactions API', () => {
           }),
         })
       );
+    });
+  });
+
+  // ==========================================
+  // CC Generic Payee Deduplication
+  // ==========================================
+  describe('CC generic payee deduplication', () => {
+    const setupCommon = () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
+    };
+
+    it('Scenario A: skips generic when non-generic with same amount exists in DB', async () => {
+      setupCommon();
+      // CC generic names configured
+      (mockPrisma.ccGenericPayeeName.findMany as jest.Mock).mockResolvedValueOnce([
+        { name: 'מקס איט פיננסים' },
+      ]);
+      (mockPrisma.budgetPayee.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'payee-amazon',
+          name: 'AMAZON',
+          categoryId: null,
+          neverDefault: false,
+          isBlacklisted: false,
+        },
+        {
+          id: 'payee-max',
+          name: 'מקס איט פיננסים',
+          categoryId: null,
+          neverDefault: false,
+          isBlacklisted: false,
+        },
+      ]);
+      // DB already has the specific (AMAZON) transaction for the same amount
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'existing-specific',
+          transactionDate: new Date('2025-01-15'),
+          amountIls: { toNumber: () => 100, toString: () => '100', valueOf: () => 100 },
+          payee: { name: 'AMAZON' },
+          moneytorId: null,
+        },
+      ]);
+      // second call for out-of-window moneytorId check (empty batch moneytorIds → not called)
+
+      const request = new NextRequest('http://localhost:3000/api/budget/transactions/import', {
+        method: 'POST',
+        body: JSON.stringify({
+          transactions: [
+            makeTransaction({
+              payeeName: 'מקס איט פיננסים',
+              amountIls: 100,
+              transactionDate: '2025-01-15',
+            }),
+          ],
+        }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.created).toBe(0);
+      expect(data.data.duplicatesSkipped).toBe(1);
+      expect(mockPrisma.budgetTransaction.create).not.toHaveBeenCalled();
+    });
+
+    it('Scenario A: does NOT skip generic when amounts differ', async () => {
+      setupCommon();
+      (mockPrisma.ccGenericPayeeName.findMany as jest.Mock).mockResolvedValueOnce([
+        { name: 'מקס איט פיננסים' },
+      ]);
+      (mockPrisma.budgetPayee.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'payee-max',
+          name: 'מקס איט פיננסים',
+          categoryId: null,
+          neverDefault: false,
+          isBlacklisted: false,
+        },
+      ]);
+      // Existing transaction has different amount (200 vs incoming 100)
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'existing-specific',
+          transactionDate: new Date('2025-01-15'),
+          amountIls: { toNumber: () => 200, toString: () => '200', valueOf: () => 200 },
+          payee: { name: 'AMAZON' },
+          moneytorId: null,
+        },
+      ]);
+      (mockPrisma.budgetTransaction.create as jest.Mock).mockResolvedValueOnce({ id: 'new-tx' });
+
+      const request = new NextRequest('http://localhost:3000/api/budget/transactions/import', {
+        method: 'POST',
+        body: JSON.stringify({
+          transactions: [
+            makeTransaction({
+              payeeName: 'מקס איט פיננסים',
+              amountIls: 100,
+              transactionDate: '2025-01-15',
+            }),
+          ],
+        }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.created).toBe(1);
+      expect(data.data.duplicatesSkipped).toBe(0);
+    });
+
+    it('Scenario A: does NOT skip generic when date is outside 5-day window', async () => {
+      setupCommon();
+      (mockPrisma.ccGenericPayeeName.findMany as jest.Mock).mockResolvedValueOnce([
+        { name: 'מקס איט פיננסים' },
+      ]);
+      (mockPrisma.budgetPayee.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'payee-max',
+          name: 'מקס איט פיננסים',
+          categoryId: null,
+          neverDefault: false,
+          isBlacklisted: false,
+        },
+      ]);
+      // Existing non-generic is 10 days earlier — outside the 5-day window
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'old-specific',
+          transactionDate: new Date('2025-01-05'),
+          amountIls: { toNumber: () => 100, toString: () => '100', valueOf: () => 100 },
+          payee: { name: 'AMAZON' },
+          moneytorId: null,
+        },
+      ]);
+      (mockPrisma.budgetTransaction.create as jest.Mock).mockResolvedValueOnce({ id: 'new-tx' });
+
+      const request = new NextRequest('http://localhost:3000/api/budget/transactions/import', {
+        method: 'POST',
+        body: JSON.stringify({
+          transactions: [
+            makeTransaction({
+              payeeName: 'מקס איט פיננסים',
+              amountIls: 100,
+              transactionDate: '2025-01-15',
+            }),
+          ],
+        }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.created).toBe(1);
+    });
+
+    it('Scenario B: soft-deletes existing generic when specific is imported', async () => {
+      setupCommon();
+      (mockPrisma.ccGenericPayeeName.findMany as jest.Mock).mockResolvedValueOnce([
+        { name: 'מקס איט פיננסים' },
+      ]);
+      (mockPrisma.budgetPayee.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'payee-amazon',
+          name: 'AMAZON',
+          categoryId: null,
+          neverDefault: false,
+          isBlacklisted: false,
+        },
+      ]);
+      // Existing generic transaction in DB
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'existing-generic',
+          transactionDate: new Date('2025-01-15'),
+          amountIls: { toNumber: () => 100, toString: () => '100', valueOf: () => 100 },
+          payee: { name: 'מקס איט פיננסים' },
+          moneytorId: null,
+        },
+      ]);
+      (mockPrisma.budgetTransaction.updateMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
+      (mockPrisma.budgetTransaction.create as jest.Mock).mockResolvedValueOnce({
+        id: 'new-specific',
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/budget/transactions/import', {
+        method: 'POST',
+        body: JSON.stringify({
+          transactions: [
+            makeTransaction({ payeeName: 'AMAZON', amountIls: 100, transactionDate: '2025-01-16' }),
+          ],
+        }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.created).toBe(1);
+      // Generic soft-deleted
+      expect(mockPrisma.budgetTransaction.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['existing-generic'] } },
+        data: { isDeleted: true },
+      });
+    });
+
+    it('Scenario B: does NOT soft-delete generic when date is outside 5-day window', async () => {
+      setupCommon();
+      (mockPrisma.ccGenericPayeeName.findMany as jest.Mock).mockResolvedValueOnce([
+        { name: 'מקס איט פיננסים' },
+      ]);
+      (mockPrisma.budgetPayee.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'payee-amazon',
+          name: 'AMAZON',
+          categoryId: null,
+          neverDefault: false,
+          isBlacklisted: false,
+        },
+      ]);
+      // Generic is 10 days earlier — outside window
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'old-generic',
+          transactionDate: new Date('2025-01-05'),
+          amountIls: { toNumber: () => 100, toString: () => '100', valueOf: () => 100 },
+          payee: { name: 'מקס איט פיננסים' },
+          moneytorId: null,
+        },
+      ]);
+      (mockPrisma.budgetTransaction.create as jest.Mock).mockResolvedValueOnce({
+        id: 'new-specific',
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/budget/transactions/import', {
+        method: 'POST',
+        body: JSON.stringify({
+          transactions: [
+            makeTransaction({ payeeName: 'AMAZON', amountIls: 100, transactionDate: '2025-01-15' }),
+          ],
+        }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.created).toBe(1);
+      expect(mockPrisma.budgetTransaction.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('within-batch: specific followed by generic — generic is skipped', async () => {
+      setupCommon();
+      (mockPrisma.ccGenericPayeeName.findMany as jest.Mock).mockResolvedValueOnce([
+        { name: 'מקס איט פיננסים' },
+      ]);
+      (mockPrisma.budgetPayee.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'payee-amazon',
+          name: 'AMAZON',
+          categoryId: null,
+          neverDefault: false,
+          isBlacklisted: false,
+        },
+        {
+          id: 'payee-max',
+          name: 'מקס איט פיננסים',
+          categoryId: null,
+          neverDefault: false,
+          isBlacklisted: false,
+        },
+      ]);
+      // No existing transactions
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetTransaction.create as jest.Mock).mockResolvedValueOnce({
+        id: 'created-specific',
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/budget/transactions/import', {
+        method: 'POST',
+        body: JSON.stringify({
+          transactions: [
+            makeTransaction({ payeeName: 'AMAZON', amountIls: 100, transactionDate: '2025-01-15' }),
+            makeTransaction({
+              payeeName: 'מקס איט פיננסים',
+              amountIls: 100,
+              transactionDate: '2025-01-15',
+            }),
+          ],
+        }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.created).toBe(1);
+      expect(data.data.duplicatesSkipped).toBe(1);
+      expect(mockPrisma.budgetTransaction.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('within-batch: generic followed by specific — generic soft-deleted, specific created', async () => {
+      setupCommon();
+      (mockPrisma.ccGenericPayeeName.findMany as jest.Mock).mockResolvedValueOnce([
+        { name: 'מקס איט פיננסים' },
+      ]);
+      (mockPrisma.budgetPayee.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'payee-amazon',
+          name: 'AMAZON',
+          categoryId: null,
+          neverDefault: false,
+          isBlacklisted: false,
+        },
+        {
+          id: 'payee-max',
+          name: 'מקס איט פיננסים',
+          categoryId: null,
+          neverDefault: false,
+          isBlacklisted: false,
+        },
+      ]);
+      // No existing transactions
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+      // Generic created first, then specific
+      (mockPrisma.budgetTransaction.create as jest.Mock)
+        .mockResolvedValueOnce({ id: 'created-generic' })
+        .mockResolvedValueOnce({ id: 'created-specific' });
+      (mockPrisma.budgetTransaction.updateMany as jest.Mock).mockResolvedValueOnce({ count: 1 });
+
+      const request = new NextRequest('http://localhost:3000/api/budget/transactions/import', {
+        method: 'POST',
+        body: JSON.stringify({
+          transactions: [
+            makeTransaction({
+              payeeName: 'מקס איט פיננסים',
+              amountIls: 100,
+              transactionDate: '2025-01-15',
+            }),
+            makeTransaction({ payeeName: 'AMAZON', amountIls: 100, transactionDate: '2025-01-15' }),
+          ],
+        }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.created).toBe(2); // both created (generic first, then specific)
+      // Specific triggers soft-delete of the within-batch generic
+      expect(mockPrisma.budgetTransaction.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['created-generic'] } },
+        data: { isDeleted: true },
+      });
+    });
+
+    it('no-op when no CC generic names are configured for the household', async () => {
+      setupCommon();
+      // Empty list — no generic names configured
+      (mockPrisma.ccGenericPayeeName.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetPayee.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'payee-1',
+          name: 'Some Payee',
+          categoryId: null,
+          neverDefault: false,
+          isBlacklisted: false,
+        },
+      ]);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetTransaction.create as jest.Mock).mockResolvedValueOnce({ id: 'tx-1' });
+
+      const request = new NextRequest('http://localhost:3000/api/budget/transactions/import', {
+        method: 'POST',
+        body: JSON.stringify({
+          transactions: [makeTransaction({ payeeName: 'Some Payee', amountIls: 100 })],
+        }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.created).toBe(1);
+      expect(mockPrisma.budgetTransaction.updateMany).not.toHaveBeenCalled();
     });
   });
 
