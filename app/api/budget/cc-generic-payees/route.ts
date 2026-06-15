@@ -5,12 +5,12 @@ import { z } from 'zod';
 import { getFirstZodError } from '@/lib/validations/common';
 
 const createSchema = z.object({
-  name: z.string().trim().min(1, 'Name is required'),
+  name: z.string().min(1, 'Name is required').max(200),
 });
 
 /**
  * GET /api/budget/cc-generic-payees
- * List all generic CC payee names for the active household.
+ * List all generic CC payee names for the household.
  */
 export async function GET() {
   try {
@@ -22,22 +22,19 @@ export async function GET() {
     const items = await prisma.ccGenericPayeeName.findMany({
       where: { householdId: context.activeHousehold.id },
       orderBy: { createdAt: 'asc' },
-      select: { id: true, name: true },
+      select: { id: true, name: true, createdAt: true },
     });
 
     return NextResponse.json({ success: true, data: items });
   } catch (error) {
     console.error('Error fetching CC generic payee names:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch CC generic payee names' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to fetch' }, { status: 500 });
   }
 }
 
 /**
  * POST /api/budget/cc-generic-payees
- * Add a new generic CC payee name.
+ * Add a new generic CC payee name for the household.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -55,26 +52,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name } = validation.data;
-    const householdId = context.activeHousehold.id;
+    const item = await prisma.ccGenericPayeeName.create({
+      data: {
+        name: validation.data.name.trim(),
+        householdId: context.activeHousehold.id,
+      },
+      select: { id: true, name: true, createdAt: true },
+    });
 
-    try {
-      const item = await prisma.ccGenericPayeeName.create({
-        data: { name, householdId },
-        select: { id: true, name: true },
-      });
-      return NextResponse.json({ success: true, data: item }, { status: 201 });
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'That name already exists' },
-        { status: 409 }
-      );
+    return NextResponse.json({ success: true, data: item }, { status: 201 });
+  } catch (error: unknown) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      (error as { code: string }).code === 'P2002'
+    ) {
+      return NextResponse.json({ success: false, error: 'Name already exists' }, { status: 409 });
     }
-  } catch (error) {
     console.error('Error creating CC generic payee name:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to create CC generic payee name' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to create' }, { status: 500 });
   }
 }
