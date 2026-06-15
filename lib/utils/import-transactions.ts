@@ -37,22 +37,34 @@ export async function importTransactions(
     },
   });
 
-  // Fetch all existing payees for the household
+  // Fetch all existing payees for the household. We deliberately include
+  // blacklisted ones in the lookup: payee name has a unique constraint per
+  // household, so if a blacklisted payee with the same name exists we must
+  // re-use it (or the create call would crash). The transaction will then be
+  // automatically hidden everywhere because the read-side filter excludes
+  // transactions linked to a blacklisted payee.
   const existingPayees = await prisma.budgetPayee.findMany({
     where: { householdId },
-    select: { id: true, name: true, categoryId: true, neverDefault: true },
+    select: {
+      id: true,
+      name: true,
+      categoryId: true,
+      neverDefault: true,
+      isBlacklisted: true,
+    },
   });
 
   // Build case-insensitive lookup map
   const payeeLookup = new Map<
     string,
-    { id: string; categoryId: string | null; neverDefault: boolean }
+    { id: string; categoryId: string | null; neverDefault: boolean; isBlacklisted: boolean }
   >();
   for (const p of existingPayees) {
     payeeLookup.set(p.name.toLowerCase().trim(), {
       id: p.id,
       categoryId: p.categoryId,
       neverDefault: p.neverDefault,
+      isBlacklisted: p.isBlacklisted,
     });
   }
 
@@ -204,19 +216,27 @@ export async function importTransactions(
             householdId,
           },
         });
-        payeeInfo = { id: newPayee.id, categoryId: null, neverDefault: false };
+        payeeInfo = {
+          id: newPayee.id,
+          categoryId: null,
+          neverDefault: false,
+          isBlacklisted: false,
+        };
         payeesCreated.push(tx.payeeName.trim());
       } catch {
-        // Handle unique constraint violation (concurrent import)
+        // Handle unique constraint violation (concurrent import). Pull the
+        // existing row including its blacklist flag so we don't try to mutate
+        // a payee the user has explicitly hidden.
         const existing = await prisma.budgetPayee.findFirst({
           where: { householdId, name: tx.payeeName.trim() },
-          select: { id: true, categoryId: true, neverDefault: true },
+          select: { id: true, categoryId: true, neverDefault: true, isBlacklisted: true },
         });
         if (existing) {
           payeeInfo = {
             id: existing.id,
             categoryId: existing.categoryId,
             neverDefault: existing.neverDefault,
+            isBlacklisted: existing.isBlacklisted,
           };
         } else {
           throw new Error(`Failed to create or find payee: ${tx.payeeName.trim()}`);
@@ -225,8 +245,14 @@ export async function importTransactions(
       payeeLookup.set(payeeNameLower, payeeInfo);
 
       // Apply payee category rules to newly created payees without a category,
-      // unless the payee is already marked neverDefault.
-      if (!payeeInfo.categoryId && !payeeInfo.neverDefault && payeeCategoryRules.length > 0) {
+      // unless the payee is already marked neverDefault — and skip blacklisted
+      // payees entirely since the user has hidden them from the app.
+      if (
+        !payeeInfo.categoryId &&
+        !payeeInfo.neverDefault &&
+        !payeeInfo.isBlacklisted &&
+        payeeCategoryRules.length > 0
+      ) {
         const matched = findMatchingRule(payeeCategoryRules, tx.payeeName.trim());
         if (matched) {
           try {
@@ -257,9 +283,15 @@ export async function importTransactions(
       const riseupName = tx.riseupCategory.trim();
       categoryId = riseupMapping.get(riseupName) ?? null;
 
-      // Set payee default category from Riseup mapping if payee has no default yet
+      // Set payee default category from Riseup mapping if payee has no default yet,
       // and the payee is not marked neverDefault.
-      if (categoryId && !payeeInfo.categoryId && !payeeInfo.neverDefault) {
+      // and the payee is not blacklisted (we don't touch hidden payees).
+      if (
+        categoryId &&
+        !payeeInfo.categoryId &&
+        !payeeInfo.neverDefault &&
+        !payeeInfo.isBlacklisted
+      ) {
         try {
           await prisma.budgetPayee.update({
             where: { id: payeeInfo.id },

@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { EyeOff, MoreVertical, Pencil, RotateCcw, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { type BudgetPayee, type BudgetCategoryGroup } from '@/lib/utils/budget';
 import { useUpdatePayee } from '@/lib/hooks/use-budget';
@@ -30,6 +30,10 @@ interface PayeeTableProps {
   onSelectionChange?: (ids: Set<string>) => void;
   onEdit: (payee: BudgetPayee) => void;
   onDelete: (payee: BudgetPayee) => void;
+  /** Show "Blacklist" in the row menu. Used on the Payees tab. */
+  onBlacklist?: (payee: BudgetPayee) => void;
+  /** Show "Restore from blacklist" in the row menu. Used on the Blacklist tab. */
+  onRestore?: (payee: BudgetPayee) => void;
 }
 
 export function PayeeTable({
@@ -39,6 +43,8 @@ export function PayeeTable({
   onSelectionChange,
   onEdit,
   onDelete,
+  onBlacklist,
+  onRestore,
 }: PayeeTableProps) {
   const [internalSelectedIds, setInternalSelectedIds] = useState<Set<string>>(new Set());
   const updatePayee = useUpdatePayee();
@@ -194,6 +200,18 @@ export function PayeeTable({
                       <Pencil className="mr-2 h-4 w-4" />
                       Edit
                     </DropdownMenuItem>
+                    {onBlacklist && (
+                      <DropdownMenuItem onClick={() => onBlacklist(payee)}>
+                        <EyeOff className="mr-2 h-4 w-4" />
+                        Blacklist
+                      </DropdownMenuItem>
+                    )}
+                    {onRestore && (
+                      <DropdownMenuItem onClick={() => onRestore(payee)}>
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                        Restore
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={() => onDelete(payee)} className="text-destructive">
                       <Trash2 className="mr-2 h-4 w-4" />
                       Delete

@@ -663,7 +663,7 @@ describe('Import Transactions API', () => {
       expect(data.data.created).toBe(1);
       expect(mockPrisma.budgetPayee.findFirst).toHaveBeenCalledWith({
         where: { householdId: 'household-1', name: 'New Store' },
-        select: { id: true, categoryId: true, neverDefault: true },
+        select: { id: true, categoryId: true, neverDefault: true, isBlacklisted: true },
       });
     });
   });

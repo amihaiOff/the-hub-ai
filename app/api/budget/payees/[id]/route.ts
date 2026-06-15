@@ -46,6 +46,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         categoryId: payee.categoryId,
         categoryName: payee.category?.name ?? null,
         neverDefault: payee.neverDefault,
+        isBlacklisted: payee.isBlacklisted,
         transactionCount: payee._count.transactions,
         householdId: payee.householdId,
         createdAt: payee.createdAt,
@@ -91,7 +92,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { name, categoryId, recategorizeTransactions, neverDefault } = validation.data;
+    const { name, categoryId, recategorizeTransactions, neverDefault, isBlacklisted } =
+      validation.data;
 
     // Setting neverDefault=true is exclusive with having a default category — clear it.
     const effectiveCategoryId =
@@ -112,6 +114,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       ...(name !== undefined && { name }),
       ...(effectiveCategoryId !== undefined && { categoryId: effectiveCategoryId }),
       ...(neverDefault !== undefined && { neverDefault }),
+      ...(isBlacklisted !== undefined && { isBlacklisted }),
     };
 
     // Optionally re-categorize all transactions for this payee (atomically with payee update)
@@ -165,6 +168,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         categoryId: payee!.categoryId,
         categoryName: payee!.category?.name ?? null,
         neverDefault: payee!.neverDefault,
+        isBlacklisted: payee!.isBlacklisted,
         transactionCount: payee!._count.transactions,
         householdId: payee!.householdId,
         createdAt: payee!.createdAt,

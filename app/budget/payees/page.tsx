@@ -8,8 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertCircle, Loader2, Plus, Search } from 'lucide-react';
 import {
   usePayees,
+  useBlacklistedPayees,
   useCategoryGroups,
   useDeletePayee,
+  useUpdatePayee,
   usePayeeCategoryRules,
   useDeletePayeeCategoryRule,
 } from '@/lib/hooks/use-budget';
@@ -30,11 +32,15 @@ export default function PayeesPage() {
   const [showAddRuleDialog, setShowAddRuleDialog] = useState(false);
 
   const { data: payees = [], isLoading, error } = usePayees();
+  const { data: blacklistedPayees = [], isLoading: isLoadingBlacklist } = useBlacklistedPayees(
+    activeTab === 'blacklist'
+  );
   const { data: categoryGroups = [] } = useCategoryGroups();
   const { data: rules = [], isLoading: isLoadingRules } = usePayeeCategoryRules(
     activeTab === 'rules'
   );
   const deletePayee = useDeletePayee();
+  const updatePayee = useUpdatePayee();
   const deleteRule = useDeletePayeeCategoryRule();
 
   const filteredPayees = payees.filter((p) =>
@@ -45,6 +51,14 @@ export default function PayeesPage() {
     if (confirm(`Delete payee "${payee.name}"? It will be removed from all transactions.`)) {
       await deletePayee.mutateAsync(payee.id);
     }
+  };
+
+  const handleBlacklistPayee = async (payee: BudgetPayee) => {
+    await updatePayee.mutateAsync({ id: payee.id, isBlacklisted: true });
+  };
+
+  const handleRestorePayee = async (payee: BudgetPayee) => {
+    await updatePayee.mutateAsync({ id: payee.id, isBlacklisted: false });
   };
 
   const handleDeleteRule = async (rule: PayeeCategoryRule) => {
@@ -104,6 +118,7 @@ export default function PayeesPage() {
           <TabsList className="ml-auto">
             <TabsTrigger value="payees">Payees</TabsTrigger>
             <TabsTrigger value="rules">Rules</TabsTrigger>
+            <TabsTrigger value="blacklist">Blacklist</TabsTrigger>
           </TabsList>
         </div>
 
@@ -133,6 +148,7 @@ export default function PayeesPage() {
                   categoryGroups={categoryGroups}
                   onEdit={setEditingPayee}
                   onDelete={handleDeletePayee}
+                  onBlacklist={handleBlacklistPayee}
                 />
               </div>
             </div>
@@ -181,6 +197,47 @@ export default function PayeesPage() {
             open={!!editingRule}
             onOpenChange={(open) => !open && setEditingRule(null)}
           />
+        </TabsContent>
+
+        {/* Blacklist Tab — payees the user has hidden from the app */}
+        <TabsContent value="blacklist" className="space-y-4">
+          {isLoadingBlacklist && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+            </div>
+          )}
+
+          {!isLoadingBlacklist && (
+            <div className="lg:border-border lg:bg-card lg:rounded-lg lg:border lg:py-6">
+              <div className="px-0 pb-4 lg:px-6">
+                <h2 className="text-lg font-semibold">
+                  Blacklisted payees
+                  <span className="text-muted-foreground ml-2 text-sm font-normal">
+                    ({blacklistedPayees.length})
+                  </span>
+                </h2>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  Hidden from every list and aggregate in the app. Their transactions stay in the
+                  database for debugging but never count toward summaries or charts.
+                </p>
+              </div>
+              <div className="lg:px-6">
+                {blacklistedPayees.length === 0 ? (
+                  <div className="text-muted-foreground py-8 text-center text-sm">
+                    No blacklisted payees yet. Use the row menu on the Payees tab to hide one.
+                  </div>
+                ) : (
+                  <PayeeTable
+                    payees={blacklistedPayees}
+                    categoryGroups={categoryGroups}
+                    onEdit={setEditingPayee}
+                    onDelete={handleDeletePayee}
+                    onRestore={handleRestorePayee}
+                  />
+                )}
+              </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

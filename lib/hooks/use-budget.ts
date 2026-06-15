@@ -82,6 +82,7 @@ export const budgetKeys = {
   categories: () => [...budgetKeys.all, 'categories'] as const,
   categoryGroups: () => [...budgetKeys.all, 'categoryGroups'] as const,
   payees: () => [...budgetKeys.all, 'payees'] as const,
+  blacklistedPayees: () => [...budgetKeys.all, 'payees', 'blacklisted'] as const,
   tags: () => [...budgetKeys.all, 'tags'] as const,
   analysis: () => [...budgetKeys.all, 'analysis'] as const,
   analysisRange: (startDate: string, endDate: string) =>
@@ -201,7 +202,9 @@ export function useCategoryGroups() {
 }
 
 /**
- * Hook to fetch payees
+ * Hook to fetch payees (excludes blacklisted by default — the API filters them
+ * out so they never leak into transaction-edit dropdowns, summary aggregations,
+ * or anywhere else outside the Blacklist tab).
  */
 export function usePayees() {
   return useQuery({
@@ -210,6 +213,20 @@ export function usePayees() {
       return fetchApi<BudgetPayee[]>('/api/budget/payees');
     },
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Hook to fetch ONLY blacklisted payees, for the Blacklist tab on /budget/payees.
+ */
+export function useBlacklistedPayees(enabled = true) {
+  return useQuery({
+    queryKey: budgetKeys.blacklistedPayees(),
+    queryFn: async (): Promise<BudgetPayee[]> => {
+      return fetchApi<BudgetPayee[]>('/api/budget/payees?include=blacklisted');
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled,
   });
 }
 
@@ -310,6 +327,7 @@ interface UpdatePayeeInput {
   categoryId?: string | null;
   recategorizeTransactions?: boolean;
   neverDefault?: boolean;
+  isBlacklisted?: boolean;
 }
 
 interface CreateTagInput {
@@ -637,7 +655,10 @@ export function useUpdatePayee() {
       });
     },
     onSuccess: () => {
+      // Refresh both the visible-payees list and the blacklist tab — toggling
+      // isBlacklisted moves the row between them.
       queryClient.invalidateQueries({ queryKey: budgetKeys.payees() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.blacklistedPayees() });
       queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
     },
   });

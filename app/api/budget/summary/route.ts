@@ -59,6 +59,8 @@ export async function GET(request: NextRequest) {
           // Exclude transactions marked as excluded from budget flow
           excludedFromFlow: false,
           isDeleted: false,
+          // Hide transactions whose payee is blacklisted (but keep those with no payee).
+          OR: [{ payeeId: null }, { payee: { isBlacklisted: false } }],
         },
         select: {
           id: true,

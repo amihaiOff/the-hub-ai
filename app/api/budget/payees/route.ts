@@ -6,9 +6,11 @@ import { getFirstZodError } from '@/lib/validations/common';
 
 /**
  * GET /api/budget/payees
- * Get all payees for the current household with transaction counts
+ * Get all payees for the current household with transaction counts.
+ * Blacklisted payees are hidden by default; pass `?include=blacklisted` to
+ * return ONLY blacklisted ones (used by the Blacklist tab).
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const context = await getCurrentContext();
     if (!context) {
@@ -16,9 +18,11 @@ export async function GET() {
     }
 
     const householdId = context.activeHousehold.id;
+    const includeParam = request.nextUrl.searchParams.get('include');
+    const blacklistedOnly = includeParam === 'blacklisted';
 
     const payees = await prisma.budgetPayee.findMany({
-      where: { householdId },
+      where: { householdId, isBlacklisted: blacklistedOnly },
       include: {
         category: {
           select: { id: true, name: true },
@@ -37,6 +41,7 @@ export async function GET() {
       categoryId: payee.categoryId,
       categoryName: payee.category?.name ?? null,
       neverDefault: payee.neverDefault,
+      isBlacklisted: payee.isBlacklisted,
       transactionCount: payee._count.transactions,
       householdId: payee.householdId,
       createdAt: payee.createdAt,

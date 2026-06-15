@@ -37,9 +37,10 @@ export async function POST() {
       });
     }
 
-    // Fetch all payees (not just uncategorized) to match against
+    // Fetch all payees (not just uncategorized) to match against. Blacklisted
+    // payees are deliberately skipped — the user has hidden them.
     const allPayees = await prisma.budgetPayee.findMany({
-      where: { householdId },
+      where: { householdId, isBlacklisted: false },
       select: { id: true, name: true },
     });
 

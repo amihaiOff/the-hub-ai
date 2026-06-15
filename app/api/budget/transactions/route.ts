@@ -112,10 +112,13 @@ export async function GET(request: NextRequest) {
 
     const filters = validation.data;
 
-    // Build where clause
+    // Build where clause. Transactions linked to a blacklisted payee are
+    // hidden everywhere in the app — but transactions with no payee at all
+    // (payeeId IS NULL) must still surface so they can be reviewed.
     const where: Prisma.BudgetTransactionWhereInput = {
       householdId,
       isDeleted: false,
+      OR: [{ payeeId: null }, { payee: { isBlacklisted: false } }],
     };
 
     // Date filters
