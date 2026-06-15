@@ -32,6 +32,9 @@ jest.mock('@/lib/db', () => ({
     payeeCategoryRule: {
       findMany: jest.fn(),
     },
+    ccGenericPayeeName: {
+      findMany: jest.fn(),
+    },
   },
 }));
 
@@ -170,6 +173,7 @@ describe('Import CSV API', () => {
     jest.resetAllMocks();
     // Payee category rules are fetched first in importTransactions — default to empty
     (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.ccGenericPayeeName.findMany as jest.Mock).mockResolvedValue([]);
   });
 
   // ==========================================
