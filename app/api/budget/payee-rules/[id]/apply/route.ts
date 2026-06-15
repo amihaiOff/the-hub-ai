@@ -38,9 +38,10 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ success: false, error: 'Rule is not active' }, { status: 400 });
     }
 
-    // Fetch all payees (not just uncategorized) to match against
+    // Fetch all payees (not just uncategorized) to match against. Blacklisted
+    // payees are skipped — they're hidden from the app entirely.
     const allPayees = await prisma.budgetPayee.findMany({
-      where: { householdId },
+      where: { householdId, isBlacklisted: false },
       select: { id: true, name: true },
     });
 

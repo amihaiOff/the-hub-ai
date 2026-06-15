@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
           isSplit: false,
           excludedFromFlow: false,
           isDeleted: false,
+          OR: [{ payeeId: null }, { payee: { isBlacklisted: false } }],
         },
         select: {
           id: true,

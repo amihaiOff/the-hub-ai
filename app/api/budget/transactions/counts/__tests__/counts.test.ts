@@ -116,6 +116,7 @@ describe('Transaction Counts API', () => {
           type: 'expense',
           tags: { none: {} },
           isDeleted: false,
+          OR: [{ payeeId: null }, { payee: { isBlacklisted: false } }],
         },
       });
     });
@@ -136,6 +137,7 @@ describe('Transaction Counts API', () => {
           type: 'expense',
           tags: { none: {} },
           isDeleted: false,
+          OR: [{ payeeId: null }, { payee: { isBlacklisted: false } }],
           transactionDate: {
             gte: new Date(2026, 2, 1),
             lt: new Date(2026, 3, 1),
@@ -160,6 +162,7 @@ describe('Transaction Counts API', () => {
           type: 'expense',
           tags: { none: {} },
           isDeleted: false,
+          OR: [{ payeeId: null }, { payee: { isBlacklisted: false } }],
           transactionDate: {
             gte: new Date(2025, 11, 1),
             lt: new Date(2026, 0, 1),
@@ -184,6 +187,7 @@ describe('Transaction Counts API', () => {
           type: 'expense',
           tags: { none: {} },
           isDeleted: false,
+          OR: [{ payeeId: null }, { payee: { isBlacklisted: false } }],
           transactionDate: {
             gte: new Date(2026, 0, 1),
             lt: new Date(2026, 1, 1),
@@ -229,6 +233,7 @@ describe('Transaction Counts API', () => {
           type: 'expense',
           tags: { none: {} },
           isDeleted: false,
+          OR: [{ payeeId: null }, { payee: { isBlacklisted: false } }],
         },
       });
     });

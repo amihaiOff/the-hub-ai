@@ -96,7 +96,7 @@ describe('Payees API', () => {
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       (mockPrisma.budgetPayee.findMany as jest.Mock).mockResolvedValueOnce(mockPayees);
 
-      const response = await GET();
+      const response = await GET(new NextRequest('http://localhost/api/budget/payees'));
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -112,7 +112,7 @@ describe('Payees API', () => {
     it('should return 401 when not authenticated', async () => {
       mockGetCurrentContext.mockResolvedValueOnce(null);
 
-      const response = await GET();
+      const response = await GET(new NextRequest('http://localhost/api/budget/payees'));
       const data = await response.json();
 
       expect(response.status).toBe(401);
@@ -124,7 +124,7 @@ describe('Payees API', () => {
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
       (mockPrisma.budgetPayee.findMany as jest.Mock).mockResolvedValueOnce([]);
 
-      const response = await GET();
+      const response = await GET(new NextRequest('http://localhost/api/budget/payees'));
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -138,7 +138,7 @@ describe('Payees API', () => {
         new Error('Database error')
       );
 
-      const response = await GET();
+      const response = await GET(new NextRequest('http://localhost/api/budget/payees'));
       const data = await response.json();
 
       expect(response.status).toBe(500);

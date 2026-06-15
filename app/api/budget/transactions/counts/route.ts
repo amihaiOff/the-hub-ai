@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,19 +14,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const month = searchParams.get('month');
 
-    const where: {
-      householdId: string;
-      categoryId: null;
-      type: 'expense';
-      isDeleted: false;
-      tags?: { none: Record<string, never> };
-      transactionDate?: { gte: Date; lt: Date };
-    } = {
+    const where: Prisma.BudgetTransactionWhereInput = {
       householdId,
       categoryId: null,
       type: 'expense',
       tags: { none: {} },
       isDeleted: false,
+      OR: [{ payeeId: null }, { payee: { isBlacklisted: false } }],
     };
 
     if (month) {

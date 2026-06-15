@@ -100,6 +100,7 @@ export const updatePayeeSchema = z.object({
   categoryId: z.string().nullable().optional(),
   recategorizeTransactions: z.boolean().optional(),
   neverDefault: z.boolean().optional(),
+  isBlacklisted: z.boolean().optional(),
 });
 
 // ============================================
