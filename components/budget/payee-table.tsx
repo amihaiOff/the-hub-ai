@@ -90,8 +90,8 @@ export function PayeeTable({
 
   return (
     <>
-      <div className="overflow-x-auto">
-        <table className="w-full">
+      <div>
+        <table className="w-full table-fixed">
           <thead className="bg-muted/50 border-b">
             <tr>
               <th className="w-8 px-1 py-2 text-left sm:w-10 sm:px-2 sm:py-3">
@@ -127,7 +127,7 @@ export function PayeeTable({
                 </td>
                 <td className="px-2 py-2 sm:px-4 sm:py-3">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-sm font-medium">{payee.name}</span>
+                    <span className="text-sm font-medium break-words">{payee.name}</span>
                     {payee.neverDefault && (
                       <span
                         className="border-border bg-muted text-muted-foreground rounded-sm border px-1.5 py-0.5 text-[10px] leading-none uppercase"
