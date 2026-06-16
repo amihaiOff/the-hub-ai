@@ -73,11 +73,14 @@ model Profile {
 
 // Household - groups profiles together (family/unit)
 model Household {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  // Phone number in E.164 form (e.g. +972501234567). Used by the "Ask partner on
+  // WhatsApp" button on a transaction to deep-link into a wa.me chat.
+  partnerPhone String?  @map("partner_phone")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Members
   members HouseholdMember[]

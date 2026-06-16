@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronRight, Pencil, Split, Trash2 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { ChevronRight, MessageCircle, Pencil, Split, Trash2 } from 'lucide-react';
+import { buildAskPartnerWaLink } from '@/lib/utils/whatsapp';
 import { cn } from '@/lib/utils';
 import {
   type BudgetCategoryGroup,
@@ -42,6 +44,18 @@ export function TransactionActionsPanel({
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const updateTransaction = useUpdateTransaction();
 
+  const partnerPhoneQuery = useQuery({
+    queryKey: ['settings', 'partner-phone'],
+    queryFn: async () => {
+      const res = await fetch('/api/settings/partner-phone');
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      return data.data as { phone: string | null };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  const partnerPhone = partnerPhoneQuery.data?.phone ?? null;
+
   const isIncome = transaction.type === 'income';
   const groupInfo = getCategoryWithGroup(transaction.categoryId, categoryGroups);
   const transactionTags = tags.filter((t) => transaction.tagIds.includes(t.id));
@@ -77,6 +91,18 @@ export function TransactionActionsPanel({
         },
       }
     );
+  };
+
+  const handleAskPartner = () => {
+    if (!partnerPhone) return;
+    const payee = payees.find((p) => p.id === transaction.payeeId);
+    const url = buildAskPartnerWaLink({
+      partnerPhone,
+      payee: payee?.name ?? transaction.notes ?? '(no payee)',
+      amountIls: Number(transaction.amountIls),
+      date: transaction.transactionDate,
+    });
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const handleTagsChange = (nextTagIds: string[]) => {
@@ -158,7 +184,7 @@ export function TransactionActionsPanel({
           <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0" />
         </button>
 
-        <div className="border-border/40 mt-1 grid grid-cols-3 gap-1 border-t pt-2">
+        <div className="border-border/40 mt-1 grid grid-cols-4 gap-1 border-t pt-2">
           <button
             type="button"
             onClick={onEdit}
@@ -175,6 +201,18 @@ export function TransactionActionsPanel({
           >
             <Split className="h-4 w-4" />
             <span className="text-xs font-medium">Split</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleAskPartner}
+            disabled={!partnerPhone}
+            title={
+              partnerPhone ? 'Ask partner on WhatsApp' : 'Set a partner phone in Settings first'
+            }
+            className="hover:bg-muted/60 active:bg-muted flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg py-2 transition-colors disabled:opacity-40"
+          >
+            <MessageCircle className="h-4 w-4" />
+            <span className="text-xs font-medium">Ask</span>
           </button>
           <button
             type="button"
