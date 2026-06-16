@@ -97,18 +97,18 @@ function renderPanel(transaction: BudgetTransaction, names: BudgetAccountName[] 
 describe('TransactionActionsPanel account row', () => {
   it('shows the mapped friendly name when the identifier is mapped', () => {
     renderPanel({ ...baseTransaction, paymentIdentifier: '111122223333' });
-    expect(screen.getByText('Account')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Account' })).toBeInTheDocument();
     expect(screen.getByText('Joint Checking')).toBeInTheDocument();
   });
 
   it('falls back to the raw identifier when there is no mapping', () => {
     renderPanel({ ...baseTransaction, paymentIdentifier: '555566667777' });
-    expect(screen.getByText('Account')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Account' })).toBeInTheDocument();
     expect(screen.getByText('555566667777')).toBeInTheDocument();
   });
 
   it('hides the account row when the transaction has no payment identifier', () => {
     renderPanel({ ...baseTransaction, paymentIdentifier: null });
-    expect(screen.queryByText('Account')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Account' })).not.toBeInTheDocument();
   });
 });
