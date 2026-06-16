@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronRight, MessageCircle, Pencil, Split, Trash2 } from 'lucide-react';
+import { ChevronRight, MessageCircle, Pencil, Search, Split, Trash2 } from 'lucide-react';
 import { buildAskPartnerWaLink } from '@/lib/utils/whatsapp';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -106,6 +106,15 @@ export function TransactionActionsPanel({
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
+  const payeeForSearch =
+    payees.find((p) => p.id === transaction.payeeId)?.name ?? transaction.notes ?? null;
+
+  const handleSearchPayee = () => {
+    if (!payeeForSearch) return;
+    const url = `https://www.google.com/search?q=${encodeURIComponent(payeeForSearch)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   const handleAskPartner = () => {
     if (partnerContacts.length === 0) return;
     if (partnerContacts.length === 1) {
@@ -194,7 +203,7 @@ export function TransactionActionsPanel({
           <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0" />
         </button>
 
-        <div className="border-border/40 mt-1 grid grid-cols-4 gap-1 border-t pt-2">
+        <div className="border-border/40 mt-1 grid grid-cols-5 gap-1 border-t pt-2">
           <button
             type="button"
             onClick={onEdit}
@@ -225,6 +234,16 @@ export function TransactionActionsPanel({
           >
             <MessageCircle className="h-4 w-4" />
             <span className="text-xs font-medium">Ask</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleSearchPayee}
+            disabled={!payeeForSearch}
+            title={payeeForSearch ? `Search the web for "${payeeForSearch}"` : 'No payee to search'}
+            className="hover:bg-muted/60 active:bg-muted flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg py-2 transition-colors disabled:opacity-40"
+          >
+            <Search className="h-4 w-4" />
+            <span className="text-xs font-medium">Search</span>
           </button>
           <button
             type="button"
