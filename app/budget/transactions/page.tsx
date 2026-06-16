@@ -51,9 +51,50 @@ export default function TransactionsPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-center gap-3">
         <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Transactions</h1>
         <MonthSelector selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
+        <div className="w-full max-w-lg">
+          <TransactionFilters filters={filters} onFiltersChange={setFilters} />
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="shrink-0"
+            onClick={() => syncMoneytor.mutate()}
+            disabled={syncMoneytor.isPending}
+            title="Sync with Moneytor"
+          >
+            <RefreshCw className={`h-4 w-4 ${syncMoneytor.isPending ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="shrink-0"
+            onClick={() => setShowForceResync(true)}
+            title="Force re-sync a date range from Moneytor"
+          >
+            <History className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="shrink-0"
+            onClick={() => setShowImportCsv(true)}
+            title="Import CSV"
+          >
+            <Upload className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="shrink-0"
+            onClick={() => setShowAddTransaction(true)}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Error State */}
@@ -97,47 +138,6 @@ export default function TransactionsPage() {
           </CardContent>
         </Card>
       )}
-
-      {/* Search, Filters & Add */}
-      <div className="flex items-center gap-2">
-        <TransactionFilters filters={filters} onFiltersChange={setFilters} />
-        <Button
-          variant="outline"
-          size="icon"
-          className="shrink-0"
-          onClick={() => syncMoneytor.mutate()}
-          disabled={syncMoneytor.isPending}
-          title="Sync with Moneytor"
-        >
-          <RefreshCw className={`h-4 w-4 ${syncMoneytor.isPending ? 'animate-spin' : ''}`} />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          className="shrink-0"
-          onClick={() => setShowForceResync(true)}
-          title="Force re-sync a date range from Moneytor"
-        >
-          <History className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          className="shrink-0"
-          onClick={() => setShowImportCsv(true)}
-          title="Import CSV"
-        >
-          <Upload className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          className="shrink-0"
-          onClick={() => setShowAddTransaction(true)}
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
-      </div>
 
       {/* Active Filter Badges */}
       <ActiveFilterBadges filters={filters} onRemoveFilter={handleRemoveFilter} />
