@@ -2,7 +2,16 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronRight, MessageCircle, Pencil, Search, Split, Trash2 } from 'lucide-react';
+import {
+  ChevronRight,
+  LayoutDashboard,
+  MessageCircle,
+  Pencil,
+  Search,
+  Split,
+  Tag as TagIcon,
+  Trash2,
+} from 'lucide-react';
 import { buildAskPartnerWaLink } from '@/lib/utils/whatsapp';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -149,13 +158,17 @@ export function TransactionActionsPanel({
             'hover:bg-muted/60 active:bg-muted disabled:opacity-50'
           )}
         >
-          <div className="min-w-0 flex-1">
-            <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-              Category
-            </div>
-            <div className={cn('truncate text-sm', !groupInfo && 'text-muted-foreground italic')}>
-              {groupInfo ? groupInfo.categoryName : isIncome ? 'Income' : 'Uncategorized'}
-            </div>
+          <LayoutDashboard
+            className="text-muted-foreground h-4 w-4 shrink-0"
+            aria-label="Category"
+          />
+          <div
+            className={cn(
+              'min-w-0 flex-1 truncate text-sm',
+              !groupInfo && 'text-muted-foreground italic'
+            )}
+          >
+            {groupInfo ? groupInfo.categoryName : isIncome ? 'Income' : 'Uncategorized'}
           </div>
           <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0" />
         </button>
@@ -180,12 +193,10 @@ export function TransactionActionsPanel({
             'hover:bg-muted/60 active:bg-muted disabled:opacity-50'
           )}
         >
+          <TagIcon className="text-muted-foreground h-4 w-4 shrink-0" aria-label="Tags" />
           <div className="min-w-0 flex-1">
-            <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-              Tags
-            </div>
             {transactionTags.length > 0 ? (
-              <div className="mt-0.5 flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1">
                 {transactionTags.map((tag) => (
                   <span
                     key={tag.id}
