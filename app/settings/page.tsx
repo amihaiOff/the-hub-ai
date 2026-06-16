@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { useHouseholdContext } from '@/lib/contexts/household-context';
 import { useQueryClient } from '@tanstack/react-query';
+import { AccountNamesSettings } from '@/components/budget';
 
 const settingsLinks = [
   {
@@ -349,6 +350,10 @@ export default function SettingsPage() {
             {ccAdd.isError && (
               <p className="text-xs text-red-500">{(ccAdd.error as Error).message}</p>
             )}
+          </div>
+
+          <div className="border-border/60 border-t pt-4">
+            <AccountNamesSettings />
           </div>
         </CardContent>
       </Card>

@@ -107,6 +107,7 @@ model Household {
 
   // Budget settings
   ccGenericPayeeNames CcGenericPayeeName[]
+  budgetAccountNames  BudgetAccountName[]
 
   @@map("households")
 }
@@ -125,6 +126,25 @@ model CcGenericPayeeName {
   @@unique([householdId, name])
   @@index([householdId])
   @@map("cc_generic_payee_names")
+}
+
+// BudgetAccountName - maps a transaction's payment identifier (e.g. Moneytor's account id
+// suffix or a credit-card identifier from CSV imports) to a human-friendly account name.
+// Used to display a recognizable account name in the transaction details instead of the raw,
+// opaque identifier stored on BudgetTransaction.paymentIdentifier.
+model BudgetAccountName {
+  id            String   @id @default(cuid())
+  accountNumber String   @map("account_number") // matches BudgetTransaction.paymentIdentifier
+  name          String // friendly name
+  householdId   String   @map("household_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, accountNumber])
+  @@index([householdId])
+  @@map("budget_account_names")
 }
 
 // HouseholdMember - junction table with role

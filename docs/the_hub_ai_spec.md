@@ -78,6 +78,35 @@ Rules live on the Payees page in a tabbed UI (Payees / Rules tabs). Each rule ha
 
 Payee category rules are included in backup ZIP (`payee_category_rules.json`) and restored with the rest of the data (schema version 1.2+).
 
+## Account names
+
+**Purpose:** Show a recognizable account/card name in transaction details instead of the raw,
+opaque payment identifier.
+
+Transactions carry a `paymentIdentifier`: for Moneytor-synced transactions this is the last 12
+characters of Moneytor's account id; for credit-card CSV imports it is the card identifier. These
+values are not human-readable on their own.
+
+### Mapping management (Settings → Budget Settings)
+
+The "Account names" block in Budget Settings lets the user map each identifier to a friendly name:
+
+- A list of existing mappings, each editable (rename) and deletable.
+- An add form with two inputs: account identifier and friendly name. The identifier input offers a
+  `<datalist>` pick-list of identifiers found on the household's transactions that are not yet
+  mapped, each annotated with a sample payee and transaction count so the user can recognize it.
+- Mappings are scoped to the household and unique per identifier.
+
+Backed by the `BudgetAccountName` model (`@@unique([householdId, accountNumber])`) and the
+`/api/budget/account-names` routes (list/create, plus `[id]` rename/delete and an
+`identifiers` discovery endpoint).
+
+### Display in transaction details
+
+In the mobile transaction detail dropdown (`TransactionActionsPanel`), an "Account" row shows the
+mapped friendly name, falling back to the raw `paymentIdentifier` when no mapping exists. The row is
+hidden for transactions without a payment identifier (e.g. manual entries).
+
 ## Batch categorization operations
 
 ## Edge cases

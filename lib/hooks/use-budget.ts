@@ -91,8 +91,23 @@ export const budgetKeys = {
   uncategorizedCount: (month: string) => [...budgetKeys.all, 'uncategorizedCount', month] as const,
   savings: () => [...budgetKeys.all, 'savings'] as const,
   payeeCategoryRules: () => [...budgetKeys.all, 'payeeCategoryRules'] as const,
+  accountNames: () => [...budgetKeys.all, 'accountNames'] as const,
+  accountNameIdentifiers: () => [...budgetKeys.all, 'accountNameIdentifiers'] as const,
   allMonthSummaries: () => [...budgetKeys.all, 'month'] as const,
 };
+
+// Account name mapping types
+export interface BudgetAccountName {
+  id: string;
+  accountNumber: string;
+  name: string;
+}
+
+export interface AccountNameIdentifier {
+  accountNumber: string;
+  count: number;
+  samplePayee: string | null;
+}
 
 // Filter types
 export interface TransactionFilters {
@@ -777,6 +792,87 @@ export function useApplyPayeeCategoryRule() {
       queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
       queryClient.invalidateQueries({ queryKey: budgetKeys.allUncategorizedCounts() });
       queryClient.invalidateQueries({ queryKey: budgetKeys.allMonthSummaries() });
+    },
+  });
+}
+
+// Account name mapping hooks
+
+/**
+ * Fetch the household's account-number → name mappings.
+ */
+export function useAccountNames() {
+  return useQuery({
+    queryKey: budgetKeys.accountNames(),
+    queryFn: async (): Promise<BudgetAccountName[]> => {
+      return fetchApi<BudgetAccountName[]>('/api/budget/account-names');
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Fetch the distinct payment identifiers found on the household's transactions, for the
+ * settings pick-list. Only fetched when enabled (e.g. when the settings section is shown).
+ */
+export function useAccountNameIdentifiers(enabled = true) {
+  return useQuery({
+    queryKey: budgetKeys.accountNameIdentifiers(),
+    queryFn: async (): Promise<AccountNameIdentifier[]> => {
+      return fetchApi<AccountNameIdentifier[]>('/api/budget/account-names/identifiers');
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled,
+  });
+}
+
+export function useCreateAccountName() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: {
+      accountNumber: string;
+      name: string;
+    }): Promise<BudgetAccountName> => {
+      return fetchApi<BudgetAccountName>('/api/budget/account-names', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: budgetKeys.accountNames() });
+    },
+  });
+}
+
+export function useUpdateAccountName() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { id: string; name: string }): Promise<BudgetAccountName> => {
+      const { id, ...data } = input;
+      return fetchApi<BudgetAccountName>(`/api/budget/account-names/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: budgetKeys.accountNames() });
+    },
+  });
+}
+
+export function useDeleteAccountName() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      await fetchApi<{ id: string }>(`/api/budget/account-names/${id}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: budgetKeys.accountNames() });
     },
   });
 }
