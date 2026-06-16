@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, MessageCircle, Pencil, Split, Trash2 } from 'lucide-react';
 import { buildAskPartnerWaLink } from '@/lib/utils/whatsapp';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import {
   type BudgetCategoryGroup,
@@ -42,19 +43,20 @@ export function TransactionActionsPanel({
 }: TransactionActionsPanelProps) {
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
+  const [askPickerOpen, setAskPickerOpen] = useState(false);
   const updateTransaction = useUpdateTransaction();
 
-  const partnerPhoneQuery = useQuery({
-    queryKey: ['settings', 'partner-phone'],
+  const partnerContactsQuery = useQuery({
+    queryKey: ['settings', 'partner-contacts'],
     queryFn: async () => {
-      const res = await fetch('/api/settings/partner-phone');
+      const res = await fetch('/api/settings/partner-contacts');
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      return data.data as { phone: string | null };
+      return data.data as { id: string; name: string; phone: string }[];
     },
     staleTime: 5 * 60 * 1000,
   });
-  const partnerPhone = partnerPhoneQuery.data?.phone ?? null;
+  const partnerContacts = partnerContactsQuery.data ?? [];
 
   const isIncome = transaction.type === 'income';
   const groupInfo = getCategoryWithGroup(transaction.categoryId, categoryGroups);
@@ -93,16 +95,24 @@ export function TransactionActionsPanel({
     );
   };
 
-  const handleAskPartner = () => {
-    if (!partnerPhone) return;
+  const openWaForContact = (phone: string) => {
     const payee = payees.find((p) => p.id === transaction.payeeId);
     const url = buildAskPartnerWaLink({
-      partnerPhone,
+      partnerPhone: phone,
       payee: payee?.name ?? transaction.notes ?? '(no payee)',
       amountIls: Number(transaction.amountIls),
       date: transaction.transactionDate,
     });
     window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleAskPartner = () => {
+    if (partnerContacts.length === 0) return;
+    if (partnerContacts.length === 1) {
+      openWaForContact(partnerContacts[0].phone);
+      return;
+    }
+    setAskPickerOpen(true);
   };
 
   const handleTagsChange = (nextTagIds: string[]) => {
@@ -205,9 +215,11 @@ export function TransactionActionsPanel({
           <button
             type="button"
             onClick={handleAskPartner}
-            disabled={!partnerPhone}
+            disabled={partnerContacts.length === 0}
             title={
-              partnerPhone ? 'Ask partner on WhatsApp' : 'Set a partner phone in Settings first'
+              partnerContacts.length === 0
+                ? 'Add a WhatsApp contact in Settings first'
+                : 'Ask on WhatsApp'
             }
             className="hover:bg-muted/60 active:bg-muted flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg py-2 transition-colors disabled:opacity-40"
           >
@@ -240,6 +252,33 @@ export function TransactionActionsPanel({
         selectedTagIds={transaction.tagIds}
         onChange={handleTagsChange}
       />
+
+      <Sheet open={askPickerOpen} onOpenChange={setAskPickerOpen}>
+        <SheetContent
+          side="bottom"
+          className="sm:bottom-4 sm:mx-auto sm:h-auto sm:max-w-sm sm:rounded-2xl"
+        >
+          <SheetHeader>
+            <SheetTitle>Ask on WhatsApp</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-1 p-2">
+            {partnerContacts.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  openWaForContact(c.phone);
+                  setAskPickerOpen(false);
+                }}
+                className="hover:bg-muted/60 active:bg-muted flex w-full flex-col rounded-lg px-3 py-2 text-left transition-colors"
+              >
+                <span className="text-sm font-medium">{c.name}</span>
+                <span className="text-muted-foreground text-xs">{c.phone}</span>
+              </button>
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

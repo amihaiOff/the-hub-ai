@@ -73,14 +73,11 @@ model Profile {
 
 // Household - groups profiles together (family/unit)
 model Household {
-  id           String   @id @default(cuid())
-  name         String
-  description  String?
-  // Phone number in E.164 form (e.g. +972501234567). Used by the "Ask partner on
-  // WhatsApp" button on a transaction to deep-link into a wa.me chat.
-  partnerPhone String?  @map("partner_phone")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Members
   members HouseholdMember[]
@@ -112,7 +109,28 @@ model Household {
   ccGenericPayeeNames CcGenericPayeeName[]
   budgetAccountNames  BudgetAccountName[]
 
+  // WhatsApp contacts (e.g. partner, family) for the "Ask on WhatsApp" button.
+  partnerContacts PartnerContact[]
+
   @@map("households")
+}
+
+// PartnerContact - one entry per WhatsApp recipient the user might want to
+// forward a transaction question to (e.g. "wife", "mom"). Used by the "Ask
+// on WhatsApp" button on the transaction details panel.
+model PartnerContact {
+  id          String   @id @default(cuid())
+  name        String
+  phone       String // international or 0-prefixed Israeli format; normalized to digits at use time
+  householdId String   @map("household_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, phone])
+  @@index([householdId])
+  @@map("partner_contacts")
 }
 
 // CcGenericPayeeName - payee names that represent generic credit card charges in bank feeds.
