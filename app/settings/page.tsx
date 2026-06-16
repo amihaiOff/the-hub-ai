@@ -18,6 +18,7 @@ import {
 import { useHouseholdContext } from '@/lib/contexts/household-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { AccountNamesSettings } from '@/components/budget';
+import { PartnerPhoneSettings } from '@/components/settings/partner-phone-settings';
 
 const settingsLinks = [
   {
@@ -354,6 +355,10 @@ export default function SettingsPage() {
 
           <div className="border-border/60 border-t pt-4">
             <AccountNamesSettings />
+          </div>
+
+          <div className="border-border/60 border-t pt-4">
+            <PartnerPhoneSettings />
           </div>
         </CardContent>
       </Card>

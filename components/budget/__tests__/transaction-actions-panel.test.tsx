@@ -17,6 +17,11 @@ jest.mock('@/lib/hooks/use-budget', () => ({
   useUpdateTransaction: jest.fn(() => ({ mutate: jest.fn(), isPending: false })),
 }));
 
+// The panel fetches partner contacts via useQuery; tests don't need a real client.
+jest.mock('@tanstack/react-query', () => ({
+  useQuery: jest.fn(() => ({ data: [], isLoading: false })),
+}));
+
 // Mock the budget utils used by the panel
 jest.mock('@/lib/utils/budget', () => ({
   getCategoryWithGroup: jest.fn(() => null),

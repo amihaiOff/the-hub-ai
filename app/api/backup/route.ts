@@ -44,6 +44,7 @@ export async function GET() {
       budgetTransactionTags,
       ccGenericPayeeNames,
       budgetAccountNames,
+      partnerContacts,
       riseupCategories,
       payeeCategoryRules,
       insurancePolicies,
@@ -77,6 +78,7 @@ export async function GET() {
       prisma.budgetTransactionTag.findMany(),
       prisma.ccGenericPayeeName.findMany(),
       prisma.budgetAccountName.findMany(),
+      prisma.partnerContact.findMany(),
       prisma.riseupCategory.findMany(),
       prisma.payeeCategoryRule.findMany(),
       prisma.insurancePolicy.findMany(),
@@ -95,7 +97,7 @@ export async function GET() {
     // Create backup metadata
     const metadata = {
       backupDate: new Date().toISOString(),
-      schemaVersion: '1.6',
+      schemaVersion: '1.7',
       createdBy: user.email,
       counts: {
         users: users.length,
@@ -117,6 +119,7 @@ export async function GET() {
         budgetTransactionTags: budgetTransactionTags.length,
         ccGenericPayeeNames: ccGenericPayeeNames.length,
         budgetAccountNames: budgetAccountNames.length,
+        partnerContacts: partnerContacts.length,
         riseupCategories: riseupCategories.length,
         payeeCategoryRules: payeeCategoryRules.length,
         insurancePolicies: insurancePolicies.length,
@@ -169,6 +172,7 @@ export async function GET() {
     );
     zip.file('cc_generic_payee_names.json', JSON.stringify(ccGenericPayeeNames, jsonSerializer, 2));
     zip.file('budget_account_names.json', JSON.stringify(budgetAccountNames, jsonSerializer, 2));
+    zip.file('partner_contacts.json', JSON.stringify(partnerContacts, jsonSerializer, 2));
     zip.file('riseup_categories.json', JSON.stringify(riseupCategories, jsonSerializer, 2));
     zip.file('payee_category_rules.json', JSON.stringify(payeeCategoryRules, jsonSerializer, 2));
     zip.file('insurance_policies.json', JSON.stringify(insurancePolicies, jsonSerializer, 2));

@@ -1,7 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronRight, Pencil, Split, Trash2 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import {
+  ChevronRight,
+  LayoutDashboard,
+  MessageCircle,
+  Pencil,
+  Search,
+  Split,
+  Tag as TagIcon,
+  Trash2,
+} from 'lucide-react';
+import { buildAskPartnerWaLink } from '@/lib/utils/whatsapp';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import {
   type BudgetCategoryGroup,
@@ -40,7 +52,20 @@ export function TransactionActionsPanel({
 }: TransactionActionsPanelProps) {
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
+  const [askPickerOpen, setAskPickerOpen] = useState(false);
   const updateTransaction = useUpdateTransaction();
+
+  const partnerContactsQuery = useQuery({
+    queryKey: ['settings', 'partner-contacts'],
+    queryFn: async () => {
+      const res = await fetch('/api/settings/partner-contacts');
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      return data.data as { id: string; name: string; phone: string }[];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  const partnerContacts = partnerContactsQuery.data ?? [];
 
   const isIncome = transaction.type === 'income';
   const groupInfo = getCategoryWithGroup(transaction.categoryId, categoryGroups);
@@ -79,6 +104,35 @@ export function TransactionActionsPanel({
     );
   };
 
+  const openWaForContact = (phone: string) => {
+    const payee = payees.find((p) => p.id === transaction.payeeId);
+    const url = buildAskPartnerWaLink({
+      partnerPhone: phone,
+      payee: payee?.name ?? transaction.notes ?? '(no payee)',
+      amountIls: Number(transaction.amountIls),
+      date: transaction.transactionDate,
+    });
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const payeeForSearch =
+    payees.find((p) => p.id === transaction.payeeId)?.name ?? transaction.notes ?? null;
+
+  const handleSearchPayee = () => {
+    if (!payeeForSearch) return;
+    const url = `https://www.google.com/search?q=${encodeURIComponent(payeeForSearch)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleAskPartner = () => {
+    if (partnerContacts.length === 0) return;
+    if (partnerContacts.length === 1) {
+      openWaForContact(partnerContacts[0].phone);
+      return;
+    }
+    setAskPickerOpen(true);
+  };
+
   const handleTagsChange = (nextTagIds: string[]) => {
     updateTransaction.mutate(
       { id: transaction.id, tagIds: nextTagIds },
@@ -104,13 +158,17 @@ export function TransactionActionsPanel({
             'hover:bg-muted/60 active:bg-muted disabled:opacity-50'
           )}
         >
-          <div className="min-w-0 flex-1">
-            <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-              Category
-            </div>
-            <div className={cn('truncate text-sm', !groupInfo && 'text-muted-foreground italic')}>
-              {groupInfo ? groupInfo.categoryName : isIncome ? 'Income' : 'Uncategorized'}
-            </div>
+          <LayoutDashboard
+            className="text-muted-foreground h-4 w-4 shrink-0"
+            aria-label="Category"
+          />
+          <div
+            className={cn(
+              'min-w-0 flex-1 truncate text-sm',
+              !groupInfo && 'text-muted-foreground italic'
+            )}
+          >
+            {groupInfo ? groupInfo.categoryName : isIncome ? 'Income' : 'Uncategorized'}
           </div>
           <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0" />
         </button>
@@ -135,12 +193,10 @@ export function TransactionActionsPanel({
             'hover:bg-muted/60 active:bg-muted disabled:opacity-50'
           )}
         >
+          <TagIcon className="text-muted-foreground h-4 w-4 shrink-0" aria-label="Tags" />
           <div className="min-w-0 flex-1">
-            <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-              Tags
-            </div>
             {transactionTags.length > 0 ? (
-              <div className="mt-0.5 flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1">
                 {transactionTags.map((tag) => (
                   <span
                     key={tag.id}
@@ -158,7 +214,7 @@ export function TransactionActionsPanel({
           <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0" />
         </button>
 
-        <div className="border-border/40 mt-1 grid grid-cols-3 gap-1 border-t pt-2">
+        <div className="border-border/40 mt-1 grid grid-cols-5 gap-1 border-t pt-2">
           <button
             type="button"
             onClick={onEdit}
@@ -175,6 +231,30 @@ export function TransactionActionsPanel({
           >
             <Split className="h-4 w-4" />
             <span className="text-xs font-medium">Split</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleAskPartner}
+            disabled={partnerContacts.length === 0}
+            title={
+              partnerContacts.length === 0
+                ? 'Add a WhatsApp contact in Settings first'
+                : 'Ask on WhatsApp'
+            }
+            className="hover:bg-muted/60 active:bg-muted flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg py-2 transition-colors disabled:opacity-40"
+          >
+            <MessageCircle className="h-4 w-4" />
+            <span className="text-xs font-medium">Ask</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleSearchPayee}
+            disabled={!payeeForSearch}
+            title={payeeForSearch ? `Search the web for "${payeeForSearch}"` : 'No payee to search'}
+            className="hover:bg-muted/60 active:bg-muted flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg py-2 transition-colors disabled:opacity-40"
+          >
+            <Search className="h-4 w-4" />
+            <span className="text-xs font-medium">Search</span>
           </button>
           <button
             type="button"
@@ -202,6 +282,33 @@ export function TransactionActionsPanel({
         selectedTagIds={transaction.tagIds}
         onChange={handleTagsChange}
       />
+
+      <Sheet open={askPickerOpen} onOpenChange={setAskPickerOpen}>
+        <SheetContent
+          side="bottom"
+          className="sm:bottom-4 sm:mx-auto sm:h-auto sm:max-w-sm sm:rounded-2xl"
+        >
+          <SheetHeader>
+            <SheetTitle>Ask on WhatsApp</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-1 p-2">
+            {partnerContacts.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  openWaForContact(c.phone);
+                  setAskPickerOpen(false);
+                }}
+                className="hover:bg-muted/60 active:bg-muted flex w-full flex-col rounded-lg px-3 py-2 text-left transition-colors"
+              >
+                <span className="text-sm font-medium">{c.name}</span>
+                <span className="text-muted-foreground text-xs">{c.phone}</span>
+              </button>
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
