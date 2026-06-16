@@ -21,7 +21,7 @@ import { EditTransactionDialog } from './edit-transaction-dialog';
 import { SplitTransactionDialog } from './split-transaction-dialog';
 import { PayeeCategoryPrompt } from './payee-category-prompt';
 import { TransactionActionsPanel } from './transaction-actions-panel';
-import { useDeleteTransaction } from '@/lib/hooks/use-budget';
+import { useDeleteTransaction, type BudgetAccountName } from '@/lib/hooks/use-budget';
 
 function groupTransactionsByDate(transactions: BudgetTransaction[]) {
   const groups: { date: string; transactions: BudgetTransaction[] }[] = [];
@@ -43,6 +43,7 @@ interface TransactionTableProps {
   categoryGroups: BudgetCategoryGroup[];
   payees: BudgetPayee[];
   tags: BudgetTag[];
+  accountNames?: BudgetAccountName[];
   isLoading?: boolean;
 }
 
@@ -51,6 +52,7 @@ export function TransactionTable({
   categoryGroups,
   payees,
   tags,
+  accountNames = [],
   isLoading,
 }: TransactionTableProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -179,6 +181,7 @@ export function TransactionTable({
                       categoryGroups={categoryGroups}
                       payees={payees}
                       tags={tags}
+                      accountNames={accountNames}
                       onEdit={() => {
                         setEditingTransaction(transaction);
                         setExpandedId(null);

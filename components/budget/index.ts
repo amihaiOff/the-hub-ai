@@ -36,3 +36,6 @@ export { PayeeCategoryPrompt } from './payee-category-prompt';
 export { PayeeRulesTable } from './payee-rules-table';
 export { AddPayeeRuleDialog } from './add-payee-rule-dialog';
 export { EditPayeeRuleDialog } from './edit-payee-rule-dialog';
+
+// Settings components
+export { AccountNamesSettings } from './account-names-settings';

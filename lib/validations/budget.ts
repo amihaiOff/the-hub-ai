@@ -264,6 +264,19 @@ export const updatePayeeCategoryRuleSchema = z
   );
 
 // ============================================
+// Budget Account Name Schemas
+// ============================================
+
+export const createBudgetAccountNameSchema = z.object({
+  accountNumber: nonEmptyString('Account number is required').max(100),
+  name: nonEmptyString('Name is required').max(200),
+});
+
+export const updateBudgetAccountNameSchema = z.object({
+  name: nonEmptyString('Name is required').max(200),
+});
+
+// ============================================
 // Moneytor Schemas
 // ============================================
 
@@ -359,6 +372,9 @@ export type CreateSplitInput = z.infer<typeof createSplitSchema>;
 
 export type CreatePayeeCategoryRuleInput = z.infer<typeof createPayeeCategoryRuleSchema>;
 export type UpdatePayeeCategoryRuleInput = z.infer<typeof updatePayeeCategoryRuleSchema>;
+
+export type CreateBudgetAccountNameInput = z.infer<typeof createBudgetAccountNameSchema>;
+export type UpdateBudgetAccountNameInput = z.infer<typeof updateBudgetAccountNameSchema>;
 
 export type ImportTransactionInput = z.infer<typeof importTransactionSchema>;
 export type ImportBulkInput = z.infer<typeof importBulkSchema>;

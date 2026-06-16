@@ -2,7 +2,7 @@
 
 // Enums
 export type TransactionType = 'income' | 'expense';
-export type TransactionSource = 'manual' | 'bank_import' | 'credit_card_import';
+export type TransactionSource = 'manual' | 'bank_import' | 'credit_card_import' | 'moneytor_sync';
 export type PaymentMethod = 'cash' | 'credit_card' | 'bank_transfer' | 'check' | 'other';
 
 // Interfaces

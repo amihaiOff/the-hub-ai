@@ -11,6 +11,7 @@ import {
   useTags,
   useUncategorizedCount,
   useSyncMoneytor,
+  useAccountNames,
   type TransactionFilters as FilterType,
 } from '@/lib/hooks/use-budget';
 import { getCurrentMonth } from '@/lib/utils/budget';
@@ -39,6 +40,7 @@ export default function TransactionsPage() {
   const { data: categoryGroups = [] } = useCategoryGroups();
   const { data: payees = [] } = usePayees();
   const { data: tags = [] } = useTags();
+  const { data: accountNames = [] } = useAccountNames();
   const { data: countData } = useUncategorizedCount(selectedMonth);
   const syncMoneytor = useSyncMoneytor();
 
@@ -167,6 +169,7 @@ export default function TransactionsPage() {
         categoryGroups={categoryGroups}
         payees={payees}
         tags={tags}
+        accountNames={accountNames}
         isLoading={isLoading}
       />
 
