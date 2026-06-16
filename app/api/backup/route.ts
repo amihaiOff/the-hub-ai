@@ -42,6 +42,8 @@ export async function GET() {
       budgetTags,
       budgetTransactions,
       budgetTransactionTags,
+      ccGenericPayeeNames,
+      budgetAccountNames,
       riseupCategories,
       payeeCategoryRules,
       insurancePolicies,
@@ -73,6 +75,8 @@ export async function GET() {
       prisma.budgetTag.findMany(),
       prisma.budgetTransaction.findMany(),
       prisma.budgetTransactionTag.findMany(),
+      prisma.ccGenericPayeeName.findMany(),
+      prisma.budgetAccountName.findMany(),
       prisma.riseupCategory.findMany(),
       prisma.payeeCategoryRule.findMany(),
       prisma.insurancePolicy.findMany(),
@@ -91,7 +95,7 @@ export async function GET() {
     // Create backup metadata
     const metadata = {
       backupDate: new Date().toISOString(),
-      schemaVersion: '1.5',
+      schemaVersion: '1.6',
       createdBy: user.email,
       counts: {
         users: users.length,
@@ -111,6 +115,8 @@ export async function GET() {
         budgetTags: budgetTags.length,
         budgetTransactions: budgetTransactions.length,
         budgetTransactionTags: budgetTransactionTags.length,
+        ccGenericPayeeNames: ccGenericPayeeNames.length,
+        budgetAccountNames: budgetAccountNames.length,
         riseupCategories: riseupCategories.length,
         payeeCategoryRules: payeeCategoryRules.length,
         insurancePolicies: insurancePolicies.length,
@@ -161,6 +167,8 @@ export async function GET() {
       'budget_transaction_tags.json',
       JSON.stringify(budgetTransactionTags, jsonSerializer, 2)
     );
+    zip.file('cc_generic_payee_names.json', JSON.stringify(ccGenericPayeeNames, jsonSerializer, 2));
+    zip.file('budget_account_names.json', JSON.stringify(budgetAccountNames, jsonSerializer, 2));
     zip.file('riseup_categories.json', JSON.stringify(riseupCategories, jsonSerializer, 2));
     zip.file('payee_category_rules.json', JSON.stringify(payeeCategoryRules, jsonSerializer, 2));
     zip.file('insurance_policies.json', JSON.stringify(insurancePolicies, jsonSerializer, 2));
