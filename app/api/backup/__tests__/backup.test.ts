@@ -33,6 +33,8 @@ jest.mock('@/lib/db', () => ({
     budgetTag: { findMany: jest.fn() },
     budgetTransaction: { findMany: jest.fn() },
     budgetTransactionTag: { findMany: jest.fn() },
+    ccGenericPayeeName: { findMany: jest.fn() },
+    budgetAccountName: { findMany: jest.fn() },
     riseupCategory: { findMany: jest.fn() },
     payeeCategoryRule: { findMany: jest.fn() },
     insurancePolicy: { findMany: jest.fn() },
@@ -294,6 +296,8 @@ describe('Backup API', () => {
       (mockPrisma.budgetTransactionTag.findMany as jest.Mock).mockResolvedValueOnce(
         mockBudgetTransactionTags
       );
+      (mockPrisma.ccGenericPayeeName.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetAccountName.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce(mockRiseupCategories);
       (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.insurancePolicy.findMany as jest.Mock).mockResolvedValueOnce([]);
@@ -341,6 +345,8 @@ describe('Backup API', () => {
       expect(zip.file('budget_tags.json')).not.toBeNull();
       expect(zip.file('budget_transactions.json')).not.toBeNull();
       expect(zip.file('budget_transaction_tags.json')).not.toBeNull();
+      expect(zip.file('cc_generic_payee_names.json')).not.toBeNull();
+      expect(zip.file('budget_account_names.json')).not.toBeNull();
       expect(zip.file('riseup_categories.json')).not.toBeNull();
       expect(zip.file('payee_category_rules.json')).not.toBeNull();
       expect(zip.file('insurance_policies.json')).not.toBeNull();
@@ -362,7 +368,7 @@ describe('Backup API', () => {
       // Verify metadata content
       const metadataContent = await zip.file('metadata.json')!.async('string');
       const metadata = JSON.parse(metadataContent);
-      expect(metadata.schemaVersion).toBe('1.5');
+      expect(metadata.schemaVersion).toBe('1.6');
       expect(metadata.createdBy).toBe('test@example.com');
       expect(metadata.counts).toEqual({
         users: 1,
@@ -382,6 +388,8 @@ describe('Backup API', () => {
         budgetTags: 1,
         budgetTransactions: 1,
         budgetTransactionTags: 1,
+        ccGenericPayeeNames: 0,
+        budgetAccountNames: 0,
         riseupCategories: 1,
         payeeCategoryRules: 0,
         insurancePolicies: 0,
@@ -430,6 +438,8 @@ describe('Backup API', () => {
       (mockPrisma.budgetTag.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.budgetTransactionTag.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.ccGenericPayeeName.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetAccountName.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.insurancePolicy.findMany as jest.Mock).mockResolvedValueOnce([]);
@@ -498,6 +508,8 @@ describe('Backup API', () => {
       (mockPrisma.budgetTag.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.budgetTransactionTag.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.ccGenericPayeeName.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetAccountName.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.insurancePolicy.findMany as jest.Mock).mockResolvedValueOnce([]);
