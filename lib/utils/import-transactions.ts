@@ -8,6 +8,8 @@ export interface ImportResult {
   payeesCreated: string[];
 }
 
+const CC_DEDUP_WINDOW_DAYS = 5;
+
 /**
  * Import transactions with payee resolution, duplicate detection,
  * Riseup category auto-creation, and DB-driven category mapping.
@@ -24,6 +26,13 @@ export async function importTransactions(
   if (transactions.length === 0) {
     return { created: 0, duplicatesSkipped: 0, payeesCreated: [] };
   }
+  // Fetch CC generic payee names configured by the household
+  const ccGenericRows = await prisma.ccGenericPayeeName.findMany({
+    where: { householdId },
+    select: { name: true },
+  });
+  const ccGenericNames = new Set(ccGenericRows.map((r) => r.name.toLowerCase().trim()));
+
   // Fetch active payee category rules for auto-categorization of new payees
   const payeeCategoryRules = await prisma.payeeCategoryRule.findMany({
     where: { householdId, isActive: true },
@@ -122,12 +131,18 @@ export async function importTransactions(
   const minDate = dates.reduce((a, b) => (a < b ? a : b));
   const maxDate = dates.reduce((a, b) => (a > b ? a : b));
 
+  // When CC generic names are configured, expand the window to catch matches
+  // that fall just outside the import batch's natural date range.
+  const windowMs = ccGenericNames.size > 0 ? CC_DEDUP_WINDOW_DAYS * 24 * 60 * 60 * 1000 : 0;
+  const queryMinDate = new Date(new Date(minDate).getTime() - windowMs);
+  const queryMaxDate = new Date(new Date(maxDate).getTime() + windowMs);
+
   const existingTransactions = await prisma.budgetTransaction.findMany({
     where: {
       householdId,
       transactionDate: {
-        gte: new Date(minDate),
-        lte: new Date(maxDate),
+        gte: queryMinDate,
+        lte: queryMaxDate,
       },
     },
     include: {
@@ -148,6 +163,27 @@ export async function importTransactions(
     existingKeys.add(key);
     existingByKey.set(key, { id: tx.id, moneytorId: tx.moneytorId });
     if (tx.moneytorId) existingMoneytorIds.add(tx.moneytorId);
+  }
+
+  // Build amount-keyed maps for CC generic dedup (only when feature is in use)
+  // genericByAmount: amount → list of {id, date} for existing CC-generic transactions
+  // nonGenericByAmount: amount → list of {date} for existing non-generic transactions
+  const genericByAmount = new Map<string, { id: string; date: Date }[]>();
+  const nonGenericByAmount = new Map<string, { date: Date }[]>();
+  if (ccGenericNames.size > 0) {
+    for (const tx of existingTransactions) {
+      const amtKey = Number(tx.amountIls).toFixed(2);
+      const payeeLower = tx.payee?.name?.toLowerCase().trim() ?? '';
+      if (ccGenericNames.has(payeeLower)) {
+        const arr = genericByAmount.get(amtKey) ?? [];
+        arr.push({ id: tx.id, date: tx.transactionDate });
+        genericByAmount.set(amtKey, arr);
+      } else {
+        const arr = nonGenericByAmount.get(amtKey) ?? [];
+        arr.push({ date: tx.transactionDate });
+        nonGenericByAmount.set(amtKey, arr);
+      }
+    }
   }
 
   // Also pre-check moneytorId hits OUTSIDE the date window — re-runs of sync after a
@@ -204,6 +240,46 @@ export async function importTransactions(
         }
       }
       continue;
+    }
+
+    // CC generic dedup: only runs when the household has generic names configured
+    if (ccGenericNames.size > 0) {
+      const amtKey = tx.amountIls.toFixed(2);
+      const txDate = new Date(tx.transactionDate);
+
+      if (ccGenericNames.has(payeeNameLower)) {
+        // Scenario A: incoming transaction IS generic — skip if a non-generic with same
+        // amount already exists within the dedup window.
+        const candidates = nonGenericByAmount.get(amtKey) ?? [];
+        const hasMatch = candidates.some(
+          (c) => Math.abs(c.date.getTime() - txDate.getTime()) <= windowMs
+        );
+        if (hasMatch) {
+          duplicatesSkipped++;
+          continue;
+        }
+      } else {
+        // Scenario B: incoming transaction is NOT generic — soft-delete any existing
+        // generic transaction with the same amount within the dedup window.
+        const candidates = genericByAmount.get(amtKey) ?? [];
+        const toDelete = candidates.filter(
+          (c) => Math.abs(c.date.getTime() - txDate.getTime()) <= windowMs
+        );
+        if (toDelete.length > 0) {
+          const ids = toDelete.map((c) => c.id);
+          await prisma.budgetTransaction.updateMany({
+            where: { id: { in: ids } },
+            data: { isDeleted: true },
+          });
+          // Remove from map so within-batch duplicates don't match again
+          const remaining = candidates.filter((c) => !ids.includes(c.id));
+          if (remaining.length > 0) {
+            genericByAmount.set(amtKey, remaining);
+          } else {
+            genericByAmount.delete(amtKey);
+          }
+        }
+      }
     }
 
     // Resolve payee (upsert to handle concurrent imports safely)
@@ -308,7 +384,7 @@ export async function importTransactions(
     }
 
     // Create the transaction
-    await prisma.budgetTransaction.create({
+    const newTx = await prisma.budgetTransaction.create({
       data: {
         type: tx.type,
         transactionDate: new Date(tx.transactionDate),
@@ -328,11 +404,28 @@ export async function importTransactions(
         householdId,
         moneytorId: tx.moneytorId ?? null,
       },
+      select: { id: true },
     });
 
     // Add to existing keys to prevent duplicates within the same batch
     existingKeys.add(dupKey);
     if (tx.moneytorId) existingMoneytorIds.add(tx.moneytorId);
+
+    // Keep within-batch CC dedup maps current
+    if (ccGenericNames.size > 0) {
+      const amtKey = tx.amountIls.toFixed(2);
+      const txDate = new Date(tx.transactionDate);
+      if (ccGenericNames.has(payeeNameLower)) {
+        const arr = genericByAmount.get(amtKey) ?? [];
+        arr.push({ id: newTx.id, date: txDate });
+        genericByAmount.set(amtKey, arr);
+      } else {
+        const arr = nonGenericByAmount.get(amtKey) ?? [];
+        arr.push({ date: txDate });
+        nonGenericByAmount.set(amtKey, arr);
+      }
+    }
+
     created++;
   }
 

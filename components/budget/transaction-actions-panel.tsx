@@ -10,7 +10,7 @@ import {
   type BudgetTransaction,
   getCategoryWithGroup,
 } from '@/lib/utils/budget';
-import { useUpdateTransaction } from '@/lib/hooks/use-budget';
+import { useUpdateTransaction, type BudgetAccountName } from '@/lib/hooks/use-budget';
 import { CategoryPickerSheet } from './category-picker-sheet';
 import { TagPickerSheet } from './tag-picker-sheet';
 import type { PayeeCategoryPromptData } from './transaction-row';
@@ -20,6 +20,7 @@ interface TransactionActionsPanelProps {
   categoryGroups: BudgetCategoryGroup[];
   payees: BudgetPayee[];
   tags: BudgetTag[];
+  accountNames: BudgetAccountName[];
   onEdit: () => void;
   onSplit: () => void;
   onDelete: () => void;
@@ -31,6 +32,7 @@ export function TransactionActionsPanel({
   categoryGroups,
   payees,
   tags,
+  accountNames,
   onEdit,
   onSplit,
   onDelete,
@@ -43,6 +45,12 @@ export function TransactionActionsPanel({
   const isIncome = transaction.type === 'income';
   const groupInfo = getCategoryWithGroup(transaction.categoryId, categoryGroups);
   const transactionTags = tags.filter((t) => transaction.tagIds.includes(t.id));
+
+  // Resolve the friendly account name from the payment identifier, falling back to the raw value.
+  const accountLabel = transaction.paymentIdentifier
+    ? (accountNames.find((a) => a.accountNumber === transaction.paymentIdentifier)?.name ??
+      transaction.paymentIdentifier)
+    : null;
 
   const handleCategorySelect = (newCategoryId: string | null) => {
     updateTransaction.mutate(
@@ -106,6 +114,17 @@ export function TransactionActionsPanel({
           </div>
           <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0" />
         </button>
+
+        {accountLabel && (
+          <div className="flex min-h-12 w-full items-center gap-3 px-3 py-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                Account
+              </div>
+              <div className="truncate text-sm">{accountLabel}</div>
+            </div>
+          </div>
+        )}
 
         <button
           type="button"
