@@ -76,8 +76,12 @@ model Household {
   id          String   @id @default(cuid())
   name        String
   description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  // First day of the budget cycle. When set to e.g. 10, asking the app for
+  // "June" means transactions from June 10 (inclusive) to July 10 (exclusive).
+  // Defaults to 1 (calendar month) for back-compat.
+  billingCycleStartDay Int      @default(1) @map("billing_cycle_start_day")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
   // Members
   members HouseholdMember[]

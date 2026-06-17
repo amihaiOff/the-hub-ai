@@ -1,9 +1,11 @@
 'use client';
 
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { formatMonth, getPreviousMonth, getNextMonth, getCurrentMonth } from '@/lib/utils/budget';
+import { monthToCycleRange } from '@/lib/utils/billing-cycle';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 
@@ -14,9 +16,33 @@ interface MonthSelectorProps {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+function formatCycleRangeLabel(month: string, startDay: number): string {
+  const { from, to } = monthToCycleRange(month, startDay);
+  // Range bounds are UTC instants (see monthToCycleRange). Use UTC accessors
+  // so the label doesn't shift by a day in zones east of UTC. `to` is the
+  // exclusive upper bound — subtract one day to show an inclusive "to" label.
+  const lastDay = new Date(to.getTime() - 24 * 60 * 60 * 1000);
+  const fromLabel = `${MONTHS[from.getUTCMonth()]} ${from.getUTCDate()}`;
+  const toLabel = `${MONTHS[lastDay.getUTCMonth()]} ${lastDay.getUTCDate()}`;
+  return `${fromLabel} – ${toLabel}`;
+}
+
 export function MonthSelector({ selectedMonth, onMonthChange }: MonthSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const currentMonth = getCurrentMonth();
+
+  const billingCycle = useQuery({
+    queryKey: ['settings', 'billing-cycle'],
+    queryFn: async () => {
+      const res = await fetch('/api/settings/billing-cycle');
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      return data.data as { startDay: number };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  const startDay = billingCycle.data?.startDay ?? 1;
+  const showRange = startDay !== 1;
 
   // Parse selected month for the picker view
   const [selectedYear] = selectedMonth.split('-').map(Number);
@@ -70,10 +96,20 @@ export function MonthSelector({ selectedMonth, onMonthChange }: MonthSelectorPro
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            className="min-w-[130px] justify-center gap-2 text-sm sm:min-w-[160px]"
+            className={cn(
+              'min-w-[130px] justify-center gap-2 text-sm sm:min-w-[160px]',
+              showRange && 'h-auto py-1.5'
+            )}
           >
-            <Calendar className="h-4 w-4" />
-            {formatMonth(selectedMonth)}
+            <Calendar className="h-4 w-4 shrink-0" />
+            <span className="flex flex-col items-center leading-tight">
+              <span>{formatMonth(selectedMonth)}</span>
+              {showRange && (
+                <span className="text-muted-foreground text-[10px]">
+                  {formatCycleRangeLabel(selectedMonth, startDay)}
+                </span>
+              )}
+            </span>
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[280px] p-3" align="center">

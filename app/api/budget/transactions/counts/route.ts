@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { Prisma } from '@prisma/client';
+import { getCycleRangeForHousehold } from '@/lib/utils/billing-cycle-server';
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,10 +31,8 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         );
       }
-      const [year, monthNum] = month.split('-').map(Number);
-      const startDate = new Date(year, monthNum - 1, 1);
-      const endDate = new Date(year, monthNum, 1);
-      where.transactionDate = { gte: startDate, lt: endDate };
+      const { from, to } = await getCycleRangeForHousehold(householdId, month);
+      where.transactionDate = { gte: from, lt: to };
     }
 
     const uncategorized = await prisma.budgetTransaction.count({ where });
