@@ -53,7 +53,7 @@ export default function TransactionsPage() {
       {/* Header */}
       <div className="flex flex-col items-center gap-3">
         <div className="flex w-full items-center justify-between gap-3 sm:justify-center">
-          <h1 className="text-2xl font-bold tracking-tight text-amber-100/95 lg:text-3xl">
+          <h1 className="text-2xl font-bold tracking-tight text-[#ead9bd] lg:text-3xl">
             Transactions
           </h1>
           <MonthSelector selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
