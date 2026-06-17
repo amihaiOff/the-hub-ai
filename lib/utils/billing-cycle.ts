@@ -29,17 +29,18 @@ function parseMonth(month: string): { year: number; monthNum: number } {
 
 /**
  * Returns the [from, to) range a `YYYY-MM` value covers under the given
- * cycle start day. `from` is `YYYY-MM-<startDay> 00:00:00` and `to` is the
- * same wall-clock instant one calendar month later.
- *
- * Dates are constructed in local time — matches the existing route code,
- * which uses `new Date(year, monthNum - 1, 1)`.
+ * cycle start day. Boundaries are built in UTC because Prisma's `@db.Date`
+ * binding takes a JS Date's UTC date part (`.toISOString().slice(0, 10)`) —
+ * a local-time boundary in a +HH:MM zone would silently move the bound by
+ * a day. With UTC, `monthToCycleRange("2026-06", 10).from.toISOString()`
+ * is exactly `2026-06-10T00:00:00.000Z`, which Postgres compares to a
+ * DATE column as `2026-06-10` — Jun 9 falls in the prior cycle.
  */
 export function monthToCycleRange(month: string, startDay: number): CycleRange {
   const { year, monthNum } = parseMonth(month);
   const safeStart = clampStartDay(startDay);
-  const from = new Date(year, monthNum - 1, safeStart);
-  const to = new Date(year, monthNum, safeStart);
+  const from = new Date(Date.UTC(year, monthNum - 1, safeStart));
+  const to = new Date(Date.UTC(year, monthNum, safeStart));
   return { from, to };
 }
 

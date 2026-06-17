@@ -18,11 +18,12 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 function formatCycleRangeLabel(month: string, startDay: number): string {
   const { from, to } = monthToCycleRange(month, startDay);
-  // `to` is exclusive — show "Jun 10 – Jul 9" so the upper bound reads as inclusive.
-  const lastDay = new Date(to.getTime());
-  lastDay.setDate(lastDay.getDate() - 1);
-  const fromLabel = `${MONTHS[from.getMonth()]} ${from.getDate()}`;
-  const toLabel = `${MONTHS[lastDay.getMonth()]} ${lastDay.getDate()}`;
+  // Range bounds are UTC instants (see monthToCycleRange). Use UTC accessors
+  // so the label doesn't shift by a day in zones east of UTC. `to` is the
+  // exclusive upper bound — subtract one day to show an inclusive "to" label.
+  const lastDay = new Date(to.getTime() - 24 * 60 * 60 * 1000);
+  const fromLabel = `${MONTHS[from.getUTCMonth()]} ${from.getUTCDate()}`;
+  const toLabel = `${MONTHS[lastDay.getUTCMonth()]} ${lastDay.getUTCDate()}`;
   return `${fromLabel} – ${toLabel}`;
 }
 
