@@ -52,8 +52,12 @@ export default function TransactionsPage() {
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col items-center gap-3">
-        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Transactions</h1>
-        <MonthSelector selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
+        <div className="flex w-full items-center justify-between gap-3 sm:justify-center">
+          <h1 className="text-2xl font-bold tracking-tight text-amber-100/95 lg:text-3xl">
+            Transactions
+          </h1>
+          <MonthSelector selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
+        </div>
         <div className="w-full max-w-lg">
           <TransactionFilters filters={filters} onFiltersChange={setFilters} />
         </div>
