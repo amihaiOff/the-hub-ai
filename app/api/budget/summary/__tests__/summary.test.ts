@@ -24,6 +24,17 @@ jest.mock('@/lib/db', () => ({
   },
 }));
 
+// Mock billing-cycle helper so tests don't need a household record. Returns
+// calendar-month dates derived from the YYYY-MM string — same shape the route
+// previously computed inline.
+jest.mock('@/lib/utils/billing-cycle-server', () => ({
+  __esModule: true,
+  getCycleRangeForHousehold: (_id: string, month: string) => {
+    const [y, m] = month.split('-').map(Number);
+    return Promise.resolve({ from: new Date(y, m - 1, 1), to: new Date(y, m, 1) });
+  },
+}));
+
 // Mock auth utilities
 jest.mock('@/lib/auth-utils', () => ({
   getCurrentContext: jest.fn(),

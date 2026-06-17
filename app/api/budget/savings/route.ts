@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { Prisma } from '@prisma/client';
+import { getCycleRangeForHousehold } from '@/lib/utils/billing-cycle-server';
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -22,14 +23,6 @@ function validateAmount(amount: unknown): number | null {
   )
     return null;
   return amount;
-}
-
-function parseMonthDates(month: string) {
-  const [year, mon] = month.split('-').map(Number);
-  return {
-    startDate: new Date(year, mon - 1, 1),
-    endDate: new Date(year, mon, 1),
-  };
 }
 
 /**
@@ -214,7 +207,7 @@ export async function POST(request: NextRequest) {
     }
 
     const categoryId = await getOrCreateSavingsCategory(householdId);
-    const { startDate } = parseMonthDates(month);
+    const { from: startDate } = await getCycleRangeForHousehold(householdId, month);
 
     const transaction = await prisma.budgetTransaction.create({
       data: {
@@ -287,7 +280,7 @@ export async function PUT(request: NextRequest) {
     }
     const categoryId = existing.id;
 
-    const { startDate, endDate } = parseMonthDates(month);
+    const { from: startDate, to: endDate } = await getCycleRangeForHousehold(householdId, month);
 
     // Atomic delete + create to prevent data loss on partial failure
     const transaction = await prisma.$transaction(async (tx) => {
@@ -368,7 +361,7 @@ export async function DELETE(request: NextRequest) {
     }
     const categoryId = existing.id;
 
-    const { startDate, endDate } = parseMonthDates(month);
+    const { from: startDate, to: endDate } = await getCycleRangeForHousehold(householdId, month);
 
     // Delete individually (Neon poolQueryViaFetch compatibility)
     const toDelete = await prisma.budgetTransaction.findMany({

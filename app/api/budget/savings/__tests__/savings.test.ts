@@ -45,6 +45,16 @@ jest.mock('@/lib/auth-utils', () => ({
   getCurrentContext: jest.fn(),
 }));
 
+// Mock billing-cycle helper — returns calendar-month range matching what the
+// route previously computed inline.
+jest.mock('@/lib/utils/billing-cycle-server', () => ({
+  __esModule: true,
+  getCycleRangeForHousehold: (_id: string, month: string) => {
+    const [y, m] = month.split('-').map(Number);
+    return Promise.resolve({ from: new Date(y, m - 1, 1), to: new Date(y, m, 1) });
+  },
+}));
+
 import { prisma } from '@/lib/db';
 import { getCurrentContext } from '@/lib/auth-utils';
 import { GET, POST, PUT, DELETE } from '../route';

@@ -3,6 +3,7 @@ import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { createTransactionSchema, transactionFiltersSchema } from '@/lib/validations/budget';
 import { getFirstZodError } from '@/lib/validations/common';
+import { getCycleRangeForHousehold } from '@/lib/utils/billing-cycle-server';
 import { Prisma } from '@prisma/client';
 
 /**
@@ -123,12 +124,10 @@ export async function GET(request: NextRequest) {
 
     // Date filters
     if (filters.month) {
-      const [year, month] = filters.month.split('-').map(Number);
-      const startDate = new Date(year, month - 1, 1);
-      const endDate = new Date(year, month, 0); // Last day of month
+      const { from, to } = await getCycleRangeForHousehold(householdId, filters.month);
       where.transactionDate = {
-        gte: startDate,
-        lte: endDate,
+        gte: from,
+        lt: to,
       };
     } else {
       if (filters.startDate) {

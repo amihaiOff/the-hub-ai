@@ -3,6 +3,7 @@ import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { summaryQuerySchema } from '@/lib/validations/budget';
 import { getFirstZodError } from '@/lib/validations/common';
+import { getCycleRangeForHousehold } from '@/lib/utils/billing-cycle-server';
 
 /**
  * GET /api/budget/summary
@@ -31,10 +32,9 @@ export async function GET(request: NextRequest) {
 
     const { month } = validation.data;
 
-    // Parse month to date range
-    const [year, monthNum] = month.split('-').map(Number);
-    const startDate = new Date(year, monthNum - 1, 1);
-    const endDate = new Date(year, monthNum, 0); // Last day of month
+    // The month string identifies the cycle whose start day falls in that
+    // calendar month — actual date range depends on Household.billingCycleStartDay.
+    const { from, to } = await getCycleRangeForHousehold(householdId, month);
 
     // Fetch category groups and transactions in parallel (no dependency between them)
     const [categoryGroups, transactions] = await Promise.all([
@@ -51,8 +51,8 @@ export async function GET(request: NextRequest) {
         where: {
           householdId,
           transactionDate: {
-            gte: startDate,
-            lte: endDate,
+            gte: from,
+            lt: to,
           },
           // Exclude split parent transactions (only count children)
           isSplit: false,
