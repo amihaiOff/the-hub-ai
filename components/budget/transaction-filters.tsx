@@ -261,7 +261,10 @@ export function ActiveFilterBadges({ filters, onRemoveFilter }: ActiveFilterBadg
   }
   if (filters.accountNumber) {
     const account = accountNames.find((a) => a.accountNumber === filters.accountNumber);
-    badges.push({ key: 'accountNumber', label: `Account: ${account?.name || filters.accountNumber}` });
+    badges.push({
+      key: 'accountNumber',
+      label: `Account: ${account?.name || filters.accountNumber}`,
+    });
   }
 
   if (badges.length === 0) return null;

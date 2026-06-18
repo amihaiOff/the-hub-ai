@@ -116,4 +116,64 @@ describe('transactionFiltersSchema', () => {
       }
     });
   });
+
+  describe('accountNumber field', () => {
+    it('should accept a valid account number string', () => {
+      const result = transactionFiltersSchema.safeParse({ accountNumber: '1234567890' });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.accountNumber).toBe('1234567890');
+      }
+    });
+
+    it('should accept omitted accountNumber (optional)', () => {
+      const result = transactionFiltersSchema.safeParse({});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.accountNumber).toBeUndefined();
+      }
+    });
+
+    it('should accept accountNumber combined with month filter', () => {
+      const result = transactionFiltersSchema.safeParse({
+        accountNumber: '****-1234',
+        month: '2024-06',
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.accountNumber).toBe('****-1234');
+        expect(result.data.month).toBe('2024-06');
+      }
+    });
+
+    it('should accept accountNumber combined with type filter', () => {
+      const result = transactionFiltersSchema.safeParse({
+        accountNumber: '****-5678',
+        type: 'expense',
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.accountNumber).toBe('****-5678');
+        expect(result.data.type).toBe('expense');
+      }
+    });
+
+    it('should accept accountNumber combined with uncategorized filter', () => {
+      const result = transactionFiltersSchema.safeParse({
+        accountNumber: '9999',
+        uncategorized: true,
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.accountNumber).toBe('9999');
+        expect(result.data.uncategorized).toBe(true);
+      }
+    });
+
+    it('should accept an empty string accountNumber', () => {
+      // z.string() allows empty strings; the API layer handles no-op filtering
+      const result = transactionFiltersSchema.safeParse({ accountNumber: '' });
+      expect(result.success).toBe(true);
+    });
+  });
 });

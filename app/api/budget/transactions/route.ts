@@ -101,7 +101,8 @@ export async function GET(request: NextRequest) {
       filterParams.tagIds = searchParams.get('tagIds')!.split(',');
     }
     if (searchParams.get('uncategorized') === 'true') filterParams.uncategorized = true;
-    if (searchParams.get('accountNumber')) filterParams.accountNumber = searchParams.get('accountNumber');
+    if (searchParams.get('accountNumber'))
+      filterParams.accountNumber = searchParams.get('accountNumber');
 
     const validation = transactionFiltersSchema.safeParse(filterParams);
 

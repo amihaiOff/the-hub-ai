@@ -307,6 +307,65 @@ describe('Transactions API', () => {
       expect(callArgs.where.categoryId).toBeNull();
       expect(callArgs.where.type).toBe('expense');
     });
+
+    it('should filter transactions by accountNumber mapped to paymentIdentifier', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTransaction.count as jest.Mock).mockResolvedValueOnce(0);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/budget/transactions?accountNumber=****-1234'
+      );
+      await GET(request);
+
+      const callArgs = (mockPrisma.budgetTransaction.findMany as jest.Mock).mock.calls[0][0];
+      expect(callArgs.where.paymentIdentifier).toBe('****-1234');
+    });
+
+    it('should not set paymentIdentifier when accountNumber param is absent', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTransaction.count as jest.Mock).mockResolvedValueOnce(0);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+
+      const request = new NextRequest('http://localhost:3000/api/budget/transactions');
+      await GET(request);
+
+      const callArgs = (mockPrisma.budgetTransaction.findMany as jest.Mock).mock.calls[0][0];
+      expect(callArgs.where.paymentIdentifier).toBeUndefined();
+    });
+
+    it('should combine accountNumber filter with month filter', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTransaction.count as jest.Mock).mockResolvedValueOnce(2);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/budget/transactions?accountNumber=9999&month=2024-06'
+      );
+      await GET(request);
+
+      const callArgs = (mockPrisma.budgetTransaction.findMany as jest.Mock).mock.calls[0][0];
+      expect(callArgs.where.paymentIdentifier).toBe('9999');
+      expect(callArgs.where.transactionDate).toEqual({
+        gte: expect.any(Date),
+        lt: expect.any(Date),
+      });
+    });
+
+    it('should combine accountNumber filter with type filter', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTransaction.count as jest.Mock).mockResolvedValueOnce(0);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/budget/transactions?accountNumber=****-5678&type=income'
+      );
+      await GET(request);
+
+      const callArgs = (mockPrisma.budgetTransaction.findMany as jest.Mock).mock.calls[0][0];
+      expect(callArgs.where.paymentIdentifier).toBe('****-5678');
+      expect(callArgs.where.type).toBe('income');
+    });
   });
 
   describe('POST /api/budget/transactions', () => {
