@@ -58,13 +58,8 @@ export default function TransactionsPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header — just the (chromeless) month picker, centered */}
-      <div className="flex flex-col items-center gap-3">
-        <div className="flex w-full items-center justify-center">
-          <MonthSelector selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
-        </div>
-        <div className="w-full max-w-lg">
-          <TransactionFilters filters={filters} onFiltersChange={setFilters} />
-        </div>
+      <div className="flex w-full items-center justify-center">
+        <MonthSelector selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
       </div>
 
       {/* Error State */}
@@ -108,9 +103,6 @@ export default function TransactionsPage() {
           </CardContent>
         </Card>
       )}
-
-      {/* Active Filter Badges */}
-      <ActiveFilterBadges filters={filters} onRemoveFilter={handleRemoveFilter} />
 
       {/* Stats — same shape & density as the Overview BudgetSummary card */}
       <div className="bg-card divide-border border-border flex items-center divide-x rounded-lg border px-1 py-3 sm:py-4">
@@ -168,6 +160,14 @@ export default function TransactionsPage() {
           </p>
         </button>
       </div>
+
+      {/* Search / filters */}
+      <div className="mx-auto w-full max-w-lg">
+        <TransactionFilters filters={filters} onFiltersChange={setFilters} />
+      </div>
+
+      {/* Active Filter Badges */}
+      <ActiveFilterBadges filters={filters} onRemoveFilter={handleRemoveFilter} />
 
       {/* Action Buttons */}
       <div className="flex items-center gap-2">
