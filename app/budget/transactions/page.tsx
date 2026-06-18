@@ -126,10 +126,10 @@ export default function TransactionsPage() {
 
       {/* Stats Card — icon on the left of each value, sum styled in budget-blue */}
       <Card>
-        <CardContent className="py-3">
+        <CardContent className="px-2 py-2">
           <div className="divide-border flex items-center divide-x">
             {/* Transaction count */}
-            <div className="flex flex-1 items-center justify-center gap-2 px-4">
+            <div className="flex flex-1 items-center justify-center gap-1.5 px-2">
               <Hash className="text-muted-foreground h-4 w-4 shrink-0" />
               <span className="text-lg font-semibold tabular-nums">
                 {isLoading ? '—' : transactions.length}
@@ -137,7 +137,7 @@ export default function TransactionsPage() {
             </div>
 
             {/* Net sum — always in the same blue used by the Overview totals */}
-            <div className="flex flex-1 items-center justify-center gap-2 px-4">
+            <div className="flex flex-1 items-center justify-center gap-1.5 px-2">
               <Sigma className="text-muted-foreground h-4 w-4 shrink-0" />
               <span className="text-lg font-semibold text-[#6ab2ff] tabular-nums">
                 {isLoading
@@ -151,7 +151,7 @@ export default function TransactionsPage() {
             {/* Uncategorized — same icon as the Categories nav tab */}
             <button
               className={cn(
-                'flex flex-1 items-center justify-center gap-2 px-4 transition-opacity',
+                'flex flex-1 items-center justify-center gap-1.5 px-2 transition-opacity',
                 uncategorizedCount === 0 && 'opacity-40',
                 uncategorizedCount > 0 && 'cursor-pointer hover:opacity-80'
               )}
