@@ -126,7 +126,7 @@ export default function TransactionsPage() {
 
       {/* Stats Card — icon on the left of each value, sum styled in budget-blue */}
       <Card>
-        <CardContent className="px-2 py-2">
+        <CardContent className="px-1 py-3 sm:py-4">
           <div className="divide-border flex items-center divide-x">
             {/* Transaction count */}
             <div className="flex flex-1 flex-col items-center justify-center gap-1 px-2">
