@@ -161,16 +161,11 @@ export default function TransactionsPage() {
         </button>
       </div>
 
-      {/* Search / filters */}
-      <div className="mx-auto w-full max-w-lg">
-        <TransactionFilters filters={filters} onFiltersChange={setFilters} />
-      </div>
-
-      {/* Active Filter Badges */}
-      <ActiveFilterBadges filters={filters} onRemoveFilter={handleRemoveFilter} />
-
-      {/* Action Buttons */}
+      {/* Search + actions on one row: search takes remaining width, buttons stay right-aligned */}
       <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <TransactionFilters filters={filters} onFiltersChange={setFilters} />
+        </div>
         <Button
           variant="outline"
           size="icon"
@@ -208,6 +203,9 @@ export default function TransactionsPage() {
           <Plus className="h-4 w-4" />
         </Button>
       </div>
+
+      {/* Active Filter Badges */}
+      <ActiveFilterBadges filters={filters} onRemoveFilter={handleRemoveFilter} />
 
       {/* Transaction Table */}
       <TransactionTable
