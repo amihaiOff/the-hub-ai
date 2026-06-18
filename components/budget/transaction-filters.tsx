@@ -17,6 +17,7 @@ import {
   useCategoryGroups,
   usePayees,
   useTags,
+  useAccountNames,
 } from '@/lib/hooks/use-budget';
 import { CategorySelect } from './category-select';
 
@@ -30,6 +31,7 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
   const { data: categoryGroups = [] } = useCategoryGroups();
   const { data: payees = [] } = usePayees();
   const { data: tags = [] } = useTags();
+  const { data: accountNames = [] } = useAccountNames();
 
   const activeFilterCount = [
     filters.categoryId,
@@ -37,6 +39,7 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
     filters.tagId,
     filters.type,
     filters.uncategorized,
+    filters.accountNumber,
   ].filter(Boolean).length;
 
   const clearFilters = () => {
@@ -47,6 +50,7 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
       tagId: undefined,
       type: undefined,
       uncategorized: undefined,
+      accountNumber: undefined,
     });
   };
 
@@ -186,6 +190,34 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Account */}
+            {accountNames.length > 0 && (
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Account</label>
+                <Select
+                  value={filters.accountNumber || 'all'}
+                  onValueChange={(value) =>
+                    onFiltersChange({
+                      ...filters,
+                      accountNumber: value === 'all' ? undefined : value,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All accounts" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All accounts</SelectItem>
+                    {accountNames.map((account) => (
+                      <SelectItem key={account.id} value={account.accountNumber}>
+                        {account.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
         </PopoverContent>
       </Popover>
@@ -203,6 +235,7 @@ export function ActiveFilterBadges({ filters, onRemoveFilter }: ActiveFilterBadg
   const { data: categoryGroups = [] } = useCategoryGroups();
   const { data: payees = [] } = usePayees();
   const { data: tags = [] } = useTags();
+  const { data: accountNames = [] } = useAccountNames();
 
   const badges: { key: keyof FilterType; label: string }[] = [];
 
@@ -225,6 +258,13 @@ export function ActiveFilterBadges({ filters, onRemoveFilter }: ActiveFilterBadg
   }
   if (filters.uncategorized) {
     badges.push({ key: 'uncategorized', label: 'Uncategorized' });
+  }
+  if (filters.accountNumber) {
+    const account = accountNames.find((a) => a.accountNumber === filters.accountNumber);
+    badges.push({
+      key: 'accountNumber',
+      label: `Account: ${account?.name || filters.accountNumber}`,
+    });
   }
 
   if (badges.length === 0) return null;

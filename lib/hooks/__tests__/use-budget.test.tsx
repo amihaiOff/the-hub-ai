@@ -264,6 +264,62 @@ describe('Budget Hooks', () => {
       expect(result.current.data).toHaveLength(1);
       expect(result.current.data?.[0].id).toBe('tx-1');
     });
+
+    it('should pass accountNumber param when filter is set', async () => {
+      const mockTransactions = {
+        items: [{ id: 'tx-1', amountIls: 100 }],
+        pagination: { total: 1, limit: 1000, offset: 0, hasMore: false },
+      };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: mockTransactions }),
+      });
+
+      const { result } = renderHook(() => useTransactions({ accountNumber: '****-1234' }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      const fetchUrl = mockFetch.mock.calls[0][0] as string;
+      expect(fetchUrl).toContain('accountNumber=');
+    });
+
+    it('should not pass accountNumber param when filter is undefined', async () => {
+      const mockTransactions = {
+        items: [],
+        pagination: { total: 0, limit: 1000, offset: 0, hasMore: false },
+      };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: mockTransactions }),
+      });
+
+      const { result } = renderHook(() => useTransactions({ month: '2024-06' }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      const fetchUrl = mockFetch.mock.calls[0][0] as string;
+      expect(fetchUrl).not.toContain('accountNumber');
+    });
+
+    it('should combine accountNumber with month filter', async () => {
+      const mockTransactions = {
+        items: [],
+        pagination: { total: 0, limit: 1000, offset: 0, hasMore: false },
+      };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: mockTransactions }),
+      });
+
+      const { result } = renderHook(
+        () => useTransactions({ accountNumber: '9999', month: '2024-06' }),
+        { wrapper: createWrapper() }
+      );
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      const fetchUrl = mockFetch.mock.calls[0][0] as string;
+      expect(fetchUrl).toContain('accountNumber=9999');
+      expect(fetchUrl).toContain('month=2024-06');
+    });
   });
 
   describe('useCategoryGroups', () => {

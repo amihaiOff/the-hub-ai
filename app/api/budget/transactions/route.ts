@@ -101,6 +101,8 @@ export async function GET(request: NextRequest) {
       filterParams.tagIds = searchParams.get('tagIds')!.split(',');
     }
     if (searchParams.get('uncategorized') === 'true') filterParams.uncategorized = true;
+    if (searchParams.get('accountNumber'))
+      filterParams.accountNumber = searchParams.get('accountNumber');
 
     const validation = transactionFiltersSchema.safeParse(filterParams);
 
@@ -150,6 +152,7 @@ export async function GET(request: NextRequest) {
     if (filters.profileId) where.profileId = filters.profileId;
     if (filters.source) where.source = filters.source;
     if (filters.paymentMethod) where.paymentMethod = filters.paymentMethod;
+    if (filters.accountNumber) where.paymentIdentifier = filters.accountNumber;
 
     // Uncategorized filter takes precedence over categoryId and tagIds
     // Income transactions are never considered uncategorized

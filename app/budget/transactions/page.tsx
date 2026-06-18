@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Upload, AlertCircle, RefreshCw, History } from 'lucide-react';
+import { Plus, Upload, AlertCircle, RefreshCw, History, Hash, Sigma, FolderX } from 'lucide-react';
 import {
   useTransactions,
   useCategoryGroups,
@@ -14,7 +14,8 @@ import {
   useAccountNames,
   type TransactionFilters as FilterType,
 } from '@/lib/hooks/use-budget';
-import { getCurrentMonth } from '@/lib/utils/budget';
+import { getCurrentMonth, formatCurrencyILS } from '@/lib/utils/budget';
+import { cn } from '@/lib/utils';
 import {
   TransactionTable,
   AddTransactionDialog,
@@ -48,52 +49,24 @@ export default function TransactionsPage() {
     setFilters((prev) => ({ ...prev, [key]: undefined }));
   };
 
+  const sum = transactions.reduce(
+    (acc, tx) => acc + (tx.type === 'income' ? tx.amountIls : -tx.amountIls),
+    0
+  );
+  const uncategorizedCount = countData?.uncategorized ?? 0;
+
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col items-center gap-3">
-        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Transactions</h1>
-        <MonthSelector selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
+        <div className="flex w-full items-center justify-between gap-3 sm:justify-center">
+          <h1 className="text-2xl font-bold tracking-tight text-sky-400 lg:text-3xl">
+            Transactions
+          </h1>
+          <MonthSelector selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
+        </div>
         <div className="w-full max-w-lg">
           <TransactionFilters filters={filters} onFiltersChange={setFilters} />
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            className="shrink-0"
-            onClick={() => syncMoneytor.mutate()}
-            disabled={syncMoneytor.isPending}
-            title="Sync with Moneytor"
-          >
-            <RefreshCw className={`h-4 w-4 ${syncMoneytor.isPending ? 'animate-spin' : ''}`} />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="shrink-0"
-            onClick={() => setShowForceResync(true)}
-            title="Force re-sync a date range from Moneytor"
-          >
-            <History className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="shrink-0"
-            onClick={() => setShowImportCsv(true)}
-            title="Import CSV"
-          >
-            <Upload className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="shrink-0"
-            onClick={() => setShowAddTransaction(true)}
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
         </div>
       </div>
 
@@ -142,25 +115,113 @@ export default function TransactionsPage() {
       {/* Active Filter Badges */}
       <ActiveFilterBadges filters={filters} onRemoveFilter={handleRemoveFilter} />
 
-      {/* Transaction Count */}
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">
-          {isLoading ? 'Loading...' : `${transactions.length} transactions`}
-        </span>
-        {!isLoading && (countData?.uncategorized ?? 0) > 0 && (
-          <button
-            className="text-destructive hover:text-destructive/80 font-medium underline-offset-2 hover:underline"
-            onClick={() =>
-              setFilters((prev) =>
-                prev.uncategorized
-                  ? { ...prev, uncategorized: undefined }
-                  : { ...prev, uncategorized: true }
-              )
-            }
-          >
-            {countData?.uncategorized} uncategorized
-          </button>
-        )}
+      {/* Stats Card */}
+      <Card>
+        <CardContent className="py-3">
+          <div className="divide-border flex items-center divide-x">
+            {/* Transaction count */}
+            <div className="flex flex-1 flex-col items-center gap-1 px-4">
+              <Hash className="text-muted-foreground h-4 w-4" />
+              <span className="text-lg font-semibold tabular-nums">
+                {isLoading ? '—' : transactions.length}
+              </span>
+            </div>
+
+            {/* Net sum */}
+            <div className="flex flex-1 flex-col items-center gap-1 px-4">
+              <Sigma className="text-muted-foreground h-4 w-4" />
+              <span
+                className={cn(
+                  'text-lg font-semibold tabular-nums',
+                  !isLoading && transactions.length > 0
+                    ? sum >= 0
+                      ? 'text-green-500'
+                      : 'text-red-500'
+                    : ''
+                )}
+              >
+                {isLoading
+                  ? '—'
+                  : transactions.length === 0
+                    ? '—'
+                    : `${sum >= 0 ? '+' : ''}${formatCurrencyILS(Math.abs(sum))}`}
+              </span>
+            </div>
+
+            {/* Uncategorized */}
+            <button
+              className={cn(
+                'flex flex-1 flex-col items-center gap-1 px-4 transition-opacity',
+                uncategorizedCount === 0 && 'opacity-40',
+                uncategorizedCount > 0 && 'cursor-pointer hover:opacity-80'
+              )}
+              disabled={uncategorizedCount === 0}
+              onClick={() =>
+                uncategorizedCount > 0 &&
+                setFilters((prev) =>
+                  prev.uncategorized
+                    ? { ...prev, uncategorized: undefined }
+                    : { ...prev, uncategorized: true }
+                )
+              }
+            >
+              <FolderX
+                className={cn(
+                  'h-4 w-4',
+                  uncategorizedCount > 0 ? 'text-destructive' : 'text-muted-foreground'
+                )}
+              />
+              <span
+                className={cn(
+                  'text-lg font-semibold tabular-nums',
+                  uncategorizedCount > 0 && 'text-destructive'
+                )}
+              >
+                {isLoading ? '—' : uncategorizedCount}
+              </span>
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Action Buttons */}
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          className="shrink-0"
+          onClick={() => syncMoneytor.mutate()}
+          disabled={syncMoneytor.isPending}
+          title="Sync with Moneytor"
+        >
+          <RefreshCw className={`h-4 w-4 ${syncMoneytor.isPending ? 'animate-spin' : ''}`} />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="shrink-0"
+          onClick={() => setShowForceResync(true)}
+          title="Force re-sync a date range from Moneytor"
+        >
+          <History className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="shrink-0"
+          onClick={() => setShowImportCsv(true)}
+          title="Import CSV"
+        >
+          <Upload className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="shrink-0"
+          onClick={() => setShowAddTransaction(true)}
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Transaction Table */}

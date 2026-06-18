@@ -118,6 +118,7 @@ export interface TransactionFilters {
   type?: 'income' | 'expense';
   searchQuery?: string;
   uncategorized?: boolean;
+  accountNumber?: string;
 }
 
 // API helper function
@@ -180,6 +181,7 @@ export function useTransactions(filters?: TransactionFilters) {
       if (filters?.tagId) params.set('tagIds', filters.tagId);
       if (filters?.type) params.set('type', filters.type);
       if (filters?.uncategorized) params.set('uncategorized', 'true');
+      if (filters?.accountNumber) params.set('accountNumber', filters.accountNumber);
 
       const response = await fetchApi<PaginatedResponse<BudgetTransaction>>(
         `/api/budget/transactions?${params.toString()}`
