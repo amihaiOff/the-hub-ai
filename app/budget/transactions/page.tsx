@@ -161,46 +161,46 @@ export default function TransactionsPage() {
         </button>
       </div>
 
-      {/* Search + actions on one row: search takes remaining width, buttons stay right-aligned */}
-      <div className="flex items-center gap-2">
+      {/* Search + actions on one row — small icon buttons hug the right, search fills the rest */}
+      <div className="flex items-center gap-1">
         <div className="min-w-0 flex-1">
           <TransactionFilters filters={filters} onFiltersChange={setFilters} />
         </div>
         <Button
           variant="outline"
           size="icon"
-          className="shrink-0"
+          className="h-8 w-8 shrink-0"
           onClick={() => syncMoneytor.mutate()}
           disabled={syncMoneytor.isPending}
           title="Sync with Moneytor"
         >
-          <RefreshCw className={`h-4 w-4 ${syncMoneytor.isPending ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-3.5 w-3.5 ${syncMoneytor.isPending ? 'animate-spin' : ''}`} />
         </Button>
         <Button
           variant="outline"
           size="icon"
-          className="shrink-0"
+          className="h-8 w-8 shrink-0"
           onClick={() => setShowForceResync(true)}
           title="Force re-sync a date range from Moneytor"
         >
-          <History className="h-4 w-4" />
+          <History className="h-3.5 w-3.5" />
         </Button>
         <Button
           variant="outline"
           size="icon"
-          className="shrink-0"
+          className="h-8 w-8 shrink-0"
           onClick={() => setShowImportCsv(true)}
           title="Import CSV"
         >
-          <Upload className="h-4 w-4" />
+          <Upload className="h-3.5 w-3.5" />
         </Button>
         <Button
           variant="outline"
           size="icon"
-          className="shrink-0"
+          className="h-8 w-8 shrink-0"
           onClick={() => setShowAddTransaction(true)}
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-3.5 w-3.5" />
         </Button>
       </div>
 
