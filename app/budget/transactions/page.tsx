@@ -14,7 +14,8 @@ import {
   useAccountNames,
   type TransactionFilters as FilterType,
 } from '@/lib/hooks/use-budget';
-import { getCurrentMonth } from '@/lib/utils/budget';
+import { getCurrentMonth, formatCurrencyILS } from '@/lib/utils/budget';
+import { cn } from '@/lib/utils';
 import {
   TransactionTable,
   AddTransactionDialog,
@@ -146,11 +147,22 @@ export default function TransactionsPage() {
       {/* Active Filter Badges */}
       <ActiveFilterBadges filters={filters} onRemoveFilter={handleRemoveFilter} />
 
-      {/* Transaction Count */}
+      {/* Transaction Count + Sum */}
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">
           {isLoading ? 'Loading...' : `${transactions.length} transactions`}
         </span>
+        {!isLoading && transactions.length > 0 && (() => {
+          const sum = transactions.reduce(
+            (acc, tx) => acc + (tx.type === 'income' ? tx.amountIls : -tx.amountIls),
+            0
+          );
+          return (
+            <span className={cn('font-medium tabular-nums', sum >= 0 ? 'text-green-500' : 'text-red-500')}>
+              {sum >= 0 ? '+' : ''}{formatCurrencyILS(Math.abs(sum))}
+            </span>
+          );
+        })()}
         {!isLoading && (countData?.uncategorized ?? 0) > 0 && (
           <button
             className="text-destructive hover:text-destructive/80 font-medium underline-offset-2 hover:underline"
