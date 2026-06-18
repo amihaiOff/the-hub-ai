@@ -3,7 +3,16 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Upload, AlertCircle, RefreshCw, History, Hash, Sigma, FolderX } from 'lucide-react';
+import {
+  Plus,
+  Upload,
+  AlertCircle,
+  RefreshCw,
+  History,
+  Hash,
+  Sigma,
+  FolderTree,
+} from 'lucide-react';
 import {
   useTransactions,
   useCategoryGroups,
@@ -115,31 +124,22 @@ export default function TransactionsPage() {
       {/* Active Filter Badges */}
       <ActiveFilterBadges filters={filters} onRemoveFilter={handleRemoveFilter} />
 
-      {/* Stats Card */}
+      {/* Stats Card — icon on the left of each value, sum styled in budget-blue */}
       <Card>
         <CardContent className="py-3">
           <div className="divide-border flex items-center divide-x">
             {/* Transaction count */}
-            <div className="flex flex-1 flex-col items-center gap-1 px-4">
-              <Hash className="text-muted-foreground h-4 w-4" />
+            <div className="flex flex-1 items-center justify-center gap-2 px-4">
+              <Hash className="text-muted-foreground h-4 w-4 shrink-0" />
               <span className="text-lg font-semibold tabular-nums">
                 {isLoading ? '—' : transactions.length}
               </span>
             </div>
 
-            {/* Net sum */}
-            <div className="flex flex-1 flex-col items-center gap-1 px-4">
-              <Sigma className="text-muted-foreground h-4 w-4" />
-              <span
-                className={cn(
-                  'text-lg font-semibold tabular-nums',
-                  !isLoading && transactions.length > 0
-                    ? sum >= 0
-                      ? 'text-green-500'
-                      : 'text-red-500'
-                    : ''
-                )}
-              >
+            {/* Net sum — always in the same blue used by the Overview totals */}
+            <div className="flex flex-1 items-center justify-center gap-2 px-4">
+              <Sigma className="text-muted-foreground h-4 w-4 shrink-0" />
+              <span className="text-lg font-semibold text-[#6ab2ff] tabular-nums">
                 {isLoading
                   ? '—'
                   : transactions.length === 0
@@ -148,10 +148,10 @@ export default function TransactionsPage() {
               </span>
             </div>
 
-            {/* Uncategorized */}
+            {/* Uncategorized — same icon as the Categories nav tab */}
             <button
               className={cn(
-                'flex flex-1 flex-col items-center gap-1 px-4 transition-opacity',
+                'flex flex-1 items-center justify-center gap-2 px-4 transition-opacity',
                 uncategorizedCount === 0 && 'opacity-40',
                 uncategorizedCount > 0 && 'cursor-pointer hover:opacity-80'
               )}
@@ -165,9 +165,9 @@ export default function TransactionsPage() {
                 )
               }
             >
-              <FolderX
+              <FolderTree
                 className={cn(
-                  'h-4 w-4',
+                  'h-4 w-4 shrink-0',
                   uncategorizedCount > 0 ? 'text-destructive' : 'text-muted-foreground'
                 )}
               />
