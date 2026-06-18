@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Upload, AlertCircle, RefreshCw, History, Hash, Sigma, FolderX } from 'lucide-react';
+import { Upload, AlertCircle, RefreshCw, History } from 'lucide-react';
 import {
   useTransactions,
   useCategoryGroups,
@@ -18,7 +18,6 @@ import { getCurrentMonth, formatCurrencyILS } from '@/lib/utils/budget';
 import { cn } from '@/lib/utils';
 import {
   TransactionTable,
-  AddTransactionDialog,
   TransactionFilters,
   ActiveFilterBadges,
   ImportCsvDialog,
@@ -27,7 +26,6 @@ import {
 import { ForceResyncDialog } from '@/components/moneytor/force-resync-dialog';
 
 export default function TransactionsPage() {
-  const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [showImportCsv, setShowImportCsv] = useState(false);
   const [showForceResync, setShowForceResync] = useState(false);
   const [filters, setFilters] = useState<FilterType>({});
@@ -57,17 +55,9 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col items-center gap-3">
-        <div className="flex w-full items-center justify-between gap-3 sm:justify-center">
-          <h1 className="text-2xl font-bold tracking-tight text-sky-400 lg:text-3xl">
-            Transactions
-          </h1>
-          <MonthSelector selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
-        </div>
-        <div className="w-full max-w-lg">
-          <TransactionFilters filters={filters} onFiltersChange={setFilters} />
-        </div>
+      {/* Header — just the (chromeless) month picker, centered */}
+      <div className="flex w-full items-center justify-center">
+        <MonthSelector selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
       </div>
 
       {/* Error State */}
@@ -112,117 +102,100 @@ export default function TransactionsPage() {
         </Card>
       )}
 
-      {/* Active Filter Badges */}
-      <ActiveFilterBadges filters={filters} onRemoveFilter={handleRemoveFilter} />
+      {/* Stats — same shape & density as the Overview BudgetSummary card */}
+      <div className="bg-card divide-border border-border flex items-center divide-x rounded-lg border px-1 py-3 sm:py-4">
+        {/* Transaction count */}
+        <div className="flex-1 text-center">
+          <p className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase sm:text-xs">
+            # trnx
+          </p>
+          <p className="mt-0.5 text-base font-bold tabular-nums sm:text-xl">
+            {isLoading ? '—' : transactions.length}
+          </p>
+        </div>
 
-      {/* Stats Card */}
-      <Card>
-        <CardContent className="py-3">
-          <div className="divide-border flex items-center divide-x">
-            {/* Transaction count */}
-            <div className="flex flex-1 flex-col items-center gap-1 px-4">
-              <Hash className="text-muted-foreground h-4 w-4" />
-              <span className="text-lg font-semibold tabular-nums">
-                {isLoading ? '—' : transactions.length}
-              </span>
-            </div>
+        {/* Net sum — same blue as the Overview Income/Net values */}
+        <div className="flex-1 text-center">
+          <p className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase sm:text-xs">
+            Sum
+          </p>
+          <p className="mt-0.5 text-base font-bold text-[#6ab2ff] tabular-nums sm:text-xl">
+            {isLoading
+              ? '—'
+              : transactions.length === 0
+                ? '—'
+                : `${sum >= 0 ? '+' : ''}${formatCurrencyILS(Math.abs(sum))}`}
+          </p>
+        </div>
 
-            {/* Net sum */}
-            <div className="flex flex-1 flex-col items-center gap-1 px-4">
-              <Sigma className="text-muted-foreground h-4 w-4" />
-              <span
-                className={cn(
-                  'text-lg font-semibold tabular-nums',
-                  !isLoading && transactions.length > 0
-                    ? sum >= 0
-                      ? 'text-green-500'
-                      : 'text-red-500'
-                    : ''
-                )}
-              >
-                {isLoading
-                  ? '—'
-                  : transactions.length === 0
-                    ? '—'
-                    : `${sum >= 0 ? '+' : ''}${formatCurrencyILS(Math.abs(sum))}`}
-              </span>
-            </div>
+        {/* Uncategorized — clickable filter shortcut */}
+        <button
+          className={cn(
+            'flex-1 text-center transition-opacity',
+            uncategorizedCount === 0 && 'opacity-40',
+            uncategorizedCount > 0 && 'cursor-pointer hover:opacity-80'
+          )}
+          disabled={uncategorizedCount === 0}
+          onClick={() =>
+            uncategorizedCount > 0 &&
+            setFilters((prev) =>
+              prev.uncategorized
+                ? { ...prev, uncategorized: undefined }
+                : { ...prev, uncategorized: true }
+            )
+          }
+        >
+          <p className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase sm:text-xs">
+            Uncategorized
+          </p>
+          <p
+            className={cn(
+              'mt-0.5 text-base font-bold tabular-nums sm:text-xl',
+              uncategorizedCount > 0 && 'text-destructive'
+            )}
+          >
+            {isLoading ? '—' : uncategorizedCount}
+          </p>
+        </button>
+      </div>
 
-            {/* Uncategorized */}
-            <button
-              className={cn(
-                'flex flex-1 flex-col items-center gap-1 px-4 transition-opacity',
-                uncategorizedCount === 0 && 'opacity-40',
-                uncategorizedCount > 0 && 'cursor-pointer hover:opacity-80'
-              )}
-              disabled={uncategorizedCount === 0}
-              onClick={() =>
-                uncategorizedCount > 0 &&
-                setFilters((prev) =>
-                  prev.uncategorized
-                    ? { ...prev, uncategorized: undefined }
-                    : { ...prev, uncategorized: true }
-                )
-              }
-            >
-              <FolderX
-                className={cn(
-                  'h-4 w-4',
-                  uncategorizedCount > 0 ? 'text-destructive' : 'text-muted-foreground'
-                )}
-              />
-              <span
-                className={cn(
-                  'text-lg font-semibold tabular-nums',
-                  uncategorizedCount > 0 && 'text-destructive'
-                )}
-              >
-                {isLoading ? '—' : uncategorizedCount}
-              </span>
-            </button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Action Buttons */}
-      <div className="flex items-center gap-2">
+      {/* Search + actions on one row — small icon buttons hug the right, search fills the rest */}
+      <div className="flex items-center gap-1">
+        <div className="min-w-0 flex-1">
+          <TransactionFilters filters={filters} onFiltersChange={setFilters} />
+        </div>
         <Button
           variant="outline"
           size="icon"
-          className="shrink-0"
+          className="h-8 w-8 shrink-0"
           onClick={() => syncMoneytor.mutate()}
           disabled={syncMoneytor.isPending}
           title="Sync with Moneytor"
         >
-          <RefreshCw className={`h-4 w-4 ${syncMoneytor.isPending ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-3.5 w-3.5 ${syncMoneytor.isPending ? 'animate-spin' : ''}`} />
         </Button>
         <Button
           variant="outline"
           size="icon"
-          className="shrink-0"
+          className="h-8 w-8 shrink-0"
           onClick={() => setShowForceResync(true)}
           title="Force re-sync a date range from Moneytor"
         >
-          <History className="h-4 w-4" />
+          <History className="h-3.5 w-3.5" />
         </Button>
         <Button
           variant="outline"
           size="icon"
-          className="shrink-0"
+          className="h-8 w-8 shrink-0"
           onClick={() => setShowImportCsv(true)}
           title="Import CSV"
         >
-          <Upload className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          className="shrink-0"
-          onClick={() => setShowAddTransaction(true)}
-        >
-          <Plus className="h-4 w-4" />
+          <Upload className="h-3.5 w-3.5" />
         </Button>
       </div>
+
+      {/* Active Filter Badges */}
+      <ActiveFilterBadges filters={filters} onRemoveFilter={handleRemoveFilter} />
 
       {/* Transaction Table */}
       <TransactionTable
@@ -233,9 +206,6 @@ export default function TransactionsPage() {
         accountNames={accountNames}
         isLoading={isLoading}
       />
-
-      {/* Add Transaction Dialog */}
-      <AddTransactionDialog open={showAddTransaction} onOpenChange={setShowAddTransaction} />
 
       {/* Import CSV Dialog */}
       <ImportCsvDialog open={showImportCsv} onOpenChange={setShowImportCsv} />

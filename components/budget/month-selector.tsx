@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -94,18 +94,18 @@ export function MonthSelector({ selectedMonth, onMonthChange }: MonthSelectorPro
 
       <Popover open={isOpen} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
+          {/* Chromeless trigger — no border, no icon, just the label, larger */}
           <Button
-            variant="outline"
+            variant="ghost"
             className={cn(
-              'min-w-[130px] justify-center gap-2 text-sm sm:min-w-[160px]',
-              showRange && 'h-auto py-1.5'
+              'px-2 text-lg font-semibold hover:bg-transparent focus-visible:ring-0 sm:text-xl',
+              showRange && 'h-auto py-1'
             )}
           >
-            <Calendar className="h-4 w-4 shrink-0" />
             <span className="flex flex-col items-center leading-tight">
               <span>{formatMonth(selectedMonth)}</span>
               {showRange && (
-                <span className="text-muted-foreground text-[10px]">
+                <span className="text-muted-foreground text-[10px] font-normal">
                   {formatCycleRangeLabel(selectedMonth, startDay)}
                 </span>
               )}
