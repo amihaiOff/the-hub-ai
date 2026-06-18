@@ -3,16 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Plus,
-  Upload,
-  AlertCircle,
-  RefreshCw,
-  History,
-  Hash,
-  Sigma,
-  FolderTree,
-} from 'lucide-react';
+import { Plus, Upload, AlertCircle, RefreshCw, History } from 'lucide-react';
 import {
   useTransactions,
   useCategoryGroups,
@@ -124,62 +115,61 @@ export default function TransactionsPage() {
       {/* Active Filter Badges */}
       <ActiveFilterBadges filters={filters} onRemoveFilter={handleRemoveFilter} />
 
-      {/* Stats — match the Overview BudgetSummary density (plain div, no <Card> py-6) */}
+      {/* Stats — same shape & density as the Overview BudgetSummary card */}
       <div className="bg-card divide-border border-border flex items-center divide-x rounded-lg border px-1 py-3 sm:py-4">
-        <div className="contents">
-          {/* Transaction count */}
-          <div className="flex flex-1 flex-col items-center justify-center gap-1 px-2">
-            <Hash className="text-muted-foreground h-4 w-4 shrink-0" />
-            <span className="text-lg font-semibold tabular-nums">
-              {isLoading ? '—' : transactions.length}
-            </span>
-          </div>
-
-          {/* Net sum — always in the same blue used by the Overview totals */}
-          <div className="flex flex-1 flex-col items-center justify-center gap-1 px-2">
-            <Sigma className="text-muted-foreground h-4 w-4 shrink-0" />
-            <span className="text-lg font-semibold text-[#6ab2ff] tabular-nums">
-              {isLoading
-                ? '—'
-                : transactions.length === 0
-                  ? '—'
-                  : `${sum >= 0 ? '+' : ''}${formatCurrencyILS(Math.abs(sum))}`}
-            </span>
-          </div>
-
-          {/* Uncategorized — same icon as the Categories nav tab */}
-          <button
-            className={cn(
-              'flex flex-1 flex-col items-center justify-center gap-1 px-2 transition-opacity',
-              uncategorizedCount === 0 && 'opacity-40',
-              uncategorizedCount > 0 && 'cursor-pointer hover:opacity-80'
-            )}
-            disabled={uncategorizedCount === 0}
-            onClick={() =>
-              uncategorizedCount > 0 &&
-              setFilters((prev) =>
-                prev.uncategorized
-                  ? { ...prev, uncategorized: undefined }
-                  : { ...prev, uncategorized: true }
-              )
-            }
-          >
-            <FolderTree
-              className={cn(
-                'h-4 w-4 shrink-0',
-                uncategorizedCount > 0 ? 'text-destructive' : 'text-muted-foreground'
-              )}
-            />
-            <span
-              className={cn(
-                'text-lg font-semibold tabular-nums',
-                uncategorizedCount > 0 && 'text-destructive'
-              )}
-            >
-              {isLoading ? '—' : uncategorizedCount}
-            </span>
-          </button>
+        {/* Transaction count */}
+        <div className="flex-1 text-center">
+          <p className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase sm:text-xs">
+            # trnx
+          </p>
+          <p className="mt-0.5 text-base font-bold tabular-nums sm:text-xl">
+            {isLoading ? '—' : transactions.length}
+          </p>
         </div>
+
+        {/* Net sum — same blue as the Overview Income/Net values */}
+        <div className="flex-1 text-center">
+          <p className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase sm:text-xs">
+            Sum
+          </p>
+          <p className="mt-0.5 text-base font-bold text-[#6ab2ff] tabular-nums sm:text-xl">
+            {isLoading
+              ? '—'
+              : transactions.length === 0
+                ? '—'
+                : `${sum >= 0 ? '+' : ''}${formatCurrencyILS(Math.abs(sum))}`}
+          </p>
+        </div>
+
+        {/* Uncategorized — clickable filter shortcut */}
+        <button
+          className={cn(
+            'flex-1 text-center transition-opacity',
+            uncategorizedCount === 0 && 'opacity-40',
+            uncategorizedCount > 0 && 'cursor-pointer hover:opacity-80'
+          )}
+          disabled={uncategorizedCount === 0}
+          onClick={() =>
+            uncategorizedCount > 0 &&
+            setFilters((prev) =>
+              prev.uncategorized
+                ? { ...prev, uncategorized: undefined }
+                : { ...prev, uncategorized: true }
+            )
+          }
+        >
+          <p className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase sm:text-xs">
+            Uncategorized
+          </p>
+          <p
+            className={cn(
+              'mt-0.5 text-base font-bold tabular-nums sm:text-xl',
+              uncategorizedCount > 0 && 'text-destructive'
+            )}
+          >
+            {isLoading ? '—' : uncategorizedCount}
+          </p>
+        </button>
       </div>
 
       {/* Action Buttons */}
