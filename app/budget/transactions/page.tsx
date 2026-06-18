@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Upload, AlertCircle, RefreshCw, History } from 'lucide-react';
+import { Upload, AlertCircle, RefreshCw, History } from 'lucide-react';
 import {
   useTransactions,
   useCategoryGroups,
@@ -18,7 +18,6 @@ import { getCurrentMonth, formatCurrencyILS } from '@/lib/utils/budget';
 import { cn } from '@/lib/utils';
 import {
   TransactionTable,
-  AddTransactionDialog,
   TransactionFilters,
   ActiveFilterBadges,
   ImportCsvDialog,
@@ -27,7 +26,6 @@ import {
 import { ForceResyncDialog } from '@/components/moneytor/force-resync-dialog';
 
 export default function TransactionsPage() {
-  const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [showImportCsv, setShowImportCsv] = useState(false);
   const [showForceResync, setShowForceResync] = useState(false);
   const [filters, setFilters] = useState<FilterType>({});
@@ -194,14 +192,6 @@ export default function TransactionsPage() {
         >
           <Upload className="h-3.5 w-3.5" />
         </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-8 w-8 shrink-0"
-          onClick={() => setShowAddTransaction(true)}
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </Button>
       </div>
 
       {/* Active Filter Badges */}
@@ -216,9 +206,6 @@ export default function TransactionsPage() {
         accountNames={accountNames}
         isLoading={isLoading}
       />
-
-      {/* Add Transaction Dialog */}
-      <AddTransactionDialog open={showAddTransaction} onOpenChange={setShowAddTransaction} />
 
       {/* Import CSV Dialog */}
       <ImportCsvDialog open={showImportCsv} onOpenChange={setShowImportCsv} />
