@@ -108,6 +108,7 @@ model Household {
   moneytorAccountSnapshots MoneytorAccountSnapshot[]
   moneytorPensionFunds     MoneytorPensionFund[]
   moneytorPensionSnapshots MoneytorPensionSnapshot[]
+  moneytorDropLogs         MoneytorDropLog[]
 
   // Budget settings
   ccGenericPayeeNames CcGenericPayeeName[]
@@ -974,4 +975,31 @@ model MoneytorPensionSnapshot {
   @@unique([householdId, snapshotMonth, productId, routeName])
   @@index([householdId, snapshotMonth])
   @@map("moneytor_pension_snapshots")
+}
+
+// MoneytorDropLog - audit trail of budget_transactions that were dropped
+// because their corresponding moneytor_transaction stopped being returned by
+// Moneytor's API during a rolling re-sync. The drop is intentional (we want
+// the local data to track Moneytor exactly), but we surface the entries in
+// the Labs tab so the user can spot mistaken removals.
+model MoneytorDropLog {
+  id                 String   @id @default(cuid())
+  householdId        String   @map("household_id")
+  /// The moneytor_id that the dropped budget_transaction was linked to.
+  originalMoneytorId String?  @map("original_moneytor_id")
+  /// Copy of the dropped budget_transaction id (now deleted) for cross-reference.
+  budgetTransactionId String? @map("budget_transaction_id")
+  transactionDate    DateTime @map("transaction_date") @db.Date
+  amountIls          Decimal  @map("amount_ils") @db.Decimal(18, 2)
+  payeeName          String?  @map("payee_name")
+  description        String? // raw Moneytor description if payee not resolvable
+  /// Free-form reason so we can extend with new drop sources later
+  /// (e.g. 'no_successor_in_moneytor', 'pending_auth_superseded').
+  reason             String
+  droppedAt          DateTime @default(now()) @map("dropped_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, droppedAt])
+  @@map("moneytor_drop_logs")
 }

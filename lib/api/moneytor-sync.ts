@@ -47,10 +47,25 @@ export interface MoneytorSyncSummary {
 }
 
 /**
+ * Number of trailing days the daily sync re-aligns with Moneytor on every run.
+ * The incremental upsert path can drift from Moneytor when their data is
+ * corrected post-fact — running a force-resync over this rolling window each
+ * day keeps the local copy faithful to what Moneytor currently returns.
+ *
+ * Tradeoff: any budget_transaction that lived in this window but is no longer
+ * returned by Moneytor will be deleted on the next sync. Those deletions are
+ * recorded in `moneytor_drop_logs` so the user can review them via the Labs
+ * tab and re-create anything that shouldn't have been dropped.
+ */
+const ROLLING_ALIGN_DAYS = 14;
+
+/**
  * Pulls transactions and stock holdings from Moneytor and upserts them locally
  * for a single household.
  *
- * - Transactions: incremental — uses MAX(transaction_date) - 7d as `from`.
+ * - Transactions: incremental upsert for everything from MAX(transaction_date)
+ *   - 7d, then a force-resync over the trailing ROLLING_ALIGN_DAYS so the
+ *   most recent window always mirrors Moneytor exactly.
  * - Stocks: full refresh per account, then daily snapshot upsert.
  *
  * Throws `MoneytorApiError` on API-side problems (caller decides how to surface them).
@@ -560,10 +575,40 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
     pensionSnapshotsUpserted++;
   }
 
+  // ----- Rolling re-alignment of the last ROLLING_ALIGN_DAYS days -----
+  // The incremental upsert above can leave stale rows around when Moneytor
+  // corrects or removes a transaction post-fact (e.g. a pending CC auth that
+  // never settles). Run force-resync over a fixed trailing window so the
+  // last fortnight always mirrors Moneytor exactly. Dropped budget rows are
+  // captured in moneytor_drop_logs by the force-resync routine.
+  const todayUtc = new Date();
+  const rollingFrom = new Date(
+    Date.UTC(todayUtc.getUTCFullYear(), todayUtc.getUTCMonth(), todayUtc.getUTCDate())
+  );
+  rollingFrom.setUTCDate(rollingFrom.getUTCDate() - ROLLING_ALIGN_DAYS);
+  const rollingFromStr =
+    rollingFrom < INITIAL_SYNC_FROM_DATE
+      ? INITIAL_SYNC_FROM
+      : rollingFrom.toISOString().split('T')[0];
+  const rollingToStr = todayUtc.toISOString().split('T')[0];
+
+  let rollingResync: ForceResyncSummary | null = null;
+  if (rollingFromStr <= rollingToStr) {
+    try {
+      rollingResync = await forceResyncMoneytorTransactionsForHousehold(householdId, {
+        from: rollingFromStr,
+        to: rollingToStr,
+      });
+    } catch (err) {
+      // A failure here must not break the rest of the sync — log and continue.
+      console.error('Rolling re-align failed (continuing):', err);
+    }
+  }
+
   return {
     householdId,
-    fetched: transactions.length,
-    upserted: transactions.length,
+    fetched: transactions.length + (rollingResync?.fetched ?? 0),
+    upserted: transactions.length + (rollingResync?.upserted ?? 0),
     stockAccounts: shareAssets.length,
     stocksUpserted,
     snapshotsUpserted,
@@ -571,7 +616,7 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
     accountSnapshotsUpserted,
     pensionFundsUpserted,
     pensionSnapshotsUpserted,
-    budgetCreated,
+    budgetCreated: budgetCreated + (rollingResync?.budgetCreated ?? 0),
     budgetSkipped,
     latestDate: newLatest?.transactionDate.toISOString().split('T')[0] ?? null,
     syncedAt: new Date().toISOString(),
@@ -784,8 +829,42 @@ export async function forceResyncMoneytorTransactionsForHousehold(
     relinked = toRelink.length;
 
     if (toDelete.length > 0) {
+      // Before deleting, log the drops so the user can review (or recover) via
+      // the Labs tab. Without this audit trail a re-sync silently removes user-
+      // visible budget rows whenever Moneytor stops returning them.
+      const toDeleteIds = toDelete.map((b) => b.id);
+      const dropRows = await prisma.budgetTransaction.findMany({
+        where: { id: { in: toDeleteIds } },
+        select: {
+          id: true,
+          moneytorId: true,
+          transactionDate: true,
+          amountIls: true,
+          payee: { select: { name: true } },
+          notes: true,
+        },
+      });
+      if (dropRows.length > 0) {
+        await prisma.$transaction(
+          dropRows.map((b) =>
+            prisma.moneytorDropLog.create({
+              data: {
+                householdId,
+                originalMoneytorId: b.moneytorId,
+                budgetTransactionId: b.id,
+                transactionDate: b.transactionDate,
+                amountIls: b.amountIls,
+                payeeName: b.payee?.name ?? null,
+                description: b.notes,
+                reason: 'no_successor_in_moneytor',
+              },
+            })
+          )
+        );
+      }
+
       const deletedBudgetRes = await prisma.budgetTransaction.deleteMany({
-        where: { id: { in: toDelete.map((b) => b.id) } },
+        where: { id: { in: toDeleteIds } },
       });
       deletedBudget = deletedBudgetRes.count;
     }
