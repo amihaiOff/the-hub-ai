@@ -18,6 +18,7 @@ import {
   ShoppingCart,
   Package,
   FlaskConical,
+  Trash2,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -86,7 +87,10 @@ export const navItems: NavItem[] = [
     href: '/moneytor-trnx',
     label: 'Labs',
     icon: FlaskConical,
-    subItems: [{ href: '/moneytor-trnx', label: 'Moneytor Trnx', icon: ArrowLeftRight }],
+    subItems: [
+      { href: '/moneytor-trnx', label: 'Moneytor Trnx', icon: ArrowLeftRight },
+      { href: '/labs/dropped-trnx', label: 'Dropped Trnx', icon: Trash2 },
+    ],
   },
 ];
 

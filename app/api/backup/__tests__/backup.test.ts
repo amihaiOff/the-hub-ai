@@ -36,6 +36,7 @@ jest.mock('@/lib/db', () => ({
     ccGenericPayeeName: { findMany: jest.fn() },
     budgetAccountName: { findMany: jest.fn() },
     partnerContact: { findMany: jest.fn() },
+    moneytorDropLog: { findMany: jest.fn() },
     riseupCategory: { findMany: jest.fn() },
     payeeCategoryRule: { findMany: jest.fn() },
     insurancePolicy: { findMany: jest.fn() },
@@ -300,6 +301,7 @@ describe('Backup API', () => {
       (mockPrisma.ccGenericPayeeName.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.budgetAccountName.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.partnerContact.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.moneytorDropLog.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce(mockRiseupCategories);
       (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.insurancePolicy.findMany as jest.Mock).mockResolvedValueOnce([]);
@@ -350,6 +352,7 @@ describe('Backup API', () => {
       expect(zip.file('cc_generic_payee_names.json')).not.toBeNull();
       expect(zip.file('budget_account_names.json')).not.toBeNull();
       expect(zip.file('partner_contacts.json')).not.toBeNull();
+      expect(zip.file('moneytor_drop_logs.json')).not.toBeNull();
       expect(zip.file('riseup_categories.json')).not.toBeNull();
       expect(zip.file('payee_category_rules.json')).not.toBeNull();
       expect(zip.file('insurance_policies.json')).not.toBeNull();
@@ -371,7 +374,7 @@ describe('Backup API', () => {
       // Verify metadata content
       const metadataContent = await zip.file('metadata.json')!.async('string');
       const metadata = JSON.parse(metadataContent);
-      expect(metadata.schemaVersion).toBe('1.7');
+      expect(metadata.schemaVersion).toBe('1.8');
       expect(metadata.createdBy).toBe('test@example.com');
       expect(metadata.counts).toEqual({
         users: 1,
@@ -394,6 +397,7 @@ describe('Backup API', () => {
         ccGenericPayeeNames: 0,
         budgetAccountNames: 0,
         partnerContacts: 0,
+        moneytorDropLogs: 0,
         riseupCategories: 1,
         payeeCategoryRules: 0,
         insurancePolicies: 0,
@@ -445,6 +449,7 @@ describe('Backup API', () => {
       (mockPrisma.ccGenericPayeeName.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.budgetAccountName.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.partnerContact.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.moneytorDropLog.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.insurancePolicy.findMany as jest.Mock).mockResolvedValueOnce([]);
@@ -516,6 +521,7 @@ describe('Backup API', () => {
       (mockPrisma.ccGenericPayeeName.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.budgetAccountName.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.partnerContact.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.moneytorDropLog.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.insurancePolicy.findMany as jest.Mock).mockResolvedValueOnce([]);
