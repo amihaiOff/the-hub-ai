@@ -111,6 +111,7 @@ model Household {
   moneytorRealEstate         MoneytorRealEstate[]
   moneytorRealEstateSnapshots MoneytorRealEstateSnapshot[]
   moneytorDropLogs         MoneytorDropLog[]
+  moneytorSyncLogs         MoneytorSyncLog[]
 
   // Budget settings
   ccGenericPayeeNames CcGenericPayeeName[]
@@ -1091,4 +1092,27 @@ model MoneytorDropLog {
 
   @@index([householdId, droppedAt])
   @@map("moneytor_drop_logs")
+}
+
+// MoneytorSyncLog - one row per sync attempt (manual or cron), with the
+// MoneytorSyncSummary stored as JSON. Surfaced on the Labs → Sync Log
+// page so the user can audit per-section counts and spot failures.
+model MoneytorSyncLog {
+  id           String   @id @default(cuid())
+  householdId  String   @map("household_id")
+  /// 'manual' = user hit Sync data; 'cron' = daily-tasks cron job.
+  source       String
+  startedAt    DateTime @map("started_at")
+  completedAt  DateTime @map("completed_at")
+  durationMs   Int      @map("duration_ms")
+  success      Boolean
+  errorMessage String?  @map("error_message")
+  /// Full MoneytorSyncSummary on success (transaction/account/portfolio/etc counts).
+  results      Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, startedAt(sort: Desc)])
+  @@map("moneytor_sync_logs")
 }

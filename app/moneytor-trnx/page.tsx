@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { AlertCircle, RefreshCw, ExternalLink } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,7 +20,6 @@ import { getCurrentMonth } from '@/lib/utils/budget';
 import {
   useMoneytorTransactions,
   useMoneytorStocks,
-  useSyncMoneytor,
   type MoneytorTransactionFilters,
 } from '@/lib/hooks/use-moneytor';
 
@@ -58,7 +57,6 @@ export default function MoneytorTrnxPage() {
 
   const { data, isLoading, error } = useMoneytorTransactions(filters);
   const stocksQuery = useMoneytorStocks();
-  const sync = useSyncMoneytor();
 
   const transactions = useMemo(() => data?.transactions ?? [], [data]);
   const categories = data?.categories ?? [];
@@ -67,8 +65,6 @@ export default function MoneytorTrnxPage() {
     for (const t of transactions) set.add(t.type);
     return Array.from(set).sort();
   }, [transactions]);
-
-  const syncError = sync.error as (Error & { code?: string; renewUrl?: string }) | null;
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -93,30 +89,7 @@ export default function MoneytorTrnxPage() {
         </Card>
       )}
 
-      {/* Sync Error */}
-      {syncError && (
-        <Card className="border-destructive">
-          <CardContent className="flex items-start gap-3 py-4">
-            <AlertCircle className="text-destructive mt-0.5 h-5 w-5 shrink-0" />
-            <div className="flex-1">
-              <p className="text-destructive font-medium">Sync failed</p>
-              <p className="text-muted-foreground text-sm">{syncError.message}</p>
-              {syncError.code === 'token_expired' && (
-                <a
-                  href={syncError.renewUrl || 'https://app.moneytor.co.il/settings#api'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary mt-1 inline-flex items-center gap-1 text-sm hover:underline"
-                >
-                  Renew Moneytor API token <ExternalLink className="h-3 w-3" />
-                </a>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Filters & Sync */}
+      {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
         <Input
           placeholder="Search description..."
@@ -150,10 +123,6 @@ export default function MoneytorTrnxPage() {
             ))}
           </SelectContent>
         </Select>
-        <Button onClick={() => sync.mutate()} disabled={sync.isPending} className="shrink-0">
-          <RefreshCw className={sync.isPending ? 'mr-2 h-4 w-4 animate-spin' : 'mr-2 h-4 w-4'} />
-          {sync.isPending ? 'Syncing...' : 'Sync now'}
-        </Button>
         <Button variant="outline" onClick={() => setForceResyncOpen(true)} className="shrink-0">
           Force re-sync...
         </Button>
@@ -168,14 +137,7 @@ export default function MoneytorTrnxPage() {
       {/* Count + last sync */}
       <div className="text-muted-foreground flex flex-wrap items-center justify-between gap-2 text-sm">
         <span>{isLoading ? 'Loading...' : `${transactions.length} transactions`}</span>
-        <span>
-          Last sync: {formatRelativeTime(data?.latestSyncedAt ?? null)}
-          {sync.isSuccess && sync.data && (
-            <span className="ml-2">
-              (+{sync.data.upserted} txns, {sync.data.stocksUpserted} stocks)
-            </span>
-          )}
-        </span>
+        <span>Last sync: {formatRelativeTime(data?.latestSyncedAt ?? null)}</span>
       </div>
 
       <MoneytorTransactionTable transactions={transactions} isLoading={isLoading} />

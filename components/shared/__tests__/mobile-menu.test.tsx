@@ -174,6 +174,7 @@ jest.mock('lucide-react', () => ({
   Settings: createMockIcon('icon-settings'),
   LogOut: createMockIcon('icon-logout'),
   LogIn: createMockIcon('icon-login'),
+  RefreshCw: createMockIcon('icon-refresh'),
 }));
 
 // Mock navigation constants to ensure icons are properly mocked
@@ -190,6 +191,12 @@ jest.mock('@/lib/constants/navigation', () => ({
 // Mock @/lib/utils
 jest.mock('@/lib/utils', () => ({
   cn: (...classes: (string | undefined | null | false)[]) => classes.filter(Boolean).join(' '),
+}));
+
+// MobileMenu calls useSyncMoneytor which itself uses useQueryClient — stub
+// the hook so the test doesn't need a real TanStack Query provider.
+jest.mock('@/lib/hooks/use-moneytor', () => ({
+  useSyncMoneytor: () => ({ mutate: jest.fn(), isPending: false }),
 }));
 
 // Mock HouseholdSwitcher component which uses HouseholdContext

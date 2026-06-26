@@ -2,9 +2,11 @@
  * Integration tests for /api/moneytor/sync route
  */
 
-// Mock syncMoneytorForHousehold
+// Mock syncMoneytorForHousehold (and its logging wrapper — the route now
+// uses the wrapper so persistent sync logs are written for every attempt).
 jest.mock('@/lib/api/moneytor-sync', () => ({
   syncMoneytorForHousehold: jest.fn(),
+  syncMoneytorForHouseholdAndLog: jest.fn(),
 }));
 
 // Mock MoneytorApiError - constructor matches real positional signature
@@ -29,13 +31,13 @@ jest.mock('@/lib/auth-utils', () => ({
 }));
 
 import { getCurrentContext } from '@/lib/auth-utils';
-import { syncMoneytorForHousehold } from '@/lib/api/moneytor-sync';
+import { syncMoneytorForHouseholdAndLog } from '@/lib/api/moneytor-sync';
 import { MoneytorApiError } from '@/lib/api/moneytor';
 import type { MoneytorSyncSummary } from '@/lib/api/moneytor-sync';
 import { POST } from '../route';
 
 const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
-const mockSync = syncMoneytorForHousehold as jest.Mock;
+const mockSync = syncMoneytorForHouseholdAndLog as jest.Mock;
 
 const mockContext = {
   user: { id: 'user-1', email: 'test@example.com', name: 'Test User' },
@@ -110,7 +112,7 @@ describe('POST /api/moneytor/sync', () => {
     expect(data.upserted).toBe(15);
     expect(data.stockAccounts).toBe(2);
     expect(data.stocksUpserted).toBe(30);
-    expect(mockSync).toHaveBeenCalledWith('household-1');
+    expect(mockSync).toHaveBeenCalledWith('household-1', 'manual');
   });
 
   it('should return error details when MoneytorApiError with status is thrown', async () => {

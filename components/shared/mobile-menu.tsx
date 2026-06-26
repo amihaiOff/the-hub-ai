@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useUser } from '@/lib/hooks/use-auth';
-import { LogOut, LogIn } from 'lucide-react';
+import { useSyncMoneytor } from '@/lib/hooks/use-moneytor';
+import { ChevronDown, LogOut, LogIn, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,19 +16,122 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { navItems, settingsItem } from '@/lib/constants/navigation';
+import { navItems, settingsItem, type NavItem } from '@/lib/constants/navigation';
 
 interface MobileMenuProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
+/**
+ * Single nav row. When the item has sub-items the row becomes a toggle
+ * (tap → expand/collapse, no navigation) and only the sub-items themselves
+ * navigate. Mirrors the desktop sidebar's behavior so the parent of a
+ * grouping like "Labs" never page-changes on its own.
+ */
+function MobileNavItem({
+  item,
+  pathname,
+  onNavClick,
+}: {
+  item: NavItem;
+  pathname: string;
+  onNavClick: () => void;
+}) {
+  const hasSubItems = (item.subItems?.length ?? 0) > 0;
+  const Icon = item.icon;
+
+  const subItemActive = hasSubItems
+    ? (item.subItems ?? []).some((s) => pathname === s.href || pathname.startsWith(`${s.href}/`))
+    : false;
+  const isParentActive = hasSubItems
+    ? subItemActive || (pathname.startsWith(item.href) && item.href !== '/')
+    : pathname === item.href;
+
+  const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
+  const isExpanded = manualExpanded !== null ? manualExpanded : isParentActive;
+
+  if (hasSubItems) {
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => setManualExpanded(!isExpanded)}
+          className={cn(
+            'flex w-full items-center justify-between rounded-lg px-3 py-3 text-base font-medium transition-all',
+            isParentActive
+              ? 'bg-accent/50 text-foreground'
+              : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+          )}
+          aria-expanded={isExpanded}
+        >
+          <span className="flex items-center gap-3">
+            <Icon className="h-5 w-5" />
+            {item.label}
+          </span>
+          <ChevronDown className={cn('h-4 w-4 transition-transform', isExpanded && 'rotate-180')} />
+        </button>
+        {isExpanded && (
+          <div className="border-border/40 mt-0.5 ml-4 space-y-0.5 border-l pl-3">
+            {item.subItems!.map((sub) => {
+              const SubIcon = sub.icon;
+              const subActive = pathname === sub.href;
+              return (
+                <Link
+                  key={sub.href}
+                  href={sub.href}
+                  onClick={onNavClick}
+                  aria-current={subActive ? 'page' : undefined}
+                  className={cn(
+                    'flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium transition-all',
+                    subActive
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+                  )}
+                >
+                  <SubIcon className="h-4 w-4" />
+                  {sub.label}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={item.href}
+      onClick={onNavClick}
+      aria-current={isParentActive ? 'page' : undefined}
+      className={cn(
+        'flex items-center gap-3 rounded-lg px-3 py-3 text-base font-medium transition-all',
+        isParentActive
+          ? 'bg-accent text-accent-foreground'
+          : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+      )}
+    >
+      <Icon className="h-5 w-5" />
+      {item.label}
+    </Link>
+  );
+}
+
 export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
   const pathname = usePathname();
   const user = useUser();
+  const syncMoneytor = useSyncMoneytor();
 
   const handleNavClick = () => {
     onOpenChange(false);
+  };
+
+  // Keep the menu open after kicking off a sync — users want to see the
+  // spinner spin and the "Syncing…" label change back, not have the sheet
+  // close out from under them.
+  const handleSync = () => {
+    syncMoneytor.mutate();
   };
 
   return (
@@ -46,57 +151,34 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
 
           {/* Navigation */}
           <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-            {navItems.map((item) => {
-              const isActive =
-                pathname === item.href || (item.subItems && pathname.startsWith(item.href + '/'));
-              const Icon = item.icon;
-              const hasSubItems = item.subItems && item.subItems.length > 0 && isActive;
-
-              return (
-                <div key={item.href}>
-                  <Link
-                    href={item.href}
-                    onClick={handleNavClick}
-                    aria-current={pathname === item.href ? 'page' : undefined}
-                    className={cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-3 text-base font-medium transition-all',
-                      isActive
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-                    )}
-                  >
-                    <Icon className="h-5 w-5" />
-                    {item.label}
-                  </Link>
-                  {hasSubItems && (
-                    <div className="border-border/40 mt-0.5 ml-4 space-y-0.5 border-l pl-3">
-                      {item.subItems!.map((sub) => {
-                        const SubIcon = sub.icon;
-                        const subActive = pathname === sub.href;
-                        return (
-                          <Link
-                            key={sub.href}
-                            href={sub.href}
-                            onClick={handleNavClick}
-                            aria-current={subActive ? 'page' : undefined}
-                            className={cn(
-                              'flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium transition-all',
-                              subActive
-                                ? 'bg-accent text-accent-foreground'
-                                : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-                            )}
-                          >
-                            <SubIcon className="h-4 w-4" />
-                            {sub.label}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {navItems.map((item) => (
+              <MobileNavItem
+                key={item.href}
+                item={item}
+                pathname={pathname}
+                onNavClick={handleNavClick}
+              />
+            ))}
           </nav>
+
+          {/* Sync data — global Moneytor pull. Sits just above Settings,
+              mirroring the desktop sidebar. */}
+          <div className="px-4 pt-0 pb-1">
+            <button
+              type="button"
+              onClick={handleSync}
+              disabled={syncMoneytor.isPending}
+              aria-label="Sync data with Moneytor"
+              className={cn(
+                'flex w-full items-center gap-3 rounded-lg px-3 py-3 text-base font-medium transition-all',
+                'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+                'disabled:opacity-60'
+              )}
+            >
+              <RefreshCw className={cn('h-5 w-5', syncMoneytor.isPending && 'animate-spin')} />
+              {syncMoneytor.isPending ? 'Syncing…' : 'Sync data'}
+            </button>
+          </div>
 
           {/* Settings - Bottom of navigation */}
           <div className="p-4 pt-0">

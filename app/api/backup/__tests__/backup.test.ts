@@ -39,6 +39,7 @@ jest.mock('@/lib/db', () => ({
     moneytorDropLog: { findMany: jest.fn() },
     moneytorRealEstate: { findMany: jest.fn() },
     moneytorRealEstateSnapshot: { findMany: jest.fn() },
+    moneytorSyncLog: { findMany: jest.fn() },
     riseupCategory: { findMany: jest.fn() },
     payeeCategoryRule: { findMany: jest.fn() },
     insurancePolicy: { findMany: jest.fn() },
@@ -306,6 +307,7 @@ describe('Backup API', () => {
       (mockPrisma.moneytorDropLog.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorRealEstate.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorRealEstateSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.moneytorSyncLog.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce(mockRiseupCategories);
       (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.insurancePolicy.findMany as jest.Mock).mockResolvedValueOnce([]);
@@ -359,6 +361,7 @@ describe('Backup API', () => {
       expect(zip.file('moneytor_drop_logs.json')).not.toBeNull();
       expect(zip.file('moneytor_real_estate.json')).not.toBeNull();
       expect(zip.file('moneytor_real_estate_snapshots.json')).not.toBeNull();
+      expect(zip.file('moneytor_sync_logs.json')).not.toBeNull();
       expect(zip.file('riseup_categories.json')).not.toBeNull();
       expect(zip.file('payee_category_rules.json')).not.toBeNull();
       expect(zip.file('insurance_policies.json')).not.toBeNull();
@@ -380,7 +383,7 @@ describe('Backup API', () => {
       // Verify metadata content
       const metadataContent = await zip.file('metadata.json')!.async('string');
       const metadata = JSON.parse(metadataContent);
-      expect(metadata.schemaVersion).toBe('1.9');
+      expect(metadata.schemaVersion).toBe('2.0');
       expect(metadata.createdBy).toBe('test@example.com');
       expect(metadata.counts).toEqual({
         users: 1,
@@ -406,6 +409,7 @@ describe('Backup API', () => {
         moneytorDropLogs: 0,
         moneytorRealEstate: 0,
         moneytorRealEstateSnapshots: 0,
+        moneytorSyncLogs: 0,
         riseupCategories: 1,
         payeeCategoryRules: 0,
         insurancePolicies: 0,
@@ -460,6 +464,7 @@ describe('Backup API', () => {
       (mockPrisma.moneytorDropLog.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorRealEstate.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorRealEstateSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.moneytorSyncLog.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.insurancePolicy.findMany as jest.Mock).mockResolvedValueOnce([]);
@@ -534,6 +539,7 @@ describe('Backup API', () => {
       (mockPrisma.moneytorDropLog.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorRealEstate.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorRealEstateSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.moneytorSyncLog.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.insurancePolicy.findMany as jest.Mock).mockResolvedValueOnce([]);

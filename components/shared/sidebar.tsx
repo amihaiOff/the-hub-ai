@@ -6,7 +6,8 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useUser } from '@/lib/hooks/use-auth';
 import { useUncategorizedCount } from '@/lib/hooks/use-budget';
-import { LogOut, LogIn, ChevronDown } from 'lucide-react';
+import { useSyncMoneytor } from '@/lib/hooks/use-moneytor';
+import { LogOut, LogIn, ChevronDown, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from './logo';
 import { Button } from '@/components/ui/button';
@@ -130,6 +131,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const user = useUser();
   const { data: countData } = useUncategorizedCount();
+  const syncMoneytor = useSyncMoneytor();
   const uncategorizedCount = countData?.uncategorized ?? 0;
 
   return (
@@ -155,6 +157,25 @@ export function Sidebar() {
             />
           ))}
         </nav>
+
+        {/* Sync data — manual Moneytor pull. Lives just above Settings so
+            it's a global action, not a per-page button. Spins while pending. */}
+        <div className="px-4 pt-0 pb-1">
+          <button
+            type="button"
+            onClick={() => syncMoneytor.mutate()}
+            disabled={syncMoneytor.isPending}
+            aria-label="Sync data with Moneytor"
+            className={cn(
+              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
+              'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground',
+              'disabled:opacity-60'
+            )}
+          >
+            <RefreshCw className={cn('h-5 w-5', syncMoneytor.isPending && 'animate-spin')} />
+            {syncMoneytor.isPending ? 'Syncing…' : 'Sync data'}
+          </button>
+        </div>
 
         {/* Settings - Bottom of navigation */}
         <div className="p-4 pt-0">
