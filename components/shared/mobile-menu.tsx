@@ -31,9 +31,11 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
     onOpenChange(false);
   };
 
+  // Keep the menu open after kicking off a sync — users want to see the
+  // spinner spin and the "Syncing…" label change back, not have the sheet
+  // close out from under them.
   const handleSync = () => {
     syncMoneytor.mutate();
-    onOpenChange(false);
   };
 
   return (
