@@ -16,7 +16,7 @@ const GOLD = 'text-[#d4b878]';
  * credit cards, and the `linkedMortgage` reference back-pointer is
  * mangled in their response.
  */
-function isMortgage(account: MoneytorAccountRow): boolean {
+export function isMortgage(account: MoneytorAccountRow): boolean {
   if (account.form !== 'debt') return false;
   const name = account.name ?? '';
   return name.includes('משכנתא') || /mortgage/i.test(name);
@@ -68,7 +68,7 @@ function SpecRow({
   );
 }
 
-function MortgageCard({ m }: { m: MoneytorAccountRow }) {
+export function MortgageCard({ m }: { m: MoneytorAccountRow }) {
   const [open, setOpen] = useState(false);
   // Balance comes back signed (negative for debts). The card shows the
   // absolute outstanding amount — sign is implicit in "outstanding balance".

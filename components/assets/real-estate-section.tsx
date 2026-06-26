@@ -68,7 +68,7 @@ function SpecRow({
   );
 }
 
-function PropertyCard({ p }: { p: MoneytorRealEstateRow }) {
+export function PropertyCard({ p }: { p: MoneytorRealEstateRow }) {
   const [open, setOpen] = useState(false);
   const ownershipShare = p.ownership != null && p.ownership < 100;
 
