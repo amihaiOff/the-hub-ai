@@ -144,8 +144,8 @@ function PropertyCard({ p }: { p: MoneytorRealEstateRow }) {
 
           <div className="border-border/40 border-t" />
 
-          {/* Two-column: Purchase + income | Property specs */}
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          {/* Two-column: Purchase + income | Property specs — always side by side */}
+          <div className="grid grid-cols-2 gap-4 sm:gap-6">
             {/* Purchase details & income */}
             {(p.purchasePrice != null ||
               p.purchaseDate ||
