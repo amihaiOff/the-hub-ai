@@ -2,7 +2,7 @@
 
 import { Wallet } from 'lucide-react';
 import { useAssets } from '@/lib/hooks/use-assets';
-import { AssetsSummary, AddAssetDialog, AssetList } from '@/components/assets';
+import { AssetsSummary, AddAssetDialog, AssetList, RealEstateSection } from '@/components/assets';
 
 export default function AssetsPage() {
   const { data, isLoading, error } = useAssets();
@@ -26,6 +26,9 @@ export default function AssetsPage() {
         netValue={data?.netValue ?? 0}
         isLoading={isLoading}
       />
+
+      {/* Real Estate (from Moneytor) — renders nothing when there are no properties */}
+      <RealEstateSection />
 
       {/* Assets & Liabilities List */}
       <div className="space-y-4">

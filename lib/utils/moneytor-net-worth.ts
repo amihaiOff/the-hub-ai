@@ -14,10 +14,13 @@ export interface MoneytorNetWorthTotals {
   assetsNet: number;
   assetsPositive: number;
   assetsNegative: number;
+  /** Sum of `balanceInBase` across all Moneytor real-estate properties. */
+  realEstate: number;
   /** Counts so dashboard pills can show "X+Y accounts" rather than just X. */
   portfolioHoldingsCount: number;
   pensionFundsCount: number;
   accountsCount: number;
+  realEstateCount: number;
 }
 
 const EMPTY: MoneytorNetWorthTotals = {
@@ -26,9 +29,11 @@ const EMPTY: MoneytorNetWorthTotals = {
   assetsNet: 0,
   assetsPositive: 0,
   assetsNegative: 0,
+  realEstate: 0,
   portfolioHoldingsCount: 0,
   pensionFundsCount: 0,
   accountsCount: 0,
+  realEstateCount: 0,
 };
 
 /**
@@ -41,7 +46,7 @@ export async function getMoneytorNetWorthTotals(
 ): Promise<MoneytorNetWorthTotals> {
   if (!householdId) return EMPTY;
 
-  const [stockHoldings, pensionFunds, accounts] = await Promise.all([
+  const [stockHoldings, pensionFunds, accounts, realEstateRows] = await Promise.all([
     prisma.moneytorStockHolding.findMany({
       where: { householdId },
       select: { totalWorthInBase: true },
@@ -54,10 +59,15 @@ export async function getMoneytorNetWorthTotals(
       where: { householdId },
       select: { balanceInBase: true },
     }),
+    prisma.moneytorRealEstate.findMany({
+      where: { householdId },
+      select: { balanceInBase: true },
+    }),
   ]);
 
   const portfolio = stockHoldings.reduce((sum, h) => sum + Number(h.totalWorthInBase), 0);
   const pension = pensionFunds.reduce((sum, f) => sum + Number(f.balanceInBase), 0);
+  const realEstate = realEstateRows.reduce((sum, r) => sum + Number(r.balanceInBase), 0);
 
   let assetsPositive = 0;
   let assetsNegative = 0;
@@ -66,6 +76,10 @@ export async function getMoneytorNetWorthTotals(
     if (v >= 0) assetsPositive += v;
     else assetsNegative += Math.abs(v);
   }
+  // Real estate counts as a positive asset alongside bank balances. Keep
+  // `realEstate` exposed separately so UIs can break it out, but also fold
+  // it into the asset totals so net-worth math doesn't silently miss it.
+  assetsPositive += realEstate;
 
   return {
     portfolio,
@@ -73,8 +87,10 @@ export async function getMoneytorNetWorthTotals(
     assetsNet: assetsPositive - assetsNegative,
     assetsPositive,
     assetsNegative,
+    realEstate,
     portfolioHoldingsCount: stockHoldings.length,
     pensionFundsCount: pensionFunds.length,
     accountsCount: accounts.length,
+    realEstateCount: realEstateRows.length,
   };
 }

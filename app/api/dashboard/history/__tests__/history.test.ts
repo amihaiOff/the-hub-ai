@@ -38,6 +38,9 @@ jest.mock('@/lib/db', () => ({
     moneytorStockHolding: {
       findMany: jest.fn().mockResolvedValue([]),
     },
+    moneytorRealEstate: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
   },
 }));
 
@@ -205,6 +208,7 @@ describe('Dashboard History API', () => {
     (mockPrisma.moneytorPensionFund.findMany as jest.Mock).mockResolvedValue([]);
     (mockPrisma.moneytorAccount.findMany as jest.Mock).mockResolvedValue([]);
     (mockPrisma.moneytorStockHolding.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.moneytorRealEstate.findMany as jest.Mock).mockResolvedValue([]);
   });
 
   describe('GET /api/dashboard/history', () => {

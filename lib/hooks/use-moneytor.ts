@@ -84,6 +84,7 @@ export const moneytorKeys = {
   accountsHistory: (range: string) => [...moneytorKeys.all, 'accounts', 'history', range] as const,
   pension: () => [...moneytorKeys.all, 'pension'] as const,
   pensionHistory: () => [...moneytorKeys.all, 'pension', 'history'] as const,
+  realEstate: () => [...moneytorKeys.all, 'real-estate'] as const,
 };
 
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -401,6 +402,64 @@ export function useDeleteMoneytorAccount() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: moneytorKeys.all });
+    },
+  });
+}
+
+// ─── Real estate ─────────────────────────────────────────────────────────
+
+export interface MoneytorRealEstateRow {
+  id: string;
+  productId: string;
+  name: string;
+  currentValue: number;
+  balanceInBase: number;
+  currency: string;
+  ownership: number | null;
+  purchasePrice: number | null;
+  purchaseDate: string | null;
+  purchaseExpenses: number | null;
+  country: string | null;
+  city: string | null;
+  street: string | null;
+  houseNumber: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  propertyType: string | null;
+  propertyCondition: string | null;
+  measurementUnit: string | null;
+  builtArea: number | null;
+  gardenBalconySize: number | null;
+  bedrooms: number | null;
+  floor: number | null;
+  apartmentFloors: string | null;
+  rent: number | null;
+  rentSuggestion: number | null;
+  rentType: string | null;
+  incomeFrequency: string | null;
+  saleCommission: number | null;
+  profitTax: number | null;
+  generalSellingExpenses: number | null;
+  legalExpenses: number | null;
+  linkedMortgageRef: string | null;
+  customSubtitle: string | null;
+  syncedAt: string;
+}
+
+export interface MoneytorRealEstateResponse {
+  ok: true;
+  asOf: string | null;
+  properties: MoneytorRealEstateRow[];
+  totals: { realEstate: number };
+}
+
+export function useMoneytorRealEstate() {
+  return useQuery({
+    queryKey: moneytorKeys.realEstate(),
+    staleTime: 60_000,
+    queryFn: async (): Promise<MoneytorRealEstateResponse> => {
+      return getJson<MoneytorRealEstateResponse>('/api/moneytor/real-estate');
     },
   });
 }

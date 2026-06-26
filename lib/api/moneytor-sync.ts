@@ -7,6 +7,7 @@ import {
   type MoneytorBankAsset,
   type MoneytorDebtAsset,
   type MoneytorPensionAsset,
+  type MoneytorRealEstateAsset,
   type MoneytorShareAsset,
 } from './moneytor';
 import { importTransactions } from '@/lib/utils/import-transactions';
@@ -39,6 +40,8 @@ export interface MoneytorSyncSummary {
   accountSnapshotsUpserted: number;
   pensionFundsUpserted: number;
   pensionSnapshotsUpserted: number;
+  realEstateUpserted: number;
+  realEstateSnapshotsUpserted: number;
   // Promotion of moneytor_transactions → budget_transactions
   budgetCreated: number;
   budgetSkipped: number;
@@ -139,6 +142,9 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
   );
   const pensionAssets = allAssets.filter(
     (a): a is MoneytorAsset & MoneytorPensionAsset => a.form === 'pension'
+  );
+  const realEstateAssets = allAssets.filter(
+    (a): a is MoneytorAsset & MoneytorRealEstateAsset => a.form === 'realestate'
   );
 
   // ----- Stock holdings (full refresh per account) + daily snapshot -----
@@ -575,6 +581,175 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
     pensionSnapshotsUpserted++;
   }
 
+  // ----- Real-estate properties + monthly snapshot -----
+  // Monthly snapshot cadence (same as pension) because property values
+  // don't change daily — keying on month-start lets repeated syncs in the
+  // same month overwrite, so the snapshot reflects the latest observed value.
+  let realEstateUpserted = 0;
+  let realEstateSnapshotsUpserted = 0;
+  const realEstateMonthStart = monthStart; // already computed for pension
+
+  // Numeric fields can arrive as string or number — coerce safely.
+  const toNum = (v: unknown): number | null => {
+    if (v == null || v === '') return null;
+    const n = typeof v === 'number' ? v : Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  for (const asset of realEstateAssets) {
+    const productId = String(asset.productId ?? asset.id);
+    const currentValue = toNum(asset.value ?? asset.balanceInBaseCurrency) ?? 0;
+    const balanceInBase = toNum(asset.balanceInBaseCurrency ?? asset.value) ?? 0;
+    const currency = asset.currency?.value || 'ILS';
+    const ownership = toNum(asset.ownership);
+    const purchasePrice = toNum(asset.purchasePrice);
+    const purchaseDate = asset.purchaseDate
+      ? new Date(`${asset.purchaseDate.slice(0, 10)}T00:00:00Z`)
+      : null;
+    const purchaseExpenses = toNum(asset.purchaseExpenses);
+
+    const country = asset.country?.value ?? null;
+    const houseNumber = asset.houseNumber != null ? String(asset.houseNumber) : null;
+    const propertyType = asset.propertyType?.value ?? null;
+    const propertyCondition = asset.propertyCondition?.value ?? null;
+    const measurementUnit = asset.measurementUnit?.value ?? null;
+    const builtArea = toNum(asset.builtArea);
+    const gardenBalconySize = toNum(asset.gardenBalconySize);
+    const apartmentFloors = asset.apartmentFloors != null ? String(asset.apartmentFloors) : null;
+    const rent = toNum(asset.rent);
+    const rentSuggestion = toNum(asset.rentSuggestion);
+    const rentType = asset.rentType?.value ?? null;
+    const incomeFrequency = asset.incomeFrequency?.value ?? null;
+    const saleCommission = toNum(asset.saleCommission);
+    const profitTax = toNum(asset.profitTax);
+    const generalSellingExpenses = toNum(asset.generalSellingExpenses);
+    const legalExpenses = toNum(asset.legalExpenses);
+    // The API sometimes returns `{ value: '[object Object]' }` for linkedMortgage
+    // — that's a Moneytor serialization quirk. Store the raw value string anyway
+    // so we can revisit later if they fix it.
+    const linkedMortgageRef = asset.linkedMortgage?.value ?? null;
+
+    await prisma.moneytorRealEstate.upsert({
+      where: { householdId_productId: { householdId, productId } },
+      create: {
+        productId,
+        name: asset.name,
+        currentValue,
+        balanceInBase,
+        currency,
+        ownership,
+        purchasePrice,
+        purchaseDate,
+        purchaseExpenses,
+        country,
+        city: asset.city ?? null,
+        street: asset.street ?? null,
+        houseNumber,
+        address: asset.address ?? null,
+        latitude: toNum(asset.latitude),
+        longitude: toNum(asset.longitude),
+        propertyType,
+        propertyCondition,
+        measurementUnit,
+        builtArea,
+        gardenBalconySize,
+        bedrooms: asset.bedrooms ?? null,
+        floor: asset.floor ?? null,
+        apartmentFloors,
+        rent,
+        rentSuggestion,
+        rentType,
+        incomeFrequency,
+        saleCommission,
+        profitTax,
+        generalSellingExpenses,
+        legalExpenses,
+        linkedMortgageRef,
+        rawData: asset as unknown as Prisma.InputJsonValue,
+        householdId,
+      },
+      update: {
+        name: asset.name,
+        currentValue,
+        balanceInBase,
+        currency,
+        ownership,
+        purchasePrice,
+        purchaseDate,
+        purchaseExpenses,
+        country,
+        city: asset.city ?? null,
+        street: asset.street ?? null,
+        houseNumber,
+        address: asset.address ?? null,
+        latitude: toNum(asset.latitude),
+        longitude: toNum(asset.longitude),
+        propertyType,
+        propertyCondition,
+        measurementUnit,
+        builtArea,
+        gardenBalconySize,
+        bedrooms: asset.bedrooms ?? null,
+        floor: asset.floor ?? null,
+        apartmentFloors,
+        rent,
+        rentSuggestion,
+        rentType,
+        incomeFrequency,
+        saleCommission,
+        profitTax,
+        generalSellingExpenses,
+        legalExpenses,
+        linkedMortgageRef,
+        rawData: asset as unknown as Prisma.InputJsonValue,
+        syncedAt: new Date(),
+      },
+    });
+    realEstateUpserted++;
+
+    await prisma.moneytorRealEstateSnapshot.upsert({
+      where: {
+        householdId_snapshotMonth_productId: {
+          householdId,
+          snapshotMonth: realEstateMonthStart,
+          productId,
+        },
+      },
+      create: {
+        snapshotMonth: realEstateMonthStart,
+        productId,
+        name: asset.name,
+        currentValue,
+        balanceInBase,
+        currency,
+        householdId,
+      },
+      update: {
+        name: asset.name,
+        currentValue,
+        balanceInBase,
+        currency,
+      },
+    });
+    realEstateSnapshotsUpserted++;
+  }
+
+  // Remove properties that Moneytor no longer reports (e.g. user deleted one)
+  if (
+    realEstateAssets.length > 0 ||
+    (await prisma.moneytorRealEstate.count({ where: { householdId } })) > 0
+  ) {
+    const seenIds = new Set(realEstateAssets.map((a) => String(a.productId ?? a.id)));
+    const allRows = await prisma.moneytorRealEstate.findMany({
+      where: { householdId },
+      select: { id: true, productId: true },
+    });
+    const toDelete = allRows.filter((r) => !seenIds.has(r.productId)).map((r) => r.id);
+    if (toDelete.length > 0) {
+      await prisma.moneytorRealEstate.deleteMany({ where: { id: { in: toDelete } } });
+    }
+  }
+
   // ----- Rolling re-alignment of the last ROLLING_ALIGN_DAYS days -----
   // The incremental upsert above can leave stale rows around when Moneytor
   // corrects or removes a transaction post-fact (e.g. a pending CC auth that
@@ -616,6 +791,8 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
     accountSnapshotsUpserted,
     pensionFundsUpserted,
     pensionSnapshotsUpserted,
+    realEstateUpserted,
+    realEstateSnapshotsUpserted,
     budgetCreated: budgetCreated + (rollingResync?.budgetCreated ?? 0),
     budgetSkipped,
     latestDate: newLatest?.transactionDate.toISOString().split('T')[0] ?? null,

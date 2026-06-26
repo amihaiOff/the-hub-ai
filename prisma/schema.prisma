@@ -108,6 +108,8 @@ model Household {
   moneytorAccountSnapshots MoneytorAccountSnapshot[]
   moneytorPensionFunds     MoneytorPensionFund[]
   moneytorPensionSnapshots MoneytorPensionSnapshot[]
+  moneytorRealEstate         MoneytorRealEstate[]
+  moneytorRealEstateSnapshots MoneytorRealEstateSnapshot[]
   moneytorDropLogs         MoneytorDropLog[]
 
   // Budget settings
@@ -975,6 +977,93 @@ model MoneytorPensionSnapshot {
   @@unique([householdId, snapshotMonth, productId, routeName])
   @@index([householdId, snapshotMonth])
   @@map("moneytor_pension_snapshots")
+}
+
+// Moneytor real-estate properties. One row per property. The API returns a
+// rich object per property (purchase, rent, sale costs, address, condition,
+// linked mortgage) — we promote the load-bearing fields to columns and keep
+// the rest in `raw_data` for the details view.
+model MoneytorRealEstate {
+  id          String   @id @default(cuid())
+  productId   String   @map("product_id")
+  name        String
+  // Current market value (positive). `balance_in_base` mirrors the same value
+  // in the household's base currency so net-worth aggregation stays uniform
+  // across account types.
+  currentValue  Decimal  @map("current_value") @db.Decimal(18, 2)
+  balanceInBase Decimal  @map("balance_in_base") @db.Decimal(18, 2)
+  currency      String   @default("ILS")
+  // Ownership percentage (0-100). Used to scale balance contributions for
+  // households that own a fraction of a property.
+  ownership     Decimal? @db.Decimal(5, 2)
+  // Purchase
+  purchasePrice    Decimal?  @map("purchase_price") @db.Decimal(18, 2)
+  purchaseDate     DateTime? @map("purchase_date") @db.Date
+  purchaseExpenses Decimal?  @map("purchase_expenses") @db.Decimal(18, 2)
+  // Address / geo
+  country     String?
+  city        String?
+  street      String?
+  houseNumber String? @map("house_number")
+  address     String?
+  latitude    Decimal? @db.Decimal(9, 6)
+  longitude   Decimal? @db.Decimal(9, 6)
+  // Property characteristics
+  propertyType      String? @map("property_type")
+  propertyCondition String? @map("property_condition")
+  measurementUnit   String? @map("measurement_unit") // 'squareMeter' | 'squareFoot'
+  builtArea         Decimal? @map("built_area") @db.Decimal(10, 2)
+  gardenBalconySize Decimal? @map("garden_balcony_size") @db.Decimal(10, 2)
+  bedrooms          Int?
+  floor             Int?
+  apartmentFloors   String? @map("apartment_floors") // API returns as string
+  // Income
+  rent           Decimal? @db.Decimal(18, 2)
+  rentSuggestion Decimal? @map("rent_suggestion") @db.Decimal(18, 2)
+  rentType       String?  @map("rent_type") // 'longTerm' | 'shortTerm' | etc.
+  incomeFrequency String?  @map("income_frequency") // 'monthly' | 'yearly'
+  // Sale costs (used when projecting net proceeds on sale)
+  saleCommission         Decimal? @map("sale_commission") @db.Decimal(8, 4) // percent
+  profitTax              Decimal? @map("profit_tax") @db.Decimal(18, 2)
+  generalSellingExpenses Decimal? @map("general_selling_expenses") @db.Decimal(18, 2)
+  legalExpenses          Decimal? @map("legal_expenses") @db.Decimal(18, 2)
+  // Mortgage link — the API returns an object; we keep the stringified value
+  // so we can later resolve it to a MoneytorAccount (debt form) if needed.
+  linkedMortgageRef String? @map("linked_mortgage_ref")
+  customSubtitle    String? @map("custom_subtitle") // user-editable label
+  rawData           Json?   @map("raw_data")
+  householdId       String  @map("household_id")
+  syncedAt          DateTime @default(now()) @map("synced_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, productId])
+  @@index([householdId])
+  @@map("moneytor_real_estate")
+}
+
+// Monthly snapshot of a real-estate property's value. Property value changes
+// slowly (vs. stocks) so a monthly cadence is enough — same pattern as
+// MoneytorPensionSnapshot.
+model MoneytorRealEstateSnapshot {
+  id            String   @id @default(cuid())
+  snapshotMonth DateTime @map("snapshot_month") @db.Date
+  productId     String   @map("product_id")
+  name          String
+  currentValue  Decimal  @map("current_value") @db.Decimal(18, 2)
+  balanceInBase Decimal  @map("balance_in_base") @db.Decimal(18, 2)
+  currency      String
+  householdId   String   @map("household_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, snapshotMonth, productId])
+  @@index([householdId, snapshotMonth])
+  @@map("moneytor_real_estate_snapshots")
 }
 
 // MoneytorDropLog - audit trail of budget_transactions that were dropped
