@@ -48,6 +48,7 @@ export async function GET() {
       moneytorDropLogs,
       moneytorRealEstate,
       moneytorRealEstateSnapshots,
+      moneytorSyncLogs,
       riseupCategories,
       payeeCategoryRules,
       insurancePolicies,
@@ -85,6 +86,7 @@ export async function GET() {
       prisma.moneytorDropLog.findMany(),
       prisma.moneytorRealEstate.findMany(),
       prisma.moneytorRealEstateSnapshot.findMany(),
+      prisma.moneytorSyncLog.findMany(),
       prisma.riseupCategory.findMany(),
       prisma.payeeCategoryRule.findMany(),
       prisma.insurancePolicy.findMany(),
@@ -103,7 +105,7 @@ export async function GET() {
     // Create backup metadata
     const metadata = {
       backupDate: new Date().toISOString(),
-      schemaVersion: '1.9',
+      schemaVersion: '2.0',
       createdBy: user.email,
       counts: {
         users: users.length,
@@ -129,6 +131,7 @@ export async function GET() {
         moneytorDropLogs: moneytorDropLogs.length,
         moneytorRealEstate: moneytorRealEstate.length,
         moneytorRealEstateSnapshots: moneytorRealEstateSnapshots.length,
+        moneytorSyncLogs: moneytorSyncLogs.length,
         riseupCategories: riseupCategories.length,
         payeeCategoryRules: payeeCategoryRules.length,
         insurancePolicies: insurancePolicies.length,
@@ -188,6 +191,7 @@ export async function GET() {
       'moneytor_real_estate_snapshots.json',
       JSON.stringify(moneytorRealEstateSnapshots, jsonSerializer, 2)
     );
+    zip.file('moneytor_sync_logs.json', JSON.stringify(moneytorSyncLogs, jsonSerializer, 2));
     zip.file('riseup_categories.json', JSON.stringify(riseupCategories, jsonSerializer, 2));
     zip.file('payee_category_rules.json', JSON.stringify(payeeCategoryRules, jsonSerializer, 2));
     zip.file('insurance_policies.json', JSON.stringify(insurancePolicies, jsonSerializer, 2));

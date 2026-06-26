@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentContext } from '@/lib/auth-utils';
 import { MoneytorApiError } from '@/lib/api/moneytor';
-import { syncMoneytorForHousehold } from '@/lib/api/moneytor-sync';
+import { syncMoneytorForHouseholdAndLog } from '@/lib/api/moneytor-sync';
 
 /**
  * POST /api/moneytor/sync
@@ -16,7 +16,7 @@ export async function POST() {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const summary = await syncMoneytorForHousehold(context.activeHousehold.id);
+    const summary = await syncMoneytorForHouseholdAndLog(context.activeHousehold.id, 'manual');
 
     return NextResponse.json({ ok: true, ...summary });
   } catch (err) {

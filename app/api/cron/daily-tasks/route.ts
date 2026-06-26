@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { updateStockPriceCache, isStockPriceError } from '@/lib/api/stock-price';
-import { syncMoneytorForHousehold } from '@/lib/api/moneytor-sync';
+import { syncMoneytorForHouseholdAndLog } from '@/lib/api/moneytor-sync';
 import { MoneytorApiError } from '@/lib/api/moneytor';
 import { withCronLog } from '@/lib/utils/cron-logger';
 
@@ -200,7 +200,7 @@ async function syncMoneytor(results: {
 
   for (const { id: householdId } of households) {
     try {
-      const summary = await syncMoneytorForHousehold(householdId);
+      const summary = await syncMoneytorForHouseholdAndLog(householdId, 'cron');
       results.moneytor.households++;
       results.moneytor.transactionsUpserted += summary.upserted;
       results.moneytor.stocksUpserted += summary.stocksUpserted;

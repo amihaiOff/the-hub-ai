@@ -1125,3 +1125,60 @@ export async function forceResyncMoneytorTransactionsForHousehold(
     syncedAt: new Date().toISOString(),
   };
 }
+
+/** Source of a sync attempt — used to filter the Sync Log UI. */
+export type MoneytorSyncSource = 'manual' | 'cron';
+
+/**
+ * Wraps `syncMoneytorForHousehold` with a persistent log entry. Every
+ * attempt (success or failure) writes a row to `moneytor_sync_logs` so the
+ * Labs → Sync Log page can surface a per-household audit trail.
+ *
+ * Re-throws the original error so callers can keep their error-handling
+ * paths (Moneytor API errors, etc.).
+ */
+export async function syncMoneytorForHouseholdAndLog(
+  householdId: string,
+  source: MoneytorSyncSource
+): Promise<MoneytorSyncSummary> {
+  const startedAt = new Date();
+  try {
+    const summary = await syncMoneytorForHousehold(householdId);
+    const completedAt = new Date();
+    try {
+      await prisma.moneytorSyncLog.create({
+        data: {
+          householdId,
+          source,
+          startedAt,
+          completedAt,
+          durationMs: completedAt.getTime() - startedAt.getTime(),
+          success: true,
+          results: summary as unknown as Prisma.InputJsonValue,
+        },
+      });
+    } catch (logErr) {
+      // Logging is best-effort — don't fail the sync because logging failed.
+      console.error('Failed to write moneytor_sync_log row:', logErr);
+    }
+    return summary;
+  } catch (err) {
+    const completedAt = new Date();
+    try {
+      await prisma.moneytorSyncLog.create({
+        data: {
+          householdId,
+          source,
+          startedAt,
+          completedAt,
+          durationMs: completedAt.getTime() - startedAt.getTime(),
+          success: false,
+          errorMessage: err instanceof Error ? err.message : String(err),
+        },
+      });
+    } catch (logErr) {
+      console.error('Failed to write moneytor_sync_log row (after failure):', logErr);
+    }
+    throw err;
+  }
+}

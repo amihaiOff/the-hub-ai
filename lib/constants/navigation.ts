@@ -19,6 +19,7 @@ import {
   Package,
   FlaskConical,
   Trash2,
+  History,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -90,6 +91,7 @@ export const navItems: NavItem[] = [
     subItems: [
       { href: '/moneytor-trnx', label: 'Moneytor Trnx', icon: ArrowLeftRight },
       { href: '/labs/dropped-trnx', label: 'Dropped Trnx', icon: Trash2 },
+      { href: '/labs/sync-log', label: 'Sync Log', icon: History },
     ],
   },
 ];
