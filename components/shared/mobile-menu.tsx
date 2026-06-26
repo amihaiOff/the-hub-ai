@@ -4,7 +4,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useUser } from '@/lib/hooks/use-auth';
-import { LogOut, LogIn } from 'lucide-react';
+import { useSyncMoneytor } from '@/lib/hooks/use-moneytor';
+import { LogOut, LogIn, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,8 +25,14 @@ interface MobileMenuProps {
 export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
   const pathname = usePathname();
   const user = useUser();
+  const syncMoneytor = useSyncMoneytor();
 
   const handleNavClick = () => {
+    onOpenChange(false);
+  };
+
+  const handleSync = () => {
+    syncMoneytor.mutate();
     onOpenChange(false);
   };
 
@@ -97,6 +104,25 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
               );
             })}
           </nav>
+
+          {/* Sync data — global Moneytor pull. Sits just above Settings,
+              mirroring the desktop sidebar. */}
+          <div className="px-4 pt-0 pb-1">
+            <button
+              type="button"
+              onClick={handleSync}
+              disabled={syncMoneytor.isPending}
+              aria-label="Sync data with Moneytor"
+              className={cn(
+                'flex w-full items-center gap-3 rounded-lg px-3 py-3 text-base font-medium transition-all',
+                'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+                'disabled:opacity-60'
+              )}
+            >
+              <RefreshCw className={cn('h-5 w-5', syncMoneytor.isPending && 'animate-spin')} />
+              {syncMoneytor.isPending ? 'Syncing…' : 'Sync data'}
+            </button>
+          </div>
 
           {/* Settings - Bottom of navigation */}
           <div className="p-4 pt-0">
