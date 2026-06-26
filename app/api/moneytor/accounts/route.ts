@@ -20,22 +20,57 @@ export async function GET() {
       orderBy: [{ form: 'asc' }, { balanceInBase: 'desc' }],
     });
 
-    const accounts = rows.map((r) => ({
-      id: r.id,
-      productId: r.productId,
-      form: r.form,
-      name: r.name,
-      institution: r.institution,
-      subtype: r.subtype,
-      accountNumber: r.accountNumber,
-      currency: r.currency,
-      balanceInBase: Number(r.balanceInBase),
-      interestRate: r.interestRate != null ? Number(r.interestRate) : null,
-      maturityDate: r.maturityDate ? r.maturityDate.toISOString().split('T')[0] : null,
-      monthlyPayment: r.monthlyPayment != null ? Number(r.monthlyPayment) : null,
-      customSubtitle: r.customSubtitle,
-      syncedAt: r.syncedAt.toISOString(),
-    }));
+    const accounts = rows.map((r) => {
+      // Pull a clean tracks[] off rawData when present (mortgages and other
+      // multi-route loans expose routesData with remainder/interest/payment
+      // per track). Best-effort — invalid shapes fall back to undefined.
+      let tracks:
+        | Array<{
+            interestType: string | null;
+            interest: number | null;
+            remainder: number | null;
+            monthlyRepayment: number | null;
+          }>
+        | undefined;
+      const raw = r.rawData as {
+        routesData?: Array<{
+          trackInterestType?: { value?: string };
+          interest?: number | string;
+          remainder?: number | string;
+          monthlyRepayment?: number | string;
+        }>;
+        startDate?: string;
+      } | null;
+      if (Array.isArray(raw?.routesData) && raw!.routesData.length > 0) {
+        tracks = raw!.routesData.map((t) => ({
+          interestType: t.trackInterestType?.value ?? null,
+          interest: t.interest != null ? Number(t.interest) : null,
+          remainder: t.remainder != null ? Number(t.remainder) : null,
+          monthlyRepayment: t.monthlyRepayment != null ? Number(t.monthlyRepayment) : null,
+        }));
+      }
+      const startDate = raw?.startDate ?? null;
+
+      return {
+        id: r.id,
+        productId: r.productId,
+        form: r.form,
+        name: r.name,
+        institution: r.institution,
+        subtype: r.subtype,
+        accountNumber: r.accountNumber,
+        currency: r.currency,
+        balanceInBase: Number(r.balanceInBase),
+        interestRate: r.interestRate != null ? Number(r.interestRate) : null,
+        maturityDate: r.maturityDate ? r.maturityDate.toISOString().split('T')[0] : null,
+        monthlyPayment: r.monthlyPayment != null ? Number(r.monthlyPayment) : null,
+        customSubtitle: r.customSubtitle,
+        syncedAt: r.syncedAt.toISOString(),
+        // Debt-only extras for the mortgage card
+        tracks,
+        startDate,
+      };
+    });
 
     const bankTotal = accounts
       .filter((a) => a.form === 'bank')

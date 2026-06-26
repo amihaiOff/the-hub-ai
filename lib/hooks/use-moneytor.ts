@@ -203,6 +203,13 @@ export function useMoneytorPortfolioHistory(range: string) {
   });
 }
 
+export interface MoneytorDebtTrack {
+  interestType: string | null;
+  interest: number | null;
+  remainder: number | null;
+  monthlyRepayment: number | null;
+}
+
 export interface MoneytorAccountRow {
   id: string;
   productId: string;
@@ -218,6 +225,9 @@ export interface MoneytorAccountRow {
   monthlyPayment: number | null;
   customSubtitle: string | null;
   syncedAt: string;
+  // Debt-only — present when rawData includes routesData (mortgages, multi-track loans).
+  tracks?: MoneytorDebtTrack[];
+  startDate?: string | null;
 }
 
 export interface MoneytorAccountsResponse {
