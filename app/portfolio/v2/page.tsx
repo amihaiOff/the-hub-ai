@@ -8,7 +8,6 @@ import {
   ArrowUpDown,
   TrendingUp,
   AlertCircle,
-  RefreshCw,
   ExternalLink,
   MoreHorizontal,
   MoreVertical,
@@ -34,7 +33,6 @@ import {
 import {
   useMoneytorPortfolio,
   useMoneytorPortfolioHistory,
-  useSyncMoneytor,
   useDeleteMoneytorAccount,
 } from '@/lib/hooks/use-moneytor';
 import { CurrencyProvider, useCurrency } from '@/lib/contexts/currency-context';
@@ -1135,7 +1133,6 @@ function PortfolioV2Content() {
   // They're merged into one list here so the v2 page shows everything in one view.
   const { data: legacy, isLoading: legacyLoading, error: legacyError } = usePortfolio();
   const { data: moneytor, isLoading: moneytorLoading } = useMoneytorPortfolio();
-  const sync = useSyncMoneytor();
   const [timeRange, setTimeRange] = useState<TimeRange>('1Y');
   const { data: history, isLoading: historyLoading } = useMoneytorPortfolioHistory(timeRange);
   const { data: legacyHistory } = usePortfolioAccountHistory(timeRange);
@@ -1218,25 +1215,13 @@ function PortfolioV2Content() {
               animation: 'fadeUp 0.5s cubic-bezier(0.32,0.72,0,1) both',
             }}
           >
-            {/* Eyebrow row: tag + sync button */}
-            <div className="flex items-center justify-between gap-2">
+            {/* Eyebrow row */}
+            <div className="flex items-center gap-2">
               <div className="inline-flex items-center gap-1.5 rounded-full border border-[#6ab2ff33] bg-[#6ab2ff0d] px-2.5 py-0.5">
                 <span className="text-[10px] font-bold tracking-[0.15em] text-[#6ab2ff] uppercase">
                   Portfolio
                 </span>
               </div>
-              <button
-                onClick={() => sync.mutate()}
-                disabled={sync.isPending}
-                className="inline-flex items-center gap-1.5 rounded-full border border-[#6ab2ff33] bg-[#6ab2ff0d] px-3 py-1 text-xs font-medium text-[#6ab2ff] transition-colors hover:bg-[#6ab2ff1f] disabled:opacity-50"
-                aria-label="Sync portfolio from Moneytor"
-              >
-                <RefreshCw
-                  className={sync.isPending ? 'h-3 w-3 animate-spin' : 'h-3 w-3'}
-                  aria-hidden="true"
-                />
-                {sync.isPending ? 'Syncing...' : 'Sync now'}
-              </button>
             </div>
 
             {/* Value */}
@@ -1332,31 +1317,6 @@ function PortfolioV2Content() {
           </div>
         </div>
       )}
-      {sync.error && (
-        <div className="mx-4 mt-6 flex items-start gap-3 rounded-xl border border-[#f8717133] bg-[#f8717108] p-4 lg:mx-8">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#f87171]" aria-hidden="true" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-[#f87171]">Sync failed</p>
-            <p className="mt-0.5 text-xs text-[rgba(253,251,254,0.5)]">
-              {sync.error instanceof Error ? sync.error.message : 'Unknown sync error'}
-            </p>
-            {(sync.error as Error & { code?: string }).code === 'token_expired' && (
-              <a
-                href={
-                  (sync.error as Error & { renewUrl?: string }).renewUrl ||
-                  'https://app.moneytor.co.il/settings#api'
-                }
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1 inline-flex items-center gap-1 text-xs text-[#6ab2ff] hover:underline"
-              >
-                Renew Moneytor token <ExternalLink className="h-3 w-3" />
-              </a>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Keyframes */}
       <style>{`
         @keyframes fadeUp {

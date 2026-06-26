@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { AlertCircle, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -17,7 +17,6 @@ import { Button } from '@/components/ui/button';
 import {
   useMoneytorPension,
   useMoneytorPensionHistory,
-  useSyncMoneytor,
   type MoneytorPensionFundRow,
 } from '@/lib/hooks/use-moneytor';
 import { formatCurrencyILS } from '@/lib/utils/budget';
@@ -70,7 +69,6 @@ function isHishtalmut(productType: string) {
 export function MoneytorPensionSection() {
   const pensionQuery = useMoneytorPension();
   const historyQuery = useMoneytorPensionHistory();
-  const sync = useSyncMoneytor();
 
   const funds = pensionQuery.data?.funds ?? [];
   const totals = pensionQuery.data?.totals;
@@ -104,18 +102,14 @@ export function MoneytorPensionSection() {
             {formatRelativeTime(pensionQuery.data?.asOf ?? null)}
           </p>
         </div>
-        <Button onClick={() => sync.mutate()} disabled={sync.isPending} variant="outline" size="sm">
-          <RefreshCw className={cn('mr-2 h-4 w-4', sync.isPending && 'animate-spin')} />
-          Sync
-        </Button>
       </div>
 
-      {(pensionQuery.error || historyQuery.error || sync.error) && (
+      {(pensionQuery.error || historyQuery.error) && (
         <Card className="border-destructive/40">
           <CardContent className="flex items-start gap-2 p-4">
             <AlertCircle className="text-destructive mt-0.5 h-4 w-4" />
             <div className="text-sm">
-              {(pensionQuery.error || historyQuery.error || sync.error)?.message ||
+              {(pensionQuery.error || historyQuery.error)?.message ||
                 'Failed to load pension data.'}
             </div>
           </CardContent>
