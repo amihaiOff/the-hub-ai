@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -97,9 +97,39 @@ export function TransactionTable({
   }, []);
 
   const exitMobileSelectionMode = useCallback(() => {
-    setMobileSelectionMode(false);
-    setSelectedIds(new Set());
+    // Pop the history marker we pushed when entering selection mode. The
+    // popstate handler in the effect below clears the state — calling
+    // history.back() keeps the URL stack tidy so the next browser-back press
+    // navigates as expected.
+    if (typeof window !== 'undefined' && window.history.state?.multiSelect) {
+      window.history.back();
+    } else {
+      setMobileSelectionMode(false);
+      setSelectedIds(new Set());
+    }
   }, []);
+
+  // When mobile selection mode is on, intercept the browser back button:
+  // push a marker state so the next `popstate` fires without navigating
+  // away, and have the handler exit selection mode instead. Without this
+  // the user pressing the device back button leaves the Transactions page
+  // entirely while transactions are still selected.
+  useEffect(() => {
+    if (!mobileSelectionMode) return;
+    if (typeof window === 'undefined') return;
+
+    window.history.pushState({ multiSelect: true }, '');
+
+    const handlePopState = () => {
+      setMobileSelectionMode(false);
+      setSelectedIds(new Set());
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [mobileSelectionMode]);
 
   const handleDelete = async (id: string) => {
     if (confirm('Delete this transaction?')) {

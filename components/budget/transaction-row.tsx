@@ -271,7 +271,9 @@ export function TransactionRow({
 
       {/* Amount */}
       <td className="px-4 py-2 text-right whitespace-nowrap">
-        <span className={cn('font-medium tabular-nums', isIncome ? 'text-green-500' : '')}>
+        <span
+          className={cn('font-medium tabular-nums', isIncome ? 'text-green-500' : 'text-[#d4b878]')}
+        >
           {isIncome ? '+' : '-'}
           {formatCurrencyILS(transaction.amountIls)}
         </span>
@@ -442,7 +444,10 @@ export function TransactionRowMobile({
 
       <div
         dir="ltr"
-        className={cn('shrink-0 text-sm font-semibold tabular-nums', isIncome && 'text-green-500')}
+        className={cn(
+          'shrink-0 text-sm font-semibold tabular-nums',
+          isIncome ? 'text-green-500' : 'text-[#d4b878]'
+        )}
       >
         {isIncome ? '+' : '-'}
         <bdi>{formatCurrencyILS(transaction.amountIls)}</bdi>

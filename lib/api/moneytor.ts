@@ -187,6 +187,42 @@ export interface MoneytorPensionAsset extends MoneytorAsset {
   }>;
 }
 
+// Real estate properties come back under form="realestate". Fields are a
+// mix of strings, numbers, and { value, name } pairs depending on the API
+// — we list what we actually consume; everything else stays in `[key: string]: unknown`.
+export interface MoneytorRealEstateAsset extends MoneytorAsset {
+  form: 'realestate';
+  value?: number;
+  ownership?: number;
+  purchasePrice?: string | number;
+  purchaseDate?: string;
+  purchaseExpenses?: string | number;
+  country?: { value?: string; name?: string };
+  city?: string;
+  street?: string;
+  houseNumber?: string | number;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  propertyType?: { value?: string; name?: string };
+  propertyCondition?: { value?: string; name?: string };
+  measurementUnit?: { value?: string; name?: string };
+  builtArea?: string | number;
+  gardenBalconySize?: string | number;
+  bedrooms?: number;
+  floor?: number;
+  apartmentFloors?: string | number;
+  rent?: string | number;
+  rentSuggestion?: number;
+  rentType?: { value?: string; name?: string };
+  incomeFrequency?: { value?: string; name?: string };
+  saleCommission?: string | number;
+  profitTax?: string | number;
+  generalSellingExpenses?: string | number;
+  legalExpenses?: string | number;
+  linkedMortgage?: { value?: string; name?: string };
+}
+
 interface MoneytorAssetsResponse {
   ok: boolean;
   asOf?: string;

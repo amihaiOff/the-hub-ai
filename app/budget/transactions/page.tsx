@@ -119,7 +119,7 @@ export default function TransactionsPage() {
           <p className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase sm:text-xs">
             Sum
           </p>
-          <p className="mt-0.5 text-base font-bold text-[#6ab2ff] tabular-nums sm:text-xl">
+          <p className="mt-0.5 text-base font-bold text-[#d4b878] tabular-nums sm:text-xl">
             {isLoading
               ? '—'
               : transactions.length === 0
