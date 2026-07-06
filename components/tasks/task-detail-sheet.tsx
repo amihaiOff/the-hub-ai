@@ -119,37 +119,41 @@ function TaskDetailBody({
     update.mutate({ id: task.id, patch: { [field]: value } });
   };
 
-  // Notes autosave: commit on a short debounce so the user's edits stick
-  // even if they close the sheet via Escape / outside-click (blur doesn't
-  // always fire in those flows). The `savedNotesRef` tracks the last value
-  // we sent so we don't retrigger the mutation when the query refetches
-  // and mirrors it back into `task.notes`.
+  // Notes autosave. Refs let the unmount cleanup — which closes over
+  // the initial render — still see the latest typed value + latest
+  // mutation function. Refs are synced inside an effect (not during
+  // render) per React 19's ref-safety rule.
   const savedNotesRef = useRef(task.notes ?? '');
-  const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notesRef = useRef(notes);
+  const taskIdRef = useRef(task.id);
+  const mutateRef = useRef(update.mutate);
 
-  const commitNotes = (value: string) => {
-    const normalized = value.trim().length > 0 ? value : '';
-    if (normalized === savedNotesRef.current) return;
-    savedNotesRef.current = normalized;
-    patch('notes', normalized ? normalized : null);
+  useEffect(() => {
+    notesRef.current = notes;
+    taskIdRef.current = task.id;
+    mutateRef.current = update.mutate;
+  });
+
+  const flushNotes = () => {
+    const value = notesRef.current;
+    if (value === savedNotesRef.current) return;
+    savedNotesRef.current = value;
+    mutateRef.current({
+      id: taskIdRef.current,
+      patch: { notes: value.length > 0 ? value : null },
+    });
   };
 
+  // Debounced autosave: 400ms after the last keystroke. Cleanup cancels
+  // the pending timer; the unmount effect below performs the final flush
+  // so a rapid close-after-typing still saves.
   useEffect(() => {
-    if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
-    notesTimerRef.current = setTimeout(() => commitNotes(notes), 400);
-    return () => {
-      if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const id = setTimeout(flushNotes, 400);
+    return () => clearTimeout(id);
   }, [notes]);
 
-  // Flush on unmount so a rapid close-after-typing still saves.
   useEffect(() => {
-    return () => {
-      if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
-      commitNotes(notes);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => flushNotes();
   }, []);
 
   return (
@@ -252,7 +256,7 @@ function TaskDetailBody({
         <Textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          onBlur={() => commitNotes(notes)}
+          onBlur={flushNotes}
           rows={8}
           placeholder="Anything you want to remember about this task…"
           className="bg-muted/40 rounded-2xl border-none focus-visible:ring-0"
