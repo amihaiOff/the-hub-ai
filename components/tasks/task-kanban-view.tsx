@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   DndContext,
   PointerSensor,
@@ -11,7 +11,7 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Check, MoreHorizontal } from 'lucide-react';
+import { Check, ChevronRight, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUpdateTask, type TaskCategoryRow, type TaskRow } from '@/lib/hooks/use-tasks';
 import { useLongPress } from '@/lib/hooks/use-long-press';
@@ -63,6 +63,15 @@ export function TaskKanbanView({
   onToggleSelection,
 }: TaskKanbanViewProps) {
   const update = useUpdateTask();
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  const toggleCollapse = (key: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   // Small pointer activation distance so a click still opens the detail
   // sheet — the drag only kicks in after a real drag gesture.
@@ -108,6 +117,8 @@ export function TaskKanbanView({
               tasks={grouped[col.key] ?? []}
               onOpenTask={onOpenTask}
               groupBy={groupBy}
+              collapsed={collapsed.has(col.key)}
+              onToggleCollapse={() => toggleCollapse(col.key)}
               selectionMode={selectionMode}
               selectedIds={selectedIds}
               onEnterSelection={onEnterSelection}
@@ -178,6 +189,8 @@ function Column({
   tasks,
   onOpenTask,
   groupBy,
+  collapsed,
+  onToggleCollapse,
   selectionMode,
   selectedIds,
   onEnterSelection,
@@ -187,9 +200,12 @@ function Column({
   tasks: TaskRow[];
   onOpenTask: (id: string) => void;
   groupBy: GroupBy;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 } & SelectionProps) {
   // The whole column is the drop target (not just the area behind the cards),
-  // and dropping stays enabled during selection mode.
+  // and dropping stays enabled during selection mode. A collapsed group keeps
+  // its header droppable so cards can still be dropped onto it.
   const { setNodeRef, isOver } = useDroppable({ id: column.key });
 
   return (
@@ -201,13 +217,25 @@ function Column({
       )}
     >
       <div className="flex items-center justify-between px-1 pb-3">
-        <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? `Expand ${column.label}` : `Collapse ${column.label}`}
+          className="hover:text-foreground flex items-center gap-2"
+        >
+          <ChevronRight
+            className={cn(
+              'text-muted-foreground h-4 w-4 transition-transform',
+              !collapsed && 'rotate-90'
+            )}
+          />
           <span className={cn('h-2 w-2 rounded-full', column.dotClass)} />
           <span className="text-sm font-semibold">{column.label}</span>
           <span className="bg-muted/60 text-muted-foreground inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold">
             {tasks.length}
           </span>
-        </div>
+        </button>
         <button
           type="button"
           aria-label="Column options"
@@ -218,25 +246,27 @@ function Column({
       </div>
       {/* Two columns of cards under each group, filling the screen width.
           min-height keeps an empty group a valid drop target. */}
-      <div className="grid min-h-20 grid-cols-2 items-start gap-3">
-        {tasks.map((task) => (
-          <DraggableKanbanCard
-            key={task.id}
-            task={task}
-            onOpen={() => onOpenTask(task.id)}
-            groupBy={groupBy}
-            selectionMode={selectionMode}
-            selected={selectedIds.has(task.id)}
-            onEnterSelection={() => onEnterSelection(task.id)}
-            onToggleSelection={() => onToggleSelection(task.id)}
-          />
-        ))}
-        {tasks.length === 0 && (
-          <div className="border-border/50 text-muted-foreground col-span-2 rounded-2xl border border-dashed px-3 py-6 text-center text-xs">
-            No tasks
-          </div>
-        )}
-      </div>
+      {!collapsed && (
+        <div className="grid min-h-20 grid-cols-2 items-start gap-3">
+          {tasks.map((task) => (
+            <DraggableKanbanCard
+              key={task.id}
+              task={task}
+              onOpen={() => onOpenTask(task.id)}
+              groupBy={groupBy}
+              selectionMode={selectionMode}
+              selected={selectedIds.has(task.id)}
+              onEnterSelection={() => onEnterSelection(task.id)}
+              onToggleSelection={() => onToggleSelection(task.id)}
+            />
+          ))}
+          {tasks.length === 0 && (
+            <div className="border-border/50 text-muted-foreground col-span-2 rounded-2xl border border-dashed px-3 py-6 text-center text-xs">
+              No tasks
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -267,10 +297,12 @@ function DraggableKanbanCard({
   });
   const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
 
-  // moveTolerance is kept below the dnd activation distance (6px) so a real
-  // drag cancels the long press before the drag starts — otherwise a slow
-  // drag could both move the card and enter selection mode.
+  // Gesture split on a card: quick tap opens it, press-and-move drags it
+  // (moveTolerance 5 < the dnd activation distance of 6, so moving cancels the
+  // long press just before a drag begins), and a longer stationary hold
+  // (500ms) enters multi-select.
   const { handlers: longPress, consumedClick } = useLongPress(onEnterSelection, {
+    delay: 500,
     moveTolerance: 5,
   });
 
@@ -320,7 +352,10 @@ function DraggableKanbanCard({
         }
       }}
       className={cn(
-        'border-border/60 bg-card hover:border-border relative block w-full touch-pan-y rounded-2xl border p-4 text-left transition-colors select-none',
+        // touch-none routes touch gestures to dnd (so vertical drag between
+        // groups works); the stationary long-press still enters selection
+        // because any movement cancels it before this could drag.
+        'border-border/60 bg-card hover:border-border relative block w-full touch-none rounded-2xl border p-4 text-left transition-colors select-none',
         'cursor-grab',
         isDragging && 'opacity-60 shadow-lg',
         selected && 'border-primary ring-primary/40 ring-2'
