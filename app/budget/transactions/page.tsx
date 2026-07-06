@@ -11,9 +11,10 @@ import {
   useTags,
   useUncategorizedCount,
   useAccountNames,
+  useSelectedMonth,
   type TransactionFilters as FilterType,
 } from '@/lib/hooks/use-budget';
-import { getCurrentMonth, formatCurrencyILS } from '@/lib/utils/budget';
+import { formatCurrencyILS } from '@/lib/utils/budget';
 import { cn } from '@/lib/utils';
 import {
   TransactionTable,
@@ -30,7 +31,7 @@ export default function TransactionsPage() {
   const [showForceResync, setShowForceResync] = useState(false);
   const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [filters, setFilters] = useState<FilterType>({});
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
+  const { selectedMonth, setSelectedMonth } = useSelectedMonth();
 
   const {
     data: transactions = [],
