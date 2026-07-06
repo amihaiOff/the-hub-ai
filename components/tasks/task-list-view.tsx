@@ -3,10 +3,12 @@
 import { AlertCircle, ChevronDown, Minus, TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUpdateTask, type TaskRow } from '@/lib/hooks/use-tasks';
+import { useLongPress } from '@/lib/hooks/use-long-press';
 import { prettyStatus, prettyPriority } from './task-filters-bar';
 import { Checkbox } from '@/components/ui/checkbox';
+import type { SelectionProps } from './task-selection';
 
-interface TaskListViewProps {
+interface TaskListViewProps extends SelectionProps {
   tasks: TaskRow[];
   onOpenTask: (id: string) => void;
 }
@@ -14,45 +16,104 @@ interface TaskListViewProps {
 /**
  * Card-per-row list. Each card is a fixed grid of label/value rows —
  * Category, Status, Priority, Due — with a checkbox at the top-left that
- * toggles DONE/TODO and strikes through the title.
+ * toggles DONE/TODO and strikes through the title. Long-pressing a card
+ * enters selection mode; in selection mode a tap toggles selection.
  */
-export function TaskListView({ tasks, onOpenTask }: TaskListViewProps) {
+export function TaskListView({
+  tasks,
+  onOpenTask,
+  selectionMode,
+  selectedIds,
+  onEnterSelection,
+  onToggleSelection,
+}: TaskListViewProps) {
   return (
     <div className="space-y-3">
       {tasks.map((task) => (
-        <TaskCard key={task.id} task={task} onOpen={() => onOpenTask(task.id)} />
+        <TaskCard
+          key={task.id}
+          task={task}
+          onOpen={() => onOpenTask(task.id)}
+          selectionMode={selectionMode}
+          selected={selectedIds.has(task.id)}
+          onEnterSelection={() => onEnterSelection(task.id)}
+          onToggleSelection={() => onToggleSelection(task.id)}
+        />
       ))}
     </div>
   );
 }
 
-function TaskCard({ task, onOpen }: { task: TaskRow; onOpen: () => void }) {
+function TaskCard({
+  task,
+  onOpen,
+  selectionMode,
+  selected,
+  onEnterSelection,
+  onToggleSelection,
+}: {
+  task: TaskRow;
+  onOpen: () => void;
+  selectionMode: boolean;
+  selected: boolean;
+  onEnterSelection: () => void;
+  onToggleSelection: () => void;
+}) {
   const update = useUpdateTask();
   const isDone = task.status === 'DONE';
   const hasChildren = (task.children?.length ?? 0) > 0;
+
+  const { handlers, consumedClick } = useLongPress(onEnterSelection);
 
   const toggleDone = (checked: boolean) => {
     update.mutate({ id: task.id, patch: { status: checked ? 'DONE' : 'TODO' } });
   };
 
+  const activate = () => {
+    if (consumedClick()) return;
+    if (selectionMode) onToggleSelection();
+    else onOpen();
+  };
+
+  // The card is a plain clickable div (not role="button") so the interactive
+  // controls it contains — the checkbox and the title button — remain valid;
+  // keyboard users act through those focusable children.
   return (
     <div
+      onClick={activate}
+      {...handlers}
       className={cn(
-        'border-border/60 bg-card rounded-3xl border px-5 py-4 transition-colors',
-        'hover:border-border'
+        'border-border/60 bg-card cursor-pointer touch-pan-y rounded-3xl border px-5 py-4 transition-colors select-none',
+        'hover:border-border',
+        selected && 'border-primary ring-primary/40 ring-2'
       )}
     >
-      {/* Header: checkbox + title */}
+      {/* Header: checkbox + title. The leading checkbox toggles DONE normally,
+          and reflects selection while in selection mode. */}
       <div className="flex items-start gap-3">
-        <Checkbox
-          checked={isDone}
-          onCheckedChange={(v) => toggleDone(v === true)}
-          className="mt-1 h-5 w-5 rounded-md"
-          aria-label={isDone ? 'Mark task as not done' : 'Mark task as done'}
-        />
+        <span onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+          <Checkbox
+            checked={selectionMode ? selected : isDone}
+            onCheckedChange={(v) => (selectionMode ? onToggleSelection() : toggleDone(v === true))}
+            className="mt-1 h-5 w-5 rounded-md"
+            aria-label={
+              selectionMode
+                ? selected
+                  ? 'Deselect task'
+                  : 'Select task'
+                : isDone
+                  ? 'Mark task as not done'
+                  : 'Mark task as done'
+            }
+          />
+        </span>
         <button
           type="button"
-          onClick={onOpen}
+          aria-pressed={selectionMode ? selected : undefined}
+          onClick={(e) => {
+            e.stopPropagation();
+            activate();
+          }}
           className={cn(
             'flex-1 text-left text-base leading-tight font-semibold',
             isDone && 'text-muted-foreground line-through'

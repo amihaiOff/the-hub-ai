@@ -11,16 +11,18 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { MessageSquare, MoreHorizontal } from 'lucide-react';
+import { Check, MessageSquare, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUpdateTask, type TaskCategoryRow, type TaskRow } from '@/lib/hooks/use-tasks';
+import { useLongPress } from '@/lib/hooks/use-long-press';
 import { TASK_STATUSES, TASK_PRIORITIES } from '@/lib/validations/tasks';
 import { PriorityBadge, prettyStatus } from './task-list-view';
 import { prettyPriority } from './task-filters-bar';
+import type { SelectionProps } from './task-selection';
 
 export type GroupBy = 'status' | 'priority' | 'category';
 
-interface TaskKanbanViewProps {
+interface TaskKanbanViewProps extends SelectionProps {
   tasks: TaskRow[];
   categories: TaskCategoryRow[];
   onOpenTask: (id: string) => void;
@@ -50,7 +52,16 @@ const PRIORITY_DOT: Record<TaskRow['priority'], string> = {
  * column PATCHes the corresponding field via useUpdateTask's optimistic
  * update, so the card lands in its new column immediately.
  */
-export function TaskKanbanView({ tasks, categories, onOpenTask, groupBy }: TaskKanbanViewProps) {
+export function TaskKanbanView({
+  tasks,
+  categories,
+  onOpenTask,
+  groupBy,
+  selectionMode,
+  selectedIds,
+  onEnterSelection,
+  onToggleSelection,
+}: TaskKanbanViewProps) {
   const update = useUpdateTask();
 
   // Small pointer activation distance so a click still opens the detail
@@ -97,6 +108,10 @@ export function TaskKanbanView({ tasks, categories, onOpenTask, groupBy }: TaskK
               tasks={grouped[col.key] ?? []}
               onOpenTask={onOpenTask}
               groupBy={groupBy}
+              selectionMode={selectionMode}
+              selectedIds={selectedIds}
+              onEnterSelection={onEnterSelection}
+              onToggleSelection={onToggleSelection}
             />
           ))}
         </div>
@@ -163,13 +178,17 @@ function Column({
   tasks,
   onOpenTask,
   groupBy,
+  selectionMode,
+  selectedIds,
+  onEnterSelection,
+  onToggleSelection,
 }: {
   column: Column;
   tasks: TaskRow[];
   onOpenTask: (id: string) => void;
   groupBy: GroupBy;
-}) {
-  const { setNodeRef, isOver } = useDroppable({ id: column.key });
+} & SelectionProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: column.key, disabled: selectionMode });
 
   return (
     <div className="w-72 shrink-0 snap-start">
@@ -202,6 +221,10 @@ function Column({
             task={task}
             onOpen={() => onOpenTask(task.id)}
             groupBy={groupBy}
+            selectionMode={selectionMode}
+            selected={selectedIds.has(task.id)}
+            onEnterSelection={() => onEnterSelection(task.id)}
+            onToggleSelection={() => onToggleSelection(task.id)}
           />
         ))}
         {tasks.length === 0 && (
@@ -220,36 +243,96 @@ function DraggableKanbanCard({
   task,
   onOpen,
   groupBy,
+  selectionMode,
+  selected,
+  onEnterSelection,
+  onToggleSelection,
 }: {
   task: TaskRow;
   onOpen: () => void;
   groupBy: GroupBy;
+  selectionMode: boolean;
+  selected: boolean;
+  onEnterSelection: () => void;
+  onToggleSelection: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
+    disabled: selectionMode,
   });
   const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
+
+  // moveTolerance is kept below the dnd activation distance (6px) so a real
+  // drag cancels the long press before the drag starts — otherwise a slow
+  // drag could both move the card and enter selection mode.
+  const { handlers: longPress, consumedClick } = useLongPress(onEnterSelection, {
+    moveTolerance: 5,
+  });
+
+  const activate = () => {
+    if (selectionMode) onToggleSelection();
+    else onOpen();
+  };
+
+  // While dragging is enabled, compose the drag pointer handler with the
+  // long-press detector so a stationary hold enters selection mode and a
+  // real drag still works. In selection mode dragging is off entirely.
+  const pointerProps = selectionMode
+    ? longPress
+    : {
+        ...attributes,
+        ...listeners,
+        onPointerDown: (e: React.PointerEvent) => {
+          listeners?.onPointerDown?.(e);
+          longPress.onPointerDown(e);
+        },
+        onPointerMove: longPress.onPointerMove,
+        onPointerUp: longPress.onPointerUp,
+        onPointerLeave: longPress.onPointerLeave,
+        onContextMenu: longPress.onContextMenu,
+      };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
+      {...pointerProps}
+      // In selection mode the drag attributes (which provide role/tabIndex)
+      // aren't spread, so add button semantics here for keyboard users.
+      {...(selectionMode ? { role: 'button', tabIndex: 0, 'aria-pressed': selected } : {})}
       onClick={(e) => {
-        // Distinguish click from drag: dnd-kit fires no click after a real
-        // drag gesture (activationConstraint distance:6), so a click here
-        // is genuinely a click and should open the detail sheet.
+        // A real drag fires no click (activationConstraint distance:6), and a
+        // long press consumes its trailing click, so a click here is genuine.
         if (isDragging) return;
-        // Prevent the outer draggable's default from swallowing the click.
+        if (consumedClick()) return;
         e.stopPropagation();
-        onOpen();
+        activate();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          activate();
+        }
       }}
       className={cn(
-        'border-border/60 bg-card hover:border-border block w-full cursor-grab rounded-2xl border p-4 text-left transition-colors',
-        isDragging && 'opacity-60 shadow-lg'
+        'border-border/60 bg-card hover:border-border relative block w-full touch-pan-y rounded-2xl border p-4 text-left transition-colors select-none',
+        selectionMode ? 'cursor-pointer' : 'cursor-grab',
+        isDragging && 'opacity-60 shadow-lg',
+        selected && 'border-primary ring-primary/40 ring-2'
       )}
     >
+      {selectionMode && (
+        <span
+          className={cn(
+            'absolute top-3 right-3 flex h-5 w-5 items-center justify-center rounded-full border',
+            selected
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-border bg-background'
+          )}
+        >
+          {selected && <Check className="h-3.5 w-3.5" />}
+        </span>
+      )}
       {task.category && groupBy !== 'category' && (
         <span className="text-muted-foreground bg-muted/60 mb-3 inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold tracking-wider uppercase">
           {task.category.name}

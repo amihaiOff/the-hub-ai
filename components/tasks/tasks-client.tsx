@@ -1,13 +1,30 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { KanbanSquare, List as ListIcon, Loader2, Plus, Table as TableIcon } from 'lucide-react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import {
+  KanbanSquare,
+  List as ListIcon,
+  Loader2,
+  Plus,
+  Table as TableIcon,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   useTasks,
   useTaskCategories,
   useTaskTags,
   useCreateTask,
+  useDeleteTask,
   type TaskRow,
 } from '@/lib/hooks/use-tasks';
 import type { TaskFilters } from '@/lib/validations/tasks';
@@ -37,10 +54,17 @@ const PRIORITY_ORDER: Record<TaskRow['priority'], number> = {
 };
 
 export function TasksClient() {
-  const [view, setView] = useState<ViewMode>('list');
+  const [view, setView] = useState<ViewMode>('kanban');
   const [search, setSearch] = useState('');
   const [groupBy, setGroupBy] = useState<GroupBy>('status');
   const [detailId, setDetailId] = useState<string | null>(null);
+
+  // Multi-select (entered by long-pressing a card).
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deletingRef = useRef(false);
 
   const filters = useMemo<TaskFilters>(() => {
     const term = search.trim();
@@ -51,6 +75,7 @@ export function TasksClient() {
   const { data: categories = [] } = useTaskCategories();
   const { data: tags = [] } = useTaskTags();
   const createTask = useCreateTask();
+  const deleteTask = useDeleteTask();
 
   const tasks = useMemo(() => sortTasks(rawTasks as TaskRow[], DEFAULT_SORT), [rawTasks]);
 
@@ -58,18 +83,98 @@ export function TasksClient() {
     createTask.mutate({ title: 'New task' }, { onSuccess: (task) => setDetailId(task.id) });
   };
 
+  const enterSelection = useCallback((id: string) => {
+    setDeleteError(null);
+    setSelectionMode(true);
+    setSelectedIds(new Set([id]));
+  }, []);
+
+  const toggleSelection = useCallback((id: string) => {
+    setDeleteError(null);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      // Leaving nothing selected exits selection mode.
+      if (next.size === 0) setSelectionMode(false);
+      return next;
+    });
+  }, []);
+
+  const exitSelection = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+    setDeleteError(null);
+  }, []);
+
+  const handleDetailOpenChange = useCallback((open: boolean) => {
+    if (!open) setDetailId(null);
+  }, []);
+
+  const handleDeleteSelected = async () => {
+    // Guard against a double-tap firing two delete passes before isPending flips.
+    if (deletingRef.current) return;
+    deletingRef.current = true;
+    const ids = [...selectedIds];
+    try {
+      const results = await Promise.allSettled(ids.map((id) => deleteTask.mutateAsync(id)));
+      const failed = ids.filter((_, i) => results[i].status === 'rejected');
+      setConfirmOpen(false);
+      if (failed.length === 0) {
+        exitSelection();
+      } else {
+        // Keep the ones that failed selected so the user can retry.
+        setSelectedIds(new Set(failed));
+        setDeleteError(
+          `Couldn't delete ${failed.length} of ${ids.length} task${ids.length === 1 ? '' : 's'}. Please try again.`
+        );
+      }
+    } finally {
+      deletingRef.current = false;
+    }
+  };
+
   return (
     <div className="space-y-5">
-      {/* Collapsible toolbar: search + view type + group by, all on one line */}
-      <TaskToolbar
-        search={search}
-        onSearchChange={setSearch}
-        view={view}
-        onViewChange={setView}
-        viewOptions={VIEW_OPTIONS}
-        groupBy={groupBy}
-        onGroupByChange={setGroupBy}
-      />
+      {/* Selection bar replaces the toolbar while picking multiple tasks. */}
+      {selectionMode ? (
+        <div className="space-y-2">
+          <div className="border-border/60 bg-card flex items-center justify-between gap-3 rounded-2xl border px-3 py-2">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={exitSelection}
+                aria-label="Cancel selection"
+                className="hover:bg-muted/60 flex h-9 w-9 items-center justify-center rounded-xl"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <span className="text-sm font-medium">{selectedIds.size} selected</span>
+            </div>
+            <Button
+              variant="ghost"
+              onClick={() => setConfirmOpen(true)}
+              disabled={selectedIds.size === 0}
+              className="text-destructive hover:bg-destructive/10 h-9 rounded-xl"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </Button>
+          </div>
+          {deleteError && <p className="text-destructive px-1 text-xs">{deleteError}</p>}
+        </div>
+      ) : (
+        /* Collapsible toolbar: search + view type + group by, all on one line */
+        <TaskToolbar
+          search={search}
+          onSearchChange={setSearch}
+          view={view}
+          onViewChange={setView}
+          viewOptions={VIEW_OPTIONS}
+          groupBy={groupBy}
+          onGroupByChange={setGroupBy}
+        />
+      )}
 
       {/* Body */}
       {isLoading && (
@@ -87,7 +192,14 @@ export function TasksClient() {
       {!isLoading && tasks.length === 0 && !error && <TaskEmptyState onCreate={handleQuickAdd} />}
 
       {tasks.length > 0 && view === 'list' && (
-        <TaskListView tasks={tasks} onOpenTask={setDetailId} />
+        <TaskListView
+          tasks={tasks}
+          onOpenTask={setDetailId}
+          selectionMode={selectionMode}
+          selectedIds={selectedIds}
+          onEnterSelection={enterSelection}
+          onToggleSelection={toggleSelection}
+        />
       )}
       {tasks.length > 0 && view === 'kanban' && (
         <TaskKanbanView
@@ -95,13 +207,17 @@ export function TasksClient() {
           categories={categories}
           onOpenTask={setDetailId}
           groupBy={groupBy}
+          selectionMode={selectionMode}
+          selectedIds={selectedIds}
+          onEnterSelection={enterSelection}
+          onToggleSelection={toggleSelection}
         />
       )}
       {tasks.length > 0 && view === 'table' && (
         <TaskTableView tasks={tasks} categories={categories} tags={tags} onOpenTask={setDetailId} />
       )}
 
-      {tasks.length > 0 && (
+      {tasks.length > 0 && !selectionMode && (
         <div className="text-muted-foreground flex items-center justify-between rounded-2xl border px-4 py-2.5 text-xs">
           <span>
             Showing {tasks.length} of {tasks.length} tasks
@@ -111,26 +227,61 @@ export function TasksClient() {
 
       <TaskDetailSheet
         taskId={detailId}
-        onOpenChange={(open) => !open && setDetailId(null)}
+        onOpenChange={handleDetailOpenChange}
         categories={categories}
         tags={tags}
       />
 
-      {/* Floating action button — create a new task */}
-      <button
-        type="button"
-        onClick={handleQuickAdd}
-        disabled={createTask.isPending}
-        aria-label="New task"
-        title="New task"
-        className="bg-primary text-primary-foreground fixed right-5 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-70"
-      >
-        {createTask.isPending ? (
-          <Loader2 className="h-6 w-6 animate-spin" />
-        ) : (
-          <Plus className="h-6 w-6" />
-        )}
-      </button>
+      {/* Confirm bulk delete */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              Delete {selectedIds.size} task{selectedIds.size === 1 ? '' : 's'}?
+            </DialogTitle>
+            <DialogDescription>This can&apos;t be undone.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setConfirmOpen(false)}
+              disabled={deleteTask.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteSelected}
+              disabled={deleteTask.isPending}
+              className="bg-destructive hover:bg-destructive/90 text-white"
+            >
+              {deleteTask.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Floating action button — create a new task (hidden while selecting) */}
+      {!selectionMode && (
+        <button
+          type="button"
+          onClick={handleQuickAdd}
+          disabled={createTask.isPending}
+          aria-label="New task"
+          title="New task"
+          className="bg-primary text-primary-foreground fixed right-5 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-70"
+        >
+          {createTask.isPending ? (
+            <Loader2 className="h-6 w-6 animate-spin" />
+          ) : (
+            <Plus className="h-6 w-6" />
+          )}
+        </button>
+      )}
     </div>
   );
 }
