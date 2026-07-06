@@ -11,12 +11,12 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Check, MessageSquare, MoreHorizontal } from 'lucide-react';
+import { Check, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUpdateTask, type TaskCategoryRow, type TaskRow } from '@/lib/hooks/use-tasks';
 import { useLongPress } from '@/lib/hooks/use-long-press';
 import { TASK_STATUSES, TASK_PRIORITIES } from '@/lib/validations/tasks';
-import { PriorityBadge, prettyStatus } from './task-list-view';
+import { prettyStatus } from './task-list-view';
 import { prettyPriority } from './task-filters-bar';
 import type { SelectionProps } from './task-selection';
 
@@ -100,7 +100,7 @@ export function TaskKanbanView({
   return (
     <div className="space-y-3">
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-        <div className="-mx-2 flex snap-x snap-mandatory gap-3 overflow-x-auto px-2 pb-2">
+        <div className="space-y-6">
           {columns.map((col) => (
             <Column
               key={col.key}
@@ -196,7 +196,7 @@ function Column({
     <div
       ref={setNodeRef}
       className={cn(
-        'w-72 shrink-0 snap-start rounded-2xl p-1 transition-colors',
+        'rounded-2xl p-1 transition-colors',
         isOver && 'bg-primary/5 outline-primary/40 outline-2 outline-dashed'
       )}
     >
@@ -216,8 +216,9 @@ function Column({
           <MoreHorizontal className="h-4 w-4" />
         </button>
       </div>
-      {/* Tall so the empty space below the cards is still a valid drop area. */}
-      <div className="min-h-[55vh] space-y-3">
+      {/* Two columns of cards under each group, filling the screen width.
+          min-height keeps an empty group a valid drop target. */}
+      <div className="grid min-h-20 grid-cols-2 items-start gap-3">
         {tasks.map((task) => (
           <DraggableKanbanCard
             key={task.id}
@@ -231,7 +232,7 @@ function Column({
           />
         ))}
         {tasks.length === 0 && (
-          <div className="border-border/50 text-muted-foreground rounded-2xl border border-dashed px-3 py-6 text-center text-xs">
+          <div className="border-border/50 text-muted-foreground col-span-2 rounded-2xl border border-dashed px-3 py-6 text-center text-xs">
             No tasks
           </div>
         )}
@@ -342,38 +343,18 @@ function DraggableKanbanCard({
           {task.category.name}
         </span>
       )}
-      <div className="text-sm leading-snug font-semibold">{task.title}</div>
+      <div className="text-sm leading-snug font-semibold break-words">{task.title}</div>
       {task.notes && (
         <p className="text-muted-foreground mt-1.5 line-clamp-2 text-xs">{task.notes}</p>
       )}
-      <div className="mt-3 flex items-center justify-between">
-        <div className="text-muted-foreground flex items-center gap-3 text-xs">
-          {task.assignee && (
-            <span className="bg-muted/70 flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold">
-              {initials(task.assignee.name)}
-            </span>
-          )}
-          <span className="inline-flex items-center gap-1">
-            <MessageSquare className="h-3.5 w-3.5" />0
+      {task.assignee && (
+        <div className="mt-3">
+          <span className="bg-muted/70 flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold">
+            {initials(task.assignee.name)}
           </span>
         </div>
-        {groupBy !== 'priority' && <PriorityPill priority={task.priority} />}
-      </div>
+      )}
     </div>
-  );
-}
-
-function PriorityPill({ priority }: { priority: TaskRow['priority'] }) {
-  const bg = {
-    URGENT: 'bg-red-500/15',
-    HIGH: 'bg-red-500/15',
-    MEDIUM: 'bg-muted',
-    LOW: 'bg-muted',
-  }[priority];
-  return (
-    <span className={cn('rounded-full px-2.5 py-1', bg)}>
-      <PriorityBadge priority={priority} />
-    </span>
   );
 }
 
