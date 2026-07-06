@@ -66,7 +66,7 @@ export function TaskDetailSheet({ taskId, onOpenChange, categories }: TaskDetail
   return (
     <Sheet open={!!taskId} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full overflow-y-auto rounded-l-3xl p-6 sm:max-w-lg">
-        <div className="mb-6 flex items-center gap-3">
+        <div className="mb-6 flex items-center">
           <button
             type="button"
             onClick={() => onOpenChange(false)}
@@ -75,7 +75,6 @@ export function TaskDetailSheet({ taskId, onOpenChange, categories }: TaskDetail
           >
             <X className="h-5 w-5" />
           </button>
-          <h2 className="text-lg font-semibold">Task Details</h2>
         </div>
 
         {isLoading || !task ? (
@@ -248,7 +247,9 @@ function TaskDetailBody({
           Strikethrough, Bullet list, Ordered list, Link) drives real
           editor commands; the stored value is markdown. */}
       <div className="border-border/40 space-y-3 border-t pt-5">
-        <h3 className="text-base font-bold">Notes</h3>
+        <h3 className="text-muted-foreground text-sm font-semibold tracking-[0.2em] uppercase">
+          Task Notes
+        </h3>
         <NotesEditor
           value={notes}
           onChange={setNotes}
