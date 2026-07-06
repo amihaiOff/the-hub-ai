@@ -4,15 +4,14 @@ import { useState } from 'react';
 import {
   Bold,
   Calendar as CalendarIcon,
+  CircleDot,
+  Flag,
   FolderTree,
   Link2,
   List,
   Loader2,
-  Plus,
   Share2,
-  Tag,
   Trash2,
-  User,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -47,7 +46,7 @@ interface TaskDetailSheetProps {
 
 const NONE = '__none__';
 
-export function TaskDetailSheet({ taskId, onOpenChange, categories, tags }: TaskDetailSheetProps) {
+export function TaskDetailSheet({ taskId, onOpenChange, categories }: TaskDetailSheetProps) {
   const { data: task, isLoading } = useTask(taskId);
 
   return (
@@ -81,7 +80,6 @@ export function TaskDetailSheet({ taskId, onOpenChange, categories, tags }: Task
             key={task.id}
             task={task}
             categories={categories}
-            tags={tags}
             onDeleted={() => onOpenChange(false)}
           />
         )}
@@ -105,12 +103,10 @@ function IconBtn({ label, children }: { label: string; children: React.ReactNode
 function TaskDetailBody({
   task,
   categories,
-  tags,
   onDeleted,
 }: {
   task: TaskRow;
   categories: TaskCategoryRow[];
-  tags: TaskTagRow[];
   onDeleted: () => void;
 }) {
   const update = useUpdateTask();
@@ -140,7 +136,7 @@ function TaskDetailBody({
         placeholder="Task title"
       />
 
-      {/* Metadata rows */}
+      {/* Metadata rows — icon+label per row, values inline. */}
       <div className="space-y-4">
         <MetaRow icon={FolderTree} label="Category">
           <Select
@@ -161,10 +157,34 @@ function TaskDetailBody({
           </Select>
         </MetaRow>
 
-        <MetaRow icon={User} label="Assignee">
-          <span className="text-muted-foreground text-sm">
-            {task.assignee?.name ?? 'Unassigned'}
-          </span>
+        <MetaRow icon={CircleDot} label="Status">
+          <Select value={task.status} onValueChange={(v) => patch('status', v)}>
+            <SelectTrigger className="bg-muted/70 h-8 w-fit rounded-full border-none px-3 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-2xl">
+              {TASK_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {prettyStatus(s)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </MetaRow>
+
+        <MetaRow icon={Flag} label="Priority">
+          <Select value={task.priority} onValueChange={(v) => patch('priority', v)}>
+            <SelectTrigger className="bg-muted/70 h-8 w-fit rounded-full border-none px-3 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-2xl">
+              {TASK_PRIORITIES.map((p) => (
+                <SelectItem key={p} value={p}>
+                  {prettyPriority(p)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </MetaRow>
 
         <MetaRow icon={CalendarIcon} label="Due Date">
@@ -177,67 +197,11 @@ function TaskDetailBody({
             className="h-8 w-fit rounded-xl border-none bg-transparent px-2 text-sm shadow-none focus-visible:ring-0"
           />
         </MetaRow>
-
-        <MetaRow icon={Tag} label="Labels">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {task.tags.map((t) => (
-              <span
-                key={t.id}
-                className="bg-muted/70 inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-medium"
-              >
-                {t.name}
-              </span>
-            ))}
-            <button
-              type="button"
-              className="border-border/60 text-muted-foreground hover:bg-muted/50 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-dashed"
-              aria-label="Add label"
-              title={tags.length ? 'Add label' : 'No labels yet'}
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </MetaRow>
-      </div>
-
-      {/* Status + Priority inline row (kept from prior version so users
-          can still change these without navigating away). */}
-      <div className="border-border/40 border-t pt-4">
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Status">
-            <Select value={task.status} onValueChange={(v) => patch('status', v)}>
-              <SelectTrigger className="h-9 rounded-xl">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="rounded-2xl">
-                {TASK_STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {prettyStatus(s)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Priority">
-            <Select value={task.priority} onValueChange={(v) => patch('priority', v)}>
-              <SelectTrigger className="h-9 rounded-xl">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="rounded-2xl">
-                {TASK_PRIORITIES.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {prettyPriority(p)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-        </div>
       </div>
 
       {/* Notes with a decorative rich-text toolbar (buttons don't format
           yet — kept as visual affordance matching the mock). */}
-      <div className="space-y-3">
+      <div className="border-border/40 space-y-3 border-t pt-5">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-bold">Notes</h3>
           <div className="text-muted-foreground flex items-center gap-1">
@@ -264,7 +228,6 @@ function TaskDetailBody({
         />
       </div>
 
-      {/* Delete affordance (in-body, matches original) */}
       <div className="border-border/40 border-t pt-4">
         <Button
           variant="ghost"
@@ -296,17 +259,6 @@ function MetaRow({
         <span>{label}</span>
       </div>
       <div className="min-w-0 flex-1">{children}</div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <p className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
-        {label}
-      </p>
-      {children}
     </div>
   );
 }
