@@ -114,13 +114,27 @@ describe('Budget Hooks', () => {
   });
 
   describe('useSelectedMonth', () => {
-    it('should initialize with current month', () => {
-      const { result } = renderHook(() => useSelectedMonth());
+    // Freeze time so getCurrentCycleMonth is deterministic. June 15 is
+    // safely inside the June-cycle no matter the start day (1, 2, or 10).
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2024-06-15T00:00:00Z'));
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true, data: { startDay: 1 } }),
+      });
+    });
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('should initialize with the current cycle month', () => {
+      const { result } = renderHook(() => useSelectedMonth(), { wrapper: createWrapper() });
       expect(result.current.selectedMonth).toBe('2024-06');
     });
 
     it('should update selected month', () => {
-      const { result } = renderHook(() => useSelectedMonth());
+      const { result } = renderHook(() => useSelectedMonth(), { wrapper: createWrapper() });
       act(() => {
         result.current.setSelectedMonth('2024-07');
       });

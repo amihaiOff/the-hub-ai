@@ -10,8 +10,8 @@ import {
   type BudgetTag,
   type BudgetMonthSummary,
   type PayeeCategoryRule,
-  getCurrentMonth,
 } from '@/lib/utils/budget';
+import { getCurrentCycleMonth } from '@/lib/utils/billing-cycle';
 
 // API response types
 interface ApiResponse<T> {
@@ -143,10 +143,37 @@ async function fetchApi<T>(url: string, options?: RequestInit): Promise<T> {
 // Hooks
 
 /**
- * Hook to manage current selected month
+ * Fetches the household's billing-cycle start day (1, 2, or 10). Defaults
+ * to 1 while the query is loading so callers get a sane synchronous value
+ * for their first render. The query itself is cached for the session, so
+ * the value stabilizes quickly and stays fresh across navigations.
+ */
+export function useBillingCycleStartDay(): number {
+  const query = useQuery({
+    queryKey: ['settings', 'billing-cycle'],
+    queryFn: async () => {
+      const res = await fetch('/api/settings/billing-cycle');
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      return data.data as { startDay: number };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  return query.data?.startDay ?? 1;
+}
+
+/**
+ * Hook to manage the currently-selected budget month. The displayed
+ * value is derived from `Household.billingCycleStartDay` — so on July 4
+ * with a start day of 10, the default is "2026-06" (the cycle that
+ * started June 10). Once the user picks a month via the MonthSelector
+ * the override state wins and the derived default is ignored.
  */
 export function useSelectedMonth() {
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
+  const startDay = useBillingCycleStartDay();
+  const [override, setOverride] = useState<string | null>(null);
+  const selectedMonth = override ?? getCurrentCycleMonth(new Date(), startDay);
+  const setSelectedMonth = useCallback((next: string) => setOverride(next), []);
   return { selectedMonth, setSelectedMonth };
 }
 

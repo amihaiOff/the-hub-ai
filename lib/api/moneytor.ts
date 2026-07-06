@@ -7,6 +7,11 @@ export interface MoneytorTransaction {
   amount: number; // signed
   currency: string;
   description: string;
+  // Freeform metadata Moneytor attaches to a subset of rows — customer
+  // notes on transfers, Bit P2P sender/receiver context (BIT_PAYBOX
+  // category), insurance claim references, etc. Nullable because
+  // Moneytor omits it (or sends null) on rows without extra context.
+  extra_info?: string | null;
   category: string;
   accountId: string;
   type: string;
