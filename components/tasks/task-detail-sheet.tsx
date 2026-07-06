@@ -172,7 +172,7 @@ function TaskDetailBody({
         }}
         rows={1}
         placeholder="Task title"
-        className="placeholder:text-muted-foreground font-heading [field-sizing:content] w-full resize-none border-none bg-transparent px-0 text-4xl leading-tight font-bold tracking-tight break-words shadow-none outline-none focus-visible:ring-0"
+        className="placeholder:text-muted-foreground font-heading [field-sizing:content] w-full resize-none overflow-hidden border-none bg-transparent px-0 text-4xl leading-tight font-bold tracking-tight break-words shadow-none outline-none focus-visible:ring-0"
       />
 
       {/* Metadata rows — icon+label per row, values inline. Each icon
