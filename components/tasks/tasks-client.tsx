@@ -103,7 +103,7 @@ export function TasksClient() {
         <TaskListView tasks={tasks} onOpenTask={setDetailId} />
       )}
       {tasks.length > 0 && view === 'kanban' && (
-        <TaskKanbanView tasks={tasks} onOpenTask={setDetailId} />
+        <TaskKanbanView tasks={tasks} categories={categories} onOpenTask={setDetailId} />
       )}
       {tasks.length > 0 && view === 'table' && (
         <TaskTableView tasks={tasks} categories={categories} tags={tags} onOpenTask={setDetailId} />
