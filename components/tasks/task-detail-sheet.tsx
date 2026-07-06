@@ -163,7 +163,7 @@ function TaskDetailBody({
           if (e.key === 'Enter' && title.trim() && title !== task.title)
             patch('title', title.trim());
         }}
-        className="h-auto border-none px-0 text-3xl font-semibold tracking-[0.2em] uppercase shadow-none focus-visible:ring-0"
+        className="h-auto border-none px-0 text-4xl font-semibold tracking-[0.2em] uppercase shadow-none focus-visible:ring-0"
         placeholder="Task title"
       />
 
