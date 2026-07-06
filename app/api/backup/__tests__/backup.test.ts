@@ -57,6 +57,7 @@ jest.mock('@/lib/db', () => ({
     moneytorAccountSnapshot: { findMany: jest.fn() },
     moneytorPensionFund: { findMany: jest.fn() },
     moneytorPensionSnapshot: { findMany: jest.fn() },
+    generalLog: { findMany: jest.fn() },
   },
 }));
 
@@ -329,6 +330,7 @@ describe('Backup API', () => {
       (mockPrisma.moneytorAccountSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorPensionFund.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorPensionSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.generalLog.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const response = await GET();
 
@@ -395,7 +397,7 @@ describe('Backup API', () => {
       // Verify metadata content
       const metadataContent = await zip.file('metadata.json')!.async('string');
       const metadata = JSON.parse(metadataContent);
-      expect(metadata.schemaVersion).toBe('2.1');
+      expect(metadata.schemaVersion).toBe('2.2');
       expect(metadata.createdBy).toBe('test@example.com');
       expect(metadata.counts).toEqual({
         users: 1,
@@ -439,6 +441,7 @@ describe('Backup API', () => {
         moneytorAccountSnapshots: 0,
         moneytorPensionFunds: 0,
         moneytorPensionSnapshots: 0,
+        generalLogs: 0,
       });
 
       // Verify data files contain correct data
@@ -498,6 +501,7 @@ describe('Backup API', () => {
       (mockPrisma.moneytorAccountSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorPensionFund.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorPensionSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.generalLog.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const response = await GET();
 
@@ -596,6 +600,7 @@ describe('Backup API', () => {
       (mockPrisma.moneytorAccountSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorPensionFund.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorPensionSnapshot.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.generalLog.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const response = await GET();
       const blob = await response.blob();

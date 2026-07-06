@@ -13,6 +13,18 @@ import {
 import { importTransactions } from '@/lib/utils/import-transactions';
 import type { ImportTransactionInput } from '@/lib/validations/budget';
 import { mapMoneytorTypeToPaymentMethod } from '@/lib/utils/moneytor-mapping';
+import {
+  computeAccountStableKey,
+  computePensionStableKey,
+  computeRealEstateStableKey,
+} from '@/lib/moneytor/stable-key';
+import {
+  reconcile,
+  decideMissingActions,
+  logRename,
+  logHardDelete,
+  type ReconcilerEntity,
+} from '@/lib/moneytor/reconciler';
 
 /**
  * Hard floor for any Moneytor data flowing into budget_transactions. Anything
@@ -314,34 +326,22 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
     budgetSkipped = result.duplicatesSkipped;
   }
 
-  // ----- Bank + debt accounts -----
-  // One row per Moneytor product in `moneytor_accounts`; one row per (account, today)
-  // in `moneytor_account_snapshots`. Debts are stored with a negative balance so
-  // downstream charts get the correct sign without per-row logic.
+  // ----- Bank + debt accounts (via shared reconciler) -----
+  // Reconciler-driven so re-linking a bank (which reissues Moneytor's
+  // productId) no longer produces duplicates: we match incoming rows to
+  // existing ones by stableKey (openfinanceAssetId) or userCanonicalId
+  // first, and only fall back to productId as a last resort.
+  //
+  // Debts are stored with a negative balance so downstream charts get
+  // the correct sign without per-row logic.
   let accountsUpserted = 0;
   let accountSnapshotsUpserted = 0;
 
-  // Remove accounts Moneytor no longer reports. Happens when the user
-  // re-links a bank in Moneytor — a new productId is issued and the old
-  // row would otherwise linger forever. Mirrors what the pension + stock
-  // holding loops already do.
-  const seenAccountProductIds = new Set(
-    [...bankAssets, ...debtAssets].map((a) => String(a.productId ?? a.id))
-  );
-  if (seenAccountProductIds.size > 0) {
-    const existingAccounts = await prisma.moneytorAccount.findMany({
-      where: { householdId },
-      select: { id: true, productId: true },
-    });
-    const staleAccountIds = existingAccounts
-      .filter((a) => !seenAccountProductIds.has(a.productId))
-      .map((a) => a.id);
-    if (staleAccountIds.length > 0) {
-      await prisma.moneytorAccount.deleteMany({ where: { id: { in: staleAccountIds } } });
-    }
-  }
-
-  for (const asset of [...bankAssets, ...debtAssets]) {
+  // Build per-asset derived fields once so we can pass a compact record
+  // to both the reconciler and the write phase.
+  const now = new Date();
+  const accountAssets = [...bankAssets, ...debtAssets];
+  const accountRows = accountAssets.map((asset) => {
     const productId = String(asset.productId ?? asset.id);
     const isDebt = asset.form === 'debt';
     const balanceInBaseRaw = Number(asset.balanceInBaseCurrency ?? 0);
@@ -367,7 +367,6 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
       institution = d.debtInstitution ?? null;
       subtype = d.debtType ?? null;
       const routes = d.routesData ?? [];
-      // weighted-average interest by remainder; null if no remainder info
       const totalRemainder = routes.reduce((s, r) => s + Number(r.remainder ?? 0), 0);
       if (totalRemainder > 0) {
         interestRate =
@@ -377,66 +376,26 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
       monthlyPayment = routes.reduce((s, r) => s + Number(r.monthlyRepayment ?? 0), 0) || null;
     }
 
-    await prisma.moneytorAccount.upsert({
-      where: { householdId_productId: { householdId, productId } },
-      create: {
-        productId,
-        form: asset.form,
-        name: asset.name,
-        institution,
-        subtype,
-        accountNumber,
-        currency,
-        balanceInBase,
-        interestRate,
-        maturityDate,
-        monthlyPayment,
-        rawData: asset as unknown as Prisma.InputJsonValue,
-        householdId,
-      },
-      update: {
-        form: asset.form,
-        name: asset.name,
-        institution,
-        subtype,
-        accountNumber,
-        currency,
-        balanceInBase,
-        interestRate,
-        maturityDate,
-        monthlyPayment,
-        rawData: asset as unknown as Prisma.InputJsonValue,
-        syncedAt: new Date(),
-      },
-    });
-    accountsUpserted++;
+    return {
+      asset,
+      productId,
+      stableKey: computeAccountStableKey(asset),
+      name: asset.name,
+      form: asset.form,
+      institution,
+      subtype,
+      accountNumber,
+      currency,
+      balanceInBase,
+      interestRate,
+      maturityDate,
+      monthlyPayment,
+    };
+  });
 
-    await prisma.moneytorAccountSnapshot.upsert({
-      where: {
-        householdId_snapshotDate_productId: {
-          householdId,
-          snapshotDate,
-          productId,
-        },
-      },
-      create: {
-        snapshotDate,
-        productId,
-        form: asset.form,
-        name: asset.name,
-        balanceInBase,
-        currency,
-        householdId,
-      },
-      update: {
-        form: asset.form,
-        name: asset.name,
-        balanceInBase,
-        currency,
-      },
-    });
-    accountSnapshotsUpserted++;
-  }
+  await runAccountReconciliation(householdId, accountRows, snapshotDate, now);
+  accountsUpserted = accountRows.length;
+  accountSnapshotsUpserted = accountRows.length;
 
   // ----- Pension + hishtalmut funds -----
   // One row per (productId, routeName). A single fund with multiple investment
@@ -469,6 +428,7 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
     const routeName = (asset.route?.value ?? '').trim() || 'default';
     const productType = asset.productType?.value ?? 'unknown';
     const institution = asset.institution?.value ?? null;
+    const accountNumber = asset.accountNumber != null ? String(asset.accountNumber) : null;
     const balanceInBase = Number(asset.balanceInBaseCurrency ?? asset.amount ?? 0);
     const amount = Number(asset.amount ?? balanceInBase);
     const currency = asset.currency?.value || 'ILS';
@@ -478,6 +438,9 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
     const taarichLeyda = asset.taarichLeyda
       ? new Date(`${asset.taarichLeyda.slice(0, 10)}T00:00:00Z`)
       : null;
+    // Populate stableKey on write-through so future syncs (or a possible
+    // reconciler upgrade) can match on it even if Moneytor swaps productIds.
+    const stableKey = computePensionStableKey({ institution, accountNumber, routeName });
 
     await prisma.moneytorPensionFund.upsert({
       where: {
@@ -486,13 +449,14 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
       create: {
         productId,
         routeName,
+        stableKey,
         routeCode: asset.investmentDistribution?.[0]?.routeCode ?? null,
         name: asset.name,
         institution,
         productType,
         sugKupa: asset.sugKupa != null && asset.sugKupa !== '' ? Number(asset.sugKupa) : null,
         sugKerenPensia: asset.sugKerenPensia ?? null,
-        accountNumber: asset.accountNumber != null ? String(asset.accountNumber) : null,
+        accountNumber,
         accountOwner: asset.accountOwner ?? null,
         fundId: asset.fundId ?? null,
         fundOpeningDate: fundOpening,
@@ -524,13 +488,14 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
         householdId,
       },
       update: {
+        stableKey,
         routeCode: asset.investmentDistribution?.[0]?.routeCode ?? null,
         name: asset.name,
         institution,
         productType,
         sugKupa: asset.sugKupa != null && asset.sugKupa !== '' ? Number(asset.sugKupa) : null,
         sugKerenPensia: asset.sugKerenPensia ?? null,
-        accountNumber: asset.accountNumber != null ? String(asset.accountNumber) : null,
+        accountNumber,
         accountOwner: asset.accountOwner ?? null,
         fundId: asset.fundId ?? null,
         fundOpeningDate: fundOpening,
@@ -648,11 +613,13 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
     // — that's a Moneytor serialization quirk. Store the raw value string anyway
     // so we can revisit later if they fix it.
     const linkedMortgageRef = asset.linkedMortgage?.value ?? null;
+    const stableKey = computeRealEstateStableKey(asset.address ?? null);
 
     await prisma.moneytorRealEstate.upsert({
       where: { householdId_productId: { householdId, productId } },
       create: {
         productId,
+        stableKey,
         name: asset.name,
         currentValue,
         balanceInBase,
@@ -689,6 +656,7 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
         householdId,
       },
       update: {
+        stableKey,
         name: asset.name,
         currentValue,
         balanceInBase,
@@ -1200,5 +1168,189 @@ export async function syncMoneytorForHouseholdAndLog(
       console.error('Failed to write moneytor_sync_log row (after failure):', logErr);
     }
     throw err;
+  }
+}
+
+// ─── Reconciler drivers per entity type ───────────────────────────────
+//
+// Each of these is the write side of the reconciler for a specific
+// entity. Reads the existing rows, runs the pure `reconcile()` pass,
+// then does the DB writes (upserts + rename/delete logs) needed to
+// bring the DB in line with what Moneytor just returned.
+//
+// Kept in this file (rather than lib/moneytor/) because they're tightly
+// coupled to the sync flow's derived record shape.
+
+type AccountReconRow = {
+  asset: MoneytorBankAsset | MoneytorDebtAsset;
+  productId: string;
+  stableKey: string | null;
+  name: string;
+  form: string;
+  institution: string | null;
+  subtype: string | null;
+  accountNumber: string | null;
+  currency: string;
+  balanceInBase: number;
+  interestRate: number | null;
+  maturityDate: Date | null;
+  monthlyPayment: number | null;
+};
+
+async function runAccountReconciliation(
+  householdId: string,
+  incoming: AccountReconRow[],
+  snapshotDate: Date,
+  now: Date
+): Promise<void> {
+  const existing = await prisma.moneytorAccount.findMany({
+    where: { householdId },
+    select: {
+      id: true,
+      productId: true,
+      stableKey: true,
+      userCanonicalId: true,
+      name: true,
+      missingSince: true,
+    },
+  });
+
+  const outcome = reconcile(
+    incoming.map((r) => ({ productId: r.productId, stableKey: r.stableKey, name: r.name })),
+    existing.map((e) => ({
+      id: e.id,
+      productId: e.productId,
+      stableKey: e.stableKey,
+      userCanonicalId: e.userCanonicalId,
+      name: e.name,
+    })),
+    now
+  );
+
+  // Match incoming to existing by index (reconcile preserves the input order).
+  for (let i = 0; i < incoming.length; i++) {
+    const row = incoming[i];
+    const match = outcome.matches[i];
+
+    if (match.existing) {
+      // Update in place — refresh productId to whatever Moneytor just
+      // sent, and clear any missingSince from a prior sync where the row
+      // was absent.
+      await prisma.moneytorAccount.update({
+        where: { id: match.existing.id },
+        data: {
+          productId: row.productId,
+          stableKey: row.stableKey,
+          missingSince: null,
+          form: row.form,
+          name: row.name,
+          institution: row.institution,
+          subtype: row.subtype,
+          accountNumber: row.accountNumber,
+          currency: row.currency,
+          balanceInBase: row.balanceInBase,
+          interestRate: row.interestRate,
+          maturityDate: row.maturityDate,
+          monthlyPayment: row.monthlyPayment,
+          rawData: row.asset as unknown as Prisma.InputJsonValue,
+          syncedAt: now,
+        },
+      });
+    } else {
+      await prisma.moneytorAccount.create({
+        data: {
+          productId: row.productId,
+          stableKey: row.stableKey,
+          form: row.form,
+          name: row.name,
+          institution: row.institution,
+          subtype: row.subtype,
+          accountNumber: row.accountNumber,
+          currency: row.currency,
+          balanceInBase: row.balanceInBase,
+          interestRate: row.interestRate,
+          maturityDate: row.maturityDate,
+          monthlyPayment: row.monthlyPayment,
+          rawData: row.asset as unknown as Prisma.InputJsonValue,
+          householdId,
+        },
+      });
+    }
+
+    // Snapshot upsert keyed on (household, snapshotDate, productId)
+    // still uses the new productId — historical snapshots may reference
+    // the old one but that's fine; we accept that discontinuity for
+    // now since the account row itself was preserved through the rename.
+    await prisma.moneytorAccountSnapshot.upsert({
+      where: {
+        householdId_snapshotDate_productId: {
+          householdId,
+          snapshotDate,
+          productId: row.productId,
+        },
+      },
+      create: {
+        snapshotDate,
+        productId: row.productId,
+        form: row.form,
+        name: row.name,
+        balanceInBase: row.balanceInBase,
+        currency: row.currency,
+        householdId,
+      },
+      update: {
+        form: row.form,
+        name: row.name,
+        balanceInBase: row.balanceInBase,
+        currency: row.currency,
+      },
+    });
+  }
+
+  // Grace-period soft delete for rows Moneytor didn't return.
+  const matchedIds = new Set(outcome.matches.filter((m) => m.existing).map((m) => m.existing!.id));
+  const unmatched = existing
+    .filter((e) => !matchedIds.has(e.id))
+    .map((e) => ({
+      id: e.id,
+      productId: e.productId,
+      stableKey: e.stableKey,
+      userCanonicalId: e.userCanonicalId,
+      name: e.name,
+      missingSince: e.missingSince,
+    }));
+  const { toMarkMissing, toHardDelete } = decideMissingActions(unmatched, now);
+  for (const row of toMarkMissing) {
+    await prisma.moneytorAccount.update({
+      where: { id: row.id },
+      data: { missingSince: now },
+    });
+  }
+  for (const row of toHardDelete) {
+    await logHardDelete(prisma, {
+      householdId,
+      subjectType: 'moneytor_account',
+      subjectId: row.id,
+      name: row.name,
+    });
+    await prisma.moneytorAccount.delete({ where: { id: row.id } });
+  }
+  // Rows that just re-appeared get their missingSince cleared. Cheap
+  // no-op when it was already null.
+  for (const r of outcome.matches) {
+    if (r.existing) {
+      // Update was already done above with missingSince: null.
+    }
+  }
+
+  // Emit rename events.
+  for (const ev of outcome.renameEvents) {
+    await logRename(prisma, {
+      householdId,
+      subjectType: 'moneytor_account',
+      subjectId: ev.existing.id,
+      oldName: ev.oldName,
+      newName: ev.newName,
+    });
   }
 }

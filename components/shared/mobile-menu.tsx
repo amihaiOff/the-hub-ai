@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useUser } from '@/lib/hooks/use-auth';
 import { useSyncMoneytor } from '@/lib/hooks/use-moneytor';
+import { useGeneralLogUnreadCount } from '@/lib/hooks/use-general-log';
 import { ChevronDown, LogOut, LogIn, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -33,13 +34,16 @@ function MobileNavItem({
   item,
   pathname,
   onNavClick,
+  activityUnreadCount = 0,
 }: {
   item: NavItem;
   pathname: string;
   onNavClick: () => void;
+  activityUnreadCount?: number;
 }) {
   const hasSubItems = (item.subItems?.length ?? 0) > 0;
   const Icon = item.icon;
+  const parentShowsActivityBadge = item.label === 'Labs' && activityUnreadCount > 0;
 
   const subItemActive = hasSubItems
     ? (item.subItems ?? []).some((s) => pathname === s.href || pathname.startsWith(`${s.href}/`))
@@ -68,6 +72,9 @@ function MobileNavItem({
           <span className="flex items-center gap-3">
             <Icon className="h-5 w-5" />
             {item.label}
+            {parentShowsActivityBadge && (
+              <span className="bg-primary h-1.5 w-1.5 rounded-full" aria-label="Unread activity" />
+            )}
           </span>
           <ChevronDown className={cn('h-4 w-4 transition-transform', isExpanded && 'rotate-180')} />
         </button>
@@ -76,6 +83,7 @@ function MobileNavItem({
             {item.subItems!.map((sub) => {
               const SubIcon = sub.icon;
               const subActive = pathname === sub.href;
+              const showBadge = sub.href === '/labs/activity' && activityUnreadCount > 0;
               return (
                 <Link
                   key={sub.href}
@@ -90,7 +98,8 @@ function MobileNavItem({
                   )}
                 >
                   <SubIcon className="h-4 w-4" />
-                  {sub.label}
+                  <span className="flex-1">{sub.label}</span>
+                  {showBadge && <span className="bg-primary h-1.5 w-1.5 rounded-full" />}
                 </Link>
               );
             })}
@@ -122,6 +131,7 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
   const pathname = usePathname();
   const user = useUser();
   const syncMoneytor = useSyncMoneytor();
+  const { data: activityUnreadCount } = useGeneralLogUnreadCount();
 
   const handleNavClick = () => {
     onOpenChange(false);
@@ -157,6 +167,7 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
                 item={item}
                 pathname={pathname}
                 onNavClick={handleNavClick}
+                activityUnreadCount={activityUnreadCount ?? 0}
               />
             ))}
           </nav>

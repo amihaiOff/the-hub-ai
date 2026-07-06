@@ -215,7 +215,7 @@ describe('Restore API', () => {
       mockGetCurrentUser.mockResolvedValueOnce(mockUser);
 
       const blob = await createBackupZip({
-        schemaVersion: '2.0', // Unsupported version
+        schemaVersion: '9.9', // Unsupported version
         backupDate: '2024-01-01',
       });
       const formData = createFormData(blob);
@@ -230,7 +230,7 @@ describe('Restore API', () => {
 
       expect(response.status).toBe(400);
       expect(data.success).toBe(false);
-      expect(data.error).toBe('Unsupported schema version: 2.0');
+      expect(data.error).toBe('Unsupported schema version: 9.9');
     });
 
     it('should restore empty backup successfully', async () => {

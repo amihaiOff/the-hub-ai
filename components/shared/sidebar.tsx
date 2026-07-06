@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import { useUser } from '@/lib/hooks/use-auth';
 import { useUncategorizedCount } from '@/lib/hooks/use-budget';
 import { useSyncMoneytor } from '@/lib/hooks/use-moneytor';
+import { useGeneralLogUnreadCount } from '@/lib/hooks/use-general-log';
 import { LogOut, LogIn, ChevronDown, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from './logo';
@@ -17,10 +18,12 @@ function NavItemComponent({
   item,
   pathname,
   uncategorizedCount = 0,
+  activityUnreadCount = 0,
 }: {
   item: NavItem;
   pathname: string;
   uncategorizedCount?: number;
+  activityUnreadCount?: number;
 }) {
   const hasSubItems = item.subItems && item.subItems.length > 0;
   // Parent is active when the route matches the parent's prefix OR any of its
@@ -58,6 +61,8 @@ function NavItemComponent({
   };
 
   const Icon = item.icon;
+  // Parent-level badge for Labs: dot when any Labs sub-item has unread activity.
+  const parentShowsActivityBadge = item.label === 'Labs' && activityUnreadCount > 0;
 
   if (hasSubItems) {
     return (
@@ -74,6 +79,9 @@ function NavItemComponent({
           <span className="flex items-center gap-3">
             <Icon className="h-5 w-5" />
             {item.label}
+            {parentShowsActivityBadge && (
+              <span className="bg-primary h-1.5 w-1.5 rounded-full" aria-label="Unread activity" />
+            )}
           </span>
           <ChevronDown className={cn('h-4 w-4 transition-transform', isExpanded && 'rotate-180')} />
         </button>
@@ -85,7 +93,9 @@ function NavItemComponent({
             {item.subItems!.map((subItem) => {
               const isSubActive = pathname === subItem.href;
               const SubIcon = subItem.icon;
-              const showBadge = subItem.href === '/budget/transactions' && uncategorizedCount > 0;
+              const showBadge =
+                (subItem.href === '/budget/transactions' && uncategorizedCount > 0) ||
+                (subItem.href === '/labs/activity' && activityUnreadCount > 0);
               return (
                 <Link
                   key={subItem.href}
@@ -131,6 +141,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const user = useUser();
   const { data: countData } = useUncategorizedCount();
+  const { data: activityUnreadCount } = useGeneralLogUnreadCount();
   const syncMoneytor = useSyncMoneytor();
   const uncategorizedCount = countData?.uncategorized ?? 0;
 
@@ -154,6 +165,7 @@ export function Sidebar() {
               item={item}
               pathname={pathname}
               uncategorizedCount={uncategorizedCount}
+              activityUnreadCount={activityUnreadCount ?? 0}
             />
           ))}
         </nav>
