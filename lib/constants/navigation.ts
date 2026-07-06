@@ -20,6 +20,8 @@ import {
   FlaskConical,
   Trash2,
   History,
+  ListChecks,
+  Activity,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -82,6 +84,11 @@ export const navItems: NavItem[] = [
     ],
   },
   {
+    href: '/tasks',
+    label: 'Tasks',
+    icon: ListChecks,
+  },
+  {
     // Labs — experimental/raw-debug pages. The parent's href is used only by
     // `isParentActive` (pathname.startsWith) so the section highlights when
     // the user is on any of its subitems.
@@ -92,6 +99,7 @@ export const navItems: NavItem[] = [
       { href: '/moneytor-trnx', label: 'Moneytor Trnx', icon: ArrowLeftRight },
       { href: '/labs/dropped-trnx', label: 'Dropped Trnx', icon: Trash2 },
       { href: '/labs/sync-log', label: 'Sync Log', icon: History },
+      { href: '/labs/activity', label: 'Activity', icon: Activity },
     ],
   },
 ];

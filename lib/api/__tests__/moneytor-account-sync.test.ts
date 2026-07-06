@@ -23,6 +23,10 @@ jest.mock('@/lib/db', () => ({
     },
     moneytorAccount: {
       upsert: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+      deleteMany: jest.fn(),
     },
     moneytorAccountSnapshot: {
       upsert: jest.fn(),
@@ -107,8 +111,8 @@ describe('syncMoneytorForHousehold → bank + debt accounts', () => {
     expect(summary.accountsUpserted).toBe(1);
     expect(summary.accountSnapshotsUpserted).toBe(1);
 
-    const call = (mockPrisma.moneytorAccount.upsert as jest.Mock).mock.calls[0][0];
-    expect(call.create).toMatchObject({
+    const call = (mockPrisma.moneytorAccount.create as jest.Mock).mock.calls[0][0];
+    expect(call.data).toMatchObject({
       productId: '6255',
       form: 'bank',
       institution: 'הפועלים',
@@ -141,13 +145,13 @@ describe('syncMoneytorForHousehold → bank + debt accounts', () => {
 
     await syncMoneytorForHousehold('hh-1');
 
-    const call = (mockPrisma.moneytorAccount.upsert as jest.Mock).mock.calls[0][0];
-    expect(call.create.balanceInBase).toBe(-500000); // sign flipped
-    expect(call.create.subtype).toBe('mortgage');
-    expect(call.create.institution).toBe('בנק לאומי');
+    const call = (mockPrisma.moneytorAccount.create as jest.Mock).mock.calls[0][0];
+    expect(call.data.balanceInBase).toBe(-500000); // sign flipped
+    expect(call.data.subtype).toBe('mortgage');
+    expect(call.data.institution).toBe('בנק לאומי');
     // Weighted-avg interest: (3.5 * 300k + 2.5 * 200k) / 500k = 3.1
-    expect(call.create.interestRate).toBeCloseTo(3.1, 5);
-    expect(call.create.monthlyPayment).toBe(3500); // 2000 + 1500
+    expect(call.data.interestRate).toBeCloseTo(3.1, 5);
+    expect(call.data.monthlyPayment).toBe(3500); // 2000 + 1500
   });
 
   it('writes a snapshot row for today keyed on (householdId, snapshotDate, productId)', async () => {
@@ -182,6 +186,7 @@ describe('syncMoneytorForHousehold → bank + debt accounts', () => {
     const summary = await syncMoneytorForHousehold('hh-1');
     expect(summary.accountsUpserted).toBe(0);
     expect(summary.accountSnapshotsUpserted).toBe(0);
-    expect((mockPrisma.moneytorAccount.upsert as jest.Mock).mock.calls).toHaveLength(0);
+    expect((mockPrisma.moneytorAccount.create as jest.Mock).mock.calls).toHaveLength(0);
+    expect((mockPrisma.moneytorAccount.update as jest.Mock).mock.calls).toHaveLength(0);
   });
 });

@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     // Accept all backups produced since the format stabilised. Older versions
     // simply have empty arrays for tables added in later releases.
-    const supportedVersions = ['1.0', '1.1', '1.2', '1.3', '1.4', '1.5'];
+    const supportedVersions = ['1.0', '1.1', '1.2', '1.3', '1.4', '1.5', '2.0', '2.1', '2.2'];
     if (!supportedVersions.includes(metadata.schemaVersion)) {
       return NextResponse.json(
         { success: false, error: `Unsupported schema version: ${metadata.schemaVersion}` },

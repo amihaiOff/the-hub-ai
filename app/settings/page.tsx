@@ -20,6 +20,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { AccountNamesSettings } from '@/components/budget';
 import { PartnerPhoneSettings } from '@/components/settings/partner-phone-settings';
 import { BillingCycleSettings } from '@/components/settings/billing-cycle-settings';
+import { SyncAliasesSettings } from '@/components/settings/sync-aliases-settings';
 
 const settingsLinks = [
   {
@@ -365,6 +366,20 @@ export default function SettingsPage() {
           <div className="border-border/60 border-t pt-4">
             <BillingCycleSettings />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Sync Aliases Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Data sync</CardTitle>
+          <CardDescription>
+            Pin stable aliases for each synced entity so re-linked accounts collapse into the same
+            row.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SyncAliasesSettings />
         </CardContent>
       </Card>
 

@@ -15,12 +15,13 @@ import {
   Settings,
   Shield,
   ShoppingCart,
+  ListChecks,
 } from 'lucide-react';
 
 describe('Navigation Constants', () => {
   describe('navItems array structure', () => {
-    it('should contain exactly 8 navigation items with valid structure', () => {
-      expect(navItems).toHaveLength(8);
+    it('should contain exactly 9 navigation items with valid structure', () => {
+      expect(navItems).toHaveLength(9);
       expect(Array.isArray(navItems)).toBe(true);
 
       navItems.forEach((item) => {
@@ -57,6 +58,7 @@ describe('Navigation Constants', () => {
       { label: 'Insurance', href: '/insurance', icon: Shield },
       { label: 'Budget', href: '/budget', icon: Receipt },
       { label: 'Shopping', href: '/shopping', icon: ShoppingCart },
+      { label: 'Tasks', href: '/tasks', icon: ListChecks },
     ];
 
     it.each(expectedItems.map((item, index) => [index, item.label, item.href, item.icon]))(

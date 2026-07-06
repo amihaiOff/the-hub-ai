@@ -37,6 +37,10 @@ model User {
   miscAssets        MiscAsset[]
   netWorthSnapshots NetWorthSnapshot[]
 
+  // Tasks module
+  ownedTasks Task[]        @relation("TaskOwner")
+  taskShares TaskShare[]
+
   @@map("users")
 }
 
@@ -67,6 +71,9 @@ model Profile {
 
   // Insurance policies attributed to this profile
   insurancePolicies InsurancePolicy[]
+
+  // Tasks assigned to this profile (assignee may be a child profile with no User)
+  assignedTasks Task[]
 
   @@map("profiles")
 }
@@ -119,6 +126,14 @@ model Household {
 
   // WhatsApp contacts (e.g. partner, family) for the "Ask on WhatsApp" button.
   partnerContacts PartnerContact[]
+
+  // Tasks module
+  tasks          Task[]
+  taskCategories TaskCategory[]
+  taskTags       TaskTag[]
+
+  // Cross-cutting activity log (renames, stale-row deletes, etc.)
+  generalLogs GeneralLog[]
 
   @@map("households")
 }
@@ -850,6 +865,18 @@ model MoneytorAccount {
   maturityDate   DateTime? @map("maturity_date") @db.Date
   monthlyPayment Decimal?  @map("monthly_payment") @db.Decimal(18, 2)
   customSubtitle String?   @map("custom_subtitle") // user-editable label shown under the account name
+  // Provider-issued identity (openfinanceAssetId for banks/CCs) — much more
+  // stable across Moneytor productId reissues. Populated when the payload
+  // exposes it; otherwise null and the reconciler falls back to productId.
+  stableKey        String?   @map("stable_key")
+  // Optional user override. When set, takes precedence over stableKey +
+  // productId at match time so the user can pin identity for entities
+  // where Moneytor doesn't emit a stable identifier (mortgage, brokerage).
+  userCanonicalId  String?   @map("user_canonical_id")
+  // First sync at which this row wasn't seen in the Moneytor response.
+  // NULL when the row is currently seen. Rows with a missingSince older
+  // than the grace period get hard-deleted.
+  missingSince     DateTime? @map("missing_since")
   rawData        Json?     @map("raw_data")
   householdId    String    @map("household_id")
   syncedAt       DateTime  @default(now()) @map("synced_at")
@@ -861,6 +888,7 @@ model MoneytorAccount {
   @@unique([householdId, productId])
   @@index([householdId])
   @@index([householdId, form])
+  @@index([householdId, stableKey])
   @@map("moneytor_accounts")
 }
 
@@ -936,6 +964,11 @@ model MoneytorPensionFund {
   matsavMishpachti                String?   @map("matsav_mishpachti")
   // Catch-all for unmodeled fields (full Moneytor record)
   rawData                         Json?     @map("raw_data")
+  // Stable identity: (institution || accountNumber || route). Survives
+  // productId reissue. See lib/moneytor/stable-key.ts for the exact rule.
+  stableKey                       String?   @map("stable_key")
+  userCanonicalId                 String?   @map("user_canonical_id")
+  missingSince                    DateTime? @map("missing_since")
   householdId                     String    @map("household_id")
   syncedAt                        DateTime  @default(now()) @map("synced_at")
   createdAt                       DateTime  @default(now()) @map("created_at")
@@ -946,6 +979,7 @@ model MoneytorPensionFund {
   @@unique([householdId, productId, routeName])
   @@index([householdId])
   @@index([householdId, productType])
+  @@index([householdId, stableKey])
   @@map("moneytor_pension_funds")
 }
 
@@ -1033,6 +1067,10 @@ model MoneytorRealEstate {
   linkedMortgageRef String? @map("linked_mortgage_ref")
   customSubtitle    String? @map("custom_subtitle") // user-editable label
   rawData           Json?   @map("raw_data")
+  // Stable identity: normalized address. See lib/moneytor/stable-key.ts.
+  stableKey         String? @map("stable_key")
+  userCanonicalId   String? @map("user_canonical_id")
+  missingSince      DateTime? @map("missing_since")
   householdId       String  @map("household_id")
   syncedAt          DateTime @default(now()) @map("synced_at")
   createdAt         DateTime @default(now()) @map("created_at")
@@ -1042,6 +1080,7 @@ model MoneytorRealEstate {
 
   @@unique([householdId, productId])
   @@index([householdId])
+  @@index([householdId, stableKey])
   @@map("moneytor_real_estate")
 }
 
@@ -1115,4 +1154,140 @@ model MoneytorSyncLog {
 
   @@index([householdId, startedAt(sort: Desc)])
   @@map("moneytor_sync_logs")
+}
+
+// ─── Tasks module ─────────────────────────────────────────────────────
+// Notion-style personal task database. Tasks are owned by a User and
+// visible to that user + any TaskShare recipients. Every task lives
+// under a household so it never leaks across households the user
+// belongs to.
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Task {
+  id           String       @id @default(cuid())
+  title        String
+  notes        String?
+  status       TaskStatus   @default(TODO)
+  priority     TaskPriority @default(MEDIUM)
+  dueDate      DateTime?    @map("due_date")
+  // Per-status ordering; used by the Board view to persist card position
+  // between drags. Not enforced unique — the routes renumber on collision.
+  sortOrder    Int          @default(0) @map("sort_order")
+  // Optional user-defined extra fields, shape: [{id, name, type, value, options?}]
+  customFields Json?        @map("custom_fields")
+  categoryId   String?      @map("category_id")
+  ownerId      String       @map("owner_id")
+  assigneeId   String?      @map("assignee_id")
+  parentTaskId String?      @map("parent_task_id")
+  householdId  String       @map("household_id")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  owner     User          @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  assignee  Profile?      @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  category  TaskCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  household Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  parent    Task?         @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  children  Task[]        @relation("TaskSubtasks")
+  tags      TaskTag[]     @relation("TaskToTaskTag")
+  shares    TaskShare[]
+
+  @@index([householdId])
+  @@index([householdId, status])
+  @@index([householdId, dueDate])
+  @@index([householdId, categoryId])
+  @@index([parentTaskId])
+  @@index([ownerId])
+  @@map("tasks")
+}
+
+// Household-scoped single-select category. Each task belongs to at most one
+// category (unlike TaskTag which is many-to-many).
+model TaskCategory {
+  id          String   @id @default(cuid())
+  name        String
+  color       String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  householdId String   @map("household_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  tasks     Task[]
+
+  @@unique([householdId, name])
+  @@index([householdId])
+  @@map("task_categories")
+}
+
+// Household-scoped tag. Many-to-many with Task via implicit `_TaskToTaskTag`.
+model TaskTag {
+  id          String   @id @default(cuid())
+  name        String
+  color       String?
+  householdId String   @map("household_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  tasks     Task[]    @relation("TaskToTaskTag")
+
+  @@unique([householdId, name])
+  @@index([householdId])
+  @@map("task_tags")
+}
+
+// Opt-in share of a single task with another user in the same household.
+// Only the task's owner may create/modify/delete shares.
+model TaskShare {
+  id        String   @id @default(cuid())
+  taskId    String   @map("task_id")
+  userId    String   @map("user_id")
+  canEdit   Boolean  @default(true) @map("can_edit")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([userId])
+  @@map("task_shares")
+}
+
+// ─── General activity log ─────────────────────────────────────────────
+// Cross-cutting event stream for events the user should be aware of but
+// which don't belong to a single feature area (e.g. Moneytor renamed a
+// bank account between syncs, we soft-deleted a stale row). Surfaced in
+// Labs → Activity with a mark-as-read affordance.
+model GeneralLog {
+  id          String   @id @default(cuid())
+  householdId String   @map("household_id")
+  // e.g. 'account_renamed' | 'account_soft_deleted' | 'account_reappeared'
+  type        String
+  // What the event is about — an entity type + id so the UI can deep-link.
+  subjectType String?  @map("subject_type") // 'moneytor_account' | 'moneytor_pension_fund' | 'moneytor_real_estate'
+  subjectId   String?  @map("subject_id")
+  oldValue    String?  @map("old_value")    // e.g. previous name
+  newValue    String?  @map("new_value")    // e.g. new name
+  description String?
+  readAt      DateTime? @map("read_at")     // null = unread, drives the badge dot
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, createdAt(sort: Desc)])
+  @@index([householdId, readAt])
+  @@map("general_logs")
 }

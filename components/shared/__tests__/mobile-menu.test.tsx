@@ -199,6 +199,11 @@ jest.mock('@/lib/hooks/use-moneytor', () => ({
   useSyncMoneytor: () => ({ mutate: jest.fn(), isPending: false }),
 }));
 
+// Same story for the general-log unread badge — no provider in tests.
+jest.mock('@/lib/hooks/use-general-log', () => ({
+  useGeneralLogUnreadCount: () => ({ data: 0 }),
+}));
+
 // Mock HouseholdSwitcher component which uses HouseholdContext
 jest.mock('../household-switcher', () => ({
   HouseholdSwitcher: function MockHouseholdSwitcher({ className }: { className?: string }) {
