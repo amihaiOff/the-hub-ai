@@ -321,6 +321,26 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
   let accountsUpserted = 0;
   let accountSnapshotsUpserted = 0;
 
+  // Remove accounts Moneytor no longer reports. Happens when the user
+  // re-links a bank in Moneytor — a new productId is issued and the old
+  // row would otherwise linger forever. Mirrors what the pension + stock
+  // holding loops already do.
+  const seenAccountProductIds = new Set(
+    [...bankAssets, ...debtAssets].map((a) => String(a.productId ?? a.id))
+  );
+  if (seenAccountProductIds.size > 0) {
+    const existingAccounts = await prisma.moneytorAccount.findMany({
+      where: { householdId },
+      select: { id: true, productId: true },
+    });
+    const staleAccountIds = existingAccounts
+      .filter((a) => !seenAccountProductIds.has(a.productId))
+      .map((a) => a.id);
+    if (staleAccountIds.length > 0) {
+      await prisma.moneytorAccount.deleteMany({ where: { id: { in: staleAccountIds } } });
+    }
+  }
+
   for (const asset of [...bankAssets, ...debtAssets]) {
     const productId = String(asset.productId ?? asset.id);
     const isDebt = asset.form === 'debt';
