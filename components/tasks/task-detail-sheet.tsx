@@ -42,6 +42,24 @@ interface TaskDetailSheetProps {
 
 const NONE = '__none__';
 
+// Pastel pill colors that match the semantic meaning of each value. The
+// triggers become tinted chips so the selected value pops without being
+// loud — /15 background + /90 text keeps it soft.
+const STATUS_PILL: Record<TaskRow['status'], string> = {
+  TODO: 'bg-slate-500/15 text-slate-300',
+  IN_PROGRESS: 'bg-sky-500/15 text-sky-300',
+  BLOCKED: 'bg-amber-500/15 text-amber-300',
+  DONE: 'bg-emerald-500/15 text-emerald-300',
+  CANCELLED: 'bg-muted text-muted-foreground line-through',
+};
+
+const PRIORITY_PILL: Record<TaskRow['priority'], string> = {
+  URGENT: 'bg-red-500/15 text-red-300',
+  HIGH: 'bg-orange-500/15 text-orange-300',
+  MEDIUM: 'bg-yellow-500/15 text-yellow-300',
+  LOW: 'bg-teal-500/15 text-teal-300',
+};
+
 export function TaskDetailSheet({ taskId, onOpenChange, categories }: TaskDetailSheetProps) {
   const { data: task, isLoading } = useTask(taskId);
 
@@ -155,7 +173,7 @@ function TaskDetailBody({
           the dropdown triggers themselves stay transparent to keep the
           block feeling like a list of properties, not a form. */}
       <div className="space-y-4">
-        <MetaRow icon={FolderTree} label="Category" iconClass="text-violet-500">
+        <MetaRow icon={FolderTree} label="Category" iconClass="text-violet-400/70">
           <Select
             value={task.categoryId ?? NONE}
             onValueChange={(v) => patch('categoryId', v === NONE ? null : v)}
@@ -174,9 +192,14 @@ function TaskDetailBody({
           </Select>
         </MetaRow>
 
-        <MetaRow icon={CircleDot} label="Status" iconClass="text-blue-500">
+        <MetaRow icon={CircleDot} label="Status" iconClass="text-blue-400/70">
           <Select value={task.status} onValueChange={(v) => patch('status', v)}>
-            <SelectTrigger className="hover:bg-muted/40 h-8 w-fit rounded-full border-none bg-transparent px-2 text-xs">
+            <SelectTrigger
+              className={cn(
+                'h-8 w-fit rounded-full border-none px-3 text-xs font-medium',
+                STATUS_PILL[task.status]
+              )}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="rounded-2xl">
@@ -189,9 +212,14 @@ function TaskDetailBody({
           </Select>
         </MetaRow>
 
-        <MetaRow icon={Flag} label="Priority" iconClass="text-rose-500">
+        <MetaRow icon={Flag} label="Priority" iconClass="text-rose-400/70">
           <Select value={task.priority} onValueChange={(v) => patch('priority', v)}>
-            <SelectTrigger className="hover:bg-muted/40 h-8 w-fit rounded-full border-none bg-transparent px-2 text-xs">
+            <SelectTrigger
+              className={cn(
+                'h-8 w-fit rounded-full border-none px-3 text-xs font-medium',
+                PRIORITY_PILL[task.priority]
+              )}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="rounded-2xl">
@@ -204,7 +232,7 @@ function TaskDetailBody({
           </Select>
         </MetaRow>
 
-        <MetaRow icon={CalendarIcon} label="Due Date" iconClass="text-emerald-500">
+        <MetaRow icon={CalendarIcon} label="Due Date" iconClass="text-emerald-400/70">
           <Input
             type="date"
             value={task.dueDate ? task.dueDate.slice(0, 10) : ''}
