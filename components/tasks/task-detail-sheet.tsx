@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Bold,
   Calendar as CalendarIcon,
@@ -119,6 +119,39 @@ function TaskDetailBody({
     update.mutate({ id: task.id, patch: { [field]: value } });
   };
 
+  // Notes autosave: commit on a short debounce so the user's edits stick
+  // even if they close the sheet via Escape / outside-click (blur doesn't
+  // always fire in those flows). The `savedNotesRef` tracks the last value
+  // we sent so we don't retrigger the mutation when the query refetches
+  // and mirrors it back into `task.notes`.
+  const savedNotesRef = useRef(task.notes ?? '');
+  const notesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const commitNotes = (value: string) => {
+    const normalized = value.trim().length > 0 ? value : '';
+    if (normalized === savedNotesRef.current) return;
+    savedNotesRef.current = normalized;
+    patch('notes', normalized ? normalized : null);
+  };
+
+  useEffect(() => {
+    if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
+    notesTimerRef.current = setTimeout(() => commitNotes(notes), 400);
+    return () => {
+      if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notes]);
+
+  // Flush on unmount so a rapid close-after-typing still saves.
+  useEffect(() => {
+    return () => {
+      if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
+      commitNotes(notes);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="space-y-5">
       {/* Title */}
@@ -219,9 +252,7 @@ function TaskDetailBody({
         <Textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          onBlur={() => {
-            if (notes !== (task.notes ?? '')) patch('notes', notes || null);
-          }}
+          onBlur={() => commitNotes(notes)}
           rows={8}
           placeholder="Anything you want to remember about this task…"
           className="bg-muted/40 rounded-2xl border-none focus-visible:ring-0"
