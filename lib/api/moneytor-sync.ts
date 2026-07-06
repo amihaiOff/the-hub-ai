@@ -121,6 +121,7 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
             amount: tx.amount,
             currency: tx.currency,
             description: tx.description,
+            extraInfo: tx.extra_info ?? null,
             category: tx.category,
             accountId: tx.accountId,
             type: tx.type,
@@ -131,6 +132,7 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
             amount: tx.amount,
             currency: tx.currency,
             description: tx.description,
+            extraInfo: tx.extra_info ?? null,
             category: tx.category,
             accountId: tx.accountId,
             type: tx.type,
@@ -313,7 +315,11 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
         paymentMethod: mapMoneytorTypeToPaymentMethod(mt.type),
         paymentNumber: null,
         totalPayments: null,
-        notes: null,
+        // Seed notes from Moneytor's extra_info — payee/counterparty metadata
+        // on Bit P2P + customer notes on other transfers. Only stamped when
+        // this budget row is first created; user edits later on won't be
+        // overwritten (importTransactions skips duplicates).
+        notes: mt.extraInfo ?? null,
         source: 'moneytor_sync',
         paymentIdentifier: mt.accountId.slice(-12),
         excludedFromFlow: false,
@@ -934,6 +940,7 @@ export async function forceResyncMoneytorTransactionsForHousehold(
             amount: tx.amount,
             currency: tx.currency,
             description: tx.description,
+            extraInfo: tx.extra_info ?? null,
             category: tx.category,
             accountId: tx.accountId,
             type: tx.type,
@@ -945,6 +952,7 @@ export async function forceResyncMoneytorTransactionsForHousehold(
             amount: tx.amount,
             currency: tx.currency,
             description: tx.description,
+            extraInfo: tx.extra_info ?? null,
             category: tx.category,
             accountId: tx.accountId,
             type: tx.type,
@@ -1081,7 +1089,11 @@ export async function forceResyncMoneytorTransactionsForHousehold(
         paymentMethod: mapMoneytorTypeToPaymentMethod(mt.type),
         paymentNumber: null,
         totalPayments: null,
-        notes: null,
+        // Seed notes from Moneytor's extra_info — payee/counterparty metadata
+        // on Bit P2P + customer notes on other transfers. Only stamped when
+        // this budget row is first created; user edits later on won't be
+        // overwritten (importTransactions skips duplicates).
+        notes: mt.extraInfo ?? null,
         source: 'moneytor_sync',
         paymentIdentifier: mt.accountId.slice(-12),
         excludedFromFlow: false,
