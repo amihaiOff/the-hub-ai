@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react';
 import { KanbanSquare, List as ListIcon, Loader2, Plus, Table as TableIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   useTasks,
@@ -14,21 +13,21 @@ import {
 import type { TaskFilters } from '@/lib/validations/tasks';
 import { TaskTableView } from './task-table-view';
 import { TaskListView } from './task-list-view';
-import { TaskKanbanView } from './task-kanban-view';
+import { TaskKanbanView, type GroupBy } from './task-kanban-view';
 import { TaskDetailSheet } from './task-detail-sheet';
-import { TaskFiltersBar, type TaskSort } from './task-filters-bar';
+import { TaskToolbar, type ViewOption } from './task-toolbar';
+import type { TaskSort } from './task-filters-bar';
 
 type ViewMode = 'list' | 'kanban' | 'table';
 
-const VIEW_OPTIONS: {
-  id: ViewMode;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-}[] = [
+const VIEW_OPTIONS: ViewOption[] = [
   { id: 'list', label: 'List', icon: ListIcon },
   { id: 'kanban', label: 'Kanban', icon: KanbanSquare },
   { id: 'table', label: 'Table', icon: TableIcon },
 ];
+
+// Sorting UI was removed; tasks always come back due-date-earliest-first.
+const DEFAULT_SORT: TaskSort = 'due-asc';
 
 const PRIORITY_ORDER: Record<TaskRow['priority'], number> = {
   URGENT: 0,
@@ -39,16 +38,21 @@ const PRIORITY_ORDER: Record<TaskRow['priority'], number> = {
 
 export function TasksClient() {
   const [view, setView] = useState<ViewMode>('list');
-  const [filters, setFilters] = useState<TaskFilters>({});
-  const [sort, setSort] = useState<TaskSort>('due-asc');
+  const [search, setSearch] = useState('');
+  const [groupBy, setGroupBy] = useState<GroupBy>('status');
   const [detailId, setDetailId] = useState<string | null>(null);
+
+  const filters = useMemo<TaskFilters>(() => {
+    const term = search.trim();
+    return term ? { search: term } : {};
+  }, [search]);
 
   const { data: rawTasks = [], isLoading, error } = useTasks(filters);
   const { data: categories = [] } = useTaskCategories();
   const { data: tags = [] } = useTaskTags();
   const createTask = useCreateTask();
 
-  const tasks = useMemo(() => sortTasks(rawTasks as TaskRow[], sort), [rawTasks, sort]);
+  const tasks = useMemo(() => sortTasks(rawTasks as TaskRow[], DEFAULT_SORT), [rawTasks]);
 
   const handleQuickAdd = () => {
     createTask.mutate({ title: 'New task' }, { onSuccess: (task) => setDetailId(task.id) });
@@ -56,32 +60,15 @@ export function TasksClient() {
 
   return (
     <div className="space-y-5">
-      {/* Top bar: view switcher + quick-add */}
-      <div className="flex items-center justify-between gap-3">
-        <ViewSwitcher value={view} onChange={setView} />
-        <Button
-          onClick={handleQuickAdd}
-          disabled={createTask.isPending}
-          size="icon"
-          aria-label="New task"
-          className="h-11 w-11 rounded-2xl"
-        >
-          {createTask.isPending ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : (
-            <Plus className="h-5 w-5" />
-          )}
-        </Button>
-      </div>
-
-      {/* Filters + sort */}
-      <TaskFiltersBar
-        filters={filters}
-        onFiltersChange={setFilters}
-        sort={sort}
-        onSortChange={setSort}
-        categories={categories}
-        tags={tags}
+      {/* Collapsible toolbar: search + view type + group by, all on one line */}
+      <TaskToolbar
+        search={search}
+        onSearchChange={setSearch}
+        view={view}
+        onViewChange={setView}
+        viewOptions={VIEW_OPTIONS}
+        groupBy={groupBy}
+        onGroupByChange={setGroupBy}
       />
 
       {/* Body */}
@@ -103,7 +90,12 @@ export function TasksClient() {
         <TaskListView tasks={tasks} onOpenTask={setDetailId} />
       )}
       {tasks.length > 0 && view === 'kanban' && (
-        <TaskKanbanView tasks={tasks} categories={categories} onOpenTask={setDetailId} />
+        <TaskKanbanView
+          tasks={tasks}
+          categories={categories}
+          onOpenTask={setDetailId}
+          groupBy={groupBy}
+        />
       )}
       {tasks.length > 0 && view === 'table' && (
         <TaskTableView tasks={tasks} categories={categories} tags={tags} onOpenTask={setDetailId} />
@@ -123,41 +115,22 @@ export function TasksClient() {
         categories={categories}
         tags={tags}
       />
-    </div>
-  );
-}
 
-function ViewSwitcher({
-  value,
-  onChange,
-}: {
-  value: ViewMode;
-  onChange: (next: ViewMode) => void;
-}) {
-  return (
-    <div className="bg-muted/40 border-border/60 inline-flex items-center gap-1 rounded-2xl border p-1">
-      {VIEW_OPTIONS.map((opt) => {
-        const Icon = opt.icon;
-        const active = value === opt.id;
-        return (
-          <button
-            key={opt.id}
-            type="button"
-            onClick={() => onChange(opt.id)}
-            aria-pressed={active}
-            aria-label={opt.label}
-            title={opt.label}
-            className={cn(
-              'flex h-9 w-11 items-center justify-center rounded-xl transition-colors',
-              active
-                ? 'bg-primary/15 text-primary shadow-sm'
-                : 'text-muted-foreground hover:bg-background/50 hover:text-foreground'
-            )}
-          >
-            <Icon className="h-4 w-4" />
-          </button>
-        );
-      })}
+      {/* Floating action button — create a new task */}
+      <button
+        type="button"
+        onClick={handleQuickAdd}
+        disabled={createTask.isPending}
+        aria-label="New task"
+        title="New task"
+        className="bg-primary text-primary-foreground fixed right-5 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-70"
+      >
+        {createTask.isPending ? (
+          <Loader2 className="h-6 w-6 animate-spin" />
+        ) : (
+          <Plus className="h-6 w-6" />
+        )}
+      </button>
     </div>
   );
 }

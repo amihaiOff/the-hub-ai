@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   DndContext,
   PointerSensor,
@@ -15,23 +15,16 @@ import { MessageSquare, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUpdateTask, type TaskCategoryRow, type TaskRow } from '@/lib/hooks/use-tasks';
 import { TASK_STATUSES, TASK_PRIORITIES } from '@/lib/validations/tasks';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { PriorityBadge, prettyStatus } from './task-list-view';
 import { prettyPriority } from './task-filters-bar';
 
-type GroupBy = 'status' | 'priority' | 'category';
+export type GroupBy = 'status' | 'priority' | 'category';
 
 interface TaskKanbanViewProps {
   tasks: TaskRow[];
   categories: TaskCategoryRow[];
   onOpenTask: (id: string) => void;
+  groupBy: GroupBy;
 }
 
 const NO_CATEGORY_ID = '__none__';
@@ -57,8 +50,7 @@ const PRIORITY_DOT: Record<TaskRow['priority'], string> = {
  * column PATCHes the corresponding field via useUpdateTask's optimistic
  * update, so the card lands in its new column immediately.
  */
-export function TaskKanbanView({ tasks, categories, onOpenTask }: TaskKanbanViewProps) {
-  const [groupBy, setGroupBy] = useState<GroupBy>('status');
+export function TaskKanbanView({ tasks, categories, onOpenTask, groupBy }: TaskKanbanViewProps) {
   const update = useUpdateTask();
 
   // Small pointer activation distance so a click still opens the detail
@@ -96,10 +88,6 @@ export function TaskKanbanView({ tasks, categories, onOpenTask }: TaskKanbanView
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <GroupBySelector value={groupBy} onChange={setGroupBy} />
-      </div>
-
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <div className="-mx-2 flex snap-x snap-mandatory gap-3 overflow-x-auto px-2 pb-2">
           {columns.map((col) => (
@@ -166,38 +154,6 @@ function groupTasks(
     if (out[key]) out[key].push(t);
   }
   return out;
-}
-
-// ─── Group-by selector ──────────────────────────────────────────────────
-
-function GroupBySelector({ value, onChange }: { value: GroupBy; onChange: (v: GroupBy) => void }) {
-  const label = value === 'status' ? 'Status' : value === 'priority' ? 'Priority' : 'Category';
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="border-border/60 bg-background hover:bg-muted/60 inline-flex h-8 items-center gap-2 rounded-full border px-3 text-xs transition-colors"
-        >
-          <span className="text-muted-foreground">Group by</span>
-          <span className="font-medium">{label}</span>
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="rounded-2xl">
-        <DropdownMenuLabel>Group by</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {(['status', 'priority', 'category'] as GroupBy[]).map((opt) => (
-          <DropdownMenuItem
-            key={opt}
-            onSelect={() => onChange(opt)}
-            className={cn('rounded-lg text-sm capitalize', value === opt && 'bg-muted font-medium')}
-          >
-            {opt}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
 }
 
 // ─── Column (droppable) ─────────────────────────────────────────────────
