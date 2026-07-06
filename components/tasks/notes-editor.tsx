@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import { Markdown } from 'tiptap-markdown';
-import { Bold, Italic, Link2, List, ListOrdered, Strikethrough } from 'lucide-react';
+import { Bold, Italic, Link2, List, ListOrdered, Strikethrough, Type } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NotesEditorProps {
@@ -89,6 +89,12 @@ export function NotesEditor({ value, onChange, onBlur, placeholder }: NotesEdito
 }
 
 function NotesToolbar({ editor }: { editor: Editor | null }) {
+  // `hovered` is the transient hover state; `pinned` sticks the toolbar
+  // open after a click so touch users (no hover) still get access.
+  const [hovered, setHovered] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const open = hovered || pinned;
+
   if (!editor) return null;
 
   const buttons = [
@@ -140,28 +146,60 @@ function NotesToolbar({ editor }: { editor: Editor | null }) {
   ];
 
   return (
-    <div className="border-border/40 flex items-center gap-0.5 border-b px-2 py-1.5">
-      {buttons.map(({ icon: Icon, label, onClick, isActive }) => {
-        const active = isActive();
-        return (
-          <button
-            key={label}
-            type="button"
-            aria-label={label}
-            title={label}
-            aria-pressed={active}
-            onClick={onClick}
-            className={cn(
-              'flex h-7 w-7 items-center justify-center rounded-lg transition-colors',
-              active
-                ? 'bg-primary/15 text-primary'
-                : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
-            )}
-          >
-            <Icon className="h-3.5 w-3.5" />
-          </button>
-        );
-      })}
+    <div
+      className="flex items-center px-2 py-1.5"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <button
+        type="button"
+        aria-label={open ? 'Hide formatting' : 'Show formatting'}
+        title="Formatting"
+        aria-expanded={open}
+        onClick={() => setPinned((v) => !v)}
+        className={cn(
+          'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors',
+          pinned
+            ? 'bg-primary/15 text-primary'
+            : 'bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground backdrop-blur-sm'
+        )}
+      >
+        <Type className="h-3.5 w-3.5" />
+      </button>
+
+      {/* Expanded button strip. Uses max-width + opacity for the slide-out
+          animation; overflow-hidden clips the buttons while collapsed
+          without touching the DOM (so ARIA state stays valid). */}
+      <div
+        className={cn(
+          'flex items-center gap-0.5 overflow-hidden transition-all duration-200 ease-out',
+          open ? 'ml-1.5 max-w-[280px] opacity-100' : 'ml-0 max-w-0 opacity-0'
+        )}
+        aria-hidden={!open}
+      >
+        {buttons.map(({ icon: Icon, label, onClick, isActive }) => {
+          const active = isActive();
+          return (
+            <button
+              key={label}
+              type="button"
+              aria-label={label}
+              title={label}
+              aria-pressed={active}
+              onClick={onClick}
+              tabIndex={open ? 0 : -1}
+              className={cn(
+                'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors',
+                active
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
