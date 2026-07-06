@@ -1,8 +1,22 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Trash2 } from 'lucide-react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  Bold,
+  Calendar as CalendarIcon,
+  FolderTree,
+  Link2,
+  List,
+  Loader2,
+  Plus,
+  Share2,
+  Tag,
+  Trash2,
+  User,
+  X,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,29 +47,36 @@ interface TaskDetailSheetProps {
 
 const NONE = '__none__';
 
-/**
- * Right-side detail panel. Owns the Sheet frame + the task query; the body
- * is a keyed inner component that seeds its local title/notes state from
- * the initial task so we avoid a useEffect-driven sync (and the lint rule
- * against setState-in-effect).
- */
 export function TaskDetailSheet({ taskId, onOpenChange, categories, tags }: TaskDetailSheetProps) {
   const { data: task, isLoading } = useTask(taskId);
 
   return (
     <Sheet open={!!taskId} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
-        <SheetHeader>
-          <SheetTitle>Task</SheetTitle>
-        </SheetHeader>
+      <SheetContent side="right" className="w-full overflow-y-auto rounded-l-3xl sm:max-w-lg">
+        <div className="mb-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              aria-label="Close"
+              className="text-primary hover:bg-primary/10 flex h-9 w-9 items-center justify-center rounded-xl transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <h2 className="text-lg font-semibold">Task Details</h2>
+          </div>
+          <div className="flex items-center gap-1">
+            <IconBtn label="Share">
+              <Share2 className="h-4 w-4" />
+            </IconBtn>
+          </div>
+        </div>
 
         {isLoading || !task ? (
           <div className="text-muted-foreground mt-6 flex items-center gap-2 text-sm">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading…
           </div>
         ) : (
-          // Key on task.id so the inner body remounts (and reseeds its
-          // local title/notes state) whenever a different task is opened.
           <TaskDetailBody
             key={task.id}
             task={task}
@@ -69,9 +90,22 @@ export function TaskDetailSheet({ taskId, onOpenChange, categories, tags }: Task
   );
 }
 
+function IconBtn({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      className="text-muted-foreground hover:bg-muted/60 flex h-9 w-9 items-center justify-center rounded-xl transition-colors"
+    >
+      {children}
+    </button>
+  );
+}
+
 function TaskDetailBody({
   task,
   categories,
+  tags,
   onDeleted,
 }: {
   task: TaskRow;
@@ -82,9 +116,6 @@ function TaskDetailBody({
   const update = useUpdateTask();
   const del = useDeleteTask();
 
-  // Local drafts so typing doesn't fire a PATCH per keystroke — commit on
-  // blur / Enter. Seed once via useState initializer; the parent's `key`
-  // handles resetting when the user opens a different task.
   const [title, setTitle] = useState(task.title);
   const [notes, setNotes] = useState(task.notes ?? '');
 
@@ -93,7 +124,8 @@ function TaskDetailBody({
   };
 
   return (
-    <div className="mt-4 space-y-5">
+    <div className="space-y-5">
+      {/* Title */}
       <Input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
@@ -104,50 +136,21 @@ function TaskDetailBody({
           if (e.key === 'Enter' && title.trim() && title !== task.title)
             patch('title', title.trim());
         }}
-        className="border-none px-0 text-xl font-semibold shadow-none focus-visible:ring-0"
+        className="h-auto border-none px-0 text-2xl font-bold shadow-none focus-visible:ring-0"
         placeholder="Task title"
       />
 
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Status">
-          <Select value={task.status} onValueChange={(v) => patch('status', v)}>
-            <SelectTrigger className="h-8">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TASK_STATUSES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {prettyStatus(s)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-
-        <Field label="Priority">
-          <Select value={task.priority} onValueChange={(v) => patch('priority', v)}>
-            <SelectTrigger className="h-8">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TASK_PRIORITIES.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {prettyPriority(p)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-
-        <Field label="Category">
+      {/* Metadata rows */}
+      <div className="space-y-4">
+        <MetaRow icon={FolderTree} label="Category">
           <Select
             value={task.categoryId ?? NONE}
             onValueChange={(v) => patch('categoryId', v === NONE ? null : v)}
           >
-            <SelectTrigger className="h-8">
+            <SelectTrigger className="bg-muted/70 h-8 w-fit rounded-full border-none px-3 text-xs">
               <SelectValue placeholder="—" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="rounded-2xl">
               <SelectItem value={NONE}>—</SelectItem>
               {categories.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
@@ -156,40 +159,118 @@ function TaskDetailBody({
               ))}
             </SelectContent>
           </Select>
-        </Field>
+        </MetaRow>
 
-        <Field label="Due date">
+        <MetaRow icon={User} label="Assignee">
+          <span className="text-muted-foreground text-sm">
+            {task.assignee?.name ?? 'Unassigned'}
+          </span>
+        </MetaRow>
+
+        <MetaRow icon={CalendarIcon} label="Due Date">
           <Input
             type="date"
             value={task.dueDate ? task.dueDate.slice(0, 10) : ''}
             onChange={(e) =>
               patch('dueDate', e.target.value ? `${e.target.value}T00:00:00.000Z` : null)
             }
-            className="h-8"
+            className="h-8 w-fit rounded-xl border-none bg-transparent px-2 text-sm shadow-none focus-visible:ring-0"
           />
-        </Field>
+        </MetaRow>
+
+        <MetaRow icon={Tag} label="Labels">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {task.tags.map((t) => (
+              <span
+                key={t.id}
+                className="bg-muted/70 inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-medium"
+              >
+                {t.name}
+              </span>
+            ))}
+            <button
+              type="button"
+              className="border-border/60 text-muted-foreground hover:bg-muted/50 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-dashed"
+              aria-label="Add label"
+              title={tags.length ? 'Add label' : 'No labels yet'}
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </MetaRow>
       </div>
 
-      <Field label="Notes">
+      {/* Status + Priority inline row (kept from prior version so users
+          can still change these without navigating away). */}
+      <div className="border-border/40 border-t pt-4">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Status">
+            <Select value={task.status} onValueChange={(v) => patch('status', v)}>
+              <SelectTrigger className="h-9 rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl">
+                {TASK_STATUSES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {prettyStatus(s)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Priority">
+            <Select value={task.priority} onValueChange={(v) => patch('priority', v)}>
+              <SelectTrigger className="h-9 rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl">
+                {TASK_PRIORITIES.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {prettyPriority(p)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+      </div>
+
+      {/* Notes with a decorative rich-text toolbar (buttons don't format
+          yet — kept as visual affordance matching the mock). */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-bold">Notes</h3>
+          <div className="text-muted-foreground flex items-center gap-1">
+            <NotesTool label="Bold">
+              <Bold className="h-3.5 w-3.5" />
+            </NotesTool>
+            <NotesTool label="List">
+              <List className="h-3.5 w-3.5" />
+            </NotesTool>
+            <NotesTool label="Link">
+              <Link2 className="h-3.5 w-3.5" />
+            </NotesTool>
+          </div>
+        </div>
         <Textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           onBlur={() => {
             if (notes !== (task.notes ?? '')) patch('notes', notes || null);
           }}
-          rows={6}
+          rows={8}
           placeholder="Anything you want to remember about this task…"
+          className="bg-muted/40 rounded-2xl border-none focus-visible:ring-0"
         />
-      </Field>
+      </div>
 
+      {/* Delete affordance (in-body, matches original) */}
       <div className="border-border/40 border-t pt-4">
         <Button
           variant="ghost"
           size="sm"
-          className="text-destructive"
-          onClick={() => {
-            del.mutate(task.id, { onSuccess: onDeleted });
-          }}
+          className="text-destructive rounded-xl"
+          onClick={() => del.mutate(task.id, { onSuccess: onDeleted })}
         >
           <Trash2 className="mr-2 h-4 w-4" />
           Delete task
@@ -199,13 +280,48 @@ function TaskDetailBody({
   );
 }
 
+function MetaRow({
+  icon: Icon,
+  label,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-4">
+      <div className="text-muted-foreground flex w-32 items-center gap-2.5 text-sm">
+        <Icon className="h-4 w-4" />
+        <span>{label}</span>
+      </div>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <p className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
         {label}
       </p>
       {children}
     </div>
+  );
+}
+
+function NotesTool({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      className={cn(
+        'hover:bg-muted/60 flex h-7 w-7 items-center justify-center rounded-lg transition-colors'
+      )}
+    >
+      {children}
+    </button>
   );
 }

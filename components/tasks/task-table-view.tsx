@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ChevronDown, ChevronRight, MoreVertical, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -35,13 +36,11 @@ interface TaskTableViewProps {
 }
 
 /**
- * Notion-style row table. Inline edits are one-field PATCHes and rely on
- * the optimistic updates in useUpdateTask, so cells feel instant.
- * Sub-tasks (one level) are rendered indented under their parent when
- * expanded — child rows omit the expand column and support the same
- * inline edits.
+ * Notion-style row table with rounded chrome. Checkbox toggles DONE like
+ * the list view; the rest of the row is inline-edit selects that PATCH via
+ * useUpdateTask's optimistic path.
  */
-export function TaskTableView({ tasks, categories, tags, onOpenTask }: TaskTableViewProps) {
+export function TaskTableView({ tasks, categories, onOpenTask }: TaskTableViewProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const toggle = (id: string) => {
@@ -52,21 +51,20 @@ export function TaskTableView({ tasks, categories, tags, onOpenTask }: TaskTable
   };
 
   return (
-    <div className="border-border overflow-x-auto rounded-lg border">
+    <div className="border-border/60 overflow-x-auto rounded-3xl border">
       <table className="w-full text-sm">
         <thead className="bg-muted/40 border-b text-left">
           <tr>
-            <Th className="w-8" />
-            <Th className="min-w-[260px]">Title</Th>
+            <Th className="w-10" />
+            <Th className="min-w-[260px]">Task name</Th>
             <Th className="w-[140px]">Category</Th>
             <Th className="w-[140px]">Status</Th>
-            <Th className="w-[110px]">Priority</Th>
-            <Th className="w-[130px]">Due</Th>
-            <Th className="w-[140px]">Assignee</Th>
+            <Th className="w-[120px]">Priority</Th>
+            <Th className="w-[140px]">Due</Th>
             <Th className="w-8" />
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody className="divide-border/60 divide-y">
           {tasks.map((task) => {
             const hasChildren = (task.children?.length ?? 0) > 0;
             const isOpen = expanded.has(task.id);
@@ -75,7 +73,6 @@ export function TaskTableView({ tasks, categories, tags, onOpenTask }: TaskTable
                 key={task.id}
                 task={task}
                 categories={categories}
-                tags={tags}
                 isExpanded={isOpen}
                 canExpand={hasChildren}
                 onToggleExpand={() => toggle(task.id)}
@@ -88,7 +85,6 @@ export function TaskTableView({ tasks, categories, tags, onOpenTask }: TaskTable
                       key={child.id}
                       task={child}
                       categories={categories}
-                      tags={tags}
                       isExpanded={false}
                       canExpand={false}
                       onToggleExpand={() => {}}
@@ -109,7 +105,7 @@ function Th({ children, className }: { children?: React.ReactNode; className?: s
   return (
     <th
       className={cn(
-        'text-muted-foreground px-2 py-2 text-[10px] font-semibold tracking-wider uppercase',
+        'text-muted-foreground px-4 py-3 text-[10px] font-semibold tracking-wider uppercase',
         className
       )}
     >
@@ -121,7 +117,6 @@ function Th({ children, className }: { children?: React.ReactNode; className?: s
 interface RowProps {
   task: TaskRow;
   categories: TaskCategoryRow[];
-  tags: TaskTagRow[];
   isExpanded: boolean;
   canExpand: boolean;
   onToggleExpand: () => void;
@@ -136,38 +131,50 @@ function TaskRowEls(props: RowProps) {
   const update = useUpdateTask();
   const del = useDeleteTask();
   const isChild = depth > 0;
+  const isDone = task.status === 'DONE';
 
   return (
     <>
-      <tr className={cn('hover:bg-muted/30 group', isChild && 'bg-muted/10')}>
-        <td className="w-8 px-2 py-1.5 align-middle">
-          {canExpand ? (
-            <button
-              type="button"
-              onClick={onToggleExpand}
-              className="text-muted-foreground hover:text-foreground"
-              aria-label={isExpanded ? 'Collapse sub-tasks' : 'Expand sub-tasks'}
-            >
-              {isExpanded ? (
-                <ChevronDown className="h-3.5 w-3.5" />
-              ) : (
-                <ChevronRight className="h-3.5 w-3.5" />
-              )}
-            </button>
-          ) : (
-            isChild && <span className="text-muted-foreground/50 ml-2 text-xs">↳</span>
-          )}
+      <tr className={cn('hover:bg-muted/30 group transition-colors', isChild && 'bg-muted/10')}>
+        <td className="w-10 px-4 py-3 align-middle">
+          <div className="flex items-center gap-1.5">
+            {canExpand ? (
+              <button
+                type="button"
+                onClick={onToggleExpand}
+                className="text-muted-foreground hover:text-foreground"
+                aria-label={isExpanded ? 'Collapse sub-tasks' : 'Expand sub-tasks'}
+              >
+                {isExpanded ? (
+                  <ChevronDown className="h-3.5 w-3.5" />
+                ) : (
+                  <ChevronRight className="h-3.5 w-3.5" />
+                )}
+              </button>
+            ) : (
+              isChild && <span className="text-muted-foreground/50 text-xs">↳</span>
+            )}
+            <Checkbox
+              checked={isDone}
+              onCheckedChange={(v) =>
+                update.mutate({ id: task.id, patch: { status: v === true ? 'DONE' : 'TODO' } })
+              }
+              className="h-4 w-4 rounded-md"
+              aria-label={isDone ? 'Mark as not done' : 'Mark as done'}
+            />
+          </div>
         </td>
 
-        <td className={cn('px-2 py-1.5 align-middle', isChild && 'pl-6')}>
+        <td className={cn('px-4 py-3 align-middle', isChild && 'pl-8')}>
           <TitleCell
             task={task}
             onCommit={(next) => update.mutate({ id: task.id, patch: { title: next } })}
             onOpen={onOpen}
+            done={isDone}
           />
         </td>
 
-        <td className="px-2 py-1.5 align-middle">
+        <td className="px-4 py-3 align-middle">
           <CategoryCell
             categoryId={task.categoryId}
             categories={categories}
@@ -175,40 +182,39 @@ function TaskRowEls(props: RowProps) {
           />
         </td>
 
-        <td className="px-2 py-1.5 align-middle">
+        <td className="px-4 py-3 align-middle">
           <StatusCell
             value={task.status}
             onChange={(v) => update.mutate({ id: task.id, patch: { status: v } })}
           />
         </td>
 
-        <td className="px-2 py-1.5 align-middle">
+        <td className="px-4 py-3 align-middle">
           <PriorityCell
             value={task.priority}
             onChange={(v) => update.mutate({ id: task.id, patch: { priority: v } })}
           />
         </td>
 
-        <td className="px-2 py-1.5 align-middle">
+        <td className="px-4 py-3 align-middle">
           <DueDateCell
             value={task.dueDate}
             onChange={(iso) => update.mutate({ id: task.id, patch: { dueDate: iso } })}
           />
         </td>
 
-        <td className="text-muted-foreground px-2 py-1.5 align-middle text-xs">
-          {task.assignee?.name ?? '—'}
-        </td>
-
-        <td className="w-8 px-2 py-1.5 align-middle">
+        <td className="w-8 px-2 py-3 align-middle">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7">
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl">
                 <MoreVertical className="h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => del.mutate(task.id)} className="text-destructive">
+            <DropdownMenuContent align="end" className="rounded-2xl">
+              <DropdownMenuItem
+                onClick={() => del.mutate(task.id)}
+                className="text-destructive rounded-lg"
+              >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete
               </DropdownMenuItem>
@@ -221,16 +227,16 @@ function TaskRowEls(props: RowProps) {
   );
 }
 
-// ─── Cell components ────────────────────────────────────────────────────
-
 function TitleCell({
   task,
   onCommit,
   onOpen,
+  done,
 }: {
   task: TaskRow;
   onCommit: (next: string) => void;
   onOpen: () => void;
+  done: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(task.title);
@@ -244,7 +250,10 @@ function TitleCell({
           setDraft(task.title);
           setEditing(true);
         }}
-        className="hover:text-primary block w-full truncate text-left text-sm"
+        className={cn(
+          'hover:text-primary block w-full truncate text-left text-sm font-medium',
+          done && 'text-muted-foreground line-through'
+        )}
       >
         {task.title}
       </button>
@@ -268,7 +277,7 @@ function TitleCell({
           setEditing(false);
         }
       }}
-      className="border-input bg-background w-full rounded border px-2 py-0.5 text-sm"
+      className="border-input bg-background w-full rounded-xl border px-3 py-1.5 text-sm"
     />
   );
 }
@@ -284,12 +293,18 @@ function CategoryCell({
   categories: TaskCategoryRow[];
   onChange: (id: string | null) => void;
 }) {
+  const selected = categories.find((c) => c.id === categoryId);
   return (
     <Select value={categoryId ?? NONE} onValueChange={(v) => onChange(v === NONE ? null : v)}>
-      <SelectTrigger className="h-7 border-none bg-transparent px-2 text-xs">
+      <SelectTrigger
+        className={cn(
+          'h-7 w-fit rounded-full border-none px-3 text-xs',
+          selected ? 'bg-primary/10 text-primary' : 'bg-transparent'
+        )}
+      >
         <SelectValue placeholder="—" />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="rounded-2xl">
         <SelectItem value={NONE}>—</SelectItem>
         {categories.map((c) => (
           <SelectItem key={c.id} value={c.id}>
@@ -310,10 +325,10 @@ function StatusCell({
 }) {
   return (
     <Select value={value} onValueChange={(v) => onChange(v as TaskRow['status'])}>
-      <SelectTrigger className="h-7 border-none bg-transparent px-2 text-xs">
+      <SelectTrigger className="bg-muted/60 h-7 w-fit rounded-full border-none px-3 text-xs">
         <SelectValue />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="rounded-2xl">
         {TASK_STATUSES.map((s) => (
           <SelectItem key={s} value={s}>
             {prettyStatus(s)}
@@ -336,7 +351,7 @@ function PriorityCell({
       <SelectTrigger className="h-7 border-none bg-transparent px-2 text-xs">
         <SelectValue />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="rounded-2xl">
         {TASK_PRIORITIES.map((p) => (
           <SelectItem key={p} value={p}>
             {prettyPriority(p)}
@@ -363,7 +378,7 @@ function DueDateCell({
         const v = e.target.value;
         onChange(v ? `${v}T00:00:00.000Z` : null);
       }}
-      className="text-muted-foreground border-none bg-transparent px-1 py-0.5 text-xs"
+      className="text-muted-foreground rounded-lg border-none bg-transparent px-1 py-0.5 text-xs"
     />
   );
 }

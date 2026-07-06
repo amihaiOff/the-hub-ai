@@ -1,38 +1,55 @@
 'use client';
 
-import { X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useState } from 'react';
+import { ArrowUpDown, Search, SlidersHorizontal, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import type { TaskFilters } from '@/lib/validations/tasks';
 import type { TaskCategoryRow, TaskTagRow } from '@/lib/hooks/use-tasks';
 import { TASK_STATUSES, TASK_PRIORITIES } from '@/lib/validations/tasks';
 
+export type TaskSort = 'due-asc' | 'due-desc' | 'priority' | 'title' | 'created';
+
 interface TaskFiltersBarProps {
   filters: TaskFilters;
   onFiltersChange: (next: TaskFilters) => void;
+  sort: TaskSort;
+  onSortChange: (next: TaskSort) => void;
   categories: TaskCategoryRow[];
   tags: TaskTagRow[];
 }
 
-const ANY = '__any__';
+const SORT_OPTIONS: { id: TaskSort; label: string }[] = [
+  { id: 'due-asc', label: 'Due date · earliest first' },
+  { id: 'due-desc', label: 'Due date · latest first' },
+  { id: 'priority', label: 'Priority · high first' },
+  { id: 'title', label: 'Title · A–Z' },
+  { id: 'created', label: 'Recently created' },
+];
 
 /**
- * Filter chips + search. Values omitted from the emitted object when set
- * to "any" so the URL / server never sees stray query params.
+ * Search + icon-only Filter/Sort. The Filter icon toggles an expandable
+ * chip row where the user picks status / priority / category / tag. The
+ * Sort icon is a dropdown of preset orderings.
  */
 export function TaskFiltersBar({
   filters,
   onFiltersChange,
+  sort,
+  onSortChange,
   categories,
   tags,
 }: TaskFiltersBarProps) {
+  const [expanded, setExpanded] = useState(false);
+  const activeFilterCount = countActive(filters);
+
   const setValue = <K extends keyof TaskFilters>(key: K, value: TaskFilters[K] | undefined) => {
     const next: TaskFilters = { ...filters };
     if (value == null || value === '') delete next[key];
@@ -40,101 +57,211 @@ export function TaskFiltersBar({
     onFiltersChange(next);
   };
 
-  const hasFilters = Object.keys(filters).length > 0;
-
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Input
-        placeholder="Search…"
-        value={filters.search ?? ''}
-        onChange={(e) => setValue('search', e.target.value || undefined)}
-        className="h-8 w-full max-w-xs text-sm"
-      />
+    <div className="space-y-3">
+      {/* Search + icon buttons */}
+      <div className="flex items-center gap-2">
+        <div className="border-border/60 bg-background flex h-11 flex-1 items-center gap-2 rounded-2xl border px-4">
+          <Search className="text-muted-foreground h-4 w-4 shrink-0" />
+          <input
+            value={filters.search ?? ''}
+            onChange={(e) => setValue('search', e.target.value || undefined)}
+            placeholder="Search tasks, tags, or projects…"
+            className="placeholder:text-muted-foreground w-full bg-transparent text-sm outline-none"
+          />
+          {filters.search && (
+            <button
+              type="button"
+              onClick={() => setValue('search', undefined)}
+              className="text-muted-foreground hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
 
-      <FilterSelect
-        placeholder="Status"
-        value={filters.status ?? ANY}
-        onChange={(v) => setValue('status', v === ANY ? undefined : (v as TaskFilters['status']))}
-        options={[
-          { value: ANY, label: 'Any status' },
-          ...TASK_STATUSES.map((s) => ({ value: s, label: prettyStatus(s) })),
-        ]}
-      />
+        <IconToggle
+          active={expanded || activeFilterCount > 0}
+          onClick={() => setExpanded((v) => !v)}
+          label="Filter"
+          badge={activeFilterCount || undefined}
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+        </IconToggle>
 
-      <FilterSelect
-        placeholder="Priority"
-        value={filters.priority ?? ANY}
-        onChange={(v) =>
-          setValue('priority', v === ANY ? undefined : (v as TaskFilters['priority']))
-        }
-        options={[
-          { value: ANY, label: 'Any priority' },
-          ...TASK_PRIORITIES.map((p) => ({ value: p, label: prettyPriority(p) })),
-        ]}
-      />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="Sort"
+              title="Sort"
+              className="border-border/60 bg-background hover:bg-muted/60 flex h-11 w-11 items-center justify-center rounded-2xl border transition-colors"
+            >
+              <ArrowUpDown className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="rounded-2xl">
+            <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {SORT_OPTIONS.map((opt) => (
+              <DropdownMenuItem
+                key={opt.id}
+                onSelect={() => onSortChange(opt.id)}
+                className={cn('rounded-lg text-sm', sort === opt.id && 'bg-muted font-medium')}
+              >
+                {opt.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
-      <FilterSelect
-        placeholder="Category"
-        value={filters.categoryId ?? ANY}
-        onChange={(v) => setValue('categoryId', v === ANY ? undefined : v)}
-        options={[
-          { value: ANY, label: 'Any category' },
-          ...categories.map((c) => ({ value: c.id, label: c.name })),
-        ]}
-      />
-
-      <FilterSelect
-        placeholder="Tag"
-        value={filters.tagId ?? ANY}
-        onChange={(v) => setValue('tagId', v === ANY ? undefined : v)}
-        options={[
-          { value: ANY, label: 'Any tag' },
-          ...tags.map((t) => ({ value: t.id, label: t.name })),
-        ]}
-      />
-
-      {hasFilters && (
-        <Button variant="ghost" size="sm" onClick={() => onFiltersChange({})} className="h-8">
-          <X className="mr-1 h-3.5 w-3.5" /> Clear
-        </Button>
+      {/* Filter chip row — only visible when expanded or something's active */}
+      {(expanded || activeFilterCount > 0) && (
+        <div className="flex flex-wrap items-center gap-2">
+          <ChipSelect
+            label="Status"
+            value={filters.status}
+            options={TASK_STATUSES.map((s) => ({ value: s, label: prettyStatus(s) }))}
+            onChange={(v) => setValue('status', v as TaskFilters['status'])}
+          />
+          <ChipSelect
+            label="Priority"
+            value={filters.priority}
+            options={TASK_PRIORITIES.map((p) => ({ value: p, label: prettyPriority(p) }))}
+            onChange={(v) => setValue('priority', v as TaskFilters['priority'])}
+          />
+          <ChipSelect
+            label="Category"
+            value={filters.categoryId}
+            options={categories.map((c) => ({ value: c.id, label: c.name }))}
+            onChange={(v) => setValue('categoryId', v)}
+          />
+          <ChipSelect
+            label="Tag"
+            value={filters.tagId}
+            options={tags.map((t) => ({ value: t.id, label: t.name }))}
+            onChange={(v) => setValue('tagId', v)}
+          />
+          {activeFilterCount > 0 && (
+            <button
+              type="button"
+              onClick={() => onFiltersChange({})}
+              className="text-muted-foreground hover:text-foreground inline-flex h-8 items-center gap-1 rounded-full px-3 text-xs"
+            >
+              <X className="h-3 w-3" />
+              Clear all
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
 }
 
-function FilterSelect({
-  placeholder,
-  value,
-  onChange,
-  options,
+function IconToggle({
+  active,
+  onClick,
+  label,
+  badge,
+  children,
 }: {
-  placeholder: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  badge?: number;
+  children: React.ReactNode;
 }) {
   return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-8 w-auto min-w-[110px] text-sm">
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((o) => (
-          <SelectItem key={o.value} value={o.value}>
-            {o.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      aria-pressed={active}
+      className={cn(
+        'relative flex h-11 w-11 items-center justify-center rounded-2xl border transition-colors',
+        active
+          ? 'border-primary/40 bg-primary/10 text-primary'
+          : 'border-border/60 bg-background hover:bg-muted/60'
+      )}
+    >
+      {children}
+      {badge ? (
+        <span className="bg-primary text-primary-foreground absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold">
+          {badge}
+        </span>
+      ) : null}
+    </button>
   );
+}
+
+function ChipSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string | undefined;
+  options: { value: string; label: string }[];
+  onChange: (v: string | undefined) => void;
+}) {
+  const selected = value ? options.find((o) => o.value === value) : null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs transition-colors',
+            selected
+              ? 'border-primary/40 bg-primary/10 text-primary'
+              : 'border-border/60 bg-background text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <span className="font-medium">{label}</span>
+          {selected && <span className="opacity-70">· {selected.label}</span>}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="rounded-2xl">
+        <DropdownMenuItem
+          onSelect={() => onChange(undefined)}
+          className={cn('rounded-lg text-sm', !value && 'bg-muted font-medium')}
+        >
+          Any {label.toLowerCase()}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {options.map((opt) => (
+          <DropdownMenuItem
+            key={opt.value}
+            onSelect={() => onChange(opt.value)}
+            className={cn('rounded-lg text-sm', value === opt.value && 'bg-muted font-medium')}
+          >
+            {opt.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function countActive(filters: TaskFilters): number {
+  let n = 0;
+  if (filters.status) n++;
+  if (filters.priority) n++;
+  if (filters.categoryId) n++;
+  if (filters.tagId) n++;
+  return n;
 }
 
 export function prettyStatus(s: string): string {
   switch (s) {
     case 'TODO':
-      return 'To do';
+      return 'To Do';
     case 'IN_PROGRESS':
-      return 'In progress';
+      return 'In Progress';
     case 'BLOCKED':
       return 'Blocked';
     case 'DONE':
