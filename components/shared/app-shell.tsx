@@ -69,7 +69,7 @@ export function AppShell({ children }: AppShellProps) {
       <MobileMenu open={menuOpen} onOpenChange={setMenuOpen} />
 
       {/* Main Content */}
-      <main className="lg:ml-64">
+      <main className="safe-px safe-pb lg:ml-64">
         <div className="mx-auto max-w-7xl p-4 lg:p-8">{children}</div>
       </main>
     </div>

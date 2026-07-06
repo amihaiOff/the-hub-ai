@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0d0e10" />
+    <title>Offline · The Hub AI</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1.25rem;
+        padding: 2rem;
+        text-align: center;
+        background: #0d0e10;
+        color: #fdfbfe;
+        font-family:
+          Inter,
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+      }
+      img {
+        width: 88px;
+        height: 88px;
+        border-radius: 20px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.375rem;
+        font-weight: 600;
+      }
+      p {
+        margin: 0;
+        max-width: 26rem;
+        line-height: 1.5;
+        color: #fdfbfe99;
+      }
+      button {
+        margin-top: 0.5rem;
+        padding: 0.625rem 1.25rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #0d0e10;
+        background: #6ab2ff;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+      }
+      button:active {
+        opacity: 0.85;
+      }
+    </style>
+  </head>
+  <body>
+    <img src="/icons/icon-192.png" alt="The Hub AI" />
+    <h1>You're offline</h1>
+    <p>
+      The Hub AI needs an internet connection to show your latest financial data. Reconnect and try
+      again.
+    </p>
+    <button onclick="location.reload()">Retry</button>
+  </body>
+</html>
