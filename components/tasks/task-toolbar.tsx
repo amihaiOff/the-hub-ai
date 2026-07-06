@@ -62,43 +62,46 @@ export function TaskToolbar({
 
   return (
     <div className="flex items-center gap-2 overflow-x-auto py-0.5">
-      {/* Search — expands to fill the remaining space on the line. Stays
-          highlighted while a term is active even after it collapses, so a
-          filtered list always has a visible cause. */}
-      <IconButton
-        active={active === 'search' || hasSearchTerm}
-        expanded={active === 'search'}
-        label="Search"
-        onClick={() => toggle('search')}
-      >
-        <Search className="h-4 w-4" />
-      </IconButton>
-      <div
-        inert={active !== 'search'}
-        className={cn(
-          'flex items-center overflow-hidden rounded-2xl border transition-all duration-200',
-          active === 'search'
-            ? 'border-border/60 bg-background flex-1 px-3 opacity-100'
-            : 'w-0 flex-none border-transparent px-0 opacity-0'
-        )}
-      >
-        <input
-          ref={searchRef}
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search tasks, tags, or projects…"
-          className="placeholder:text-muted-foreground h-11 w-full min-w-0 bg-transparent text-sm outline-none"
-        />
-        {search && (
-          <button
-            type="button"
-            onClick={() => onSearchChange('')}
-            aria-label="Clear search"
-            className="text-muted-foreground hover:text-foreground shrink-0"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
+      {/* Search — expands to fill the remaining space on the line. Icon and
+          input are grouped so the collapsed input doesn't add a second gap.
+          Stays highlighted while a term is active even after it collapses, so
+          a filtered list always has a visible cause. */}
+      <div className={cn('flex items-center', active === 'search' ? 'flex-1' : 'flex-none')}>
+        <IconButton
+          active={active === 'search' || hasSearchTerm}
+          expanded={active === 'search'}
+          label="Search"
+          onClick={() => toggle('search')}
+        >
+          <Search className="h-4 w-4" />
+        </IconButton>
+        <div
+          inert={active !== 'search'}
+          className={cn(
+            'flex items-center overflow-hidden rounded-2xl transition-all duration-200',
+            active === 'search'
+              ? 'border-border/60 bg-background ml-2 flex-1 border px-3 opacity-100'
+              : 'w-0 px-0 opacity-0'
+          )}
+        >
+          <input
+            ref={searchRef}
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search tasks, tags, or projects…"
+            className="placeholder:text-muted-foreground h-11 w-full min-w-0 bg-transparent text-sm outline-none"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => onSearchChange('')}
+              aria-label="Clear search"
+              className="text-muted-foreground hover:text-foreground shrink-0"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* View type */}
