@@ -252,12 +252,13 @@ function TaskDetailBody({
       <div className="border-border/40 border-t pt-4">
         <Button
           variant="ghost"
-          size="sm"
-          className="text-destructive rounded-xl"
+          size="icon"
+          aria-label="Delete task"
+          title="Delete task"
+          className="text-destructive hover:bg-destructive/10 h-9 w-9 rounded-xl"
           onClick={() => del.mutate(task.id, { onSuccess: onDeleted })}
         >
-          <Trash2 className="mr-2 h-4 w-4" />
-          Delete task
+          <Trash2 className="h-4 w-4" />
         </Button>
       </div>
     </div>
