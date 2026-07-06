@@ -188,10 +188,18 @@ function Column({
   onOpenTask: (id: string) => void;
   groupBy: GroupBy;
 } & SelectionProps) {
-  const { setNodeRef, isOver } = useDroppable({ id: column.key, disabled: selectionMode });
+  // The whole column is the drop target (not just the area behind the cards),
+  // and dropping stays enabled during selection mode.
+  const { setNodeRef, isOver } = useDroppable({ id: column.key });
 
   return (
-    <div className="w-72 shrink-0 snap-start">
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'w-72 shrink-0 snap-start rounded-2xl p-1 transition-colors',
+        isOver && 'bg-primary/5 outline-primary/40 outline-2 outline-dashed'
+      )}
+    >
       <div className="flex items-center justify-between px-1 pb-3">
         <div className="flex items-center gap-2">
           <span className={cn('h-2 w-2 rounded-full', column.dotClass)} />
@@ -208,13 +216,8 @@ function Column({
           <MoreHorizontal className="h-4 w-4" />
         </button>
       </div>
-      <div
-        ref={setNodeRef}
-        className={cn(
-          'min-h-24 space-y-3 rounded-2xl p-1 transition-colors',
-          isOver && 'bg-primary/5 outline-primary/40 outline-2 outline-dashed'
-        )}
-      >
+      {/* Tall so the empty space below the cards is still a valid drop area. */}
+      <div className="min-h-[55vh] space-y-3">
         {tasks.map((task) => (
           <DraggableKanbanCard
             key={task.id}
@@ -256,9 +259,10 @@ function DraggableKanbanCard({
   onEnterSelection: () => void;
   onToggleSelection: () => void;
 }) {
+  // Dragging stays enabled in selection mode: a tap toggles selection, a drag
+  // moves the card.
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
-    disabled: selectionMode,
   });
   const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
 
@@ -274,32 +278,32 @@ function DraggableKanbanCard({
     else onOpen();
   };
 
-  // While dragging is enabled, compose the drag pointer handler with the
-  // long-press detector so a stationary hold enters selection mode and a
-  // real drag still works. In selection mode dragging is off entirely.
-  const pointerProps = selectionMode
-    ? longPress
-    : {
-        ...attributes,
-        ...listeners,
-        onPointerDown: (e: React.PointerEvent) => {
-          listeners?.onPointerDown?.(e);
-          longPress.onPointerDown(e);
-        },
-        onPointerMove: longPress.onPointerMove,
-        onPointerUp: longPress.onPointerUp,
-        onPointerLeave: longPress.onPointerLeave,
-        onContextMenu: longPress.onContextMenu,
-      };
+  // Always spread the drag handlers; compose the long-press detector only when
+  // NOT already selecting (long press is what *enters* selection mode).
+  const pointerProps = {
+    ...attributes,
+    ...listeners,
+    ...(selectionMode
+      ? {}
+      : {
+          onPointerDown: (e: React.PointerEvent) => {
+            listeners?.onPointerDown?.(e);
+            longPress.onPointerDown(e);
+          },
+          onPointerMove: longPress.onPointerMove,
+          onPointerUp: longPress.onPointerUp,
+          onPointerCancel: longPress.onPointerCancel,
+          onPointerLeave: longPress.onPointerLeave,
+          onContextMenu: longPress.onContextMenu,
+        }),
+  };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...pointerProps}
-      // In selection mode the drag attributes (which provide role/tabIndex)
-      // aren't spread, so add button semantics here for keyboard users.
-      {...(selectionMode ? { role: 'button', tabIndex: 0, 'aria-pressed': selected } : {})}
+      {...(selectionMode ? { 'aria-pressed': selected } : {})}
       onClick={(e) => {
         // A real drag fires no click (activationConstraint distance:6), and a
         // long press consumes its trailing click, so a click here is genuine.
@@ -316,7 +320,7 @@ function DraggableKanbanCard({
       }}
       className={cn(
         'border-border/60 bg-card hover:border-border relative block w-full touch-pan-y rounded-2xl border p-4 text-left transition-colors select-none',
-        selectionMode ? 'cursor-pointer' : 'cursor-grab',
+        'cursor-grab',
         isDragging && 'opacity-60 shadow-lg',
         selected && 'border-primary ring-primary/40 ring-2'
       )}

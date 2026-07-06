@@ -28,6 +28,7 @@ import {
   type TaskRow,
 } from '@/lib/hooks/use-tasks';
 import type { TaskFilters } from '@/lib/validations/tasks';
+import { useBackToClose } from '@/lib/hooks/use-back-to-close';
 import { TaskTableView } from './task-table-view';
 import { TaskListView } from './task-list-view';
 import { TaskKanbanView, type GroupBy } from './task-kanban-view';
@@ -105,7 +106,11 @@ export function TasksClient() {
     setSelectionMode(false);
     setSelectedIds(new Set());
     setDeleteError(null);
+    setConfirmOpen(false);
   }, []);
+
+  // Browser Back cancels selection mode instead of leaving the tasks page.
+  useBackToClose(selectionMode, exitSelection);
 
   const handleDetailOpenChange = useCallback((open: boolean) => {
     if (!open) setDetailId(null);

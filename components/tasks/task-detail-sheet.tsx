@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Calendar as CalendarIcon,
   CircleDot,
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { useBackToClose } from '@/lib/hooks/use-back-to-close';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NotesEditor } from './notes-editor';
@@ -63,60 +64,12 @@ export function TaskDetailSheet({ taskId, onOpenChange, categories }: TaskDetail
   const { data: task, isLoading } = useTask(taskId);
   const open = !!taskId;
 
-  // Tracks whether we pushed a history entry for the currently-open sheet, so
-  // the browser Back button closes the sheet in-app instead of leaving the
-  // tasks page.
-  const pushedRef = useRef(false);
-
-  // We push a same-URL history entry so Back is a no-op navigation that only
-  // fires popstate (Next's App Router treats a same-URL pop as a non-navigation
-  // and re-renders in place). If Next ever changes that, revisit this.
-  useEffect(() => {
-    if (open && !pushedRef.current) {
-      pushedRef.current = true;
-      window.history.pushState({ taskSheet: true }, '');
-    }
-  }, [open]);
-
-  useEffect(() => {
-    const onPopState = () => {
-      if (pushedRef.current) {
-        pushedRef.current = false;
-        onOpenChange(false);
-      }
-    };
-    window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
-  }, [onOpenChange]);
-
-  // If the sheet unmounts while still open (e.g. the user navigates away from
-  // the tasks page), pop our entry — but only if it's still the current one.
-  // After a real navigation Next has already pushed a new entry on top, so
-  // history.state is no longer ours and we must not call back() (that would
-  // undo the user's navigation).
-  useEffect(() => {
-    return () => {
-      if (pushedRef.current && window.history.state?.taskSheet) {
-        pushedRef.current = false;
-        window.history.back();
-      }
-    };
-  }, []);
-
-  // Closing via the UI (X / overlay / Esc) unwinds our history entry so the
-  // stack stays clean; the resulting popstate performs the actual close.
-  const handleOpenChange = (next: boolean) => {
-    if (next) {
-      onOpenChange(true);
-    } else if (pushedRef.current) {
-      window.history.back();
-    } else {
-      onOpenChange(false);
-    }
-  };
+  // Browser Back closes the sheet in-app instead of leaving the tasks page.
+  const close = useCallback(() => onOpenChange(false), [onOpenChange]);
+  useBackToClose(open, close);
 
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
         className="w-full overflow-y-auto rounded-l-3xl p-6 pt-12 sm:max-w-lg"
@@ -126,12 +79,7 @@ export function TaskDetailSheet({ taskId, onOpenChange, categories }: TaskDetail
             <Loader2 className="h-4 w-4 animate-spin" /> Loading…
           </div>
         ) : (
-          <TaskDetailBody
-            key={task.id}
-            task={task}
-            categories={categories}
-            onDeleted={() => handleOpenChange(false)}
-          />
+          <TaskDetailBody key={task.id} task={task} categories={categories} onDeleted={close} />
         )}
       </SheetContent>
     </Sheet>
