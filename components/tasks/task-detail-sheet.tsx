@@ -7,7 +7,6 @@ import {
   Flag,
   FolderTree,
   Loader2,
-  Share2,
   Trash2,
   X,
 } from 'lucide-react';
@@ -49,23 +48,16 @@ export function TaskDetailSheet({ taskId, onOpenChange, categories }: TaskDetail
   return (
     <Sheet open={!!taskId} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full overflow-y-auto rounded-l-3xl p-6 sm:max-w-lg">
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => onOpenChange(false)}
-              aria-label="Close"
-              className="text-primary hover:bg-primary/10 flex h-9 w-9 items-center justify-center rounded-xl transition-colors"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            <h2 className="text-lg font-semibold">Task Details</h2>
-          </div>
-          <div className="flex items-center gap-1">
-            <IconBtn label="Share">
-              <Share2 className="h-4 w-4" />
-            </IconBtn>
-          </div>
+        <div className="mb-6 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            aria-label="Close"
+            className="text-primary hover:bg-primary/10 flex h-9 w-9 items-center justify-center rounded-xl transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <h2 className="text-lg font-semibold">Task Details</h2>
         </div>
 
         {isLoading || !task ? (
@@ -82,18 +74,6 @@ export function TaskDetailSheet({ taskId, onOpenChange, categories }: TaskDetail
         )}
       </SheetContent>
     </Sheet>
-  );
-}
-
-function IconBtn({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      className="text-muted-foreground hover:bg-muted/60 flex h-9 w-9 items-center justify-center rounded-xl transition-colors"
-    >
-      {children}
-    </button>
   );
 }
 
