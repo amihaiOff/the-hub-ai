@@ -20,6 +20,7 @@ import {
   FlaskConical,
   Trash2,
   History,
+  ListChecks,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -80,6 +81,11 @@ export const navItems: NavItem[] = [
       { href: '/shopping', label: 'Cart', icon: ShoppingCart },
       { href: '/shopping/items', label: 'Items', icon: Package },
     ],
+  },
+  {
+    href: '/tasks',
+    label: 'Tasks',
+    icon: ListChecks,
   },
   {
     // Labs — experimental/raw-debug pages. The parent's href is used only by

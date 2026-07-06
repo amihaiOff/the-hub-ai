@@ -37,6 +37,10 @@ model User {
   miscAssets        MiscAsset[]
   netWorthSnapshots NetWorthSnapshot[]
 
+  // Tasks module
+  ownedTasks Task[]        @relation("TaskOwner")
+  taskShares TaskShare[]
+
   @@map("users")
 }
 
@@ -67,6 +71,9 @@ model Profile {
 
   // Insurance policies attributed to this profile
   insurancePolicies InsurancePolicy[]
+
+  // Tasks assigned to this profile (assignee may be a child profile with no User)
+  assignedTasks Task[]
 
   @@map("profiles")
 }
@@ -119,6 +126,11 @@ model Household {
 
   // WhatsApp contacts (e.g. partner, family) for the "Ask on WhatsApp" button.
   partnerContacts PartnerContact[]
+
+  // Tasks module
+  tasks          Task[]
+  taskCategories TaskCategory[]
+  taskTags       TaskTag[]
 
   @@map("households")
 }
@@ -1115,4 +1127,114 @@ model MoneytorSyncLog {
 
   @@index([householdId, startedAt(sort: Desc)])
   @@map("moneytor_sync_logs")
+}
+
+// ─── Tasks module ─────────────────────────────────────────────────────
+// Notion-style personal task database. Tasks are owned by a User and
+// visible to that user + any TaskShare recipients. Every task lives
+// under a household so it never leaks across households the user
+// belongs to.
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Task {
+  id           String       @id @default(cuid())
+  title        String
+  notes        String?
+  status       TaskStatus   @default(TODO)
+  priority     TaskPriority @default(MEDIUM)
+  dueDate      DateTime?    @map("due_date")
+  // Per-status ordering; used by the Board view to persist card position
+  // between drags. Not enforced unique — the routes renumber on collision.
+  sortOrder    Int          @default(0) @map("sort_order")
+  // Optional user-defined extra fields, shape: [{id, name, type, value, options?}]
+  customFields Json?        @map("custom_fields")
+  categoryId   String?      @map("category_id")
+  ownerId      String       @map("owner_id")
+  assigneeId   String?      @map("assignee_id")
+  parentTaskId String?      @map("parent_task_id")
+  householdId  String       @map("household_id")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  owner     User          @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  assignee  Profile?      @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  category  TaskCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  household Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  parent    Task?         @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  children  Task[]        @relation("TaskSubtasks")
+  tags      TaskTag[]     @relation("TaskToTaskTag")
+  shares    TaskShare[]
+
+  @@index([householdId])
+  @@index([householdId, status])
+  @@index([householdId, dueDate])
+  @@index([householdId, categoryId])
+  @@index([parentTaskId])
+  @@index([ownerId])
+  @@map("tasks")
+}
+
+// Household-scoped single-select category. Each task belongs to at most one
+// category (unlike TaskTag which is many-to-many).
+model TaskCategory {
+  id          String   @id @default(cuid())
+  name        String
+  color       String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  householdId String   @map("household_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  tasks     Task[]
+
+  @@unique([householdId, name])
+  @@index([householdId])
+  @@map("task_categories")
+}
+
+// Household-scoped tag. Many-to-many with Task via implicit `_TaskToTaskTag`.
+model TaskTag {
+  id          String   @id @default(cuid())
+  name        String
+  color       String?
+  householdId String   @map("household_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  tasks     Task[]    @relation("TaskToTaskTag")
+
+  @@unique([householdId, name])
+  @@index([householdId])
+  @@map("task_tags")
+}
+
+// Opt-in share of a single task with another user in the same household.
+// Only the task's owner may create/modify/delete shares.
+model TaskShare {
+  id        String   @id @default(cuid())
+  taskId    String   @map("task_id")
+  userId    String   @map("user_id")
+  canEdit   Boolean  @default(true) @map("can_edit")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([userId])
+  @@map("task_shares")
 }

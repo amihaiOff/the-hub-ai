@@ -49,6 +49,10 @@ export async function GET() {
       moneytorRealEstate,
       moneytorRealEstateSnapshots,
       moneytorSyncLogs,
+      tasks,
+      taskCategories,
+      taskTags,
+      taskShares,
       riseupCategories,
       payeeCategoryRules,
       insurancePolicies,
@@ -87,6 +91,10 @@ export async function GET() {
       prisma.moneytorRealEstate.findMany(),
       prisma.moneytorRealEstateSnapshot.findMany(),
       prisma.moneytorSyncLog.findMany(),
+      prisma.task.findMany({ include: { tags: { select: { id: true } } } }),
+      prisma.taskCategory.findMany(),
+      prisma.taskTag.findMany(),
+      prisma.taskShare.findMany(),
       prisma.riseupCategory.findMany(),
       prisma.payeeCategoryRule.findMany(),
       prisma.insurancePolicy.findMany(),
@@ -105,7 +113,7 @@ export async function GET() {
     // Create backup metadata
     const metadata = {
       backupDate: new Date().toISOString(),
-      schemaVersion: '2.0',
+      schemaVersion: '2.1',
       createdBy: user.email,
       counts: {
         users: users.length,
@@ -132,6 +140,10 @@ export async function GET() {
         moneytorRealEstate: moneytorRealEstate.length,
         moneytorRealEstateSnapshots: moneytorRealEstateSnapshots.length,
         moneytorSyncLogs: moneytorSyncLogs.length,
+        tasks: tasks.length,
+        taskCategories: taskCategories.length,
+        taskTags: taskTags.length,
+        taskShares: taskShares.length,
         riseupCategories: riseupCategories.length,
         payeeCategoryRules: payeeCategoryRules.length,
         insurancePolicies: insurancePolicies.length,
@@ -192,6 +204,10 @@ export async function GET() {
       JSON.stringify(moneytorRealEstateSnapshots, jsonSerializer, 2)
     );
     zip.file('moneytor_sync_logs.json', JSON.stringify(moneytorSyncLogs, jsonSerializer, 2));
+    zip.file('tasks.json', JSON.stringify(tasks, jsonSerializer, 2));
+    zip.file('task_categories.json', JSON.stringify(taskCategories, jsonSerializer, 2));
+    zip.file('task_tags.json', JSON.stringify(taskTags, jsonSerializer, 2));
+    zip.file('task_shares.json', JSON.stringify(taskShares, jsonSerializer, 2));
     zip.file('riseup_categories.json', JSON.stringify(riseupCategories, jsonSerializer, 2));
     zip.file('payee_category_rules.json', JSON.stringify(payeeCategoryRules, jsonSerializer, 2));
     zip.file('insurance_policies.json', JSON.stringify(insurancePolicies, jsonSerializer, 2));
