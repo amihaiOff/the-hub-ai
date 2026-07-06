@@ -2,13 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
-  Bold,
   Calendar as CalendarIcon,
   CircleDot,
   Flag,
   FolderTree,
-  Link2,
-  List,
   Loader2,
   Share2,
   Trash2,
@@ -18,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { NotesEditor } from './notes-editor';
 import {
   Select,
   SelectContent,
@@ -239,30 +236,16 @@ function TaskDetailBody({
         </MetaRow>
       </div>
 
-      {/* Notes with a decorative rich-text toolbar (buttons don't format
-          yet — kept as visual affordance matching the mock). */}
+      {/* Notes — Tiptap-powered markdown editor. Toolbar (Bold, Italic,
+          Strikethrough, Bullet list, Ordered list, Link) drives real
+          editor commands; the stored value is markdown. */}
       <div className="border-border/40 space-y-3 border-t pt-5">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold">Notes</h3>
-          <div className="text-muted-foreground flex items-center gap-1">
-            <NotesTool label="Bold">
-              <Bold className="h-3.5 w-3.5" />
-            </NotesTool>
-            <NotesTool label="List">
-              <List className="h-3.5 w-3.5" />
-            </NotesTool>
-            <NotesTool label="Link">
-              <Link2 className="h-3.5 w-3.5" />
-            </NotesTool>
-          </div>
-        </div>
-        <Textarea
+        <h3 className="text-base font-bold">Notes</h3>
+        <NotesEditor
           value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          onChange={setNotes}
           onBlur={flushNotes}
-          rows={8}
           placeholder="Anything you want to remember about this task…"
-          className="bg-muted/40 rounded-2xl border-none focus-visible:ring-0"
         />
       </div>
 
@@ -300,20 +283,5 @@ function MetaRow({
       </div>
       <div className="min-w-0 flex-1">{children}</div>
     </div>
-  );
-}
-
-function NotesTool({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      className={cn(
-        'hover:bg-muted/60 flex h-7 w-7 items-center justify-center rounded-lg transition-colors'
-      )}
-    >
-      {children}
-    </button>
   );
 }
