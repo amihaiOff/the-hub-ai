@@ -152,19 +152,27 @@ function TaskDetailBody({
 
   return (
     <div className="space-y-5">
-      {/* Title */}
-      <Input
+      {/* Title — textarea so a long title wraps on mobile instead of
+          horizontally overflowing. field-sizing-content grows the box to
+          fit the content (Tailwind v4 utility), and Enter still commits
+          the change so it doesn't turn into a multi-line input by
+          accident. */}
+      <textarea
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         onBlur={() => {
           if (title.trim() && title !== task.title) patch('title', title.trim());
         }}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' && title.trim() && title !== task.title)
-            patch('title', title.trim());
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (title.trim() && title !== task.title) patch('title', title.trim());
+            (e.currentTarget as HTMLTextAreaElement).blur();
+          }
         }}
-        className="h-auto border-none px-0 text-4xl font-semibold tracking-[0.2em] uppercase shadow-none focus-visible:ring-0"
+        rows={1}
         placeholder="Task title"
+        className="placeholder:text-muted-foreground [field-sizing:content] w-full resize-none border-none bg-transparent px-0 text-4xl leading-tight font-semibold tracking-[0.2em] break-words uppercase shadow-none outline-none focus-visible:ring-0"
       />
 
       {/* Metadata rows — icon+label per row, values inline. Each icon
