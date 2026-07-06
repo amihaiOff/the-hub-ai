@@ -81,8 +81,26 @@ describe('TaskToolbar', () => {
     expect(viewButton).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('hides the Group by control unless the Kanban view is active', () => {
+    const { rerender } = setup({ view: 'list' });
+    expect(screen.queryByRole('button', { name: 'Group by' })).not.toBeInTheDocument();
+
+    rerender(
+      <TaskToolbar
+        search=""
+        onSearchChange={jest.fn()}
+        view="kanban"
+        onViewChange={jest.fn()}
+        viewOptions={viewOptions}
+        groupBy="status"
+        onGroupByChange={jest.fn()}
+      />
+    );
+    expect(screen.getByRole('button', { name: 'Group by' })).toBeInTheDocument();
+  });
+
   it('selects a group-by option and collapses the Group by control', () => {
-    const { onGroupByChange } = setup();
+    const { onGroupByChange } = setup({ view: 'kanban' });
 
     const groupButton = screen.getByRole('button', { name: 'Group by' });
     fireEvent.click(groupButton);
@@ -95,7 +113,7 @@ describe('TaskToolbar', () => {
   });
 
   it('only keeps one control open at a time (mutual exclusivity)', () => {
-    setup();
+    setup({ view: 'kanban' });
 
     const searchButton = screen.getByRole('button', { name: 'Search' });
     const viewButton = screen.getByRole('button', { name: 'View' });

@@ -126,28 +126,30 @@ export function TaskToolbar({
         })}
       </ExpandingControl>
 
-      {/* Group by */}
-      <ExpandingControl
-        active={active === 'group'}
-        onToggle={() => toggle('group')}
-        label="Group by"
-        icon={<LayoutGrid className="h-4 w-4" />}
-      >
-        {GROUP_OPTIONS.map((opt) => (
-          <OptionButton
-            key={opt.id}
-            active={groupBy === opt.id}
-            label={opt.label}
-            wide
-            onClick={() => {
-              onGroupByChange(opt.id);
-              setActive(null);
-            }}
-          >
-            {opt.label}
-          </OptionButton>
-        ))}
-      </ExpandingControl>
+      {/* Group by — only affects the Kanban view, so hide it elsewhere */}
+      {view === 'kanban' && (
+        <ExpandingControl
+          active={active === 'group'}
+          onToggle={() => toggle('group')}
+          label="Group by"
+          icon={<LayoutGrid className="h-4 w-4" />}
+        >
+          {GROUP_OPTIONS.map((opt) => (
+            <OptionButton
+              key={opt.id}
+              active={groupBy === opt.id}
+              label={opt.label}
+              wide
+              onClick={() => {
+                onGroupByChange(opt.id);
+                setActive(null);
+              }}
+            >
+              {opt.label}
+            </OptionButton>
+          ))}
+        </ExpandingControl>
+      )}
     </div>
   );
 }
