@@ -9,3 +9,4 @@ export { ProfileSelector } from './profile-selector';
 export { OwnerSelectDialog } from './owner-select-dialog';
 export { InlineOwnerPicker } from './inline-owner-picker';
 export { Logo } from './logo';
+export { ServiceWorkerRegister } from './service-worker-register';

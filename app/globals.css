@@ -147,6 +147,20 @@
 }
 
 @layer utilities {
+  /* PWA safe-area insets — keep content clear of the notch / status bar and
+     home indicator when the app runs standalone (viewport-fit: cover). These
+     add on top of any existing padding via the CSS custom properties. */
+  .safe-pt {
+    padding-top: calc(var(--safe-pt-base, 0px) + env(safe-area-inset-top));
+  }
+  .safe-pb {
+    padding-bottom: calc(var(--safe-pb-base, 0px) + env(safe-area-inset-bottom));
+  }
+  .safe-px {
+    padding-left: calc(var(--safe-px-base, 0px) + env(safe-area-inset-left));
+    padding-right: calc(var(--safe-px-base, 0px) + env(safe-area-inset-right));
+  }
+
   /* Glassmorphism effects */
   .glass {
     @apply bg-card/70 border-border/30 backdrop-blur-xl;

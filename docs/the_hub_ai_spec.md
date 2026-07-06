@@ -951,6 +951,59 @@ Configured in `vercel.json`:
 - Smooth scrolling
 - Avoid excessive animation (professional, not playful)
 
+# Progressive Web App (PWA)
+
+The Hub AI is installable as a Progressive Web App, so it can be added to a
+phone home screen or desktop and launched as a standalone, full-screen app
+(no browser chrome).
+
+## Manifest
+
+- Defined in `app/manifest.ts` (served at `/manifest.webmanifest` via Next.js
+  metadata routes).
+- `display: 'standalone'` — launches full screen without browser UI.
+- `start_url` / `scope`: `/`.
+- `background_color` / `theme_color`: `#0d0e10` (matches the dark theme).
+- Icons: `192x192` and `512x512` (purpose `any`) plus maskable variants
+  (`192x192`, `512x512`), stored in `public/icons/`.
+
+## App Metadata (`app/layout.tsx`)
+
+- `metadata.manifest` links the manifest; `metadata.appleWebApp` enables
+  iOS standalone mode with a black-translucent status bar and app title.
+- `metadata.icons` declares favicon, PNG icons, and the Apple touch icon
+  (`public/icons/apple-touch-icon.png`, 180x180).
+- `viewport` exports `themeColor: '#0d0e10'` and `viewportFit: 'cover'`.
+
+## Safe-Area Handling
+
+With `viewportFit: 'cover'` + `appleWebApp.statusBarStyle: 'black-translucent'`,
+content extends under the status bar / notch / home indicator in standalone
+mode. `.safe-pt` / `.safe-pb` / `.safe-px` utilities in `app/globals.css` add
+`env(safe-area-inset-*)` padding (on top of any base padding via
+`--safe-*-base` custom properties). Applied to the mobile header (top/sides)
+and main content area (sides/bottom) so the UI is never obscured.
+
+## Service Worker (`public/sw.js`)
+
+Registered client-side by `components/shared/service-worker-register.tsx`
+(production only, on window load). Caching strategy is deliberately
+conservative for a financial app:
+
+- **Cache-first** for immutable, content-hashed build output (`/_next/static`).
+- **Stale-while-revalidate** for stable-named static files (icons, fonts) so an
+  updated asset propagates without a manual cache-version bump.
+- **Network-first** for page navigations, falling back to `public/offline.html`
+  when offline.
+- **Never cached:** `/api/*`, `/handler/*` (auth), and `/auth*` — sensitive
+  financial data and session responses always go to the network.
+- Precaching is resilient: `offline.html` is essential; icons are best-effort
+  (`Promise.allSettled`) so one failed fetch can't abort install.
+- Old cache versions are purged on `activate` (bump `CACHE_VERSION` in `sw.js`
+  to invalidate the static cache on deploy). `/sw.js` is served with
+  `Cache-Control: max-age=0, must-revalidate` (via `next.config.ts` headers)
+  so updated SW logic is picked up promptly.
+
 # Future Features
 
 ## Shopping List
