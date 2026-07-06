@@ -51,8 +51,8 @@ export function TaskDetailSheet({ taskId, onOpenChange, categories }: TaskDetail
 
   return (
     <Sheet open={!!taskId} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full overflow-y-auto rounded-l-3xl sm:max-w-lg">
-        <div className="mb-5 flex items-center justify-between">
+      <SheetContent side="right" className="w-full overflow-y-auto rounded-l-3xl p-6 sm:max-w-lg">
+        <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -173,14 +173,17 @@ function TaskDetailBody({
         placeholder="Task title"
       />
 
-      {/* Metadata rows — icon+label per row, values inline. */}
+      {/* Metadata rows — icon+label per row, values inline. Each icon
+          gets its own accent color so the row scannable at a glance;
+          the dropdown triggers themselves stay transparent to keep the
+          block feeling like a list of properties, not a form. */}
       <div className="space-y-4">
-        <MetaRow icon={FolderTree} label="Category">
+        <MetaRow icon={FolderTree} label="Category" iconClass="text-violet-500">
           <Select
             value={task.categoryId ?? NONE}
             onValueChange={(v) => patch('categoryId', v === NONE ? null : v)}
           >
-            <SelectTrigger className="bg-muted/70 h-8 w-fit rounded-full border-none px-3 text-xs">
+            <SelectTrigger className="hover:bg-muted/40 h-8 w-fit rounded-full border-none bg-transparent px-2 text-xs">
               <SelectValue placeholder="—" />
             </SelectTrigger>
             <SelectContent className="rounded-2xl">
@@ -194,9 +197,9 @@ function TaskDetailBody({
           </Select>
         </MetaRow>
 
-        <MetaRow icon={CircleDot} label="Status">
+        <MetaRow icon={CircleDot} label="Status" iconClass="text-blue-500">
           <Select value={task.status} onValueChange={(v) => patch('status', v)}>
-            <SelectTrigger className="bg-muted/70 h-8 w-fit rounded-full border-none px-3 text-xs">
+            <SelectTrigger className="hover:bg-muted/40 h-8 w-fit rounded-full border-none bg-transparent px-2 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="rounded-2xl">
@@ -209,9 +212,9 @@ function TaskDetailBody({
           </Select>
         </MetaRow>
 
-        <MetaRow icon={Flag} label="Priority">
+        <MetaRow icon={Flag} label="Priority" iconClass="text-rose-500">
           <Select value={task.priority} onValueChange={(v) => patch('priority', v)}>
-            <SelectTrigger className="bg-muted/70 h-8 w-fit rounded-full border-none px-3 text-xs">
+            <SelectTrigger className="hover:bg-muted/40 h-8 w-fit rounded-full border-none bg-transparent px-2 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="rounded-2xl">
@@ -224,14 +227,14 @@ function TaskDetailBody({
           </Select>
         </MetaRow>
 
-        <MetaRow icon={CalendarIcon} label="Due Date">
+        <MetaRow icon={CalendarIcon} label="Due Date" iconClass="text-emerald-500">
           <Input
             type="date"
             value={task.dueDate ? task.dueDate.slice(0, 10) : ''}
             onChange={(e) =>
               patch('dueDate', e.target.value ? `${e.target.value}T00:00:00.000Z` : null)
             }
-            className="h-8 w-fit rounded-xl border-none bg-transparent px-2 text-sm shadow-none focus-visible:ring-0"
+            className="hover:bg-muted/40 h-8 w-fit rounded-full border-none bg-transparent px-2 text-sm shadow-none focus-visible:ring-0"
           />
         </MetaRow>
       </div>
@@ -281,16 +284,18 @@ function TaskDetailBody({
 function MetaRow({
   icon: Icon,
   label,
+  iconClass,
   children,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
+  iconClass?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex items-center gap-4">
       <div className="text-muted-foreground flex w-32 items-center gap-2.5 text-sm">
-        <Icon className="h-4 w-4" />
+        <Icon className={cn('h-4 w-4', iconClass)} />
         <span>{label}</span>
       </div>
       <div className="min-w-0 flex-1">{children}</div>
