@@ -266,7 +266,7 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') saveAdd();
                 }}
-                className="border-border bg-background focus-visible:ring-ring h-9 w-full min-w-0 flex-1 rounded-lg border px-2 text-sm outline-none focus-visible:ring-2"
+                className="placeholder:text-muted-foreground h-9 w-full min-w-0 flex-1 rounded-lg bg-black/20 px-2 text-sm outline-none focus:bg-black/30"
               />
               <IconBtn label="Save" onClick={saveAdd}>
                 <Check className="text-primary h-4 w-4" />
@@ -366,7 +366,7 @@ function CategoryRow({
               // handled twice; Enter commits the rename.
               if (e.key === 'Enter') onSaveEdit();
             }}
-            className="border-border bg-background focus-visible:ring-ring h-9 w-full min-w-0 flex-1 rounded-lg border px-2 text-sm outline-none focus-visible:ring-2"
+            className="placeholder:text-muted-foreground h-9 w-full min-w-0 flex-1 rounded-lg bg-black/20 px-2 text-sm outline-none focus:bg-black/30"
           />
           <IconBtn label="Save" onClick={onSaveEdit}>
             <Check className="text-primary h-4 w-4" />
