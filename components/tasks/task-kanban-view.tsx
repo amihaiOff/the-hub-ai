@@ -3,7 +3,8 @@
 import { useMemo, useState } from 'react';
 import {
   DndContext,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useDraggable,
   useDroppable,
   useSensor,
@@ -73,9 +74,14 @@ export function TaskKanbanView({
       return next;
     });
 
-  // Small pointer activation distance so a click still opens the detail
-  // sheet — the drag only kicks in after a real drag gesture.
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  // Split by input type so vertical scrolls on mobile don't accidentally
+  // pick a card up: mouse drags start after a small distance move
+  // (immediate feel on desktop), touch drags require a hold before they
+  // kick in so a scroll gesture has room to be interpreted as a scroll.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } })
+  );
 
   const columns = useMemo(() => buildColumns(groupBy, categories), [groupBy, categories]);
   const grouped = useMemo(() => groupTasks(tasks, groupBy, columns), [tasks, groupBy, columns]);
