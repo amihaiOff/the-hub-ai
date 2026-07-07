@@ -26,11 +26,9 @@ interface QuickAddPopoverProps {
 /**
  * Compact "quick add" popover that opens above the floating action
  * button on a short press. The title area is a textarea with
- * `field-sizing:content` so it wraps and grows as the user types —
- * enough room for a long task name without opening the full detail
- * sheet. A tiny dropdown on the right picks a category.
- *
- * Enter submits, Shift+Enter inserts a newline, Escape closes.
+ * `field-sizing:content` so it wraps and grows as the user types. A
+ * small category dropdown sits next to the submit button in the
+ * footer.
  */
 export function QuickAddPopover({
   open,
@@ -48,6 +46,16 @@ export function QuickAddPopover({
         align="end"
         sideOffset={12}
         className="w-[min(22rem,calc(100vw-2.5rem))] rounded-2xl border p-3 shadow-xl"
+        onOpenAutoFocus={(e) => {
+          // Radix's default focus target scrolls itself into view, which
+          // on some layouts (fixed FAB near the viewport edge) yanks the
+          // page down. We prevent the default focus and re-focus the
+          // textarea ourselves with preventScroll so the page stays put.
+          e.preventDefault();
+          const target = e.target as HTMLElement | null;
+          const textarea = target?.querySelector('textarea') as HTMLTextAreaElement | null;
+          textarea?.focus({ preventScroll: true });
+        }}
       >
         {/* Inner form is only mounted while the popover is open, so
             leaving/reopening resets state without an effect. */}
@@ -86,30 +94,29 @@ function QuickAddForm({
 
   return (
     <>
-      <div className="flex items-start gap-2">
-        <textarea
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              submit();
-            } else if (e.key === 'Escape') {
-              e.preventDefault();
-              onCancel();
-            }
-          }}
-          autoFocus
-          rows={1}
-          placeholder="What needs doing?"
-          className={cn(
-            'placeholder:text-muted-foreground [field-sizing:content]',
-            'min-h-8 w-full flex-1 resize-none overflow-hidden',
-            'bg-transparent text-sm leading-snug break-words outline-none'
-          )}
-        />
+      <textarea
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            submit();
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            onCancel();
+          }
+        }}
+        rows={1}
+        placeholder="What needs doing?"
+        className={cn(
+          'placeholder:text-muted-foreground [field-sizing:content]',
+          'min-h-8 w-full resize-none overflow-hidden',
+          'bg-transparent text-sm leading-snug break-words outline-none'
+        )}
+      />
 
-        {/* Category picker on the right */}
+      {/* Footer: category picker on the left, submit on the right. */}
+      <div className="mt-2 flex items-center justify-between gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -121,11 +128,11 @@ function QuickAddForm({
                 selectedCategory ? 'text-foreground' : 'text-muted-foreground'
               )}
             >
-              <span className="max-w-[6rem] truncate">{selectedCategory?.name ?? 'Category'}</span>
+              <span className="max-w-[8rem] truncate">{selectedCategory?.name ?? 'Category'}</span>
               <ChevronDown className="h-3 w-3" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="rounded-2xl">
+          <DropdownMenuContent align="start" className="rounded-2xl">
             <DropdownMenuItem
               className={cn('rounded-lg text-sm', categoryId === null && 'bg-muted font-medium')}
               onSelect={() => setCategoryId(null)}
@@ -143,13 +150,7 @@ function QuickAddForm({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
 
-      {/* Footer hint + submit */}
-      <div className="mt-2 flex items-center justify-between">
-        <span className="text-muted-foreground text-[10px]">
-          Enter to add · Shift+Enter for newline
-        </span>
         <button
           type="button"
           onClick={submit}

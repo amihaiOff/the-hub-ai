@@ -2,7 +2,6 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  FolderTree,
   KanbanSquare,
   List as ListIcon,
   Loader2,
@@ -196,30 +195,18 @@ export function TasksClient() {
           {deleteError && <p className="text-destructive px-1 text-xs">{deleteError}</p>}
         </div>
       ) : (
-        /* Collapsible toolbar: search + view type + group by, plus a circular
-           button that opens category management. */
-        <div className="flex items-center gap-2">
-          <div className="min-w-0 flex-1">
-            <TaskToolbar
-              search={search}
-              onSearchChange={setSearch}
-              view={view}
-              onViewChange={setView}
-              viewOptions={VIEW_OPTIONS}
-              groupBy={groupBy}
-              onGroupByChange={setGroupBy}
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => setCategoryManagerOpen(true)}
-            aria-label="Manage categories"
-            title="Manage categories"
-            className="border-border/60 bg-background hover:bg-muted/60 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors"
-          >
-            <FolderTree className="h-4 w-4" />
-          </button>
-        </div>
+        /* Collapsible toolbar: search + view type + group by + manage
+           categories, all aligned on the left. */
+        <TaskToolbar
+          search={search}
+          onSearchChange={setSearch}
+          view={view}
+          onViewChange={setView}
+          viewOptions={VIEW_OPTIONS}
+          groupBy={groupBy}
+          onGroupByChange={setGroupBy}
+          onManageCategories={() => setCategoryManagerOpen(true)}
+        />
       )}
 
       {/* Body */}

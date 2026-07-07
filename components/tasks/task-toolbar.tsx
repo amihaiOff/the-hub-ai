@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { LayoutGrid, Search, X, type LucideIcon } from 'lucide-react';
+import { FolderTree, LayoutGrid, Search, X, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { GroupBy } from './task-kanban-view';
 
@@ -21,6 +21,7 @@ interface TaskToolbarProps {
   viewOptions: ViewOption[];
   groupBy: GroupBy;
   onGroupByChange: (value: GroupBy) => void;
+  onManageCategories?: () => void;
 }
 
 const GROUP_OPTIONS: { id: GroupBy; label: string }[] = [
@@ -45,6 +46,7 @@ export function TaskToolbar({
   viewOptions,
   groupBy,
   onGroupByChange,
+  onManageCategories,
 }: TaskToolbarProps) {
   const [active, setActive] = useState<ActiveControl>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -128,6 +130,19 @@ export function TaskToolbar({
           );
         })}
       </ExpandingControl>
+
+      {/* Manage categories — sits alongside the other icon buttons so
+          all task controls line up on the left side of the toolbar. */}
+      {onManageCategories && (
+        <IconButton
+          active={false}
+          expanded={false}
+          label="Manage categories"
+          onClick={onManageCategories}
+        >
+          <FolderTree className="h-4 w-4" />
+        </IconButton>
+      )}
 
       {/* Group by — only affects the Kanban view, so hide it elsewhere */}
       {view === 'kanban' && (
