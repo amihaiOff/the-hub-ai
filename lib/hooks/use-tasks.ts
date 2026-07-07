@@ -225,6 +225,50 @@ export function useDeleteTaskCategory() {
   });
 }
 
+const REORDER_CATEGORIES_KEY = ['reorder-task-categories'];
+
+export function useReorderTaskCategories() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationKey: REORDER_CATEGORIES_KEY,
+    // `ordered` is the full list of category ids in their new order.
+    mutationFn: (ordered: string[]) =>
+      fetchJson<{ updated: number }>('/api/task-categories/reorder', {
+        method: 'POST',
+        body: JSON.stringify({
+          categories: ordered.map((id, index) => ({ id, sortOrder: index })),
+        }),
+      }),
+    // Optimistically reorder the cached categories so the dialog and the main
+    // screen reflect the new order immediately.
+    onMutate: async (ordered) => {
+      await qc.cancelQueries({ queryKey: taskKeys.categories() });
+      const previous = qc.getQueryData<TaskCategoryRow[]>(taskKeys.categories());
+      if (previous) {
+        const byId = new Map(previous.map((c) => [c.id, c]));
+        const next = ordered
+          .map((id, index) => {
+            const cat = byId.get(id);
+            return cat ? { ...cat, sortOrder: index } : null;
+          })
+          .filter((c): c is TaskCategoryRow => c !== null);
+        qc.setQueryData(taskKeys.categories(), next);
+      }
+      return { previous };
+    },
+    onError: (_err, _ordered, ctx) => {
+      if (ctx?.previous) qc.setQueryData(taskKeys.categories(), ctx.previous);
+    },
+    onSettled: () => {
+      // Only the last outstanding reorder refetches, so a slower earlier
+      // request can't snap the list back over a newer optimistic order.
+      if (qc.isMutating({ mutationKey: REORDER_CATEGORIES_KEY }) <= 1) {
+        qc.invalidateQueries({ queryKey: taskKeys.categories() });
+      }
+    },
+  });
+}
+
 // ─── Tags ───────────────────────────────────────────────────────────────
 
 export function useTaskTags() {

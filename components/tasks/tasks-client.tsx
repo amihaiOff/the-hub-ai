@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  FolderTree,
   KanbanSquare,
   List as ListIcon,
   Loader2,
@@ -29,11 +30,14 @@ import {
 } from '@/lib/hooks/use-tasks';
 import type { TaskFilters } from '@/lib/validations/tasks';
 import { useBackToClose } from '@/lib/hooks/use-back-to-close';
+import { useLongPress } from '@/lib/hooks/use-long-press';
 import { TaskTableView } from './task-table-view';
 import { TaskListView } from './task-list-view';
 import { TaskKanbanView, type GroupBy } from './task-kanban-view';
 import { TaskDetailSheet } from './task-detail-sheet';
 import { TaskToolbar, type ViewOption } from './task-toolbar';
+import { CategoryManagerDialog } from './category-manager-dialog';
+import { QuickAddPopover } from './quick-add-popover';
 import type { TaskSort } from './task-filters-bar';
 
 type ViewMode = 'list' | 'kanban' | 'table';
@@ -65,6 +69,7 @@ export function TasksClient() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const deletingRef = useRef(false);
 
   const filters = useMemo<TaskFilters>(() => {
@@ -82,6 +87,28 @@ export function TasksClient() {
 
   const handleQuickAdd = () => {
     createTask.mutate({ title: 'New task' }, { onSuccess: (task) => setDetailId(task.id) });
+  };
+
+  // Quick-add popover state. Short-press on the FAB opens it; long-press
+  // falls through to handleQuickAdd (creates + opens the detail sheet).
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const fabLongPress = useLongPress(
+    () => {
+      // A long press fires this and marks the click as consumed; the
+      // onClick below then no-ops instead of opening the popover.
+      handleQuickAdd();
+    },
+    { delay: 450 }
+  );
+  const handleFabClick = () => {
+    if (fabLongPress.consumedClick()) return;
+    setQuickAddOpen(true);
+  };
+  const handleQuickAddSubmit = (title: string, categoryId: string | null) => {
+    createTask.mutate(
+      { title, categoryId: categoryId ?? undefined },
+      { onSuccess: () => setQuickAddOpen(false) }
+    );
   };
 
   const enterSelection = useCallback((id: string) => {
@@ -169,16 +196,30 @@ export function TasksClient() {
           {deleteError && <p className="text-destructive px-1 text-xs">{deleteError}</p>}
         </div>
       ) : (
-        /* Collapsible toolbar: search + view type + group by, all on one line */
-        <TaskToolbar
-          search={search}
-          onSearchChange={setSearch}
-          view={view}
-          onViewChange={setView}
-          viewOptions={VIEW_OPTIONS}
-          groupBy={groupBy}
-          onGroupByChange={setGroupBy}
-        />
+        /* Collapsible toolbar: search + view type + group by, plus a circular
+           button that opens category management. */
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <TaskToolbar
+              search={search}
+              onSearchChange={setSearch}
+              view={view}
+              onViewChange={setView}
+              viewOptions={VIEW_OPTIONS}
+              groupBy={groupBy}
+              onGroupByChange={setGroupBy}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setCategoryManagerOpen(true)}
+            aria-label="Manage categories"
+            title="Manage categories"
+            className="border-border/60 bg-background hover:bg-muted/60 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors"
+          >
+            <FolderTree className="h-4 w-4" />
+          </button>
+        </div>
       )}
 
       {/* Body */}
@@ -237,6 +278,8 @@ export function TasksClient() {
         tags={tags}
       />
 
+      <CategoryManagerDialog open={categoryManagerOpen} onOpenChange={setCategoryManagerOpen} />
+
       {/* Confirm bulk delete */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="rounded-3xl">
@@ -270,22 +313,32 @@ export function TasksClient() {
         </DialogContent>
       </Dialog>
 
-      {/* Floating action button — create a new task (hidden while selecting) */}
+      {/* Floating action button — short press opens the quick-add
+          popover, long press falls through to the full detail sheet. */}
       {!selectionMode && (
-        <button
-          type="button"
-          onClick={handleQuickAdd}
-          disabled={createTask.isPending}
-          aria-label="New task"
-          title="New task"
-          className="bg-primary text-primary-foreground fixed right-5 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-70"
+        <QuickAddPopover
+          open={quickAddOpen}
+          onOpenChange={setQuickAddOpen}
+          categories={categories}
+          isSubmitting={createTask.isPending}
+          onSubmit={handleQuickAddSubmit}
         >
-          {createTask.isPending ? (
-            <Loader2 className="h-6 w-6 animate-spin" />
-          ) : (
-            <Plus className="h-6 w-6" />
-          )}
-        </button>
+          <button
+            type="button"
+            {...fabLongPress.handlers}
+            onClick={handleFabClick}
+            disabled={createTask.isPending}
+            aria-label="New task (short press: quick add · long press: full editor)"
+            title="Short press: quick add · Long press: full editor"
+            className="bg-primary text-primary-foreground fixed right-5 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-70"
+          >
+            {createTask.isPending ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
+            ) : (
+              <Plus className="h-6 w-6" />
+            )}
+          </button>
+        </QuickAddPopover>
       )}
     </div>
   );

@@ -97,6 +97,18 @@ export const createTaskCategorySchema = z.object({
 });
 export const updateTaskCategorySchema = createTaskCategorySchema.partial();
 
+export const reorderTaskCategoriesSchema = z.object({
+  categories: z
+    .array(
+      z.object({
+        id: z.string().min(1, 'Category ID is required'),
+        sortOrder: z.number().int(),
+      })
+    )
+    .min(1)
+    .max(500),
+});
+
 export const createTaskTagSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(60),
   color: z.string().max(20).optional().nullable(),
