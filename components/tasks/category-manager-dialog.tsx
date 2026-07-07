@@ -1,7 +1,23 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Check, GripVertical, Pencil, Plus, Trash2, X } from 'lucide-react';
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -14,6 +30,7 @@ import {
   useCreateTaskCategory,
   useUpdateTaskCategory,
   useDeleteTaskCategory,
+  useReorderTaskCategories,
   type TaskCategoryRow,
 } from '@/lib/hooks/use-tasks';
 
@@ -36,6 +53,19 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
   const create = useCreateTaskCategory();
   const update = useUpdateTaskCategory();
   const del = useDeleteTaskCategory();
+  const reorder = useReorderTaskCategories();
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = categories.map((c) => c.id);
+    const from = ids.indexOf(String(active.id));
+    const to = ids.indexOf(String(over.id));
+    if (from < 0 || to < 0) return;
+    reorder.mutate(arrayMove(ids, from, to));
+  };
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -182,80 +212,47 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
         {errorMsg && <p className="text-destructive text-sm">{errorMsg}</p>}
 
         <div className="-mx-1 max-h-[55vh] space-y-1 overflow-y-auto px-1">
-          {categories.map((cat) => (
-            <div
-              key={cat.id}
-              className="hover:bg-muted/40 flex items-center gap-2 rounded-xl px-3 py-2"
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={categories.map((c) => c.id)}
+              strategy={verticalListSortingStrategy}
             >
-              {editingId === cat.id ? (
-                <>
-                  <input
-                    autoFocus
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      // Escape is left to the Dialog (closes the modal) so it
-                      // isn't handled twice; Enter commits the rename.
-                      if (e.key === 'Enter') saveEdit(cat.id);
-                    }}
-                    className="border-border bg-background focus-visible:ring-ring h-9 w-full min-w-0 flex-1 rounded-lg border px-2 text-sm outline-none focus-visible:ring-2"
-                  />
-                  <IconBtn label="Save" onClick={() => saveEdit(cat.id)}>
-                    <Check className="text-primary h-4 w-4" />
-                  </IconBtn>
-                  <IconBtn label="Cancel" onClick={exitSub}>
-                    <X className="h-4 w-4" />
-                  </IconBtn>
-                </>
-              ) : confirmDeleteId === cat.id ? (
-                <>
-                  <span className="text-muted-foreground flex-1 truncate text-sm">
-                    Delete “{cat.name}”?
-                  </span>
-                  <button
-                    type="button"
-                    onClick={exitSub}
-                    className="hover:bg-muted rounded-lg px-2 py-1 text-xs font-medium"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      del.mutate(cat.id, {
-                        onError: () => setErrorMsg('Couldn’t delete the category.'),
-                      });
-                      exitSub();
-                    }}
-                    className="bg-destructive rounded-lg px-3 py-1.5 text-xs font-medium text-white"
-                  >
-                    Delete
-                  </button>
-                </>
-              ) : (
-                <>
-                  <span className="flex-1 truncate text-sm font-medium">{cat.name}</span>
-                  <IconBtn label={`Edit ${cat.name}`} onClick={() => startEdit(cat)}>
-                    <Pencil className="h-4 w-4" />
-                  </IconBtn>
-                  <IconBtn
-                    label={`Delete ${cat.name}`}
-                    onClick={() => {
-                      setErrorMsg(null);
-                      setEditingId(null);
-                      setAdding(false);
-                      setConfirmDeleteId(cat.id);
-                    }}
-                  >
-                    <Trash2 className="text-destructive h-4 w-4" />
-                  </IconBtn>
-                </>
-              )}
-            </div>
-          ))}
+              {categories.map((cat) => (
+                <CategoryRow
+                  key={cat.id}
+                  cat={cat}
+                  editing={editingId === cat.id}
+                  confirming={confirmDeleteId === cat.id}
+                  showGrip={!subActive}
+                  draft={draft}
+                  onDraftChange={setDraft}
+                  onSaveEdit={() => saveEdit(cat.id)}
+                  onStartEdit={() => startEdit(cat)}
+                  onExit={exitSub}
+                  onStartDelete={() => {
+                    setErrorMsg(null);
+                    setEditingId(null);
+                    setAdding(false);
+                    setConfirmDeleteId(cat.id);
+                  }}
+                  onConfirmDelete={() => {
+                    del.mutate(cat.id, {
+                      onError: () => setErrorMsg('Couldn’t delete the category.'),
+                    });
+                    exitSub();
+                  }}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
 
           {adding && (
-            <div className="flex items-center gap-2 rounded-xl px-3 py-2">
+            <div className="flex items-center gap-2 rounded-xl px-2 py-2">
+              <span className="w-6 shrink-0" />
               <input
                 autoFocus
                 value={newName}
@@ -296,6 +293,115 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function CategoryRow({
+  cat,
+  editing,
+  confirming,
+  showGrip,
+  draft,
+  onDraftChange,
+  onSaveEdit,
+  onStartEdit,
+  onExit,
+  onStartDelete,
+  onConfirmDelete,
+}: {
+  cat: TaskCategoryRow;
+  editing: boolean;
+  confirming: boolean;
+  showGrip: boolean;
+  draft: string;
+  onDraftChange: (v: string) => void;
+  onSaveEdit: () => void;
+  onStartEdit: () => void;
+  onExit: () => void;
+  onStartDelete: () => void;
+  onConfirmDelete: () => void;
+}) {
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
+    id: cat.id,
+  });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'hover:bg-muted/40 flex items-center gap-2 rounded-xl px-2 py-2',
+        isDragging && 'bg-muted/60 relative z-10 shadow-lg'
+      )}
+    >
+      {/* Drag handle — reorders the list and, via sortOrder, the main screen. */}
+      {showGrip ? (
+        <button
+          type="button"
+          aria-label={`Reorder ${cat.name}`}
+          className="text-muted-foreground hover:text-foreground flex h-9 w-6 shrink-0 cursor-grab touch-none items-center justify-center active:cursor-grabbing"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      ) : (
+        <span className="w-6 shrink-0" />
+      )}
+
+      {editing ? (
+        <>
+          <input
+            autoFocus
+            value={draft}
+            onChange={(e) => onDraftChange(e.target.value)}
+            onKeyDown={(e) => {
+              // Escape is left to the Dialog (closes the modal) so it isn't
+              // handled twice; Enter commits the rename.
+              if (e.key === 'Enter') onSaveEdit();
+            }}
+            className="border-border bg-background focus-visible:ring-ring h-9 w-full min-w-0 flex-1 rounded-lg border px-2 text-sm outline-none focus-visible:ring-2"
+          />
+          <IconBtn label="Save" onClick={onSaveEdit}>
+            <Check className="text-primary h-4 w-4" />
+          </IconBtn>
+          <IconBtn label="Cancel" onClick={onExit}>
+            <X className="h-4 w-4" />
+          </IconBtn>
+        </>
+      ) : confirming ? (
+        <>
+          <span className="text-muted-foreground flex-1 truncate text-sm">
+            Delete “{cat.name}”?
+          </span>
+          <button
+            type="button"
+            onClick={onExit}
+            className="hover:bg-muted rounded-lg px-2 py-1 text-xs font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirmDelete}
+            className="bg-destructive rounded-lg px-3 py-1.5 text-xs font-medium text-white"
+          >
+            Delete
+          </button>
+        </>
+      ) : (
+        <>
+          <span className="flex-1 truncate text-sm font-medium">{cat.name}</span>
+          <IconBtn label={`Edit ${cat.name}`} onClick={onStartEdit}>
+            <Pencil className="h-4 w-4" />
+          </IconBtn>
+          <IconBtn label={`Delete ${cat.name}`} onClick={onStartDelete}>
+            <Trash2 className="text-destructive h-4 w-4" />
+          </IconBtn>
+        </>
+      )}
+    </div>
   );
 }
 

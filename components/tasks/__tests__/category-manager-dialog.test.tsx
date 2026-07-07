@@ -18,6 +18,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 const createMutate = jest.fn();
 const updateMutate = jest.fn();
 const deleteMutate = jest.fn();
+const reorderMutate = jest.fn();
 
 const categories = [
   { id: 'cat-home', name: 'Home', color: null, sortOrder: 0, householdId: 'hh-1' },
@@ -29,6 +30,7 @@ jest.mock('@/lib/hooks/use-tasks', () => ({
   useCreateTaskCategory: jest.fn(() => ({ mutate: createMutate, isPending: false })),
   useUpdateTaskCategory: jest.fn(() => ({ mutate: updateMutate, isPending: false })),
   useDeleteTaskCategory: jest.fn(() => ({ mutate: deleteMutate, isPending: false })),
+  useReorderTaskCategories: jest.fn(() => ({ mutate: reorderMutate, isPending: false })),
 }));
 
 import { CategoryManagerDialog } from '../category-manager-dialog';
