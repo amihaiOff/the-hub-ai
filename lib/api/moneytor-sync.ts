@@ -1239,6 +1239,61 @@ async function runAccountReconciliation(
     now
   );
 
+  // A stableKey / userCanonicalId match can move a productId from one
+  // row to another (Moneytor re-linked and reissued the id). Two ways
+  // this triggers the (householdId, productId) unique index:
+  //   1. Two matched rows swap productIds — before we can UPDATE the
+  //      first, the second still holds the target productId.
+  //   2. A matched row wants a productId currently held by an *unmatched*
+  //      existing row — the matcher picked a stableKey winner and left
+  //      the productId owner orphaned.
+  //
+  // Fix in two prep passes before the main loop:
+  //   a) Delete orphan-collisions (case 2). These rows lost their
+  //      identity to a stableKey match and there's no valid path to
+  //      keep them, so we log + hard-delete now.
+  //   b) Temp-prefix every matched row whose productId is about to
+  //      change (case 1). This vacates the old productId so no
+  //      subsequent UPDATE can collide.
+  const matchedPairs = outcome.matches
+    .map((m, i) => (m.existing ? { existing: m.existing, row: incoming[i] } : null))
+    .filter(
+      (
+        p
+      ): p is {
+        existing: NonNullable<(typeof outcome.matches)[number]['existing']>;
+        row: (typeof incoming)[number];
+      } => p != null
+    );
+
+  const matchedExistingIds = new Set(matchedPairs.map((p) => p.existing.id));
+  const targetProductIds = new Set(matchedPairs.map((p) => p.row.productId));
+
+  const orphanCollisions = existing.filter(
+    (e) => !matchedExistingIds.has(e.id) && targetProductIds.has(e.productId)
+  );
+  for (const o of orphanCollisions) {
+    await logHardDelete(prisma, {
+      householdId,
+      subjectType: 'moneytor_account',
+      subjectId: o.id,
+      name: o.name,
+    });
+    await prisma.moneytorAccount.delete({ where: { id: o.id } });
+  }
+
+  for (const p of matchedPairs) {
+    if (p.existing.productId !== p.row.productId) {
+      await prisma.moneytorAccount.update({
+        where: { id: p.existing.id },
+        // Guaranteed unique per (household, productId) because it
+        // embeds the row's cuid. The real productId is written in the
+        // main loop below.
+        data: { productId: `__reconcile_${p.existing.id}` },
+      });
+    }
+  }
+
   // Match incoming to existing by index (reconcile preserves the input order).
   for (let i = 0; i < incoming.length; i++) {
     const row = incoming[i];
@@ -1319,10 +1374,12 @@ async function runAccountReconciliation(
     });
   }
 
-  // Grace-period soft delete for rows Moneytor didn't return.
+  // Grace-period soft delete for rows Moneytor didn't return. Skip any
+  // orphan-collisions we already hard-deleted above.
   const matchedIds = new Set(outcome.matches.filter((m) => m.existing).map((m) => m.existing!.id));
+  const orphanIds = new Set(orphanCollisions.map((o) => o.id));
   const unmatched = existing
-    .filter((e) => !matchedIds.has(e.id))
+    .filter((e) => !matchedIds.has(e.id) && !orphanIds.has(e.id))
     .map((e) => ({
       id: e.id,
       productId: e.productId,
