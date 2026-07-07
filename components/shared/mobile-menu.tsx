@@ -17,7 +17,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { navItems, settingsItem, type NavItem } from '@/lib/constants/navigation';
+import { navItems, settingsItem, isNavHeader, type NavItem } from '@/lib/constants/navigation';
 
 interface MobileMenuProps {
   open: boolean;
@@ -161,15 +161,24 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
 
           {/* Navigation */}
           <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-            {navItems.map((item) => (
-              <MobileNavItem
-                key={item.href}
-                item={item}
-                pathname={pathname}
-                onNavClick={handleNavClick}
-                activityUnreadCount={activityUnreadCount ?? 0}
-              />
-            ))}
+            {navItems.map((entry) =>
+              isNavHeader(entry) ? (
+                <p
+                  key={entry.header}
+                  className="text-muted-foreground px-3 pt-4 pb-1 text-xs font-semibold tracking-wider uppercase"
+                >
+                  {entry.header}
+                </p>
+              ) : (
+                <MobileNavItem
+                  key={entry.href}
+                  item={entry}
+                  pathname={pathname}
+                  onNavClick={handleNavClick}
+                  activityUnreadCount={activityUnreadCount ?? 0}
+                />
+              )
+            )}
           </nav>
 
           {/* Sync data — global Moneytor pull. Sits just above Settings,

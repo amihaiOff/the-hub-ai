@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   KanbanSquare,
   List as ListIcon,
@@ -29,6 +29,7 @@ import {
 } from '@/lib/hooks/use-tasks';
 import type { TaskFilters } from '@/lib/validations/tasks';
 import { useBackToClose } from '@/lib/hooks/use-back-to-close';
+import { useKeyboardInset } from '@/lib/hooks/use-keyboard-inset';
 import { useLongPress } from '@/lib/hooks/use-long-press';
 import { TaskTableView } from './task-table-view';
 import { TaskListView } from './task-list-view';
@@ -91,6 +92,17 @@ export function TasksClient() {
   // Quick-add popover state. Short-press on the FAB opens it; long-press
   // falls through to handleQuickAdd (creates + opens the detail sheet).
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  // Lift the FAB (and, by extension, the anchored quick-add popover)
+  // above the mobile keyboard when it opens — the layout viewport
+  // doesn't shrink, so a fixed-bottom element sits behind the keyboard
+  // otherwise.
+  const keyboardInset = useKeyboardInset();
+  // The FAB's `bottom` value is a style change, not a size change, so
+  // Radix's Floating UI won't recompute the popover position on its
+  // own. Dispatch a resize whenever the inset changes to force it.
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('resize'));
+  }, [keyboardInset]);
   const fabLongPress = useLongPress(
     () => {
       // A long press fires this and marks the click as consumed; the
@@ -317,7 +329,11 @@ export function TasksClient() {
             disabled={createTask.isPending}
             aria-label="New task (short press: quick add · long press: full editor)"
             title="Short press: quick add · Long press: full editor"
-            className="bg-primary text-primary-foreground fixed right-5 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-70"
+            style={{
+              bottom: `calc(1.25rem + env(safe-area-inset-bottom) + ${keyboardInset}px)`,
+              transition: 'bottom 180ms ease-out',
+            }}
+            className="bg-primary text-primary-foreground fixed right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-70"
           >
             {createTask.isPending ? (
               <Loader2 className="h-6 w-6 animate-spin" />

@@ -1,13 +1,11 @@
 /**
  * Unit tests for navigation constants
- * Tests navItems structure and content
- *
- * Consolidated from ~30 tests to ~10 tests for maintainability
+ * Tests navItems structure, ordering, and the Finances section header.
  */
 
-import { navItems, settingsItem, NavItem } from '../navigation';
+import { navItems, settingsItem, isNavHeader, NavItem } from '../navigation';
 import {
-  Home,
+  LayoutDashboard,
   TrendingUp,
   Building2,
   Wallet,
@@ -16,18 +14,19 @@ import {
   Shield,
   ShoppingCart,
   ListChecks,
+  FlaskConical,
 } from 'lucide-react';
+
+// The clickable nav entries (headers filtered out).
+const linkItems = navItems.filter((e): e is NavItem => !isNavHeader(e));
 
 describe('Navigation Constants', () => {
   describe('navItems array structure', () => {
-    it('should contain exactly 9 navigation items with valid structure', () => {
-      expect(navItems).toHaveLength(9);
+    it('should have valid structure for every link item', () => {
       expect(Array.isArray(navItems)).toBe(true);
+      expect(linkItems).toHaveLength(9);
 
-      navItems.forEach((item) => {
-        expect(item).toHaveProperty('href');
-        expect(item).toHaveProperty('label');
-        expect(item).toHaveProperty('icon');
+      linkItems.forEach((item) => {
         expect(typeof item.href).toBe('string');
         expect(typeof item.label).toBe('string');
         expect(item.href.length).toBeGreaterThan(0);
@@ -38,10 +37,10 @@ describe('Navigation Constants', () => {
       });
     });
 
-    it('should have unique hrefs, labels, and icons', () => {
-      const hrefs = navItems.map((item) => item.href);
-      const labels = navItems.map((item) => item.label);
-      const icons = navItems.map((item) => item.icon);
+    it('should have unique hrefs, labels, and icons among link items', () => {
+      const hrefs = linkItems.map((item) => item.href);
+      const labels = linkItems.map((item) => item.label);
+      const icons = linkItems.map((item) => item.icon);
 
       expect(new Set(hrefs).size).toBe(hrefs.length);
       expect(new Set(labels).size).toBe(labels.length);
@@ -51,25 +50,33 @@ describe('Navigation Constants', () => {
 
   describe('navItems content and order', () => {
     const expectedItems = [
-      { label: 'Dashboard', href: '/', icon: Home },
+      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { label: 'Tasks', href: '/tasks', icon: ListChecks },
+      { label: 'Shopping', href: '/shopping', icon: ShoppingCart },
       { label: 'Portfolio', href: '/portfolio', icon: TrendingUp },
       { label: 'Pension', href: '/pension', icon: Building2 },
       { label: 'Assets', href: '/assets', icon: Wallet },
       { label: 'Insurance', href: '/insurance', icon: Shield },
       { label: 'Budget', href: '/budget', icon: Receipt },
-      { label: 'Shopping', href: '/shopping', icon: ShoppingCart },
-      { label: 'Tasks', href: '/tasks', icon: ListChecks },
+      { label: 'Labs', href: '/moneytor-trnx', icon: FlaskConical },
     ];
 
     it.each(expectedItems.map((item, index) => [index, item.label, item.href, item.icon]))(
-      'should have %s at position %i with href "%s"',
+      'should have link item at position %i be "%s" with href "%s"',
       (index, label, href, icon) => {
-        const item = navItems[index as number];
+        const item = linkItems[index as number];
         expect(item.label).toBe(label);
         expect(item.href).toBe(href);
         expect(item.icon).toBe(icon);
       }
     );
+
+    it('should place a Finances section header before the finance links', () => {
+      const financesIndex = navItems.findIndex((e) => isNavHeader(e) && e.header === 'Finances');
+      const portfolioIndex = navItems.findIndex((e) => !isNavHeader(e) && e.href === '/portfolio');
+      expect(financesIndex).toBeGreaterThanOrEqual(0);
+      expect(financesIndex).toBeLessThan(portfolioIndex);
+    });
   });
 
   describe('settingsItem', () => {
@@ -83,11 +90,10 @@ describe('Navigation Constants', () => {
 
   describe('NavItem type export', () => {
     it('should be usable as a type', () => {
-      // Type check - this would fail at compile time if NavItem wasn't exported correctly
       const testItem: NavItem = {
         href: '/test',
         label: 'Test',
-        icon: Home,
+        icon: LayoutDashboard,
       };
       expect(testItem.href).toBe('/test');
       expect(testItem.label).toBe('Test');
