@@ -71,7 +71,10 @@ describe('CategoryManagerDialog', () => {
     fireEvent.change(screen.getByDisplayValue('Home'), { target: { value: 'House' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(updateMutate).toHaveBeenCalledWith({ id: 'cat-home', patch: { name: 'House' } });
+    expect(updateMutate).toHaveBeenCalledWith(
+      { id: 'cat-home', patch: { name: 'House' } },
+      expect.anything()
+    );
   });
 
   it('reveals an inline confirm and calls delete.mutate with the id on confirm', () => {
@@ -84,7 +87,7 @@ describe('CategoryManagerDialog', () => {
     // The confirm exposes text buttons (not the icon buttons) named Cancel/Delete.
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
-    expect(deleteMutate).toHaveBeenCalledWith('cat-finance');
+    expect(deleteMutate).toHaveBeenCalledWith('cat-finance', expect.anything());
   });
 
   it('shows the New category input and calls create.mutate with the name on save', () => {
@@ -98,6 +101,6 @@ describe('CategoryManagerDialog', () => {
     fireEvent.change(input, { target: { value: 'Health' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(createMutate).toHaveBeenCalledWith({ name: 'Health' });
+    expect(createMutate).toHaveBeenCalledWith({ name: 'Health' }, expect.anything());
   });
 });

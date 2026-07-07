@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   useTaskCategories,
   useCreateTaskCategory,
@@ -36,6 +42,7 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const subActive = editingId !== null || adding || confirmDeleteId !== null;
 
@@ -92,12 +99,34 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
-  // Route the Dialog's own close affordances (X / overlay / Esc) through the
-  // same one-level-at-a-time logic as the Back button.
+  // If we unmount while still open (e.g. navigating away), unwind our dummy
+  // entries — but only while they're still the current ones, so we never undo
+  // a real navigation the user just made.
+  useEffect(
+    () => () => {
+      const level = window.history.state?.level;
+      const steps = (subPushed.current ? 1 : 0) + (modalPushed.current ? 1 : 0);
+      if (steps > 0 && (level === 'catSub' || level === 'catModal')) {
+        subPushed.current = false;
+        modalPushed.current = false;
+        window.history.go(-steps);
+      }
+    },
+    []
+  );
+
+  // The Dialog's own affordances (X / overlay / Esc) dismiss the whole modal;
+  // the hardware Back button, by contrast, is handled by popstate one level at
+  // a time. Unwind whatever entries we pushed in a single go() so a stray
+  // history entry is never left behind.
   const handleDialogOpenChange = (next: boolean) => {
     if (next) return;
-    if (subPushed.current || modalPushed.current) window.history.back();
-    else onOpenChange(false);
+    const steps = (subPushed.current ? 1 : 0) + (modalPushed.current ? 1 : 0);
+    subPushed.current = false;
+    modalPushed.current = false;
+    clearSub();
+    onOpenChange(false);
+    if (steps > 0) window.history.go(-steps);
   };
 
   // Leave the sub-state via a Back so the pushed entry is unwound cleanly.
@@ -107,6 +136,7 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
   };
 
   const startEdit = (cat: TaskCategoryRow) => {
+    setErrorMsg(null);
     setConfirmDeleteId(null);
     setAdding(false);
     setEditingId(cat.id);
@@ -116,11 +146,17 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
   const saveEdit = (id: string) => {
     const name = draft.trim();
     const cat = categories.find((c) => c.id === id);
-    if (name && cat && name !== cat.name) update.mutate({ id, patch: { name } });
+    if (name && cat && name !== cat.name) {
+      update.mutate(
+        { id, patch: { name } },
+        { onError: () => setErrorMsg('Couldn’t rename the category.') }
+      );
+    }
     exitSub();
   };
 
   const startAdd = () => {
+    setErrorMsg(null);
     setEditingId(null);
     setConfirmDeleteId(null);
     setNewName('');
@@ -129,7 +165,9 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
 
   const saveAdd = () => {
     const name = newName.trim();
-    if (name) create.mutate({ name });
+    if (name) {
+      create.mutate({ name }, { onError: () => setErrorMsg('Couldn’t add the category.') });
+    }
     exitSub();
   };
 
@@ -138,7 +176,10 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
       <DialogContent className="rounded-3xl">
         <DialogHeader>
           <DialogTitle>Manage categories</DialogTitle>
+          <DialogDescription>Rename, delete, or add task categories.</DialogDescription>
         </DialogHeader>
+
+        {errorMsg && <p className="text-destructive text-sm">{errorMsg}</p>}
 
         <div className="-mx-1 max-h-[55vh] space-y-1 overflow-y-auto px-1">
           {categories.map((cat) => (
@@ -153,10 +194,11 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     onKeyDown={(e) => {
+                      // Escape is left to the Dialog (closes the modal) so it
+                      // isn't handled twice; Enter commits the rename.
                       if (e.key === 'Enter') saveEdit(cat.id);
-                      else if (e.key === 'Escape') exitSub();
                     }}
-                    className="border-border bg-background focus-visible:ring-ring h-8 w-full min-w-0 flex-1 rounded-lg border px-2 text-sm outline-none focus-visible:ring-2"
+                    className="border-border bg-background focus-visible:ring-ring h-9 w-full min-w-0 flex-1 rounded-lg border px-2 text-sm outline-none focus-visible:ring-2"
                   />
                   <IconBtn label="Save" onClick={() => saveEdit(cat.id)}>
                     <Check className="text-primary h-4 w-4" />
@@ -180,10 +222,12 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
                   <button
                     type="button"
                     onClick={() => {
-                      del.mutate(cat.id);
+                      del.mutate(cat.id, {
+                        onError: () => setErrorMsg('Couldn’t delete the category.'),
+                      });
                       exitSub();
                     }}
-                    className="bg-destructive rounded-lg px-2 py-1 text-xs font-medium text-white"
+                    className="bg-destructive rounded-lg px-3 py-1.5 text-xs font-medium text-white"
                   >
                     Delete
                   </button>
@@ -197,6 +241,7 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
                   <IconBtn
                     label={`Delete ${cat.name}`}
                     onClick={() => {
+                      setErrorMsg(null);
                       setEditingId(null);
                       setAdding(false);
                       setConfirmDeleteId(cat.id);
@@ -218,9 +263,8 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
                 placeholder="New category"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') saveAdd();
-                  else if (e.key === 'Escape') exitSub();
                 }}
-                className="border-border bg-background focus-visible:ring-ring h-8 w-full min-w-0 flex-1 rounded-lg border px-2 text-sm outline-none focus-visible:ring-2"
+                className="border-border bg-background focus-visible:ring-ring h-9 w-full min-w-0 flex-1 rounded-lg border px-2 text-sm outline-none focus-visible:ring-2"
               />
               <IconBtn label="Save" onClick={saveAdd}>
                 <Check className="text-primary h-4 w-4" />
@@ -270,7 +314,7 @@ function IconBtn({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors"
+      className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors"
     >
       {children}
     </button>
