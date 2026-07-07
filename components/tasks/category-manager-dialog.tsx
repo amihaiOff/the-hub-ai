@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, GripVertical, Pencil, Plus, Trash2, X } from 'lucide-react';
 import {
   DndContext,
+  KeyboardSensor,
   PointerSensor,
   closestCenter,
   useSensor,
@@ -13,6 +14,7 @@ import {
 import {
   SortableContext,
   arrayMove,
+  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
@@ -55,7 +57,10 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
   const del = useDeleteTaskCategory();
   const reorder = useReorderTaskCategories();
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;

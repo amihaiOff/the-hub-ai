@@ -42,13 +42,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update one at a time (Neon serverless compatibility).
-    for (const c of categories) {
-      await prisma.taskCategory.update({
-        where: { id: c.id },
-        data: { sortOrder: c.sortOrder },
-      });
-    }
+    // Atomic so a mid-loop failure can't leave a half-renumbered order. Uses
+    // the interactive transaction form (the array form / updateMany are the
+    // ones that misbehave on the Neon adapter).
+    await prisma.$transaction(async (tx) => {
+      for (const c of categories) {
+        await tx.taskCategory.update({
+          where: { id: c.id },
+          data: { sortOrder: c.sortOrder },
+        });
+      }
+    });
 
     return NextResponse.json({ success: true, data: { updated: categories.length } });
   } catch (err) {

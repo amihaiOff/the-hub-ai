@@ -225,9 +225,12 @@ export function useDeleteTaskCategory() {
   });
 }
 
+const REORDER_CATEGORIES_KEY = ['reorder-task-categories'];
+
 export function useReorderTaskCategories() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: REORDER_CATEGORIES_KEY,
     // `ordered` is the full list of category ids in their new order.
     mutationFn: (ordered: string[]) =>
       fetchJson<{ updated: number }>('/api/task-categories/reorder', {
@@ -257,7 +260,11 @@ export function useReorderTaskCategories() {
       if (ctx?.previous) qc.setQueryData(taskKeys.categories(), ctx.previous);
     },
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: taskKeys.categories() });
+      // Only the last outstanding reorder refetches, so a slower earlier
+      // request can't snap the list back over a newer optimistic order.
+      if (qc.isMutating({ mutationKey: REORDER_CATEGORIES_KEY }) <= 1) {
+        qc.invalidateQueries({ queryKey: taskKeys.categories() });
+      }
     },
   });
 }
