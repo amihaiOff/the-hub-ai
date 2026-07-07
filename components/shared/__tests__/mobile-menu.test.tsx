@@ -186,6 +186,7 @@ jest.mock('@/lib/constants/navigation', () => ({
     { href: '/assets', label: 'Assets', icon: createMockIcon('icon-wallet') },
   ],
   settingsItem: { href: '/settings', label: 'Settings', icon: createMockIcon('icon-settings') },
+  isNavHeader: (entry: { header?: string }) => 'header' in entry,
 }));
 
 // Mock @/lib/utils

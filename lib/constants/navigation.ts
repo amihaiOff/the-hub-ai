@@ -1,5 +1,4 @@
 import {
-  Home,
   TrendingUp,
   Building2,
   Wallet,
@@ -38,8 +37,30 @@ export interface NavItem {
   subItems?: NavSubItem[];
 }
 
-export const navItems: NavItem[] = [
-  { href: '/', label: 'Dashboard', icon: Home },
+/** A non-clickable section label that groups the nav items below it. */
+export interface NavHeader {
+  header: string;
+}
+
+export type NavEntry = NavItem | NavHeader;
+
+export function isNavHeader(entry: NavEntry): entry is NavHeader {
+  return 'header' in entry;
+}
+
+export const navItems: NavEntry[] = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/tasks', label: 'Tasks', icon: ListChecks },
+  {
+    href: '/shopping',
+    label: 'Shopping',
+    icon: ShoppingCart,
+    subItems: [
+      { href: '/shopping', label: 'Cart', icon: ShoppingCart },
+      { href: '/shopping/items', label: 'Items', icon: Package },
+    ],
+  },
+  { header: 'Finances' },
   {
     href: '/portfolio',
     label: 'Portfolio',
@@ -73,20 +94,6 @@ export const navItems: NavItem[] = [
       { href: '/budget/analysis', label: 'Analysis', icon: BarChart3 },
       { href: '/budget/savings', label: 'Savings', icon: PiggyBank },
     ],
-  },
-  {
-    href: '/shopping',
-    label: 'Shopping',
-    icon: ShoppingCart,
-    subItems: [
-      { href: '/shopping', label: 'Cart', icon: ShoppingCart },
-      { href: '/shopping/items', label: 'Items', icon: Package },
-    ],
-  },
-  {
-    href: '/tasks',
-    label: 'Tasks',
-    icon: ListChecks,
   },
   {
     // Labs — experimental/raw-debug pages. The parent's href is used only by

@@ -12,7 +12,7 @@ import { LogOut, LogIn, ChevronDown, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from './logo';
 import { Button } from '@/components/ui/button';
-import { navItems, settingsItem, type NavItem } from '@/lib/constants/navigation';
+import { navItems, settingsItem, isNavHeader, type NavItem } from '@/lib/constants/navigation';
 
 function NavItemComponent({
   item,
@@ -159,15 +159,24 @@ export function Sidebar() {
             A thin scrollbar appears only when content overflows so users
             discover that the nav scrolls. */}
         <nav className="sidebar-scroll min-h-0 flex-1 space-y-1 overflow-y-auto p-4">
-          {navItems.map((item) => (
-            <NavItemComponent
-              key={item.href}
-              item={item}
-              pathname={pathname}
-              uncategorizedCount={uncategorizedCount}
-              activityUnreadCount={activityUnreadCount ?? 0}
-            />
-          ))}
+          {navItems.map((entry) =>
+            isNavHeader(entry) ? (
+              <p
+                key={entry.header}
+                className="text-sidebar-foreground/50 px-3 pt-4 pb-1 text-xs font-semibold tracking-wider uppercase"
+              >
+                {entry.header}
+              </p>
+            ) : (
+              <NavItemComponent
+                key={entry.href}
+                item={entry}
+                pathname={pathname}
+                uncategorizedCount={uncategorizedCount}
+                activityUnreadCount={activityUnreadCount ?? 0}
+              />
+            )
+          )}
         </nav>
 
         {/* Sync data — manual Moneytor pull. Lives just above Settings so

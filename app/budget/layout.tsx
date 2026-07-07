@@ -3,10 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { navItems } from '@/lib/constants/navigation';
+import { navItems, isNavHeader, type NavItem } from '@/lib/constants/navigation';
 import { useUncategorizedCount } from '@/lib/hooks/use-budget';
 
-const budgetNavItems = navItems.find((item) => item.href === '/budget')?.subItems ?? [];
+const budgetNavItems =
+  navItems.find((item): item is NavItem => !isNavHeader(item) && item.href === '/budget')
+    ?.subItems ?? [];
 
 export default function BudgetLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
