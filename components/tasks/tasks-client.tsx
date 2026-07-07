@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  FolderTree,
   KanbanSquare,
   List as ListIcon,
   Loader2,
@@ -34,6 +35,7 @@ import { TaskListView } from './task-list-view';
 import { TaskKanbanView, type GroupBy } from './task-kanban-view';
 import { TaskDetailSheet } from './task-detail-sheet';
 import { TaskToolbar, type ViewOption } from './task-toolbar';
+import { CategoryManagerDialog } from './category-manager-dialog';
 import type { TaskSort } from './task-filters-bar';
 
 type ViewMode = 'list' | 'kanban' | 'table';
@@ -65,6 +67,7 @@ export function TasksClient() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const deletingRef = useRef(false);
 
   const filters = useMemo<TaskFilters>(() => {
@@ -169,16 +172,30 @@ export function TasksClient() {
           {deleteError && <p className="text-destructive px-1 text-xs">{deleteError}</p>}
         </div>
       ) : (
-        /* Collapsible toolbar: search + view type + group by, all on one line */
-        <TaskToolbar
-          search={search}
-          onSearchChange={setSearch}
-          view={view}
-          onViewChange={setView}
-          viewOptions={VIEW_OPTIONS}
-          groupBy={groupBy}
-          onGroupByChange={setGroupBy}
-        />
+        /* Collapsible toolbar: search + view type + group by, plus a circular
+           button that opens category management. */
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <TaskToolbar
+              search={search}
+              onSearchChange={setSearch}
+              view={view}
+              onViewChange={setView}
+              viewOptions={VIEW_OPTIONS}
+              groupBy={groupBy}
+              onGroupByChange={setGroupBy}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setCategoryManagerOpen(true)}
+            aria-label="Manage categories"
+            title="Manage categories"
+            className="border-border/60 bg-background hover:bg-muted/60 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors"
+          >
+            <FolderTree className="h-4 w-4" />
+          </button>
+        </div>
       )}
 
       {/* Body */}
@@ -236,6 +253,8 @@ export function TasksClient() {
         categories={categories}
         tags={tags}
       />
+
+      <CategoryManagerDialog open={categoryManagerOpen} onOpenChange={setCategoryManagerOpen} />
 
       {/* Confirm bulk delete */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
