@@ -5,7 +5,7 @@ import { FolderTree, LayoutGrid, Search, X, type LucideIcon } from 'lucide-react
 import { cn } from '@/lib/utils';
 import type { GroupBy } from './task-kanban-view';
 
-type ViewMode = 'list' | 'kanban' | 'table';
+type ViewMode = 'list' | 'kanban' | 'table' | 'calendar';
 
 export interface ViewOption {
   id: ViewMode;
