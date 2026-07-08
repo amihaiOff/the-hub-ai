@@ -517,7 +517,11 @@ function AppearancePicker({
     : POPULAR_ICONS;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    // `modal` so the popover registers its own scroll lock on top of the
+    // Dialog's; otherwise the Dialog's react-remove-scroll (the popover
+    // portals outside it) eats wheel/touch scroll and the icon grid can't
+    // scroll.
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>
         <button
           type="button"
