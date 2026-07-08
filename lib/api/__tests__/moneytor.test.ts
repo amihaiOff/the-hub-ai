@@ -8,7 +8,13 @@
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
-import { fetchMoneytorTransactions, MoneytorApiError, type MoneytorTransaction } from '../moneytor';
+import {
+  fetchMoneytorTransactions,
+  fetchMoneytorAssets,
+  fetchMoneytorShareAssets,
+  MoneytorApiError,
+  type MoneytorTransaction,
+} from '../moneytor';
 
 describe('fetchMoneytorTransactions', () => {
   const ORIGINAL_TOKEN = process.env.MONEYTOR_API_TOKEN;
@@ -217,5 +223,121 @@ describe('fetchMoneytorTransactions', () => {
       expect(apiErr.code).toBe('network_error');
       expect(apiErr.message).toContain('ECONNRESET');
     });
+
+    it('maps 403 to premium_required', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({ ok: false, error: 'premium subscription required' }),
+      });
+      const err = await fetchMoneytorTransactions().catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(MoneytorApiError);
+      expect((err as MoneytorApiError).code).toBe('premium_required');
+      expect((err as MoneytorApiError).status).toBe(403);
+    });
+
+    it('maps other non-ok statuses to unknown', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        json: async () => ({ ok: false, error: 'bad gateway' }),
+      });
+      const err = await fetchMoneytorTransactions().catch((e: unknown) => e);
+      expect((err as MoneytorApiError).code).toBe('unknown');
+      expect((err as MoneytorApiError).status).toBe(502);
+    });
+
+    it('honours body.ok === false even on HTTP 200', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: false, error: 'app-level failure' }),
+      });
+      const err = await fetchMoneytorTransactions().catch((e: unknown) => e);
+      expect((err as MoneytorApiError).code).toBe('unknown');
+    });
+
+    it('surfaces text/plain 5xx bodies when JSON parsing fails', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => {
+          throw new Error('unexpected token U');
+        },
+        text: async () => 'Unexpected Server Error',
+      });
+      const err = await fetchMoneytorTransactions().catch((e: unknown) => e);
+      expect((err as MoneytorApiError).code).toBe('unknown');
+      expect((err as MoneytorApiError).status).toBe(500);
+      expect((err as MoneytorApiError).message).toContain('Unexpected Server Error');
+    });
+
+    it('handles non-JSON, non-5xx responses (no text body preview)', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => {
+          throw new Error('not json');
+        },
+        text: async () => '',
+      });
+      const err = await fetchMoneytorTransactions().catch((e: unknown) => e);
+      expect((err as MoneytorApiError).code).toBe('unknown');
+      expect((err as MoneytorApiError).status).toBe(400);
+    });
+  });
+});
+
+describe('fetchMoneytorAssets', () => {
+  const ORIGINAL_TOKEN = process.env.MONEYTOR_API_TOKEN;
+  beforeEach(() => {
+    jest.resetAllMocks();
+    process.env.MONEYTOR_API_TOKEN = 'test-moneytor-token';
+  });
+  afterAll(() => {
+    if (ORIGINAL_TOKEN === undefined) delete process.env.MONEYTOR_API_TOKEN;
+    else process.env.MONEYTOR_API_TOKEN = ORIGINAL_TOKEN;
+  });
+
+  it('returns the assets array on success', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        assets: [
+          { id: 'a1', form: 'bank', productId: 1, name: 'Bank' },
+          { id: 'a2', form: 'share', productId: 2, name: 'Broker' },
+        ],
+      }),
+    });
+    const assets = await fetchMoneytorAssets();
+    expect(assets).toHaveLength(2);
+  });
+
+  it('defaults to [] when the API omits assets', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true }),
+    });
+    expect(await fetchMoneytorAssets()).toEqual([]);
+  });
+
+  it('fetchMoneytorShareAssets filters down to share-form assets', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        assets: [
+          { id: 'a1', form: 'bank', productId: 1, name: 'Bank' },
+          { id: 'a2', form: 'share', productId: 2, name: 'Broker' },
+        ],
+      }),
+    });
+    const shares = await fetchMoneytorShareAssets();
+    expect(shares).toHaveLength(1);
+    expect(shares[0].form).toBe('share');
   });
 });
