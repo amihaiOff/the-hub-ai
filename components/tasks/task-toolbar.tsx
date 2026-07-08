@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { FolderTree, LayoutGrid, Search, X, type LucideIcon } from 'lucide-react';
+import { CalendarRange, FolderTree, LayoutGrid, Search, X, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { GroupBy } from './task-kanban-view';
+import type { CalendarMode } from './task-calendar-view';
 
 type ViewMode = 'list' | 'kanban' | 'table' | 'calendar';
 
@@ -21,6 +22,8 @@ interface TaskToolbarProps {
   viewOptions: ViewOption[];
   groupBy: GroupBy;
   onGroupByChange: (value: GroupBy) => void;
+  calendarView?: CalendarMode;
+  onCalendarViewChange?: (value: CalendarMode) => void;
   onManageCategories?: () => void;
 }
 
@@ -30,7 +33,12 @@ const GROUP_OPTIONS: { id: GroupBy; label: string }[] = [
   { id: 'category', label: 'Category' },
 ];
 
-type ActiveControl = 'search' | 'view' | 'group' | null;
+const CALENDAR_OPTIONS: { id: CalendarMode; label: string }[] = [
+  { id: 'week', label: 'Week' },
+  { id: 'month', label: 'Month' },
+];
+
+type ActiveControl = 'search' | 'view' | 'group' | 'calendar' | null;
 
 /**
  * A single-line, accordion-style toolbar. Each control (Search, View,
@@ -46,6 +54,8 @@ export function TaskToolbar({
   viewOptions,
   groupBy,
   onGroupByChange,
+  calendarView,
+  onCalendarViewChange,
   onManageCategories,
 }: TaskToolbarProps) {
   const [active, setActive] = useState<ActiveControl>(null);
@@ -160,6 +170,31 @@ export function TaskToolbar({
               wide
               onClick={() => {
                 onGroupByChange(opt.id);
+                setActive(null);
+              }}
+            >
+              {opt.label}
+            </OptionButton>
+          ))}
+        </ExpandingControl>
+      )}
+
+      {/* Calendar view (week / month) — only shown for the Calendar view */}
+      {view === 'calendar' && onCalendarViewChange && (
+        <ExpandingControl
+          active={active === 'calendar'}
+          onToggle={() => toggle('calendar')}
+          label="Calendar view"
+          icon={<CalendarRange className="h-4 w-4" />}
+        >
+          {CALENDAR_OPTIONS.map((opt) => (
+            <OptionButton
+              key={opt.id}
+              active={calendarView === opt.id}
+              label={opt.label}
+              wide
+              onClick={() => {
+                onCalendarViewChange(opt.id);
                 setActive(null);
               }}
             >

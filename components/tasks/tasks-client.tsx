@@ -35,7 +35,7 @@ import { useLongPress } from '@/lib/hooks/use-long-press';
 import { TaskTableView } from './task-table-view';
 import { TaskListView } from './task-list-view';
 import { TaskKanbanView, type GroupBy } from './task-kanban-view';
-import { TaskCalendarView } from './task-calendar-view';
+import { TaskCalendarView, type CalendarMode } from './task-calendar-view';
 import { TaskDetailSheet } from './task-detail-sheet';
 import { TaskToolbar, type ViewOption } from './task-toolbar';
 import { CategoryManagerDialog } from './category-manager-dialog';
@@ -65,6 +65,7 @@ export function TasksClient() {
   const [view, setView] = useState<ViewMode>('kanban');
   const [search, setSearch] = useState('');
   const [groupBy, setGroupBy] = useState<GroupBy>('category');
+  const [calendarView, setCalendarView] = useState<CalendarMode>('month');
   const [detailId, setDetailId] = useState<string | null>(null);
 
   // Multi-select (entered by long-pressing a card).
@@ -231,6 +232,8 @@ export function TasksClient() {
           viewOptions={VIEW_OPTIONS}
           groupBy={groupBy}
           onGroupByChange={setGroupBy}
+          calendarView={calendarView}
+          onCalendarViewChange={setCalendarView}
           onManageCategories={() => setCategoryManagerOpen(true)}
         />
       )}
@@ -252,9 +255,12 @@ export function TasksClient() {
         <TaskEmptyState onCreate={handleQuickAdd} />
       )}
 
-      {/* Calendar renders even with no tasks so days can still be scheduled. */}
+      {/* Calendar renders even with no tasks so days can still be scheduled.
+          Keyed on the mode so switching week/month re-anchors on today. */}
       {!isLoading && !error && view === 'calendar' && (
         <TaskCalendarView
+          key={calendarView}
+          mode={calendarView}
           tasks={tasks}
           onOpenTask={setDetailId}
           onAddTaskOnDate={handleAddTaskOnDate}

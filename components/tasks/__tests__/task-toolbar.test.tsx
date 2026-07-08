@@ -112,6 +112,30 @@ describe('TaskToolbar', () => {
     expect(groupButton).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('shows the Calendar view control only for the Calendar view and fires its callback', () => {
+    const onCalendarViewChange = jest.fn();
+    const { rerender } = setup({ view: 'kanban', onCalendarViewChange });
+    expect(screen.queryByRole('button', { name: 'Calendar view' })).not.toBeInTheDocument();
+
+    rerender(
+      <TaskToolbar
+        search=""
+        onSearchChange={jest.fn()}
+        view="calendar"
+        onViewChange={jest.fn()}
+        viewOptions={viewOptions}
+        groupBy="status"
+        onGroupByChange={jest.fn()}
+        calendarView="month"
+        onCalendarViewChange={onCalendarViewChange}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Calendar view' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Week' }));
+    expect(onCalendarViewChange).toHaveBeenCalledWith('week');
+  });
+
   it('only keeps one control open at a time (mutual exclusivity)', () => {
     setup({ view: 'kanban' });
 

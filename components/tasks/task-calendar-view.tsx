@@ -8,9 +8,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { CategoryIcon } from './category-icon';
 import { PriorityBadge } from './task-list-view';
 
-type CalendarMode = 'month' | 'week';
+export type CalendarMode = 'month' | 'week';
 
 interface TaskCalendarViewProps {
+  /** Controlled by the toolbar's calendar-view control. */
+  mode: CalendarMode;
   tasks: TaskRow[];
   onOpenTask: (id: string) => void;
   /** Create a task due on the given day, then open it. */
@@ -40,9 +42,15 @@ const keyToDate = (key: string) => {
 const isHexColor = (c: string | null | undefined): c is string => !!c && /^#[0-9a-f]{6}$/i.test(c);
 const dotColor = (t: TaskRow) =>
   isHexColor(t.category?.color) ? t.category!.color! : STATUS_DOT[t.status];
-/** Subtle chip background from the category colour, else undefined (muted). */
-const tintColor = (t: TaskRow) =>
-  isHexColor(t.category?.color) ? `${t.category!.color!}22` : undefined;
+
+// Week chips are coloured by urgency (priority); the category is shown as its
+// icon on the right instead.
+const PRIORITY_COLOR: Record<TaskRow['priority'], string> = {
+  URGENT: '#ef4444',
+  HIGH: '#f97316',
+  MEDIUM: '#94a3b8',
+  LOW: '#94a3b8',
+};
 
 const startOfWeek = (d: Date) => {
   const s = new Date(d);
@@ -58,13 +66,18 @@ const startOfWeek = (d: Date) => {
  * day columns (stacked on mobile) where each task shows as a titled chip.
  * Tasks without a due date are collected in a separate section either way.
  */
-export function TaskCalendarView({ tasks, onOpenTask, onAddTaskOnDate }: TaskCalendarViewProps) {
+export function TaskCalendarView({
+  mode,
+  tasks,
+  onOpenTask,
+  onAddTaskOnDate,
+}: TaskCalendarViewProps) {
   const today = useMemo(() => new Date(), []);
-  const [mode, setModeState] = useState<CalendarMode>('month');
-  // Anchor date for the visible range: the 1st of the month in month mode, any
-  // day within the week in week mode.
-  const [viewDate, setViewDate] = useState(
-    () => new Date(today.getFullYear(), today.getMonth(), 1)
+  // Anchor date for the visible range: the 1st of the month in month mode, the
+  // current day (its week) in week mode. The parent remounts this component on
+  // mode change (via `key`), so this initialiser re-runs with the right anchor.
+  const [viewDate, setViewDate] = useState(() =>
+    mode === 'week' ? new Date(today) : new Date(today.getFullYear(), today.getMonth(), 1)
   );
   const [selectedKey, setSelectedKey] = useState(() => dayKey(today));
 
@@ -106,13 +119,6 @@ export function TaskCalendarView({ tasks, onOpenTask, onAddTaskOnDate }: TaskCal
       return d;
     });
   }, [viewDate]);
-
-  const setMode = (next: CalendarMode) => {
-    // Keep context across the toggle by anchoring on the selected day.
-    const sel = keyToDate(selectedKey);
-    setViewDate(next === 'month' ? new Date(sel.getFullYear(), sel.getMonth(), 1) : sel);
-    setModeState(next);
-  };
 
   const goPrev = () => {
     if (mode === 'month') {
@@ -181,24 +187,6 @@ export function TaskCalendarView({ tasks, onOpenTask, onAddTaskOnDate }: TaskCal
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
-      </div>
-
-      {/* Week / Month toggle */}
-      <div className="border-border/60 bg-muted/30 flex rounded-xl border p-0.5">
-        {(['week', 'month'] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => setMode(m)}
-            aria-pressed={mode === m}
-            className={cn(
-              'flex-1 rounded-lg py-1.5 text-xs font-medium capitalize transition-colors',
-              mode === m ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-            )}
-          >
-            {m}
-          </button>
-        ))}
       </div>
 
       {mode === 'month' ? (
@@ -421,25 +409,26 @@ function WeekColumns({
 
 function WeekChip({ task, onOpen }: { task: TaskRow; onOpen: () => void }) {
   const isDone = task.status === 'DONE';
-  const tint = tintColor(task);
+  // Card colour communicates urgency; a left accent bar reinforces it.
+  const color = PRIORITY_COLOR[task.priority];
   return (
     <button
       type="button"
       onClick={onOpen}
       title={task.title}
-      className={cn(
-        'flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-left text-xs transition-colors',
-        !tint && 'bg-muted/50 hover:bg-muted'
-      )}
-      style={tint ? { backgroundColor: tint } : undefined}
+      style={{ backgroundColor: `${color}22`, borderLeft: `3px solid ${color}` }}
+      className="flex w-full items-center gap-1.5 rounded-lg py-1 pr-2 pl-1.5 text-left text-xs transition-opacity hover:opacity-80"
     >
-      <span
-        className="h-1.5 w-1.5 shrink-0 rounded-full"
-        style={{ backgroundColor: dotColor(task) }}
-      />
-      <span className={cn('truncate', isDone && 'text-muted-foreground line-through')}>
+      <span className={cn('flex-1 truncate', isDone && 'text-muted-foreground line-through')}>
         {task.title}
       </span>
+      {task.category && (
+        <CategoryIcon
+          name={task.category.icon}
+          color={task.category.color}
+          className="h-3.5 w-3.5 shrink-0"
+        />
+      )}
     </button>
   );
 }

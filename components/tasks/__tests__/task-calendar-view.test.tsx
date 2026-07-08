@@ -49,11 +49,16 @@ const tasks: TaskRow[] = [
   makeTask({ id: 't-none', title: 'Someday', dueDate: null }),
 ];
 
-function setup() {
+function setup(mode: 'month' | 'week' = 'month') {
   const onOpenTask = jest.fn();
   const onAddTaskOnDate = jest.fn();
   const utils = render(
-    <TaskCalendarView tasks={tasks} onOpenTask={onOpenTask} onAddTaskOnDate={onAddTaskOnDate} />
+    <TaskCalendarView
+      mode={mode}
+      tasks={tasks}
+      onOpenTask={onOpenTask}
+      onAddTaskOnDate={onAddTaskOnDate}
+    />
   );
   return { ...utils, onOpenTask, onAddTaskOnDate };
 }
@@ -115,24 +120,21 @@ describe('TaskCalendarView', () => {
     expect(updateMutate).toHaveBeenCalledWith({ id: 't-today', patch: { status: 'DONE' } });
   });
 
-  it('switching to Week shows task titles across the whole week', () => {
-    setup();
-    // In month view only the selected day's (the 8th) task is listed, so the
-    // 9th's task isn't visible yet.
-    expect(screen.queryByText('Groceries')).not.toBeInTheDocument();
+  it('week mode shows task titles across the whole week', () => {
+    // The month agenda lists only the selected day's task…
+    const month = setup('month');
+    expect(month.queryByText('Groceries')).not.toBeInTheDocument();
+    month.unmount();
 
-    fireEvent.click(screen.getByRole('button', { name: 'week' }));
-
-    // The week of Jul 8 (Sun Jul 5 – Sat Jul 11) contains both tasks as chips.
+    // …whereas week mode (Sun Jul 5 – Sat Jul 11) shows every task as a chip.
+    setup('week');
     expect(screen.getByText('Dentist')).toBeInTheDocument();
     expect(screen.getByText('Groceries')).toBeInTheDocument();
-    // The range label is shown in the header.
     expect(screen.getByText(/Jul 5 – 11, 2026/)).toBeInTheDocument();
   });
 
   it('navigates weeks and opens a task from a week chip', () => {
-    const { onOpenTask } = setup();
-    fireEvent.click(screen.getByRole('button', { name: 'week' }));
+    const { onOpenTask } = setup('week');
 
     fireEvent.click(screen.getByText('Groceries'));
     expect(onOpenTask).toHaveBeenCalledWith('t-tomorrow');
@@ -144,8 +146,7 @@ describe('TaskCalendarView', () => {
   });
 
   it('adds a task on a specific week day', () => {
-    const { onAddTaskOnDate } = setup();
-    fireEvent.click(screen.getByRole('button', { name: 'week' }));
+    const { onAddTaskOnDate } = setup('week');
     fireEvent.click(screen.getByRole('button', { name: /Add task on .*July 8/ }));
     expect(onAddTaskOnDate).toHaveBeenCalledWith('2026-07-08T00:00:00.000Z');
   });
