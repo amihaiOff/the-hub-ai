@@ -103,18 +103,35 @@ describe('CategoryManagerDialog', () => {
     fireEvent.change(input, { target: { value: 'Health' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(createMutate).toHaveBeenCalledWith({ name: 'Health', icon: null }, expect.anything());
+    expect(createMutate).toHaveBeenCalledWith(
+      { name: 'Health', icon: null, color: null },
+      expect.anything()
+    );
   });
 
-  it('picks an icon for a category and calls update.mutate with the icon patch', () => {
+  it('picks an icon for a category and calls update.mutate with the icon patch', async () => {
     setup();
 
-    // Open the Home row's icon picker, then choose the "home" icon.
-    fireEvent.click(screen.getByRole('button', { name: 'Icon for Home' }));
-    fireEvent.click(screen.getByRole('button', { name: 'home' }));
+    // Open the Home row's appearance picker; the lucide set loads lazily, so
+    // wait for a known icon button (PascalCase lucide name) then click it.
+    fireEvent.click(screen.getByRole('button', { name: 'Icon and color for Home' }));
+    const heartIcon = await screen.findByRole('button', { name: 'Heart' });
+    fireEvent.click(heartIcon);
 
     expect(updateMutate).toHaveBeenCalledWith(
-      { id: 'cat-home', patch: { icon: 'home' } },
+      { id: 'cat-home', patch: { icon: 'Heart' } },
+      expect.anything()
+    );
+  });
+
+  it('picks a color for a category and calls update.mutate with the color patch', () => {
+    setup();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Icon and color for Finance' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Color #22c55e' }));
+
+    expect(updateMutate).toHaveBeenCalledWith(
+      { id: 'cat-finance', patch: { color: '#22c55e' } },
       expect.anything()
     );
   });

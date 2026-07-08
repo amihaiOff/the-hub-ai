@@ -28,7 +28,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { TASK_CATEGORY_ICONS, CategoryIcon } from '@/lib/constants/task-category-icons';
+import { CategoryIcon, loadLucideIcons, POPULAR_ICONS } from './category-icon';
 import {
   useTaskCategories,
   useCreateTaskCategory,
@@ -37,6 +37,22 @@ import {
   useReorderTaskCategories,
   type TaskCategoryRow,
 } from '@/lib/hooks/use-tasks';
+
+/** Preset category colors (readable on the dark theme); null = default. */
+const CATEGORY_COLORS = [
+  '#ef4444',
+  '#f97316',
+  '#f59e0b',
+  '#eab308',
+  '#22c55e',
+  '#10b981',
+  '#06b6d4',
+  '#3b82f6',
+  '#6ab2ff',
+  '#8b5cf6',
+  '#ec4899',
+  '#a1a1aa',
+];
 
 interface CategoryManagerDialogProps {
   open: boolean;
@@ -79,6 +95,7 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [newIcon, setNewIcon] = useState<string | null>(null);
+  const [newColor, setNewColor] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -90,6 +107,7 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
     setAdding(false);
     setNewName('');
     setNewIcon(null);
+    setNewColor(null);
     setConfirmDeleteId(null);
   };
   const clearSubRef = useRef(clearSub);
@@ -200,6 +218,7 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
     setConfirmDeleteId(null);
     setNewName('');
     setNewIcon(null);
+    setNewColor(null);
     setAdding(true);
   };
 
@@ -207,7 +226,7 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
     const name = newName.trim();
     if (name) {
       create.mutate(
-        { name, icon: newIcon },
+        { name, icon: newIcon, color: newColor },
         { onError: () => setErrorMsg('Couldn’t add the category.') }
       );
     }
@@ -218,6 +237,13 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
     update.mutate(
       { id, patch: { icon } },
       { onError: () => setErrorMsg('Couldn’t set the icon.') }
+    );
+  };
+
+  const setColor = (id: string, color: string | null) => {
+    update.mutate(
+      { id, patch: { color } },
+      { onError: () => setErrorMsg('Couldn’t set the color.') }
     );
   };
 
@@ -253,6 +279,7 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
                   onSaveEdit={() => saveEdit(cat.id)}
                   onStartEdit={() => startEdit(cat)}
                   onSetIcon={(icon) => setIcon(cat.id, icon)}
+                  onSetColor={(color) => setColor(cat.id, color)}
                   onExit={exitSub}
                   onStartDelete={() => {
                     setErrorMsg(null);
@@ -274,7 +301,13 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
           {adding && (
             <div className="flex items-center gap-2 rounded-xl px-2 py-2">
               <span className="w-6 shrink-0" />
-              <IconPicker value={newIcon} onSelect={setNewIcon} label="New category icon" />
+              <AppearancePicker
+                icon={newIcon}
+                color={newColor}
+                onIcon={setNewIcon}
+                onColor={setNewColor}
+                label="New category icon and color"
+              />
               <input
                 autoFocus
                 value={newName}
@@ -328,6 +361,7 @@ function CategoryRow({
   onSaveEdit,
   onStartEdit,
   onSetIcon,
+  onSetColor,
   onExit,
   onStartDelete,
   onConfirmDelete,
@@ -341,6 +375,7 @@ function CategoryRow({
   onSaveEdit: () => void;
   onStartEdit: () => void;
   onSetIcon: (icon: string | null) => void;
+  onSetColor: (color: string | null) => void;
   onExit: () => void;
   onStartDelete: () => void;
   onConfirmDelete: () => void;
@@ -376,7 +411,13 @@ function CategoryRow({
 
       {editing ? (
         <>
-          <IconPicker value={cat.icon} onSelect={onSetIcon} label={`Icon for ${cat.name}`} />
+          <AppearancePicker
+            icon={cat.icon}
+            color={cat.color}
+            onIcon={onSetIcon}
+            onColor={onSetColor}
+            label={`Icon and color for ${cat.name}`}
+          />
           <input
             autoFocus
             value={draft}
@@ -417,7 +458,13 @@ function CategoryRow({
         </>
       ) : (
         <>
-          <IconPicker value={cat.icon} onSelect={onSetIcon} label={`Icon for ${cat.name}`} />
+          <AppearancePicker
+            icon={cat.icon}
+            color={cat.color}
+            onIcon={onSetIcon}
+            onColor={onSetColor}
+            label={`Icon and color for ${cat.name}`}
+          />
           <span className="flex-1 truncate text-sm font-medium">{cat.name}</span>
           <IconBtn label={`Edit ${cat.name}`} onClick={onStartEdit}>
             <Pencil className="h-4 w-4" />
@@ -431,17 +478,44 @@ function CategoryRow({
   );
 }
 
-/** Trigger showing the current icon; opens a popover grid to pick a new one. */
-function IconPicker({
-  value,
-  onSelect,
+/**
+ * Trigger showing the current icon (tinted with the category color); opens a
+ * popover with a color-swatch row and a searchable grid of all lucide icons.
+ */
+function AppearancePicker({
+  icon,
+  color,
+  onIcon,
+  onColor,
   label,
 }: {
-  value: string | null;
-  onSelect: (icon: string | null) => void;
+  icon: string | null;
+  color: string | null;
+  onIcon: (icon: string | null) => void;
+  onColor: (color: string | null) => void;
   label: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [names, setNames] = useState<string[]>([]);
+
+  // Load the full lucide set the first time the picker opens (cached).
+  useEffect(() => {
+    if (!open || names.length) return;
+    let active = true;
+    loadLucideIcons().then((icons) => {
+      if (active) setNames(Object.keys(icons));
+    });
+    return () => {
+      active = false;
+    };
+  }, [open, names.length]);
+
+  const normalized = query.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const results = normalized
+    ? names.filter((n) => n.toLowerCase().includes(normalized)).slice(0, 60)
+    : POPULAR_ICONS;
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -451,31 +525,74 @@ function IconPicker({
           title={label}
           className="border-border/60 hover:bg-muted/60 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
         >
-          <CategoryIcon name={value} className="text-foreground h-4 w-4" />
+          <CategoryIcon name={icon} color={color} className="h-4 w-4" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto rounded-2xl p-2" align="start">
-        <div className="grid grid-cols-6 gap-1">
-          {TASK_CATEGORY_ICONS.map(({ name, Icon }) => (
+      <PopoverContent className="w-64 rounded-2xl p-2" align="start">
+        {/* Color swatches — first is "default" (no color). */}
+        <div className="flex flex-wrap gap-1.5 pb-2">
+          <button
+            type="button"
+            aria-label="Default color"
+            aria-pressed={!color}
+            onClick={() => onColor(null)}
+            className={cn(
+              'flex h-6 w-6 items-center justify-center rounded-full border text-[10px]',
+              !color ? 'border-primary text-primary' : 'border-border text-muted-foreground'
+            )}
+          >
+            —
+          </button>
+          {CATEGORY_COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              aria-label={`Color ${c}`}
+              aria-pressed={color === c}
+              onClick={() => onColor(c)}
+              style={{ backgroundColor: c }}
+              className={cn(
+                'h-6 w-6 rounded-full ring-offset-1 transition-transform',
+                color === c ? 'ring-foreground ring-2' : 'hover:scale-110'
+              )}
+            />
+          ))}
+        </div>
+
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search icons…"
+          className="placeholder:text-muted-foreground mb-2 h-8 w-full rounded-lg bg-black/20 px-2 text-sm outline-none focus:bg-black/30"
+        />
+
+        <div className="grid max-h-52 grid-cols-6 gap-1 overflow-y-auto">
+          {results.map((name) => (
             <button
               key={name}
               type="button"
               aria-label={name}
-              aria-pressed={value === name}
+              aria-pressed={icon === name}
+              title={name}
               onClick={() => {
-                onSelect(name);
+                onIcon(name);
                 setOpen(false);
               }}
               className={cn(
                 'flex h-9 w-9 items-center justify-center rounded-lg transition-colors',
-                value === name
+                icon === name
                   ? 'bg-primary/15 text-primary'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               )}
             >
-              <Icon className="h-4 w-4" />
+              <CategoryIcon name={name} className="h-4 w-4" />
             </button>
           ))}
+          {results.length === 0 && (
+            <p className="text-muted-foreground col-span-6 py-4 text-center text-xs">
+              No icons found.
+            </p>
+          )}
         </div>
       </PopoverContent>
     </Popover>
