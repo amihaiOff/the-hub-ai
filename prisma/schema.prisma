@@ -1226,6 +1226,7 @@ model TaskCategory {
   id          String   @id @default(cuid())
   name        String
   color       String?
+  icon        String?
   sortOrder   Int      @default(0) @map("sort_order")
   householdId String   @map("household_id")
   createdAt   DateTime @default(now()) @map("created_at")

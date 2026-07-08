@@ -15,6 +15,7 @@ export interface TaskCategoryRow {
   id: string;
   name: string;
   color: string | null;
+  icon: string | null;
   sortOrder: number;
   householdId: string;
 }
@@ -192,7 +193,7 @@ export function useTaskCategories() {
 export function useCreateTaskCategory() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { name: string; color?: string | null }) =>
+    mutationFn: (input: { name: string; color?: string | null; icon?: string | null }) =>
       fetchJson<TaskCategoryRow>('/api/task-categories', {
         method: 'POST',
         body: JSON.stringify(input),
@@ -209,7 +210,23 @@ export function useUpdateTaskCategory() {
         method: 'PATCH',
         body: JSON.stringify(patch),
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: taskKeys.categories() }),
+    // Apply the change (rename / icon / color) to the cached list right away so
+    // the manager and the main screen reflect it without waiting for a refetch.
+    onMutate: async ({ id, patch }) => {
+      await qc.cancelQueries({ queryKey: taskKeys.categories() });
+      const previous = qc.getQueryData<TaskCategoryRow[]>(taskKeys.categories());
+      if (previous) {
+        qc.setQueryData<TaskCategoryRow[]>(
+          taskKeys.categories(),
+          previous.map((c) => (c.id === id ? { ...c, ...patch } : c))
+        );
+      }
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(taskKeys.categories(), ctx.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: taskKeys.categories() }),
   });
 }
 
