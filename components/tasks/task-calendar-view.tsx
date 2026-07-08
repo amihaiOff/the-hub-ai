@@ -8,10 +8,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { CategoryIcon } from './category-icon';
 import { PriorityBadge } from './task-list-view';
 
+type CalendarMode = 'month' | 'week';
+
 interface TaskCalendarViewProps {
   tasks: TaskRow[];
   onOpenTask: (id: string) => void;
-  /** Create a task due on the given day (local midday), then open it. */
+  /** Create a task due on the given day, then open it. */
   onAddTaskOnDate: (dueDateIso: string) => void;
 }
 
@@ -29,7 +31,7 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MAX_DOTS = 4;
 
 const pad = (n: number) => String(n).padStart(2, '0');
-/** Local calendar-day key (not UTC) so a task lands on the day the user sees. */
+/** Local calendar-day key so a task lands on the day the user sees. */
 const dayKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const keyToDate = (key: string) => {
   const [y, m, d] = key.split('-').map(Number);
@@ -38,21 +40,36 @@ const keyToDate = (key: string) => {
 const isHexColor = (c: string | null | undefined): c is string => !!c && /^#[0-9a-f]{6}$/i.test(c);
 const dotColor = (t: TaskRow) =>
   isHexColor(t.category?.color) ? t.category!.color! : STATUS_DOT[t.status];
+/** Subtle chip background from the category colour, else undefined (muted). */
+const tintColor = (t: TaskRow) =>
+  isHexColor(t.category?.color) ? `${t.category!.color!}22` : undefined;
+
+const startOfWeek = (d: Date) => {
+  const s = new Date(d);
+  s.setDate(d.getDate() - d.getDay());
+  return s;
+};
 
 /**
- * Month calendar for tasks with a due date. Each day cell shows coloured dots
- * (one per due task); tapping a day selects it and lists its tasks in the
- * agenda below, where they can be opened or toggled done. Tasks without a due
- * date are collected in a separate section so nothing is hidden.
+ * Calendar of tasks with a due date, in either a Month or a Week view.
+ *
+ * Month view: each day cell shows a coloured dot per due task; tapping a day
+ * lists its tasks in the agenda below (open / toggle done). Week view: seven
+ * day columns (stacked on mobile) where each task shows as a titled chip.
+ * Tasks without a due date are collected in a separate section either way.
  */
 export function TaskCalendarView({ tasks, onOpenTask, onAddTaskOnDate }: TaskCalendarViewProps) {
   const today = useMemo(() => new Date(), []);
+  const [mode, setModeState] = useState<CalendarMode>('month');
+  // Anchor date for the visible range: the 1st of the month in month mode, any
+  // day within the week in week mode.
   const [viewDate, setViewDate] = useState(
     () => new Date(today.getFullYear(), today.getMonth(), 1)
   );
   const [selectedKey, setSelectedKey] = useState(() => dayKey(today));
 
-  // Bucket tasks by local due-day, and collect the undated ones separately.
+  // Bucket tasks by their date-only due prefix (the detail sheet round-trips on
+  // the `YYYY-MM-DD` prefix), and collect the undated ones separately.
   const { byDay, undated } = useMemo(() => {
     const byDay = new Map<string, TaskRow[]>();
     const undated: TaskRow[] = [];
@@ -61,9 +78,6 @@ export function TaskCalendarView({ tasks, onOpenTask, onAddTaskOnDate }: TaskCal
         undated.push(t);
         continue;
       }
-      // Due dates are stored date-only (the detail sheet round-trips on the
-      // `YYYY-MM-DD` prefix), so bucket by that prefix — timezone-independent
-      // and consistent with how the date is written elsewhere.
       const key = t.dueDate.slice(0, 10);
       const list = byDay.get(key);
       if (list) list.push(t);
@@ -72,11 +86,10 @@ export function TaskCalendarView({ tasks, onOpenTask, onAddTaskOnDate }: TaskCal
     return { byDay, undated };
   }, [tasks]);
 
-  // 6 weeks × 7 days, starting on the Sunday on/before the 1st.
+  // Month grid: 6 weeks × 7 days, starting on the Sunday on/before the 1st.
   const gridDays = useMemo(() => {
     const monthStart = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
-    const gridStart = new Date(monthStart);
-    gridStart.setDate(1 - monthStart.getDay());
+    const gridStart = startOfWeek(monthStart);
     return Array.from({ length: 42 }, (_, i) => {
       const d = new Date(gridStart);
       d.setDate(gridStart.getDate() + i);
@@ -84,50 +97,85 @@ export function TaskCalendarView({ tasks, onOpenTask, onAddTaskOnDate }: TaskCal
     });
   }, [viewDate]);
 
-  const goToMonth = (offset: number) => {
-    const next = new Date(viewDate.getFullYear(), viewDate.getMonth() + offset, 1);
-    setViewDate(next);
-    // Follow the selection to the new month so the agenda stays in context.
-    setSelectedKey(dayKey(next));
+  // Week columns: the seven days of the anchor's week.
+  const weekDays = useMemo(() => {
+    const s = startOfWeek(viewDate);
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(s);
+      d.setDate(s.getDate() + i);
+      return d;
+    });
+  }, [viewDate]);
+
+  const setMode = (next: CalendarMode) => {
+    // Keep context across the toggle by anchoring on the selected day.
+    const sel = keyToDate(selectedKey);
+    setViewDate(next === 'month' ? new Date(sel.getFullYear(), sel.getMonth(), 1) : sel);
+    setModeState(next);
+  };
+
+  const goPrev = () => {
+    if (mode === 'month') {
+      const next = new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1);
+      setViewDate(next);
+      setSelectedKey(dayKey(next));
+    } else {
+      const next = new Date(viewDate);
+      next.setDate(viewDate.getDate() - 7);
+      setViewDate(next);
+    }
+  };
+
+  const goNext = () => {
+    if (mode === 'month') {
+      const next = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
+      setViewDate(next);
+      setSelectedKey(dayKey(next));
+    } else {
+      const next = new Date(viewDate);
+      next.setDate(viewDate.getDate() + 7);
+      setViewDate(next);
+    }
   };
 
   const goToToday = () => {
-    setViewDate(new Date(today.getFullYear(), today.getMonth(), 1));
+    setViewDate(
+      mode === 'month' ? new Date(today.getFullYear(), today.getMonth(), 1) : new Date(today)
+    );
     setSelectedKey(dayKey(today));
   };
 
   const todayKey = dayKey(today);
-  const currentMonth = viewDate.getMonth();
-  const selectedTasks = byDay.get(selectedKey) ?? [];
-  const selectedDate = keyToDate(selectedKey);
+  const title =
+    mode === 'month'
+      ? viewDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+      : weekRangeLabel(weekDays[0], weekDays[6]);
 
   return (
     <div className="space-y-4">
-      {/* Month navigation */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">
-          {viewDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
-        </h2>
-        <div className="flex items-center gap-1">
+      {/* Navigation */}
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="truncate text-lg font-semibold">{title}</h2>
+        <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
             onClick={goToToday}
             className="border-border/60 hover:bg-muted/60 mr-1 rounded-xl border px-3 py-1.5 text-xs font-medium"
           >
-            Today
+            {mode === 'month' ? 'Today' : 'This week'}
           </button>
           <button
             type="button"
-            onClick={() => goToMonth(-1)}
-            aria-label="Previous month"
+            onClick={goPrev}
+            aria-label={mode === 'month' ? 'Previous month' : 'Previous week'}
             className="border-border/60 hover:bg-muted/60 flex h-9 w-9 items-center justify-center rounded-xl border"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
           <button
             type="button"
-            onClick={() => goToMonth(1)}
-            aria-label="Next month"
+            onClick={goNext}
+            aria-label={mode === 'month' ? 'Next month' : 'Next week'}
             className="border-border/60 hover:bg-muted/60 flex h-9 w-9 items-center justify-center rounded-xl border"
           >
             <ChevronRight className="h-4 w-4" />
@@ -135,6 +183,86 @@ export function TaskCalendarView({ tasks, onOpenTask, onAddTaskOnDate }: TaskCal
         </div>
       </div>
 
+      {/* Week / Month toggle */}
+      <div className="border-border/60 bg-muted/30 flex rounded-xl border p-0.5">
+        {(['week', 'month'] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMode(m)}
+            aria-pressed={mode === m}
+            className={cn(
+              'flex-1 rounded-lg py-1.5 text-xs font-medium capitalize transition-colors',
+              mode === m ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+            )}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+
+      {mode === 'month' ? (
+        <MonthGrid
+          gridDays={gridDays}
+          byDay={byDay}
+          currentMonth={viewDate.getMonth()}
+          todayKey={todayKey}
+          selectedKey={selectedKey}
+          onSelect={setSelectedKey}
+          onOpenTask={onOpenTask}
+          onAddTaskOnDate={onAddTaskOnDate}
+        />
+      ) : (
+        <WeekColumns
+          weekDays={weekDays}
+          byDay={byDay}
+          todayKey={todayKey}
+          onOpenTask={onOpenTask}
+          onAddTaskOnDate={onAddTaskOnDate}
+        />
+      )}
+
+      {/* Tasks with no due date — surfaced so the calendar never hides them. */}
+      {undated.length > 0 && (
+        <details className="border-border/40 border-t pt-4">
+          <summary className="text-muted-foreground cursor-pointer text-sm font-semibold select-none">
+            No due date ({undated.length})
+          </summary>
+          <div className="mt-2 space-y-2">
+            {undated.map((task) => (
+              <AgendaRow key={task.id} task={task} onOpen={() => onOpenTask(task.id)} />
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
+function MonthGrid({
+  gridDays,
+  byDay,
+  currentMonth,
+  todayKey,
+  selectedKey,
+  onSelect,
+  onOpenTask,
+  onAddTaskOnDate,
+}: {
+  gridDays: Date[];
+  byDay: Map<string, TaskRow[]>;
+  currentMonth: number;
+  todayKey: string;
+  selectedKey: string;
+  onSelect: (key: string) => void;
+  onOpenTask: (id: string) => void;
+  onAddTaskOnDate: (iso: string) => void;
+}) {
+  const selectedTasks = byDay.get(selectedKey) ?? [];
+  const selectedDate = keyToDate(selectedKey);
+
+  return (
+    <>
       {/* Weekday header */}
       <div className="grid grid-cols-7 gap-1">
         {WEEKDAYS.map((wd) => (
@@ -157,7 +285,7 @@ export function TaskCalendarView({ tasks, onOpenTask, onAddTaskOnDate }: TaskCal
             <button
               key={key}
               type="button"
-              onClick={() => setSelectedKey(key)}
+              onClick={() => onSelect(key)}
               aria-label={`${date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}${
                 dayTasks.length
                   ? `, ${dayTasks.length} task${dayTasks.length === 1 ? '' : 's'}`
@@ -231,21 +359,88 @@ export function TaskCalendarView({ tasks, onOpenTask, onAddTaskOnDate }: TaskCal
           </div>
         )}
       </div>
+    </>
+  );
+}
 
-      {/* Tasks with no due date — surfaced so the calendar never hides them. */}
-      {undated.length > 0 && (
-        <details className="border-border/40 border-t pt-4">
-          <summary className="text-muted-foreground cursor-pointer text-sm font-semibold select-none">
-            No due date ({undated.length})
-          </summary>
-          <div className="mt-2 space-y-2">
-            {undated.map((task) => (
-              <AgendaRow key={task.id} task={task} onOpen={() => onOpenTask(task.id)} />
-            ))}
+function WeekColumns({
+  weekDays,
+  byDay,
+  todayKey,
+  onOpenTask,
+  onAddTaskOnDate,
+}: {
+  weekDays: Date[];
+  byDay: Map<string, TaskRow[]>;
+  todayKey: string;
+  onOpenTask: (id: string) => void;
+  onAddTaskOnDate: (iso: string) => void;
+}) {
+  return (
+    // One stacked column per day on mobile; seven side-by-side on desktop.
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-7">
+      {weekDays.map((date) => {
+        const key = dayKey(date);
+        const dayTasks = byDay.get(key) ?? [];
+        const isToday = key === todayKey;
+        return (
+          <div
+            key={key}
+            className={cn(
+              'rounded-xl border p-2 sm:min-h-28',
+              isToday ? 'border-primary/50 bg-primary/5' : 'border-border/50'
+            )}
+          >
+            <div className="mb-1.5 flex items-center justify-between gap-1">
+              <span className={cn('text-xs font-medium', isToday && 'text-primary')}>
+                {date.toLocaleDateString(undefined, { weekday: 'short' })} {date.getDate()}
+              </span>
+              <button
+                type="button"
+                onClick={() => onAddTaskOnDate(`${key}T00:00:00.000Z`)}
+                aria-label={`Add task on ${date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}`}
+                className="text-muted-foreground hover:text-primary hover:bg-primary/10 flex h-6 w-6 items-center justify-center rounded-lg"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="space-y-1">
+              {dayTasks.map((task) => (
+                <WeekChip key={task.id} task={task} onOpen={() => onOpenTask(task.id)} />
+              ))}
+              {dayTasks.length === 0 && (
+                <p className="text-muted-foreground/60 py-1 text-center text-xs">—</p>
+              )}
+            </div>
           </div>
-        </details>
-      )}
+        );
+      })}
     </div>
+  );
+}
+
+function WeekChip({ task, onOpen }: { task: TaskRow; onOpen: () => void }) {
+  const isDone = task.status === 'DONE';
+  const tint = tintColor(task);
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      title={task.title}
+      className={cn(
+        'flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-left text-xs transition-colors',
+        !tint && 'bg-muted/50 hover:bg-muted'
+      )}
+      style={tint ? { backgroundColor: tint } : undefined}
+    >
+      <span
+        className="h-1.5 w-1.5 shrink-0 rounded-full"
+        style={{ backgroundColor: dotColor(task) }}
+      />
+      <span className={cn('truncate', isDone && 'text-muted-foreground line-through')}>
+        {task.title}
+      </span>
+    </button>
   );
 }
 
@@ -293,4 +488,17 @@ function AgendaRow({ task, onOpen }: { task: TaskRow; onOpen: () => void }) {
       <PriorityBadge priority={task.priority} />
     </div>
   );
+}
+
+/** e.g. "Jul 6 – 12, 2026", "Jun 29 – Jul 5, 2026", or spanning years. */
+function weekRangeLabel(start: Date, end: Date): string {
+  const sameMonth =
+    start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+  const sameYear = start.getFullYear() === end.getFullYear();
+  const m = (d: Date) => d.toLocaleDateString(undefined, { month: 'short' });
+  if (sameMonth) return `${m(start)} ${start.getDate()} – ${end.getDate()}, ${end.getFullYear()}`;
+  if (sameYear) {
+    return `${m(start)} ${start.getDate()} – ${m(end)} ${end.getDate()}, ${end.getFullYear()}`;
+  }
+  return `${m(start)} ${start.getDate()}, ${start.getFullYear()} – ${m(end)} ${end.getDate()}, ${end.getFullYear()}`;
 }

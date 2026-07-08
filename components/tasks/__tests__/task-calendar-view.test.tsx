@@ -114,4 +114,39 @@ describe('TaskCalendarView', () => {
     fireEvent.click(within(row).getByLabelText('Mark task as done'));
     expect(updateMutate).toHaveBeenCalledWith({ id: 't-today', patch: { status: 'DONE' } });
   });
+
+  it('switching to Week shows task titles across the whole week', () => {
+    setup();
+    // In month view only the selected day's (the 8th) task is listed, so the
+    // 9th's task isn't visible yet.
+    expect(screen.queryByText('Groceries')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'week' }));
+
+    // The week of Jul 8 (Sun Jul 5 – Sat Jul 11) contains both tasks as chips.
+    expect(screen.getByText('Dentist')).toBeInTheDocument();
+    expect(screen.getByText('Groceries')).toBeInTheDocument();
+    // The range label is shown in the header.
+    expect(screen.getByText(/Jul 5 – 11, 2026/)).toBeInTheDocument();
+  });
+
+  it('navigates weeks and opens a task from a week chip', () => {
+    const { onOpenTask } = setup();
+    fireEvent.click(screen.getByRole('button', { name: 'week' }));
+
+    fireEvent.click(screen.getByText('Groceries'));
+    expect(onOpenTask).toHaveBeenCalledWith('t-tomorrow');
+
+    // Next week (Jul 12 – 18) has no tasks; the chips are gone.
+    fireEvent.click(screen.getByRole('button', { name: 'Next week' }));
+    expect(screen.getByText(/Jul 12 – 18, 2026/)).toBeInTheDocument();
+    expect(screen.queryByText('Groceries')).not.toBeInTheDocument();
+  });
+
+  it('adds a task on a specific week day', () => {
+    const { onAddTaskOnDate } = setup();
+    fireEvent.click(screen.getByRole('button', { name: 'week' }));
+    fireEvent.click(screen.getByRole('button', { name: /Add task on .*July 8/ }));
+    expect(onAddTaskOnDate).toHaveBeenCalledWith('2026-07-08T00:00:00.000Z');
+  });
 });
