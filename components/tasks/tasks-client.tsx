@@ -61,7 +61,7 @@ const PRIORITY_ORDER: Record<TaskRow['priority'], number> = {
 export function TasksClient() {
   const [view, setView] = useState<ViewMode>('kanban');
   const [search, setSearch] = useState('');
-  const [groupBy, setGroupBy] = useState<GroupBy>('status');
+  const [groupBy, setGroupBy] = useState<GroupBy>('category');
   const [detailId, setDetailId] = useState<string | null>(null);
 
   // Multi-select (entered by long-pressing a card).
