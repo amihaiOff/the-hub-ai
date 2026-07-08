@@ -162,9 +162,13 @@ function SuggestionBar({
   if (!transaction.suggestedCategoryId) return null;
 
   const confidence = Math.round((transaction.suggestionConfidence ?? 0) * 100);
+  // Block only the card's touch (tap/long-press) handlers. We must NOT swallow
+  // clicks in the capture phase here — that would stop the event before it
+  // reaches the buttons below, killing them on mobile. Each button's own
+  // onClick already calls stopPropagation to shield the card's bubble-phase
+  // onClick handler.
   const swallow = stopEvents
     ? {
-        onClickCapture: (e: React.MouseEvent) => e.stopPropagation(),
         onTouchStart: (e: React.TouchEvent) => e.stopPropagation(),
         onTouchEnd: (e: React.TouchEvent) => e.stopPropagation(),
       }

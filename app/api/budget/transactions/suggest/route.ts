@@ -160,15 +160,22 @@ export async function POST(request: NextRequest) {
         });
       } catch (err) {
         counts.errors++;
-        await prisma.budgetCategorizationLog.create({
-          data: {
-            householdId,
-            transactionId: tx.id,
-            transactionName: name,
-            status: 'error',
-            reasoning: err instanceof Error ? err.message.slice(0, 500) : 'Unknown error',
-          },
-        });
+        // Never let a logging failure escape the worker — one bad write must
+        // not reject Promise.all and 500 the whole batch (dropping partial
+        // counts and leaving some transactions already suggested).
+        try {
+          await prisma.budgetCategorizationLog.create({
+            data: {
+              householdId,
+              transactionId: tx.id,
+              transactionName: name,
+              status: 'error',
+              reasoning: err instanceof Error ? err.message.slice(0, 500) : 'Unknown error',
+            },
+          });
+        } catch (logErr) {
+          console.error('Failed to write categorization error log:', logErr);
+        }
       }
     });
 
