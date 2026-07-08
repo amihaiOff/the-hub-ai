@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Landmark, CreditCard } from 'lucide-react';
+import { Home, Landmark, CreditCard } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   useMoneytorAccounts,
@@ -39,6 +39,16 @@ function formatRelative(iso: string | null): string {
  */
 function bankBucket(account: MoneytorAccountRow): 'current' | 'deposits' {
   return account.subtype === 'balance' ? 'current' : 'deposits';
+}
+
+/**
+ * Debt grouping: split mortgages out from credit cards / consumer loans
+ * so long-term secured debt doesn't inflate the "credit card balance"
+ * number in the dashboard glance. `subtype` on a debt account carries
+ * Moneytor's `debtType` field.
+ */
+function debtBucket(account: MoneytorAccountRow): 'mortgage' | 'other' {
+  return account.subtype === 'mortgage' ? 'mortgage' : 'other';
 }
 
 interface EditableSubtitleProps {
@@ -260,10 +270,13 @@ export function MoneytorBalancesCard() {
   const accounts = data?.accounts ?? [];
   const banks = accounts.filter((a) => a.form === 'bank');
   const debts = accounts.filter((a) => a.form === 'debt');
-  const totals = data?.totals;
 
   const currentBanks = banks.filter((a) => bankBucket(a) === 'current');
   const depositBanks = banks.filter((a) => bankBucket(a) === 'deposits');
+  const otherDebts = debts.filter((a) => debtBucket(a) === 'other');
+  const mortgages = debts.filter((a) => debtBucket(a) === 'mortgage');
+  const otherDebtsTotal = otherDebts.reduce((s, a) => s + a.balanceInBase, 0);
+  const mortgagesTotal = mortgages.reduce((s, a) => s + a.balanceInBase, 0);
 
   if (isLoading && accounts.length === 0) {
     return (
@@ -297,15 +310,30 @@ export function MoneytorBalancesCard() {
           </div>
         )}
 
-        {/* Debts & Credit Cards */}
-        {debts.length > 0 && (
-          <div>
-            <SectionHeader
-              icon={CreditCard}
-              label="Debts & Credit Cards"
-              iconColor="bg-rose-500/15 text-rose-400"
-            />
-            <DebtSection accounts={debts} total={totals?.debt ?? 0} />
+        {/* Credit Cards & short-term debts — mortgage lives in its own
+            section below so it doesn't inflate the CC total at a glance. */}
+        {(otherDebts.length > 0 || mortgages.length > 0) && (
+          <div className="space-y-6">
+            {otherDebts.length > 0 && (
+              <div>
+                <SectionHeader
+                  icon={CreditCard}
+                  label="Credit Cards & Debts"
+                  iconColor="bg-rose-500/15 text-rose-400"
+                />
+                <DebtSection accounts={otherDebts} total={otherDebtsTotal} />
+              </div>
+            )}
+            {mortgages.length > 0 && (
+              <div>
+                <SectionHeader
+                  icon={Home}
+                  label="Mortgage"
+                  iconColor="bg-amber-500/15 text-amber-400"
+                />
+                <DebtSection accounts={mortgages} total={mortgagesTotal} />
+              </div>
+            )}
           </div>
         )}
       </div>
