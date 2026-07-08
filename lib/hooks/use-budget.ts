@@ -94,6 +94,7 @@ export const budgetKeys = {
   accountNames: () => [...budgetKeys.all, 'accountNames'] as const,
   accountNameIdentifiers: () => [...budgetKeys.all, 'accountNameIdentifiers'] as const,
   allMonthSummaries: () => [...budgetKeys.all, 'month'] as const,
+  categorizationLogs: () => [...budgetKeys.all, 'categorizationLogs'] as const,
 };
 
 // Account name mapping types
@@ -493,6 +494,69 @@ export function useDeleteTransaction() {
       queryClient.invalidateQueries({ queryKey: budgetKeys.analysis() });
       queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
     },
+  });
+}
+
+// ─── AI auto-categorization ───────────────────────────────────────────────
+
+export interface SuggestCategoriesResult {
+  processed: number;
+  suggested: number;
+  lowConfidence: number;
+  noMatch: number;
+  errors: number;
+}
+
+export interface CategorizationLog {
+  id: string;
+  transactionName: string;
+  status: 'suggested' | 'low_confidence' | 'no_match' | 'error';
+  resultCategoryName: string | null;
+  confidence: number | null;
+  reasoning: string | null;
+  createdAt: string;
+}
+
+/** Kick off an AI pass over uncategorized transactions. */
+export function useSuggestCategories() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input?: { limit?: number; transactionIds?: string[] }) =>
+      fetchApi<SuggestCategoriesResult>('/api/budget/transactions/suggest', {
+        method: 'POST',
+        body: JSON.stringify(input ?? {}),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allUncategorizedCounts() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.categorizationLogs() });
+    },
+  });
+}
+
+/** Approve (apply) or dismiss an AI suggestion for one transaction. */
+export function useSuggestionAction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, action }: { id: string; action: 'approve' | 'dismiss' }) =>
+      fetchApi<{ id: string; action: string }>(`/api/budget/transactions/${id}/suggestion`, {
+        method: 'POST',
+        body: JSON.stringify({ action }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allMonthSummaries() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.allUncategorizedCounts() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.analysis() });
+      queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
+    },
+  });
+}
+
+export function useCategorizationLogs() {
+  return useQuery({
+    queryKey: budgetKeys.categorizationLogs(),
+    queryFn: () => fetchApi<CategorizationLog[]>('/api/budget/categorization-logs'),
   });
 }
 

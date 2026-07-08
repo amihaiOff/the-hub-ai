@@ -21,6 +21,8 @@ function transformTransaction(tx: {
   currency: string;
   amountOriginal: Prisma.Decimal;
   categoryId: string | null;
+  suggestedCategoryId: string | null;
+  suggestionConfidence: number | null;
   payeeId: string | null;
   paymentMethod: string;
   paymentNumber: number | null;
@@ -38,6 +40,7 @@ function transformTransaction(tx: {
   updatedAt: Date;
   tags?: { tag: { id: string } }[];
   category?: { id: string; name: string } | null;
+  suggestedCategory?: { id: string; name: string } | null;
   payee?: { id: string; name: string } | null;
   profile?: { id: string; name: string } | null;
 }) {
@@ -51,6 +54,9 @@ function transformTransaction(tx: {
     amountOriginal: Number(tx.amountOriginal),
     categoryId: tx.categoryId,
     categoryName: tx.category?.name ?? null,
+    suggestedCategoryId: tx.suggestedCategoryId,
+    suggestedCategoryName: tx.suggestedCategory?.name ?? null,
+    suggestionConfidence: tx.suggestionConfidence,
     payeeId: tx.payeeId,
     payeeName: tx.payee?.name ?? null,
     paymentMethod: tx.paymentMethod,
@@ -243,7 +249,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (data.amountIls !== undefined) updateData.amountIls = data.amountIls;
     if (data.currency !== undefined) updateData.currency = data.currency;
     if (data.amountOriginal !== undefined) updateData.amountOriginal = data.amountOriginal;
-    if (data.categoryId !== undefined) updateData.categoryId = data.categoryId ?? null;
+    if (data.categoryId !== undefined) {
+      updateData.categoryId = data.categoryId ?? null;
+      // Assigning a category resolves any pending AI suggestion — clear it so
+      // the "suggested" marker (yellow border) disappears.
+      if (data.categoryId) {
+        updateData.suggestedCategoryId = null;
+        updateData.suggestionConfidence = null;
+        updateData.suggestedAt = null;
+      }
+    }
     if (data.payeeId !== undefined) updateData.payeeId = data.payeeId ?? null;
     if (data.paymentMethod !== undefined) updateData.paymentMethod = data.paymentMethod;
     if (data.paymentNumber !== undefined) updateData.paymentNumber = data.paymentNumber;
@@ -290,6 +305,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       where: { id },
       include: {
         category: {
+          select: { id: true, name: true },
+        },
+        suggestedCategory: {
           select: { id: true, name: true },
         },
         payee: {

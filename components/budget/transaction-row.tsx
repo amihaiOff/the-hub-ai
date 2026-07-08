@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreVertical, Pencil, Trash2, Split, ChevronsUpDown } from 'lucide-react';
+import { MoreVertical, Pencil, Trash2, Split, ChevronsUpDown, Check, X } from 'lucide-react';
 import { CategoryPickerSheet } from './category-picker-sheet';
 import { cn } from '@/lib/utils';
 import {
@@ -24,7 +24,7 @@ import {
   getCategoryWithGroup,
   getPayeeName,
 } from '@/lib/utils/budget';
-import { useUpdateTransaction } from '@/lib/hooks/use-budget';
+import { useUpdateTransaction, useSuggestionAction } from '@/lib/hooks/use-budget';
 import { CategoryGroupIcon, getGroupIconColor } from '@/lib/utils/category-group-icons';
 export interface PayeeCategoryPromptData {
   categoryId: string;
@@ -146,6 +146,66 @@ function TransactionActions({
   );
 }
 
+/**
+ * AI-suggestion chip + approve/dismiss buttons, shown on uncategorized
+ * transactions that carry a pending suggestion. `stopEvents` guards the mobile
+ * card's tap handler so clicking a button doesn't also open the row.
+ */
+function SuggestionBar({
+  transaction,
+  stopEvents,
+}: {
+  transaction: BudgetTransaction;
+  stopEvents?: boolean;
+}) {
+  const action = useSuggestionAction();
+  if (!transaction.suggestedCategoryId) return null;
+
+  const confidence = Math.round((transaction.suggestionConfidence ?? 0) * 100);
+  const swallow = stopEvents
+    ? {
+        onClickCapture: (e: React.MouseEvent) => e.stopPropagation(),
+        onTouchStart: (e: React.TouchEvent) => e.stopPropagation(),
+        onTouchEnd: (e: React.TouchEvent) => e.stopPropagation(),
+      }
+    : {};
+
+  return (
+    <div className="flex items-center gap-1" {...swallow}>
+      <span className="rounded bg-yellow-400/15 px-1.5 py-0.5 text-[11px] font-medium text-yellow-700 dark:text-yellow-300">
+        AI: {transaction.suggestedCategoryName ?? 'suggestion'}
+        {confidence ? ` · ${confidence}%` : ''}
+      </span>
+      <button
+        type="button"
+        aria-label="Approve suggested category"
+        title="Approve"
+        disabled={action.isPending}
+        onClick={(e) => {
+          e.stopPropagation();
+          action.mutate({ id: transaction.id, action: 'approve' });
+        }}
+        className="flex h-6 w-6 items-center justify-center rounded text-green-600 hover:bg-green-500/15 disabled:opacity-50 dark:text-green-400"
+      >
+        <Check className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        aria-label="Dismiss suggestion"
+        title="Dismiss"
+        disabled={action.isPending}
+        onClick={(e) => {
+          e.stopPropagation();
+          action.mutate({ id: transaction.id, action: 'dismiss' });
+        }}
+        className="text-muted-foreground hover:bg-muted flex h-6 w-6 items-center justify-center rounded disabled:opacity-50"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
 function TagDot({ tag }: { tag: BudgetTag }) {
   const [open, setOpen] = useState(false);
 
@@ -205,9 +265,17 @@ export function TransactionRow({
   );
   const groupInfo = getCategoryWithGroup(transaction.categoryId, categoryGroups);
   const categoryLabel = groupInfo ? groupInfo.categoryName : isIncome ? 'Income' : 'Uncategorized';
+  const hasSuggestion = !!transaction.suggestedCategoryId;
 
   return (
-    <tr className="hover:bg-muted/50 border-b transition-colors">
+    <tr
+      className={cn(
+        'hover:bg-muted/50 border-b transition-colors',
+        // Light-yellow left border marks a pending AI suggestion (the row is
+        // still uncategorized until approved).
+        hasSuggestion && 'border-l-4 border-l-yellow-300/70 bg-yellow-400/[0.04]'
+      )}
+    >
       {/* Checkbox */}
       <td className="w-10 px-4 py-2">
         <Checkbox checked={isSelected} onCheckedChange={onSelect} aria-label="Select transaction" />
@@ -249,6 +317,11 @@ export function TransactionRow({
           categoryGroups={categoryGroups}
           onSelect={(categoryId) => handleCategoryChange(categoryId ?? '')}
         />
+        {hasSuggestion && (
+          <div className="mt-1">
+            <SuggestionBar transaction={transaction} />
+          </div>
+        )}
       </td>
 
       {/* Tags */}
@@ -379,6 +452,7 @@ export function TransactionRowMobile({
     : isIncome
       ? 'Income'
       : 'Uncategorized';
+  const hasSuggestion = !!transaction.suggestedCategoryId;
 
   return (
     <div
@@ -386,6 +460,8 @@ export function TransactionRowMobile({
         'bg-card border-border/40 mx-2 mt-1.5 flex items-center gap-3 rounded-xl border p-3 transition-colors duration-150 select-none',
         isExpanded ? 'mb-0 rounded-b-none border-b-0' : 'mb-1.5',
         isSelected && 'ring-primary bg-primary/10 ring-2',
+        // Light-yellow border marks a pending AI suggestion.
+        hasSuggestion && !isSelected && 'border-l-4 border-l-yellow-300/70',
         'active:bg-card/70'
       )}
       onTouchStart={handleTouchStart}
@@ -437,6 +513,11 @@ export function TransactionRowMobile({
             {categoryBadgeText}
           </span>
         </div>
+        {hasSuggestion && (
+          <div className="mt-1.5">
+            <SuggestionBar transaction={transaction} stopEvents />
+          </div>
+        )}
         {transaction.notes && (
           <div className="text-muted-foreground mt-1 truncate text-xs">{transaction.notes}</div>
         )}

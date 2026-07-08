@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, AlertCircle, History, Plus } from 'lucide-react';
+import { Upload, AlertCircle, History, Plus, Sparkles, Loader2 } from 'lucide-react';
 import {
   useTransactions,
   useCategoryGroups,
@@ -12,6 +12,7 @@ import {
   useUncategorizedCount,
   useAccountNames,
   useSelectedMonth,
+  useSuggestCategories,
   type TransactionFilters as FilterType,
 } from '@/lib/hooks/use-budget';
 import { formatCurrencyILS } from '@/lib/utils/budget';
@@ -31,7 +32,29 @@ export default function TransactionsPage() {
   const [showForceResync, setShowForceResync] = useState(false);
   const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [filters, setFilters] = useState<FilterType>({});
+  const [suggestMsg, setSuggestMsg] = useState<string | null>(null);
   const { selectedMonth, setSelectedMonth } = useSelectedMonth();
+  const suggest = useSuggestCategories();
+
+  const handleSuggest = () => {
+    setSuggestMsg(null);
+    suggest.mutate(undefined, {
+      onSuccess: (r) => {
+        const parts = [`${r.suggested} suggested`];
+        if (r.lowConfidence) parts.push(`${r.lowConfidence} low-confidence`);
+        if (r.noMatch) parts.push(`${r.noMatch} no match`);
+        if (r.errors) parts.push(`${r.errors} errors`);
+        setSuggestMsg(
+          r.processed === 0
+            ? 'No uncategorized transactions to analyze.'
+            : `Analyzed ${r.processed}: ${parts.join(', ')}. See the log in Settings.`
+        );
+        // Reveal the yellow-bordered suggestions.
+        if (r.suggested > 0) setFilters((prev) => ({ ...prev, uncategorized: true }));
+      },
+      onError: (e) => setSuggestMsg(e instanceof Error ? e.message : 'Failed to run suggestions.'),
+    });
+  };
 
   const {
     data: transactions = [],
@@ -151,6 +174,20 @@ export default function TransactionsPage() {
           variant="outline"
           size="icon"
           className="h-8 w-8 shrink-0"
+          onClick={handleSuggest}
+          disabled={suggest.isPending}
+          title="Suggest categories for uncategorized transactions with AI"
+        >
+          {suggest.isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Sparkles className="h-3.5 w-3.5" />
+          )}
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 shrink-0"
           onClick={() => setShowForceResync(true)}
           title="Force re-sync a date range from Moneytor"
         >
@@ -166,6 +203,22 @@ export default function TransactionsPage() {
           <Upload className="h-3.5 w-3.5" />
         </Button>
       </div>
+
+      {/* AI suggestion result banner */}
+      {suggestMsg && (
+        <div className="border-border bg-muted/40 text-muted-foreground flex items-start gap-2 rounded-lg border px-3 py-2 text-sm">
+          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-yellow-500" />
+          <span className="flex-1">{suggestMsg}</span>
+          <button
+            type="button"
+            onClick={() => setSuggestMsg(null)}
+            className="text-muted-foreground hover:text-foreground text-xs"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Active Filter Badges */}
       <ActiveFilterBadges filters={filters} onRemoveFilter={handleRemoveFilter} />

@@ -87,6 +87,8 @@ model Household {
   // "June" means transactions from June 10 (inclusive) to July 10 (exclusive).
   // Defaults to 1 (calendar month) for back-compat.
   billingCycleStartDay Int      @default(1) @map("billing_cycle_start_day")
+  // Anthropic API key for AI transaction auto-categorization (nullable; set via Settings).
+  anthropicApiKey      String?  @map("anthropic_api_key")
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
@@ -134,6 +136,9 @@ model Household {
 
   // Cross-cutting activity log (renames, stale-row deletes, etc.)
   generalLogs GeneralLog[]
+
+  // AI transaction categorization query log
+  categorizationLogs BudgetCategorizationLog[]
 
   @@map("households")
 }
@@ -512,7 +517,8 @@ model BudgetCategory {
 
   // Relations
   group              BudgetCategoryGroup  @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  transactions       BudgetTransaction[]
+  transactions       BudgetTransaction[]  @relation("TransactionCategory")
+  suggestedTransactions BudgetTransaction[] @relation("SuggestedCategory") // Transactions with this as an AI-suggested (not yet applied) category
   payees             BudgetPayee[]        // Payees with this as default category
   riseupCategories   RiseupCategory[]     // Riseup categories mapped to this category
   payeeCategoryRules PayeeCategoryRule[]  // Rules that auto-assign this category
@@ -572,6 +578,11 @@ model BudgetTransaction {
   currency              String            @default("ILS") // Original currency
   amountOriginal        Decimal           @map("amount_original") @db.Decimal(18, 2) // Amount in original currency
   categoryId            String?           @map("category_id")
+  // AI category suggestion — the transaction stays uncategorized (categoryId
+  // null) until the user approves; suggestedCategoryId only marks the guess.
+  suggestedCategoryId   String?           @map("suggested_category_id")
+  suggestionConfidence  Float?            @map("suggestion_confidence")
+  suggestedAt           DateTime?         @map("suggested_at")
   payeeId               String?           @map("payee_id")
   paymentMethod         PaymentMethod     @default(credit_card) @map("payment_method")
   paymentNumber         Int?              @map("payment_number") // For installments (e.g., 2 of 6)
@@ -591,7 +602,8 @@ model BudgetTransaction {
   updatedAt             DateTime          @updatedAt @map("updated_at")
 
   // Relations
-  category        BudgetCategory?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  category        BudgetCategory?        @relation("TransactionCategory", fields: [categoryId], references: [id], onDelete: SetNull)
+  suggestedCategory BudgetCategory?      @relation("SuggestedCategory", fields: [suggestedCategoryId], references: [id], onDelete: SetNull)
   payee           BudgetPayee?           @relation(fields: [payeeId], references: [id], onDelete: SetNull)
   profile         Profile?               @relation(fields: [profileId], references: [id], onDelete: SetNull)
   tags            BudgetTransactionTag[]
@@ -604,6 +616,7 @@ model BudgetTransaction {
   @@index([householdId, isDeleted, transactionDate])
   @@index([transactionDate])
   @@index([categoryId])
+  @@index([suggestedCategoryId])
   @@index([payeeId])
   @@index([profileId])
   @@index([originalTransactionId])
@@ -631,6 +644,29 @@ model PayeeCategoryRule {
   @@index([householdId])
   @@index([categoryId])
   @@map("payee_category_rules")
+}
+
+// Log of AI auto-categorization queries — one row per transaction the model
+// was asked about, recording what it decided and how confident it was.
+model BudgetCategorizationLog {
+  id                 String   @id @default(cuid())
+  householdId        String   @map("household_id")
+  transactionId      String?  @map("transaction_id") // Plain reference (no FK) — kept even if the transaction is later deleted
+  transactionName    String   @map("transaction_name") // Payee/description snapshot at query time
+  // Outcome: "suggested" (attached as a suggestion), "low_confidence" (below
+  // threshold — not applied), "no_match" (model found no fitting category),
+  // or "error" (query failed).
+  status             String
+  resultCategoryId   String?  @map("result_category_id") // The category the model leaned toward (may be null)
+  resultCategoryName String?  @map("result_category_name")
+  confidence         Float? // 0..1, null on error/no_match
+  reasoning          String? // Short model rationale
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, createdAt])
+  @@map("budget_categorization_logs")
 }
 
 // Junction table for transaction tags (many-to-many)

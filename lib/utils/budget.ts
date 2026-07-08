@@ -15,6 +15,10 @@ export interface BudgetTransaction {
   currency: string;
   amountOriginal: number;
   categoryId: string | null;
+  // AI category suggestion (transaction stays uncategorized until approved)
+  suggestedCategoryId?: string | null;
+  suggestedCategoryName?: string | null;
+  suggestionConfidence?: number | null;
   payeeId: string | null;
   paymentMethod: PaymentMethod;
   paymentNumber: number | null;
