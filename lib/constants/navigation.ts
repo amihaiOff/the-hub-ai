@@ -107,6 +107,7 @@ export const navItems: NavEntry[] = [
       { href: '/labs/dropped-trnx', label: 'Dropped Trnx', icon: Trash2 },
       { href: '/labs/sync-log', label: 'Sync Log', icon: History },
       { href: '/labs/activity', label: 'Activity', icon: Activity },
+      { href: '/labs/categorization-log', label: 'AI Categorization', icon: Sparkles },
     ],
   },
 ];
