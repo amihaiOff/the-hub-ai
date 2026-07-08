@@ -93,6 +93,8 @@ export const updateShareSchema = z.object({
 export const createTaskCategorySchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(80),
   color: z.string().max(20).optional().nullable(),
+  // Any short string is accepted so new icon keys can ship without a
+  // validation deploy; unknown keys fall back to a default icon at render.
   icon: z.string().max(40).optional().nullable(),
   sortOrder: z.number().int().optional(),
 });

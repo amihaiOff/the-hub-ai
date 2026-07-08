@@ -210,7 +210,23 @@ export function useUpdateTaskCategory() {
         method: 'PATCH',
         body: JSON.stringify(patch),
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: taskKeys.categories() }),
+    // Apply the change (rename / icon / color) to the cached list right away so
+    // the manager and the main screen reflect it without waiting for a refetch.
+    onMutate: async ({ id, patch }) => {
+      await qc.cancelQueries({ queryKey: taskKeys.categories() });
+      const previous = qc.getQueryData<TaskCategoryRow[]>(taskKeys.categories());
+      if (previous) {
+        qc.setQueryData<TaskCategoryRow[]>(
+          taskKeys.categories(),
+          previous.map((c) => (c.id === id ? { ...c, ...patch } : c))
+        );
+      }
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(taskKeys.categories(), ctx.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: taskKeys.categories() }),
   });
 }
 

@@ -240,7 +240,7 @@ function Column({
               !collapsed && 'rotate-90'
             )}
           />
-          {'icon' in column ? (
+          {groupBy === 'category' ? (
             <CategoryIcon name={column.icon} className="text-muted-foreground h-4 w-4" />
           ) : (
             <span className={cn('h-2 w-2 rounded-full', column.dotClass)} />

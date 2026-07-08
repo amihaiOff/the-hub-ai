@@ -105,4 +105,17 @@ describe('CategoryManagerDialog', () => {
 
     expect(createMutate).toHaveBeenCalledWith({ name: 'Health', icon: null }, expect.anything());
   });
+
+  it('picks an icon for a category and calls update.mutate with the icon patch', () => {
+    setup();
+
+    // Open the Home row's icon picker, then choose the "home" icon.
+    fireEvent.click(screen.getByRole('button', { name: 'Icon for Home' }));
+    fireEvent.click(screen.getByRole('button', { name: 'home' }));
+
+    expect(updateMutate).toHaveBeenCalledWith(
+      { id: 'cat-home', patch: { icon: 'home' } },
+      expect.anything()
+    );
+  });
 });
