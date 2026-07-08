@@ -15,6 +15,7 @@ export interface TaskCategoryRow {
   id: string;
   name: string;
   color: string | null;
+  icon: string | null;
   sortOrder: number;
   householdId: string;
 }
@@ -192,7 +193,7 @@ export function useTaskCategories() {
 export function useCreateTaskCategory() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { name: string; color?: string | null }) =>
+    mutationFn: (input: { name: string; color?: string | null; icon?: string | null }) =>
       fetchJson<TaskCategoryRow>('/api/task-categories', {
         method: 'POST',
         body: JSON.stringify(input),

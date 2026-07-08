@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
       data: {
         name: parsed.data.name,
         color: parsed.data.color ?? null,
+        icon: parsed.data.icon ?? null,
         sortOrder: parsed.data.sortOrder ?? 0,
         householdId: context.activeHousehold.id,
       },

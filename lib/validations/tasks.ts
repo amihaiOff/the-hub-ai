@@ -93,6 +93,7 @@ export const updateShareSchema = z.object({
 export const createTaskCategorySchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(80),
   color: z.string().max(20).optional().nullable(),
+  icon: z.string().max(40).optional().nullable(),
   sortOrder: z.number().int().optional(),
 });
 export const updateTaskCategorySchema = createTaskCategorySchema.partial();

@@ -103,6 +103,6 @@ describe('CategoryManagerDialog', () => {
     fireEvent.change(input, { target: { value: 'Health' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(createMutate).toHaveBeenCalledWith({ name: 'Health' }, expect.anything());
+    expect(createMutate).toHaveBeenCalledWith({ name: 'Health', icon: null }, expect.anything());
   });
 });

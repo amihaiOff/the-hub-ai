@@ -16,6 +16,7 @@ import { Check, ChevronRight, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUpdateTask, type TaskCategoryRow, type TaskRow } from '@/lib/hooks/use-tasks';
 import { useLongPress } from '@/lib/hooks/use-long-press';
+import { CategoryIcon } from '@/lib/constants/task-category-icons';
 import { TASK_STATUSES, TASK_PRIORITIES } from '@/lib/validations/tasks';
 import { prettyStatus } from './task-list-view';
 import { prettyPriority } from './task-filters-bar';
@@ -143,6 +144,8 @@ interface Column {
   key: string;
   label: string;
   dotClass: string;
+  /** Category icon key — set only when grouping by category. */
+  icon?: string | null;
 }
 
 function buildColumns(groupBy: GroupBy, categories: TaskCategoryRow[]): Column[] {
@@ -162,11 +165,12 @@ function buildColumns(groupBy: GroupBy, categories: TaskCategoryRow[]): Column[]
   }
   // category
   return [
-    { key: NO_CATEGORY_ID, label: 'Uncategorized', dotClass: 'bg-muted-foreground/40' },
+    { key: NO_CATEGORY_ID, label: 'Uncategorized', dotClass: 'bg-muted-foreground/40', icon: null },
     ...categories.map((c) => ({
       key: c.id,
       label: c.name,
       dotClass: 'bg-primary/60',
+      icon: c.icon,
     })),
   ];
 }
@@ -236,7 +240,11 @@ function Column({
               !collapsed && 'rotate-90'
             )}
           />
-          <span className={cn('h-2 w-2 rounded-full', column.dotClass)} />
+          {'icon' in column ? (
+            <CategoryIcon name={column.icon} className="text-muted-foreground h-4 w-4" />
+          ) : (
+            <span className={cn('h-2 w-2 rounded-full', column.dotClass)} />
+          )}
           <span className="text-sm font-semibold">{column.label}</span>
           <span className="bg-muted/60 text-muted-foreground inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold">
             {tasks.length}

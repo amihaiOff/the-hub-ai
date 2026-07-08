@@ -27,6 +27,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { TASK_CATEGORY_ICONS, CategoryIcon } from '@/lib/constants/task-category-icons';
 import {
   useTaskCategories,
   useCreateTaskCategory,
@@ -76,6 +78,7 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
   const [draft, setDraft] = useState('');
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
+  const [newIcon, setNewIcon] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -86,6 +89,7 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
     setDraft('');
     setAdding(false);
     setNewName('');
+    setNewIcon(null);
     setConfirmDeleteId(null);
   };
   const clearSubRef = useRef(clearSub);
@@ -195,15 +199,26 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
     setEditingId(null);
     setConfirmDeleteId(null);
     setNewName('');
+    setNewIcon(null);
     setAdding(true);
   };
 
   const saveAdd = () => {
     const name = newName.trim();
     if (name) {
-      create.mutate({ name }, { onError: () => setErrorMsg('Couldn’t add the category.') });
+      create.mutate(
+        { name, icon: newIcon },
+        { onError: () => setErrorMsg('Couldn’t add the category.') }
+      );
     }
     exitSub();
+  };
+
+  const setIcon = (id: string, icon: string | null) => {
+    update.mutate(
+      { id, patch: { icon } },
+      { onError: () => setErrorMsg('Couldn’t set the icon.') }
+    );
   };
 
   return (
@@ -237,6 +252,7 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
                   onDraftChange={setDraft}
                   onSaveEdit={() => saveEdit(cat.id)}
                   onStartEdit={() => startEdit(cat)}
+                  onSetIcon={(icon) => setIcon(cat.id, icon)}
                   onExit={exitSub}
                   onStartDelete={() => {
                     setErrorMsg(null);
@@ -258,6 +274,7 @@ export function CategoryManagerDialog({ open, onOpenChange }: CategoryManagerDia
           {adding && (
             <div className="flex items-center gap-2 rounded-xl px-2 py-2">
               <span className="w-6 shrink-0" />
+              <IconPicker value={newIcon} onSelect={setNewIcon} label="New category icon" />
               <input
                 autoFocus
                 value={newName}
@@ -310,6 +327,7 @@ function CategoryRow({
   onDraftChange,
   onSaveEdit,
   onStartEdit,
+  onSetIcon,
   onExit,
   onStartDelete,
   onConfirmDelete,
@@ -322,6 +340,7 @@ function CategoryRow({
   onDraftChange: (v: string) => void;
   onSaveEdit: () => void;
   onStartEdit: () => void;
+  onSetIcon: (icon: string | null) => void;
   onExit: () => void;
   onStartDelete: () => void;
   onConfirmDelete: () => void;
@@ -357,6 +376,7 @@ function CategoryRow({
 
       {editing ? (
         <>
+          <IconPicker value={cat.icon} onSelect={onSetIcon} label={`Icon for ${cat.name}`} />
           <input
             autoFocus
             value={draft}
@@ -397,6 +417,7 @@ function CategoryRow({
         </>
       ) : (
         <>
+          <IconPicker value={cat.icon} onSelect={onSetIcon} label={`Icon for ${cat.name}`} />
           <span className="flex-1 truncate text-sm font-medium">{cat.name}</span>
           <IconBtn label={`Edit ${cat.name}`} onClick={onStartEdit}>
             <Pencil className="h-4 w-4" />
@@ -407,6 +428,57 @@ function CategoryRow({
         </>
       )}
     </div>
+  );
+}
+
+/** Trigger showing the current icon; opens a popover grid to pick a new one. */
+function IconPicker({
+  value,
+  onSelect,
+  label,
+}: {
+  value: string | null;
+  onSelect: (icon: string | null) => void;
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          title={label}
+          className="border-border/60 hover:bg-muted/60 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
+        >
+          <CategoryIcon name={value} className="text-foreground h-4 w-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto rounded-2xl p-2" align="start">
+        <div className="grid grid-cols-6 gap-1">
+          {TASK_CATEGORY_ICONS.map(({ name, Icon }) => (
+            <button
+              key={name}
+              type="button"
+              aria-label={name}
+              aria-pressed={value === name}
+              onClick={() => {
+                onSelect(name);
+                setOpen(false);
+              }}
+              className={cn(
+                'flex h-9 w-9 items-center justify-center rounded-lg transition-colors',
+                value === name
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              <Icon className="h-4 w-4" />
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
