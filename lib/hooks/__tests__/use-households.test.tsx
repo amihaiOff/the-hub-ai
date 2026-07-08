@@ -419,6 +419,138 @@ describe('Households Hooks', () => {
     });
   });
 
+  describe('Error paths & fallbacks', () => {
+    it('useHouseholds falls back to a generic message when error is missing', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ success: false }),
+      });
+
+      const { result } = renderHook(() => useHouseholds(), { wrapper: createWrapper() });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      expect(result.current.error?.message).toBe('Failed to fetch households');
+    });
+
+    it('useHousehold surfaces an error when the request fails', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ success: false, error: 'Household not found' }),
+      });
+
+      const { result } = renderHook(() => useHousehold('h1'), { wrapper: createWrapper() });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      expect(result.current.error?.message).toBe('Household not found');
+    });
+
+    it('useHousehold falls back to a generic message when error is missing', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ success: false }),
+      });
+
+      const { result } = renderHook(() => useHousehold('h1'), { wrapper: createWrapper() });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      expect(result.current.error?.message).toBe('Failed to fetch household');
+    });
+
+    it('useUpdateHousehold rejects on API failure', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ success: false, error: 'Not authorized to update' }),
+      });
+
+      const { result } = renderHook(() => useUpdateHousehold(), { wrapper: createWrapper() });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync({ id: 'h1', name: 'X' });
+        })
+      ).rejects.toThrow('Not authorized to update');
+    });
+
+    it('useUpdateHousehold falls back to a generic message when error is missing', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ success: false }),
+      });
+
+      const { result } = renderHook(() => useUpdateHousehold(), { wrapper: createWrapper() });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync({ id: 'h1', name: 'X' });
+        })
+      ).rejects.toThrow('Failed to update household');
+    });
+
+    it('useAddHouseholdMember rejects on API failure', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ success: false, error: 'Member already exists' }),
+      });
+
+      const { result } = renderHook(() => useAddHouseholdMember(), { wrapper: createWrapper() });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync({ householdId: 'h1', profileId: 'p2' });
+        })
+      ).rejects.toThrow('Member already exists');
+    });
+
+    it('useAddHouseholdMember works without an explicit role', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: { id: 'p2', role: 'member' } }),
+      });
+
+      const { result } = renderHook(() => useAddHouseholdMember(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await result.current.mutateAsync({ householdId: 'h1', profileId: 'p2' });
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith('/api/households/h1/members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profileId: 'p2' }),
+      });
+    });
+
+    it('useUpdateHouseholdMember rejects on API failure', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ success: false, error: 'Cannot change owner role' }),
+      });
+
+      const { result } = renderHook(() => useUpdateHouseholdMember(), { wrapper: createWrapper() });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync({ householdId: 'h1', profileId: 'p2', role: 'admin' });
+        })
+      ).rejects.toThrow('Cannot change owner role');
+    });
+
+    it('useRemoveHouseholdMember falls back to a generic message when error is missing', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ success: false }),
+      });
+
+      const { result } = renderHook(() => useRemoveHouseholdMember(), { wrapper: createWrapper() });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync({ householdId: 'h1', profileId: 'p2' });
+        })
+      ).rejects.toThrow('Failed to remove member');
+    });
+  });
+
   describe('Cache Invalidation', () => {
     it('should invalidate households cache after creating household', async () => {
       const queryClient = createTestQueryClient();

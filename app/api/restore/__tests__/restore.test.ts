@@ -806,5 +806,625 @@ describe('Restore API', () => {
       const budgetTagIndex = createOps.indexOf('create:budgetTag');
       expect(budgetTagIndex).toBeLessThan(budgetTransactionTagIndex);
     });
+
+    it('should restore all extended tables with optional fields present', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+      const D = '2024-03-01T00:00:00.000Z';
+      const metadata = {
+        schemaVersion: '2.2',
+        backupDate: D,
+        createdBy: 'test@example.com',
+        counts: { moneytorAccounts: 1 },
+      };
+
+      const data = {
+        stock_account_cash: [
+          {
+            id: 'sac1',
+            accountId: 'account-1',
+            currency: 'USD',
+            amount: '1000',
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        mortgage_tracks: [
+          {
+            id: 'mt1',
+            mortgageId: 'ma1',
+            name: 'Track A',
+            amount: '500000',
+            interestRate: '3.5',
+            monthlyPayment: '2500', // present -> string branch
+            maturityDate: D, // present -> Date branch
+            sortOrder: 0,
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        payee_category_rules: [
+          {
+            id: 'pcr1',
+            name: 'Rule',
+            operator: 'contains',
+            value: 'rent',
+            categoryId: 'cat-1', // present
+            markNeverDefault: true, // present true branch
+            sortOrder: 0,
+            isActive: true,
+            householdId: 'household-1',
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        budget_transactions: [
+          {
+            id: 'tx1',
+            type: 'expense',
+            transactionDate: D,
+            paymentDate: D, // present -> Date branch
+            amountIls: '5000',
+            currency: 'ILS',
+            amountOriginal: '5000',
+            categoryId: 'cat-1',
+            payeeId: 'payee-1',
+            paymentMethod: 'bank_transfer',
+            paymentNumber: 1,
+            totalPayments: 3,
+            notes: 'note',
+            source: 'manual',
+            isRecurring: true,
+            isSplit: true,
+            originalTransactionId: null,
+            paymentIdentifier: 'PID',
+            excludedFromFlow: false,
+            isDeleted: true,
+            profileId: 'profile-1',
+            householdId: 'household-1',
+            createdAt: D,
+            updatedAt: D,
+          },
+          {
+            // Split child referencing tx1 -> triggers the second-pass update
+            id: 'tx2',
+            type: 'expense',
+            transactionDate: D,
+            paymentDate: null,
+            amountIls: '2500',
+            currency: 'ILS',
+            amountOriginal: '2500',
+            categoryId: 'cat-1',
+            payeeId: 'payee-1',
+            paymentMethod: 'bank_transfer',
+            paymentNumber: null,
+            totalPayments: null,
+            notes: null,
+            source: 'manual',
+            isRecurring: false,
+            isSplit: false,
+            originalTransactionId: 'tx1',
+            paymentIdentifier: null,
+            excludedFromFlow: false,
+            profileId: 'profile-1',
+            householdId: 'household-1',
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        shopping_categories: [
+          {
+            id: 'shc1',
+            name: 'Dairy',
+            sortOrder: 0,
+            householdId: 'household-1',
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        shopping_items: [
+          {
+            id: 'shi1',
+            name: 'Milk',
+            nameHe: 'חלב',
+            categoryId: 'shc1',
+            isDefault: true, // present true branch
+            lastPurchasedAt: D, // present -> Date branch
+            warningDays: 7, // present
+            householdId: 'household-1',
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        shopping_cart_items: [
+          {
+            id: 'sci1',
+            itemId: 'shi1',
+            quantity: 2,
+            checked: true, // present true branch
+            householdId: 'household-1',
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        shopping_deliveries: [
+          { id: 'shd1', deliveredAt: D, itemCount: 5, householdId: 'household-1', createdAt: D },
+        ],
+        insurance_policies: [
+          {
+            id: 'ip1',
+            profileId: 'profile-1',
+            householdId: 'household-1',
+            mainBranch: 'Health',
+            subBranch: 'Dental',
+            productType: 'HMO',
+            company: 'Clal',
+            insurancePeriod: '2024',
+            additionalDetails: 'details',
+            premiumIls: 199.9, // present -> number/string branch
+            premiumType: 'monthly',
+            policyNumber: 'POL-1',
+            planClassification: 'A',
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        moneytor_stock_holdings: [
+          {
+            id: 'msh1',
+            productId: 'prod1',
+            accountName: 'Brokerage',
+            broker: 'IBKR',
+            stockName: 'TSLA',
+            amount: '5.5',
+            purchasePrice: '200.25', // present branch
+            purchaseDate: D, // present -> Date branch
+            stockPrice: '300',
+            currency: 'USD',
+            totalWorthInBase: '6000',
+            accountCash: '150', // present branch
+            householdId: 'household-1',
+            syncedAt: D,
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        moneytor_stock_snapshots: [
+          {
+            id: 'mss1',
+            snapshotDate: D,
+            productId: 'prod1',
+            accountName: 'Brokerage',
+            stockName: 'TSLA',
+            amount: '5.5',
+            stockPrice: '300',
+            currency: 'USD',
+            totalWorthInBase: '6000',
+            accountCash: '150', // present branch
+            householdId: 'household-1',
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        moneytor_accounts: [
+          {
+            id: 'mac1',
+            productId: 'prod2',
+            form: 'bank',
+            name: 'Checking',
+            institution: 'Bank Hapoalim',
+            subtype: 'checking',
+            accountNumber: '123',
+            currency: 'ILS',
+            balanceInBase: '25000',
+            interestRate: '1.5', // present branch
+            maturityDate: D, // present -> Date branch
+            monthlyPayment: '500', // present branch
+            customSubtitle: 'main',
+            rawData: { foo: 'bar' }, // present -> object branch
+            householdId: 'household-1',
+            syncedAt: D,
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        moneytor_account_snapshots: [
+          {
+            id: 'mas1',
+            snapshotDate: D,
+            productId: 'prod2',
+            form: 'bank',
+            name: 'Checking',
+            balanceInBase: '25000',
+            currency: 'ILS',
+            householdId: 'household-1',
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        moneytor_pension_funds: [
+          {
+            id: 'mpf1',
+            productId: 'prod3',
+            routeName: 'Route',
+            routeCode: 'RC',
+            name: 'Fund',
+            institution: 'Menora',
+            productType: 'pension',
+            sugKupa: 1,
+            sugKerenPensia: 'X',
+            accountNumber: 'AN',
+            accountOwner: 'A',
+            fundId: 'FID',
+            fundOpeningDate: D, // date() present branch
+            amount: '100000',
+            currency: 'ILS',
+            balanceInBase: '100000',
+            profitsFromLastYear: '5000', // num() present branch
+            monthlyDepositEmployee: '1000',
+            monthlyDepositEmployer: '1500',
+            monthlyDepositSum: '2500',
+            depositFrequency: 'monthly',
+            employerProvisionPct: '6.5',
+            compensationProvisionPct: '8.33',
+            mgmtFeeFromSavings: '0.5',
+            mgmtFeeFromDeposit: '2',
+            projectedMonthlyPension: '9000',
+            projectedSavingsWithPremiums: '2000000',
+            projectedSavingsWithoutPremiums: '1500000',
+            yearsToRetirement: 25,
+            gilPrisha: 67,
+            sumHafkadotPitsuyim: '30000',
+            sumHafkadotLoPitsuyim: '70000',
+            pitzuimMaasikNochechi: '10000',
+            pitzuimMarkivLemas: '5000',
+            gender: 'M',
+            taarichLeyda: D, // date() present branch
+            matsavMishpachti: 'married',
+            rawData: { a: 1 }, // present -> object branch
+            householdId: 'household-1',
+            syncedAt: D,
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        moneytor_pension_snapshots: [
+          {
+            id: 'mps1',
+            snapshotMonth: D,
+            productId: 'prod3',
+            routeName: 'Route',
+            name: 'Fund',
+            institution: 'Menora',
+            productType: 'pension',
+            amount: '100000',
+            balanceInBase: '100000',
+            currency: 'ILS',
+            monthlyDepositSum: '2500', // present branch
+            profitsFromLastYear: '5000', // present branch
+            householdId: 'household-1',
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+      };
+
+      const blob = await createBackupZip(metadata, data);
+      const formData = createFormData(blob);
+      const request = new NextRequest('http://localhost:3000/api/restore', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const response = await POST(request);
+      const responseData = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(responseData.success).toBe(true);
+
+      // Extended tables were created.
+      expect(mockPrisma.stockAccountCash.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.mortgageTrack.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.payeeCategoryRule.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.shoppingCategory.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.shoppingItem.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.shoppingCartItem.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.shoppingDelivery.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.insurancePolicy.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.moneytorStockHolding.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.moneytorStockSnapshot.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.moneytorAccount.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.moneytorAccountSnapshot.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.moneytorPensionFund.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.moneytorPensionSnapshot.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.budgetTransaction.create).toHaveBeenCalledTimes(2);
+
+      // Second-pass update wires the split child's originalTransactionId.
+      expect(mockPrisma.budgetTransaction.update).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.budgetTransaction.update).toHaveBeenCalledWith({
+        where: { id: 'tx2' },
+        data: { originalTransactionId: 'tx1' },
+      });
+
+      // Spot-check present optional values were passed through / transformed.
+      const track = mockPrisma.mortgageTrack.create.mock.calls[0][0].data;
+      expect(track.monthlyPayment).toBe('2500');
+      expect(track.maturityDate).toBeInstanceOf(Date);
+
+      const rule = mockPrisma.payeeCategoryRule.create.mock.calls[0][0].data;
+      expect(rule.markNeverDefault).toBe(true);
+
+      const account = mockPrisma.moneytorAccount.create.mock.calls[0][0].data;
+      expect(account.rawData).toEqual({ foo: 'bar' });
+      expect(account.interestRate).toBe('1.5');
+      expect(account.maturityDate).toBeInstanceOf(Date);
+
+      const fund = mockPrisma.moneytorPensionFund.create.mock.calls[0][0].data;
+      expect(fund.fundOpeningDate).toBeInstanceOf(Date);
+      expect(fund.monthlyDepositSum).toBe('2500');
+
+      const item = mockPrisma.shoppingItem.create.mock.calls[0][0].data;
+      expect(item.isDefault).toBe(true);
+      expect(item.lastPurchasedAt).toBeInstanceOf(Date);
+    });
+
+    it('should handle extended tables with null/absent optional fields', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+      const D = '2024-03-01T00:00:00.000Z';
+      const metadata = {
+        schemaVersion: '2.2',
+        backupDate: D,
+        createdBy: 'test@example.com',
+        counts: {},
+      };
+
+      const data = {
+        mortgage_tracks: [
+          {
+            id: 'mt1',
+            mortgageId: 'ma1',
+            name: 'Track',
+            amount: '100',
+            interestRate: '2',
+            monthlyPayment: null, // != null false branch
+            maturityDate: null, // ternary false branch
+            sortOrder: 0,
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        payee_category_rules: [
+          {
+            id: 'pcr1',
+            name: 'Rule',
+            operator: 'eq',
+            value: 'x',
+            categoryId: null, // ?? null branch
+            // markNeverDefault omitted -> ?? false branch
+            sortOrder: 0,
+            isActive: false,
+            householdId: 'household-1',
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        budget_payees: [
+          {
+            id: 'py1',
+            name: 'P',
+            categoryId: null, // ?? null branch
+            // neverDefault omitted -> ?? false branch
+            householdId: 'household-1',
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        budget_categories: [
+          {
+            id: 'c1',
+            name: 'Misc',
+            groupId: 'g1',
+            budget: null, // != null false branch
+            isMust: false,
+            sortOrder: 0,
+            householdId: 'household-1',
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        shopping_items: [
+          {
+            id: 'shi1',
+            name: 'Item',
+            // nameHe, isDefault, lastPurchasedAt, warningDays omitted -> null/false branches
+            categoryId: 'shc1',
+            householdId: 'household-1',
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        shopping_cart_items: [
+          {
+            id: 'sci1',
+            itemId: 'shi1',
+            quantity: 1,
+            // checked omitted -> ?? false branch
+            householdId: 'household-1',
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        insurance_policies: [
+          {
+            id: 'ip1',
+            profileId: 'profile-1',
+            householdId: 'household-1',
+            mainBranch: 'Health',
+            // optional string fields omitted, premiumIls null
+            premiumIls: null,
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        moneytor_stock_holdings: [
+          {
+            id: 'msh1',
+            productId: 'prod1',
+            accountName: 'Brokerage',
+            // broker omitted -> ?? null
+            stockName: 'TSLA',
+            amount: '1',
+            purchasePrice: null, // != null false branch
+            purchaseDate: null, // ternary false branch
+            stockPrice: '2',
+            currency: 'USD',
+            totalWorthInBase: '2',
+            accountCash: null, // != null false branch
+            householdId: 'household-1',
+            syncedAt: D,
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        moneytor_stock_snapshots: [
+          {
+            id: 'mss1',
+            snapshotDate: D,
+            productId: 'prod1',
+            accountName: 'Brokerage',
+            stockName: 'TSLA',
+            amount: '1',
+            stockPrice: '2',
+            currency: 'USD',
+            totalWorthInBase: '2',
+            accountCash: null, // != null false branch
+            householdId: 'household-1',
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        moneytor_accounts: [
+          {
+            id: 'mac1',
+            productId: 'prod2',
+            form: 'bank',
+            name: 'Acc',
+            // institution/subtype/accountNumber omitted -> ?? null
+            currency: 'ILS',
+            balanceInBase: '10',
+            interestRate: null, // != null false branch
+            maturityDate: null, // ternary false branch
+            monthlyPayment: null, // != null false branch
+            // rawData omitted -> ?? undefined branch
+            householdId: 'household-1',
+            syncedAt: D,
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        moneytor_pension_funds: [
+          {
+            id: 'mpf1',
+            productId: 'prod3',
+            routeName: 'Route',
+            name: 'Fund',
+            productType: 'pension',
+            amount: '1',
+            currency: 'ILS',
+            balanceInBase: '1',
+            // every num()/date() field omitted -> null; rawData omitted -> undefined
+            householdId: 'household-1',
+            syncedAt: D,
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+        moneytor_pension_snapshots: [
+          {
+            id: 'mps1',
+            snapshotMonth: D,
+            productId: 'prod3',
+            routeName: 'Route',
+            name: 'Fund',
+            productType: 'pension',
+            amount: '1',
+            balanceInBase: '1',
+            currency: 'ILS',
+            monthlyDepositSum: null, // != null false branch
+            profitsFromLastYear: null, // != null false branch
+            householdId: 'household-1',
+            createdAt: D,
+            updatedAt: D,
+          },
+        ],
+      };
+
+      const blob = await createBackupZip(metadata, data);
+      const formData = createFormData(blob);
+      const request = new NextRequest('http://localhost:3000/api/restore', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const response = await POST(request);
+      const responseData = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(responseData.success).toBe(true);
+
+      const track = mockPrisma.mortgageTrack.create.mock.calls[0][0].data;
+      expect(track.monthlyPayment).toBeNull();
+      expect(track.maturityDate).toBeNull();
+
+      const rule = mockPrisma.payeeCategoryRule.create.mock.calls[0][0].data;
+      expect(rule.markNeverDefault).toBe(false);
+      expect(rule.categoryId).toBeNull();
+
+      const payee = mockPrisma.budgetPayee.create.mock.calls[0][0].data;
+      expect(payee.neverDefault).toBe(false);
+      expect(payee.categoryId).toBeNull();
+
+      const cat = mockPrisma.budgetCategory.create.mock.calls[0][0].data;
+      expect(cat.budget).toBeNull();
+
+      const item = mockPrisma.shoppingItem.create.mock.calls[0][0].data;
+      expect(item.isDefault).toBe(false);
+      expect(item.lastPurchasedAt).toBeNull();
+      expect(item.nameHe).toBeNull();
+
+      const cart = mockPrisma.shoppingCartItem.create.mock.calls[0][0].data;
+      expect(cart.checked).toBe(false);
+
+      const policy = mockPrisma.insurancePolicy.create.mock.calls[0][0].data;
+      expect(policy.premiumIls).toBeNull();
+      expect(policy.subBranch).toBeNull();
+
+      const holding = mockPrisma.moneytorStockHolding.create.mock.calls[0][0].data;
+      expect(holding.broker).toBeNull();
+      expect(holding.purchasePrice).toBeNull();
+      expect(holding.purchaseDate).toBeNull();
+      expect(holding.accountCash).toBeNull();
+
+      const account = mockPrisma.moneytorAccount.create.mock.calls[0][0].data;
+      expect(account.interestRate).toBeNull();
+      expect(account.maturityDate).toBeNull();
+      expect(account.rawData).toBeUndefined();
+
+      const fund = mockPrisma.moneytorPensionFund.create.mock.calls[0][0].data;
+      expect(fund.fundOpeningDate).toBeNull();
+      expect(fund.monthlyDepositSum).toBeNull();
+      expect(fund.profitsFromLastYear).toBeNull();
+      expect(fund.rawData).toBeUndefined();
+
+      const snap = mockPrisma.moneytorPensionSnapshot.create.mock.calls[0][0].data;
+      expect(snap.monthlyDepositSum).toBeNull();
+      expect(snap.profitsFromLastYear).toBeNull();
+
+      // No orphan update pass when nothing references an original transaction.
+      expect(mockPrisma.budgetTransaction.update).not.toHaveBeenCalled();
+    });
   });
 });
