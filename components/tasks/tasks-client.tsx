@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  CalendarDays,
   KanbanSquare,
   List as ListIcon,
   Loader2,
@@ -34,18 +35,20 @@ import { useLongPress } from '@/lib/hooks/use-long-press';
 import { TaskTableView } from './task-table-view';
 import { TaskListView } from './task-list-view';
 import { TaskKanbanView, type GroupBy } from './task-kanban-view';
+import { TaskCalendarView, type CalendarMode } from './task-calendar-view';
 import { TaskDetailSheet } from './task-detail-sheet';
 import { TaskToolbar, type ViewOption } from './task-toolbar';
 import { CategoryManagerDialog } from './category-manager-dialog';
 import { QuickAddPopover } from './quick-add-popover';
 import type { TaskSort } from './task-filters-bar';
 
-type ViewMode = 'list' | 'kanban' | 'table';
+type ViewMode = 'list' | 'kanban' | 'table' | 'calendar';
 
 const VIEW_OPTIONS: ViewOption[] = [
   { id: 'list', label: 'List', icon: ListIcon },
   { id: 'kanban', label: 'Kanban', icon: KanbanSquare },
   { id: 'table', label: 'Table', icon: TableIcon },
+  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
 ];
 
 // Sorting UI was removed; tasks always come back due-date-earliest-first.
@@ -61,7 +64,8 @@ const PRIORITY_ORDER: Record<TaskRow['priority'], number> = {
 export function TasksClient() {
   const [view, setView] = useState<ViewMode>('kanban');
   const [search, setSearch] = useState('');
-  const [groupBy, setGroupBy] = useState<GroupBy>('status');
+  const [groupBy, setGroupBy] = useState<GroupBy>('category');
+  const [calendarView, setCalendarView] = useState<CalendarMode>('month');
   const [detailId, setDetailId] = useState<string | null>(null);
 
   // Multi-select (entered by long-pressing a card).
@@ -88,6 +92,17 @@ export function TasksClient() {
   const handleQuickAdd = () => {
     createTask.mutate({ title: 'New task' }, { onSuccess: (task) => setDetailId(task.id) });
   };
+
+  // Calendar view: create a task already due on the tapped day, then open it.
+  const handleAddTaskOnDate = useCallback(
+    (dueDate: string) => {
+      createTask.mutate(
+        { title: 'New task', dueDate },
+        { onSuccess: (task) => setDetailId(task.id) }
+      );
+    },
+    [createTask]
+  );
 
   // Quick-add popover state. Short-press on the FAB opens it; long-press
   // falls through to handleQuickAdd (creates + opens the detail sheet).
@@ -217,6 +232,8 @@ export function TasksClient() {
           viewOptions={VIEW_OPTIONS}
           groupBy={groupBy}
           onGroupByChange={setGroupBy}
+          calendarView={calendarView}
+          onCalendarViewChange={setCalendarView}
           onManageCategories={() => setCategoryManagerOpen(true)}
         />
       )}
@@ -234,7 +251,21 @@ export function TasksClient() {
         </div>
       )}
 
-      {!isLoading && tasks.length === 0 && !error && <TaskEmptyState onCreate={handleQuickAdd} />}
+      {!isLoading && tasks.length === 0 && !error && view !== 'calendar' && (
+        <TaskEmptyState onCreate={handleQuickAdd} />
+      )}
+
+      {/* Calendar renders even with no tasks so days can still be scheduled.
+          Keyed on the mode so switching week/month re-anchors on today. */}
+      {!isLoading && !error && view === 'calendar' && (
+        <TaskCalendarView
+          key={calendarView}
+          mode={calendarView}
+          tasks={tasks}
+          onOpenTask={setDetailId}
+          onAddTaskOnDate={handleAddTaskOnDate}
+        />
+      )}
 
       {tasks.length > 0 && view === 'list' && (
         <TaskListView
