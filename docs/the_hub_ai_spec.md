@@ -113,17 +113,33 @@ household (setting first, `ANTHROPIC_API_KEY` env fallback).
 
 ### When guessing runs
 
+The automatic passes are all post-response (Next.js `after()`) or folded into an
+existing cron, so none blocks a user request. They deliberately avoid needing a
+frequent cron, because the Vercel Hobby plan caps crons at once/day and two
+total.
+
 1. **Right after import (instant feedback).** The import and CSV-upload routes
-   fire a bounded post-response pass via Next.js `after()`
-   (`lib/ai/post-import-suggestion.ts`) so a typical import shows suggestions
-   within seconds without blocking the response.
-2. **Cron drain (durable, any size).** `/api/cron/suggest-categories` runs every
-   10 minutes and drains any still-unattempted uncategorized expenses across all
-   households in bounded batches within a wall-clock budget, mopping up large
-   imports over the following runs without risking a request timeout.
-3. **Manual button.** The "Suggest categories" button on the transactions page
-   still runs on demand; unlike the automatic passes it re-processes rows even
-   if previously attempted.
+   fire a bounded post-response pass via `after()`
+   (`lib/ai/background-suggestion.ts` → `runPostImportSuggestion`) so a typical
+   import shows suggestions within seconds.
+2. **Read-triggered (activity-driven — the main driver).** Whenever the app
+   fetches the uncategorized count — i.e. the user is looking at their budget —
+   the counts route fires a bounded `after()` pass (`runReadTriggeredSuggestion`)
+   over not-yet-attempted rows. This continuously drains the backlog as the user
+   browses, needs no cron, and is self-limiting: once every row has been
+   attempted it's a no-op.
+3. **Daily backstop.** A bounded, time-boxed drain (`drainSuggestions`) is folded
+   into the existing `/api/cron/daily-tasks` cron (after Moneytor sync), so rows
+   the user never views — e.g. Moneytor-synced transactions — still get attempted
+   within a day. No new cron entry (respects the Hobby limits).
+4. **Manual / on-demand.** The "Suggest categories" button on the transactions
+   page runs on demand and, unlike the automatic passes, re-processes rows even
+   if previously attempted. The `/api/cron/suggest-categories` endpoint runs the
+   same drain and can be scheduled more frequently on paid plans.
+
+All passes share one wall-clock guard (`deadlineMs`) plus the bounded per-row
+error-retry counter, so none can overrun the serverless timeout in a way that
+loses work — a killed pass just leaves the remaining rows for the next one.
 
 ### Approving a guess
 
@@ -641,9 +657,10 @@ Stored in Vercel dashboard and GitHub Secrets:
 - **Net Worth Snapshots:** Every two weeks (1st and 15th of month)
   - Route: `/api/cron/create-snapshot`
   - Schedule: `0 0 1,15 * *`
-- **AI Categorization Drain:** Every 10 minutes
-  - Route: `/api/cron/suggest-categories`
-  - Schedule: `*/10 * * * *`
+- **AI Categorization Drain:** Folded into the daily-tasks cron (not a separate
+  schedule, to stay within the Hobby 2-cron / once-per-day limits). A manual/
+  on-demand `/api/cron/suggest-categories` endpoint runs the same drain and can
+  be scheduled more frequently on paid plans.
   - Guesses categories for uncategorized expenses not yet attempted (see "AI
     automatic categorization")
 

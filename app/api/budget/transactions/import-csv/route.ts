@@ -4,7 +4,7 @@ import { getHouseholdIdFromApiKey } from '@/lib/auth-api-key';
 import { parseRiseupCSV } from '@/lib/utils/riseup-csv-parser';
 import { importBulkSchema } from '@/lib/validations/budget';
 import { importTransactions } from '@/lib/utils/import-transactions';
-import { runPostImportSuggestion } from '@/lib/ai/post-import-suggestion';
+import { runPostImportSuggestion } from '@/lib/ai/background-suggestion';
 
 // Give the post-response AI categorization pass headroom under the timeout.
 export const maxDuration = 60;

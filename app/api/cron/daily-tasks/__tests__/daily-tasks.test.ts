@@ -28,6 +28,21 @@ jest.mock('@/lib/api/moneytor-sync', () => ({
   syncMoneytorForHouseholdAndLog: jest.fn(),
 }));
 
+// The AI categorization drain is covered in drain-suggestions.test.ts; here it
+// must not touch the DB or run the model, so stub it with a benign result.
+jest.mock('@/lib/ai/drain-suggestions', () => ({
+  drainSuggestions: jest.fn().mockResolvedValue({
+    householdsProcessed: 0,
+    processed: 0,
+    suggested: 0,
+    lowConfidence: 0,
+    noMatch: 0,
+    errors: 0,
+    timedOut: false,
+    skipped: [],
+  }),
+}));
+
 // Provide a real error class so the route's `instanceof MoneytorApiError`
 // checks (and the token-error early-break) behave as in production.
 jest.mock('@/lib/api/moneytor', () => {
@@ -46,8 +61,10 @@ import { GET } from '../route';
 import { prisma } from '@/lib/db';
 import { syncMoneytorForHouseholdAndLog } from '@/lib/api/moneytor-sync';
 import { MoneytorApiError } from '@/lib/api/moneytor';
+import { drainSuggestions } from '@/lib/ai/drain-suggestions';
 
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
+const mockDrain = drainSuggestions as jest.MockedFunction<typeof drainSuggestions>;
 const mockSync = syncMoneytorForHouseholdAndLog as jest.MockedFunction<
   typeof syncMoneytorForHouseholdAndLog
 >;
@@ -177,5 +194,27 @@ describe('GET /api/cron/daily-tasks — Moneytor sync', () => {
 
     expect(res.status).toBe(200);
     expect(data.success).toBe(true);
+  });
+
+  it('runs the AI categorization drain as a daily backstop and reports its result', async () => {
+    mockDrain.mockResolvedValueOnce({
+      householdsProcessed: 1,
+      processed: 4,
+      suggested: 3,
+      lowConfidence: 0,
+      noMatch: 1,
+      errors: 0,
+      timedOut: false,
+      skipped: [],
+    });
+
+    const res = await GET(req());
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(mockDrain).toHaveBeenCalledTimes(1);
+    // Bounded by an absolute wall-clock deadline.
+    expect(mockDrain).toHaveBeenCalledWith(expect.any(Number));
+    expect(data.results.categorization).toMatchObject({ suggested: 3, noMatch: 1 });
   });
 });

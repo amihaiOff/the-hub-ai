@@ -10,10 +10,6 @@
     {
       "path": "/api/cron/create-snapshot",
       "schedule": "0 0 1,15 * *"
-    },
-    {
-      "path": "/api/cron/suggest-categories",
-      "schedule": "*/10 * * * *"
     }
   ]
 }

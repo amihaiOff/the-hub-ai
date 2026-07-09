@@ -3,7 +3,7 @@ import { getCurrentContext } from '@/lib/auth-utils';
 import { importBulkSchema } from '@/lib/validations/budget';
 import { getFirstZodError } from '@/lib/validations/common';
 import { importTransactions } from '@/lib/utils/import-transactions';
-import { runPostImportSuggestion } from '@/lib/ai/post-import-suggestion';
+import { runPostImportSuggestion } from '@/lib/ai/background-suggestion';
 
 // Give the post-response AI categorization pass headroom under the timeout.
 export const maxDuration = 60;
