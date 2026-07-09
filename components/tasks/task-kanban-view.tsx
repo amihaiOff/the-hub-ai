@@ -18,7 +18,7 @@ import { useUpdateTask, type TaskCategoryRow, type TaskRow } from '@/lib/hooks/u
 import { useLongPress } from '@/lib/hooks/use-long-press';
 import { CategoryIcon } from './category-icon';
 import { TASK_STATUSES, TASK_PRIORITIES } from '@/lib/validations/tasks';
-import { prettyStatus } from './task-list-view';
+import { prettyStatus, PRIORITY_BORDER } from './task-list-view';
 import { prettyPriority } from './task-filters-bar';
 import type { SelectionProps } from './task-selection';
 
@@ -321,7 +321,11 @@ function DraggableKanbanCard({
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
   });
-  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
+  // Colour the border by urgency; the selected state keeps its primary ring.
+  const style: React.CSSProperties = {
+    ...(transform ? { transform: CSS.Translate.toString(transform) } : {}),
+    ...(selected ? {} : { borderColor: PRIORITY_BORDER[task.priority] }),
+  };
 
   // Gesture split on a card: quick tap opens it, press-and-move drags it
   // (moveTolerance 5 < the dnd activation distance of 6, so moving cancels the
@@ -381,7 +385,7 @@ function DraggableKanbanCard({
         // touch-none routes touch gestures to dnd (so vertical drag between
         // groups works); the stationary long-press still enters selection
         // because any movement cancels it before this could drag.
-        'border-border/60 bg-card hover:border-border relative block w-full touch-none rounded-2xl border p-4 text-left transition-colors select-none',
+        'bg-card relative block w-full touch-none rounded-2xl border p-4 text-left transition-colors select-none',
         'cursor-grab',
         isDragging && 'opacity-60 shadow-lg',
         selected && 'border-primary ring-primary/40 ring-2'

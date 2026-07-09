@@ -14,6 +14,18 @@ interface TaskListViewProps extends SelectionProps {
 }
 
 /**
+ * Card border colour by urgency (priority). Applied as an inline `borderColor`
+ * so it overrides the neutral class border; the selected state keeps its own
+ * primary ring instead. Shared with the kanban cards.
+ */
+export const PRIORITY_BORDER: Record<TaskRow['priority'], string> = {
+  URGENT: '#ef4444',
+  HIGH: '#f97316',
+  MEDIUM: '#eab308',
+  LOW: '#94a3b8',
+};
+
+/**
  * Card-per-row list. Each card is a fixed grid of label/value rows —
  * Category, Status, Priority, Due — with a checkbox at the top-left that
  * toggles DONE/TODO and strikes through the title. Long-pressing a card
@@ -82,9 +94,9 @@ function TaskCard({
     <div
       onClick={activate}
       {...handlers}
+      style={selected ? undefined : { borderColor: PRIORITY_BORDER[task.priority] }}
       className={cn(
-        'border-border/60 bg-card cursor-pointer touch-pan-y rounded-3xl border px-5 py-4 transition-colors select-none',
-        'hover:border-border',
+        'bg-card cursor-pointer touch-pan-y rounded-3xl border px-5 py-4 transition-colors select-none',
         selected && 'border-primary ring-primary/40 ring-2'
       )}
     >

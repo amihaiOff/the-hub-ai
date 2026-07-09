@@ -51,8 +51,8 @@ const VIEW_OPTIONS: ViewOption[] = [
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
 ];
 
-// Sorting UI was removed; tasks always come back due-date-earliest-first.
-const DEFAULT_SORT: TaskSort = 'due-asc';
+// No sort UI; tasks are ordered by urgency (priority), earliest due date breaking ties.
+const DEFAULT_SORT: TaskSort = 'priority';
 
 const PRIORITY_ORDER: Record<TaskRow['priority'], number> = {
   URGENT: 0,
@@ -405,7 +405,10 @@ function sortTasks(tasks: TaskRow[], sort: TaskSort): TaskRow[] {
       copy.sort((a, b) => dateCmp(b.dueDate, a.dueDate));
       break;
     case 'priority':
-      copy.sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
+      copy.sort(
+        (a, b) =>
+          PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority] || dateCmp(a.dueDate, b.dueDate)
+      );
       break;
     case 'title':
       copy.sort((a, b) => a.title.localeCompare(b.title));
