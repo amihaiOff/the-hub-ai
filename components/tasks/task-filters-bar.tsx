@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { TaskFilters } from '@/lib/validations/tasks';
 import type { TaskCategoryRow, TaskTagRow } from '@/lib/hooks/use-tasks';
-import { TASK_STATUSES, TASK_PRIORITIES } from '@/lib/validations/tasks';
+import { TASK_PRIORITIES } from '@/lib/validations/tasks';
 
 export type TaskSort = 'due-asc' | 'due-desc' | 'priority' | 'title' | 'created';
 
@@ -120,12 +120,6 @@ export function TaskFiltersBar({
       {/* Filter chip row — only visible when expanded or something's active */}
       {(expanded || activeFilterCount > 0) && (
         <div className="flex flex-wrap items-center gap-2">
-          <ChipSelect
-            label="Status"
-            value={filters.status}
-            options={TASK_STATUSES.map((s) => ({ value: s, label: prettyStatus(s) }))}
-            onChange={(v) => setValue('status', v as TaskFilters['status'])}
-          />
           <ChipSelect
             label="Priority"
             value={filters.priority}

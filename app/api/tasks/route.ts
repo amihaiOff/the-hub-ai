@@ -102,7 +102,8 @@ export async function POST(request: NextRequest) {
       data: {
         title: input.title,
         notes: input.notes ?? null,
-        status: input.status ?? 'TODO',
+        status: input.status ?? '',
+        done: input.done ?? false,
         priority: input.priority ?? 'MEDIUM',
         dueDate: input.dueDate ? new Date(input.dueDate) : null,
         categoryId: input.categoryId ?? null,

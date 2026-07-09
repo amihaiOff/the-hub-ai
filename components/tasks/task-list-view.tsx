@@ -115,7 +115,7 @@ function TaskCard({
   onToggleSelection: () => void;
 }) {
   const setDone = useToggleTaskDone();
-  const isDone = task.status === 'DONE';
+  const isDone = task.done;
   const hasChildren = (task.children?.length ?? 0) > 0;
 
   const { handlers, consumedClick } = useLongPress(onEnterSelection);
@@ -209,18 +209,16 @@ function CategoryValue({ task }: { task: TaskRow }) {
 }
 
 export function StatusBadge({ status }: { status: TaskRow['status'] }) {
-  const cls = {
-    TODO: 'bg-muted text-foreground',
-    IN_PROGRESS: 'bg-blue-500/15 text-blue-500',
-    BLOCKED: 'bg-amber-500/15 text-amber-500',
-    DONE: 'bg-emerald-500/15 text-emerald-500',
-    CANCELLED: 'bg-muted text-muted-foreground line-through',
-  }[status];
+  // Status is now a free-text label; an empty label shows a neutral dash.
+  const label = prettyStatus(status);
+  if (!label) return <span className="text-muted-foreground">—</span>;
   return (
     <span
-      className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium', cls)}
+      className={cn(
+        'bg-muted text-foreground inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium'
+      )}
     >
-      {prettyStatus(status)}
+      {label}
     </span>
   );
 }

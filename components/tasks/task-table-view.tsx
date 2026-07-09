@@ -25,9 +25,9 @@ import {
   type TaskCategoryRow,
   type TaskTagRow,
 } from '@/lib/hooks/use-tasks';
-import { TASK_STATUSES, TASK_PRIORITIES } from '@/lib/validations/tasks';
+import { TASK_PRIORITIES } from '@/lib/validations/tasks';
 import { useToggleTaskDone } from './task-undo';
-import { prettyStatus, prettyPriority } from './task-filters-bar';
+import { prettyPriority } from './task-filters-bar';
 
 interface TaskTableViewProps {
   tasks: TaskRow[];
@@ -133,7 +133,7 @@ function TaskRowEls(props: RowProps) {
   const setDone = useToggleTaskDone();
   const del = useDeleteTask();
   const isChild = depth > 0;
-  const isDone = task.status === 'DONE';
+  const isDone = task.done;
 
   return (
     <>
@@ -323,19 +323,27 @@ function StatusCell({
   value: TaskRow['status'];
   onChange: (v: TaskRow['status']) => void;
 }) {
+  // Free-text status. Uncontrolled + keyed on `value` so external (optimistic)
+  // changes reset it without a setState-in-effect; commits on blur / Enter.
+  const commit = (next: string) => {
+    const trimmed = next.trim();
+    if (trimmed !== value) onChange(trimmed);
+  };
   return (
-    <Select value={value} onValueChange={(v) => onChange(v as TaskRow['status'])}>
-      <SelectTrigger className="bg-muted/60 h-7 w-fit rounded-full border-none px-3 text-xs">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent className="rounded-2xl">
-        {TASK_STATUSES.map((s) => (
-          <SelectItem key={s} value={s}>
-            {prettyStatus(s)}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <input
+      key={value}
+      defaultValue={value}
+      onBlur={(e) => commit(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.currentTarget.blur();
+        }
+      }}
+      placeholder="—"
+      aria-label="Status"
+      className="bg-muted/60 placeholder:text-muted-foreground focus:ring-primary/40 h-7 w-28 rounded-full border-none px-3 text-xs outline-none focus:ring-1"
+    />
   );
 }
 

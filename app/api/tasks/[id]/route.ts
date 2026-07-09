@@ -92,6 +92,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (input.title !== undefined) data.title = input.title;
     if (input.notes !== undefined) data.notes = input.notes;
     if (input.status !== undefined) data.status = input.status;
+    if (input.done !== undefined) data.done = input.done;
     if (input.priority !== undefined) data.priority = input.priority;
     if (input.dueDate !== undefined) data.dueDate = input.dueDate ? new Date(input.dueDate) : null;
     if (input.sortOrder !== undefined) data.sortOrder = input.sortOrder;

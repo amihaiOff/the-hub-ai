@@ -20,16 +20,6 @@ interface TaskCalendarViewProps {
   onAddTaskOnDate: (dueDateIso: string) => void;
 }
 
-// Fallback dot colour when a task has no (valid) category colour — keyed by
-// status so the calendar still communicates state at a glance.
-const STATUS_DOT: Record<TaskRow['status'], string> = {
-  TODO: '#9ca3af',
-  IN_PROGRESS: '#3b82f6',
-  BLOCKED: '#f59e0b',
-  DONE: '#10b981',
-  CANCELLED: '#6b7280',
-};
-
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MAX_DOTS = 4;
 
@@ -42,7 +32,7 @@ const keyToDate = (key: string) => {
 };
 const isHexColor = (c: string | null | undefined): c is string => !!c && /^#[0-9a-f]{6}$/i.test(c);
 const dotColor = (t: TaskRow) =>
-  isHexColor(t.category?.color) ? t.category!.color! : STATUS_DOT[t.status];
+  isHexColor(t.category?.color) ? t.category!.color! : PRIORITY_COLOR[t.priority];
 
 // Week chips are coloured by urgency (priority); the category is shown as its
 // icon on the right instead.
@@ -409,7 +399,7 @@ function WeekColumns({
 }
 
 function WeekChip({ task, onOpen }: { task: TaskRow; onOpen: () => void }) {
-  const isDone = task.status === 'DONE';
+  const isDone = task.done;
   // Card colour communicates urgency; a left accent bar reinforces it.
   const color = PRIORITY_COLOR[task.priority];
   return (
@@ -436,7 +426,7 @@ function WeekChip({ task, onOpen }: { task: TaskRow; onOpen: () => void }) {
 
 function AgendaRow({ task, onOpen }: { task: TaskRow; onOpen: () => void }) {
   const setDone = useToggleTaskDone();
-  const isDone = task.status === 'DONE';
+  const isDone = task.done;
 
   return (
     <div

@@ -23,7 +23,8 @@ function makeTask(over: Partial<TaskRow>): TaskRow {
     id: 'id',
     title: 'Task',
     notes: null,
-    status: 'TODO',
+    status: '',
+    done: false,
     priority: 'MEDIUM',
     dueDate: null,
     sortOrder: 0,
@@ -117,7 +118,7 @@ describe('TaskCalendarView', () => {
     setup();
     const row = screen.getByText('Dentist').closest('div')!;
     fireEvent.click(within(row).getByLabelText('Mark task as done'));
-    expect(updateMutate).toHaveBeenCalledWith({ id: 't-today', patch: { status: 'DONE' } });
+    expect(updateMutate).toHaveBeenCalledWith({ id: 't-today', patch: { done: true } });
   });
 
   it('week mode shows task titles across the whole week', () => {

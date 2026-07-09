@@ -1203,14 +1203,6 @@ model MoneytorSyncLog {
 // under a household so it never leaks across households the user
 // belongs to.
 
-enum TaskStatus {
-  TODO
-  IN_PROGRESS
-  BLOCKED
-  DONE
-  CANCELLED
-}
-
 enum TaskPriority {
   LOW
   MEDIUM
@@ -1222,7 +1214,11 @@ model Task {
   id           String       @id @default(cuid())
   title        String
   notes        String?
-  status       TaskStatus   @default(TODO)
+  // Free-text status label (e.g. "In review", "Waiting on bank"). Empty means
+  // no label. Completion is tracked separately by `done`.
+  status       String       @default("")
+  // Whether the task is completed — drives the card checkmark and Archive.
+  done         Boolean      @default(false)
   priority     TaskPriority @default(MEDIUM)
   dueDate      DateTime?    @map("due_date")
   // Per-status ordering; used by the Board view to persist card position

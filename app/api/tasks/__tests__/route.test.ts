@@ -106,7 +106,8 @@ describe('GET /api/tasks', () => {
 
   it('returns 400 on invalid filter enum', async () => {
     mockGetCurrentContext.mockResolvedValueOnce(mockContext);
-    const res = await GET(new NextRequest('http://localhost/api/tasks?status=PARKED'));
+    // Priority is still an enum; an unknown value fails validation.
+    const res = await GET(new NextRequest('http://localhost/api/tasks?priority=PARKED'));
     expect(res.status).toBe(400);
   });
 });

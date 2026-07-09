@@ -92,8 +92,8 @@ export function TasksClient() {
   const tasks = useMemo(() => sortTasks(rawTasks as TaskRow[], DEFAULT_SORT), [rawTasks]);
   // Done tasks are pulled out of the active views into the Archive section at
   // the bottom; marking a card done moves it there (and back when un-done).
-  const activeTasks = useMemo(() => tasks.filter((t) => t.status !== 'DONE'), [tasks]);
-  const doneTasks = useMemo(() => tasks.filter((t) => t.status === 'DONE'), [tasks]);
+  const activeTasks = useMemo(() => tasks.filter((t) => !t.done), [tasks]);
+  const doneTasks = useMemo(() => tasks.filter((t) => t.done), [tasks]);
 
   const handleQuickAdd = () => {
     createTask.mutate({ title: 'New task' }, { onSuccess: (task) => setDetailId(task.id) });

@@ -30,8 +30,8 @@ import {
   type TaskTagRow,
   type TaskRow,
 } from '@/lib/hooks/use-tasks';
-import { TASK_STATUSES, TASK_PRIORITIES } from '@/lib/validations/tasks';
-import { prettyStatus, prettyPriority } from './task-filters-bar';
+import { TASK_PRIORITIES } from '@/lib/validations/tasks';
+import { prettyPriority } from './task-filters-bar';
 
 interface TaskDetailSheetProps {
   taskId: string | null;
@@ -45,14 +45,6 @@ const NONE = '__none__';
 // Pastel pill colors that match the semantic meaning of each value. The
 // triggers become tinted chips so the selected value pops without being
 // loud — /15 background + /90 text keeps it soft.
-const STATUS_PILL: Record<TaskRow['status'], string> = {
-  TODO: 'bg-slate-500/15 text-slate-300',
-  IN_PROGRESS: 'bg-sky-500/15 text-sky-300',
-  BLOCKED: 'bg-amber-500/15 text-amber-300',
-  DONE: 'bg-emerald-500/15 text-emerald-300',
-  CANCELLED: 'bg-muted text-muted-foreground line-through',
-};
-
 const PRIORITY_PILL: Record<TaskRow['priority'], string> = {
   URGENT: 'bg-red-500/15 text-red-300',
   HIGH: 'bg-orange-500/15 text-orange-300',
@@ -192,23 +184,24 @@ function TaskDetailBody({
         </MetaRow>
 
         <MetaRow icon={CircleDot} label="Status" iconClass="text-blue-400/70">
-          <Select value={task.status} onValueChange={(v) => patch('status', v)}>
-            <SelectTrigger
-              className={cn(
-                'h-8 w-fit rounded-full border-none px-3 text-xs font-medium',
-                STATUS_PILL[task.status]
-              )}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="rounded-2xl">
-              {TASK_STATUSES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {prettyStatus(s)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Free-text status label. Uncontrolled + keyed on the value so an
+              external change resets it; commits on blur / Enter. */}
+          <input
+            key={task.status}
+            defaultValue={task.status}
+            onBlur={(e) => {
+              const next = e.target.value.trim();
+              if (next !== task.status) patch('status', next);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.currentTarget.blur();
+              }
+            }}
+            placeholder="Add a status…"
+            className="placeholder:text-muted-foreground hover:bg-muted/40 focus:bg-muted/40 h-8 w-44 rounded-full border-none bg-transparent px-3 text-xs font-medium outline-none"
+          />
         </MetaRow>
 
         <MetaRow icon={Flag} label="Priority" iconClass="text-rose-400/70">

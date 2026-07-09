@@ -10,8 +10,6 @@ const UNDO_WINDOW_MS = 10_000;
 interface UndoEntry {
   id: string;
   title: string;
-  /** Status the task had before it was marked done — restored on undo. */
-  previousStatus: TaskRow['status'];
 }
 
 // ─── Tiny external store ────────────────────────────────────────────────
@@ -60,17 +58,17 @@ function clearUndo() {
 
 /**
  * Returns a `setDone(task, done)` callback shared by every task view. It PATCHes
- * the status (optimistically, via useUpdateTask) and, when a task is marked
- * DONE, records an undo entry so the floating Undo button can restore its
- * previous status within a short window.
+ * the `done` flag (optimistically, via useUpdateTask) and, when a task is marked
+ * done, records an undo entry so the floating Undo button can restore it within
+ * a short window.
  */
 export function useToggleTaskDone() {
   const update = useUpdateTask();
   return useCallback(
     (task: TaskRow, done: boolean) => {
-      update.mutate({ id: task.id, patch: { status: done ? 'DONE' : 'TODO' } });
+      update.mutate({ id: task.id, patch: { done } });
       if (done) {
-        registerUndo({ id: task.id, title: task.title, previousStatus: task.status });
+        registerUndo({ id: task.id, title: task.title });
       }
     },
     [update]
@@ -89,7 +87,7 @@ export function TaskUndoButton() {
   if (!pending) return null;
 
   const handleUndo = () => {
-    update.mutate({ id: pending.id, patch: { status: pending.previousStatus } });
+    update.mutate({ id: pending.id, patch: { done: false } });
     clearUndo();
   };
 

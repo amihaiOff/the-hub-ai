@@ -49,7 +49,7 @@ export function TaskArchive({
             >
               <DoneToggle
                 done
-                onToggle={() => update.mutate({ id: task.id, patch: { status: 'TODO' } })}
+                onToggle={() => update.mutate({ id: task.id, patch: { done: false } })}
                 label={`Restore “${task.title}”`}
               />
               <span className="text-muted-foreground flex-1 truncate text-sm line-through">

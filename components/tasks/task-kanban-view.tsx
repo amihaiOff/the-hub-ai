@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 import { useUpdateTask, type TaskCategoryRow, type TaskRow } from '@/lib/hooks/use-tasks';
 import { useLongPress } from '@/lib/hooks/use-long-press';
 import { CategoryIcon } from './category-icon';
-import { TASK_STATUSES, TASK_PRIORITIES } from '@/lib/validations/tasks';
+import { TASK_PRIORITIES } from '@/lib/validations/tasks';
 import { prettyStatus, PRIORITY_BORDER, DoneToggle } from './task-list-view';
 import { useToggleTaskDone } from './task-undo';
 import { prettyPriority } from './task-filters-bar';
@@ -33,14 +33,7 @@ interface TaskKanbanViewProps extends SelectionProps {
 }
 
 const NO_CATEGORY_ID = '__none__';
-
-const STATUS_DOT: Record<TaskRow['status'], string> = {
-  TODO: 'bg-muted-foreground/60',
-  IN_PROGRESS: 'bg-blue-500',
-  BLOCKED: 'bg-amber-500',
-  DONE: 'bg-emerald-500',
-  CANCELLED: 'bg-muted-foreground/40',
-};
+const NO_STATUS = '__nostatus__';
 
 const PRIORITY_DOT: Record<TaskRow['priority'], string> = {
   URGENT: 'bg-red-500',
@@ -85,7 +78,10 @@ export function TaskKanbanView({
     useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } })
   );
 
-  const columns = useMemo(() => buildColumns(groupBy, categories), [groupBy, categories]);
+  const columns = useMemo(
+    () => buildColumns(groupBy, categories, tasks),
+    [groupBy, categories, tasks]
+  );
   const grouped = useMemo(() => groupTasks(tasks, groupBy, columns), [tasks, groupBy, columns]);
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -97,7 +93,7 @@ export function TaskKanbanView({
     if (!task) return;
 
     if (groupBy === 'status') {
-      const nextStatus = columnKey as TaskRow['status'];
+      const nextStatus = columnKey === NO_STATUS ? '' : columnKey;
       if (task.status !== nextStatus) {
         update.mutate({ id: task.id, patch: { status: nextStatus } });
       }
@@ -150,13 +146,17 @@ interface Column {
   color?: string | null;
 }
 
-function buildColumns(groupBy: GroupBy, categories: TaskCategoryRow[]): Column[] {
+function buildColumns(groupBy: GroupBy, categories: TaskCategoryRow[], tasks: TaskRow[]): Column[] {
   if (groupBy === 'status') {
-    return TASK_STATUSES.map((s) => ({
-      key: s,
-      label: prettyStatus(s),
-      dotClass: STATUS_DOT[s],
-    }));
+    // Status is free text — derive one column per distinct label present, then
+    // always append a "No status" column (also the drop target for clearing).
+    const labels = new Set<string>();
+    for (const t of tasks) if (t.status) labels.add(t.status);
+    const cols: Column[] = [...labels]
+      .sort((a, b) => prettyStatus(a).localeCompare(prettyStatus(b)))
+      .map((s) => ({ key: s, label: prettyStatus(s), dotClass: 'bg-muted-foreground/50' }));
+    cols.push({ key: NO_STATUS, label: 'No status', dotClass: 'bg-muted-foreground/40' });
+    return cols;
   }
   if (groupBy === 'priority') {
     return TASK_PRIORITIES.map((p) => ({
@@ -193,7 +193,7 @@ function groupTasks(
   for (const c of columns) out[c.key] = [];
   for (const t of tasks) {
     let key: string;
-    if (groupBy === 'status') key = t.status;
+    if (groupBy === 'status') key = t.status || NO_STATUS;
     else if (groupBy === 'priority') key = t.priority;
     else key = t.categoryId ?? NO_CATEGORY_ID;
     if (out[key]) out[key].push(t);
@@ -323,7 +323,7 @@ function DraggableKanbanCard({
     id: task.id,
   });
   const setDone = useToggleTaskDone();
-  const isDone = task.status === 'DONE';
+  const isDone = task.done;
   const toggleDone = () => setDone(task, !isDone);
   // Tint only the left edge by urgency; the selected state keeps its primary ring.
   const style: React.CSSProperties = {
@@ -423,8 +423,12 @@ function DraggableKanbanCard({
             </span>
           )}
           <div className="text-sm leading-snug font-semibold break-words">{task.title}</div>
-          {task.notes && (
-            <p className="text-muted-foreground mt-1.5 line-clamp-2 text-xs">{task.notes}</p>
+          {/* Free-text status label (shown in place of the notes preview). Hidden
+              when the board is already grouped by status — it'd be redundant. */}
+          {task.status && groupBy !== 'status' && (
+            <span className="text-muted-foreground bg-muted/60 mt-1.5 inline-flex max-w-full items-center truncate rounded-md px-2 py-0.5 text-[11px] font-medium">
+              {prettyStatus(task.status)}
+            </span>
           )}
           {task.assignee && (
             <div className="mt-3">

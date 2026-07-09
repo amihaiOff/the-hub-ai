@@ -21,9 +21,11 @@ describe('createTaskSchema', () => {
     expect(ok.success).toBe(true);
   });
 
-  it('rejects unknown enum values', () => {
-    const bad = createTaskSchema.safeParse({ title: 'x', status: 'PARKED' });
-    expect(bad.success).toBe(false);
+  it('accepts free-text status but rejects an unknown priority enum', () => {
+    // Status is a free-text label now — any string is valid.
+    expect(createTaskSchema.safeParse({ title: 'x', status: 'Parked' }).success).toBe(true);
+    // Priority is still an enum.
+    expect(createTaskSchema.safeParse({ title: 'x', priority: 'WHENEVER' }).success).toBe(false);
   });
 
   it('accepts an ISO datetime for dueDate', () => {

@@ -16,7 +16,20 @@
  *      exercise the List / Kanban / Table views.
  */
 
-import { PrismaClient, TaskStatus, TaskPriority } from '@prisma/client';
+import { PrismaClient, TaskPriority } from '@prisma/client';
+
+// Old enum-style status values used in the mock data below. Status is now a
+// free-text label + a separate `done` flag, so we map on insert: 'DONE' →
+// done:true with no label, others → a readable label.
+type MockStatus = 'TODO' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE';
+const STATUS_LABEL: Record<MockStatus, string> = {
+  TODO: '',
+  IN_PROGRESS: 'In progress',
+  BLOCKED: 'Blocked',
+  DONE: '',
+};
+const toStatus = (s: MockStatus) => STATUS_LABEL[s];
+const toDone = (s: MockStatus) => s === 'DONE';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -117,12 +130,12 @@ async function main() {
   const tasksToCreate: Array<{
     title: string;
     notes?: string;
-    status: TaskStatus;
+    status: MockStatus;
     priority: TaskPriority;
     dueDate?: Date | null;
     categoryName?: keyof typeof categories | string;
     tagNames?: string[];
-    subtasks?: Array<{ title: string; status?: TaskStatus }>;
+    subtasks?: Array<{ title: string; status?: MockStatus }>;
   }> = [
     {
       title: 'Review Q3 Marketing Strategy',
@@ -244,7 +257,8 @@ async function main() {
       data: {
         title: def.title,
         notes: def.notes ?? null,
-        status: def.status,
+        status: toStatus(def.status),
+        done: toDone(def.status),
         priority: def.priority,
         dueDate: def.dueDate ?? null,
         categoryId: def.categoryName ? (categories[def.categoryName] ?? null) : null,
@@ -263,7 +277,8 @@ async function main() {
         data: {
           title: sub.title,
           notes: '[mock] child task',
-          status: sub.status ?? 'TODO',
+          status: toStatus(sub.status ?? 'TODO'),
+          done: toDone(sub.status ?? 'TODO'),
           priority: 'MEDIUM',
           ownerId: owner.id,
           householdId: household.id,

@@ -23,20 +23,16 @@ const PRIORITY_ORDER: Record<TaskRow['priority'], number> = {
 };
 
 /**
- * Dashboard tile: shows URGENT open tasks (non-DONE / non-CANCELLED),
- * grouped by category. Clicking a task jumps to the tasks page — no
- * inline edit here, this is a read/scan surface.
+ * Dashboard tile: shows URGENT open (not-done) tasks, grouped by category.
+ * Clicking a task jumps to the tasks page — no inline edit here, this is a
+ * read/scan surface.
  */
 export function TasksSummaryCard() {
   const { data: tasks = [], isLoading, error } = useTasks();
   const { data: categories = [] } = useTaskCategories();
 
   const visible = (tasks as TaskRow[]).filter(
-    (t) =>
-      t.priority === 'URGENT' &&
-      t.status !== 'DONE' &&
-      t.status !== 'CANCELLED' &&
-      t.parentTaskId == null
+    (t) => t.priority === 'URGENT' && !t.done && t.parentTaskId == null
   );
 
   const groups = groupByCategory(visible, categories);

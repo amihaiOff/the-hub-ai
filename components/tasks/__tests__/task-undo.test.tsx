@@ -19,7 +19,8 @@ function makeTask(over: Partial<TaskRow> = {}): TaskRow {
     id: 't1',
     title: 'Water plants',
     notes: null,
-    status: 'IN_PROGRESS',
+    status: 'In progress',
+    done: false,
     priority: 'MEDIUM',
     dueDate: null,
     sortOrder: 0,
@@ -69,17 +70,17 @@ describe('tasks Undo', () => {
   it('marks the task done and reveals the Undo button', () => {
     render(<Harness task={makeTask()} />);
     fireEvent.click(screen.getByText('mark done'));
-    expect(updateMutate).toHaveBeenCalledWith({ id: 't1', patch: { status: 'DONE' } });
+    expect(updateMutate).toHaveBeenCalledWith({ id: 't1', patch: { done: true } });
     expect(screen.getByLabelText(/^Undo/)).toBeInTheDocument();
   });
 
-  it('restores the previous status (not just TODO) when Undo is clicked', () => {
-    render(<Harness task={makeTask({ status: 'BLOCKED' })} />);
+  it('un-does (done → false) when Undo is clicked, leaving the status label alone', () => {
+    render(<Harness task={makeTask({ status: 'Blocked' })} />);
     fireEvent.click(screen.getByText('mark done'));
     updateMutate.mockClear();
 
     fireEvent.click(screen.getByLabelText(/^Undo/));
-    expect(updateMutate).toHaveBeenCalledWith({ id: 't1', patch: { status: 'BLOCKED' } });
+    expect(updateMutate).toHaveBeenCalledWith({ id: 't1', patch: { done: false } });
     // The button hides immediately after undoing.
     expect(screen.queryByLabelText(/^Undo/)).not.toBeInTheDocument();
   });

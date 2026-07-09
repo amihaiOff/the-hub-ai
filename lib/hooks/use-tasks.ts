@@ -45,6 +45,7 @@ export interface TaskRow {
   title: string;
   notes: string | null;
   status: TaskStatus;
+  done: boolean;
   priority: TaskPriority;
   dueDate: string | null;
   sortOrder: number;

@@ -2,10 +2,13 @@ import { z } from 'zod';
 import { nonEmptyString } from './common';
 
 /** Enum values kept aligned with prisma/schema.prisma. */
-export const TASK_STATUSES = ['TODO', 'IN_PROGRESS', 'BLOCKED', 'DONE', 'CANCELLED'] as const;
 export const TASK_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
 
-export const taskStatusSchema = z.enum(TASK_STATUSES);
+/**
+ * Status is a free-text label (e.g. "In review"). Completion is tracked
+ * separately by the `done` boolean, so status carries no special meaning.
+ */
+export const taskStatusSchema = z.string().trim().max(80);
 export const taskPrioritySchema = z.enum(TASK_PRIORITIES);
 export type TaskStatus = z.infer<typeof taskStatusSchema>;
 export type TaskPriority = z.infer<typeof taskPrioritySchema>;
@@ -38,6 +41,7 @@ export const createTaskSchema = z.object({
   title: z.string().trim().min(1, 'Title is required').max(200),
   notes: z.string().max(20_000).optional().nullable(),
   status: taskStatusSchema.optional(),
+  done: z.boolean().optional(),
   priority: taskPrioritySchema.optional(),
   dueDate: z.string().datetime({ offset: true }).optional().nullable(),
   categoryId: z.string().cuid().optional().nullable(),
@@ -59,6 +63,7 @@ export const updateTaskSchema = z.object({
   title: z.string().trim().min(1, 'Title cannot be empty').max(200).optional(),
   notes: z.string().max(20_000).optional().nullable(),
   status: taskStatusSchema.optional(),
+  done: z.boolean().optional(),
   priority: taskPrioritySchema.optional(),
   dueDate: z.string().datetime({ offset: true }).nullable().optional(),
   sortOrder: z.number().int().optional(),
