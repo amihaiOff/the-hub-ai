@@ -10,6 +10,7 @@ import {
   type MoneytorAccountRow,
 } from '@/lib/hooks/use-moneytor';
 import { cn } from '@/lib/utils';
+import { isMortgage } from '@/components/assets/mortgages-section';
 
 function formatIls(value: number): string {
   return new Intl.NumberFormat('he-IL', {
@@ -42,41 +43,26 @@ function bankBucket(account: MoneytorAccountRow): 'current' | 'deposits' {
 }
 
 /**
- * Debt grouping: split credit cards out from the rest of the debt (loans and
- * mortgages) so revolving card balances aren't mixed in with long-term debt.
+ * Debt grouping: separate revolving credit cards from installment debt
+ * (consumer loans + mortgages).
  *
- * `subtype` carries Moneytor's raw `debtType`, which is free-form and
- * locale-dependent, so we can't rely on a single literal value. We detect a
- * credit card by matching common English/Hebrew credit-card terms and Israeli
- * issuer names in either the subtype or the account name (case-insensitive;
- * Hebrew has no case so the lowercase compare is a no-op for it). Everything
- * else — consumer loans and mortgages — falls into the "Debt" bucket.
+ * Rather than guessing credit-card issuer names, we identify installment debt
+ * positively and treat everything else as a credit card:
+ *  - Mortgages via the Assets page's shared `isMortgage` (name-based), so the
+ *    two pages classify mortgages identically.
+ *  - Loans via their repayment schedule — installment debt carries a
+ *    `monthlyPayment` and/or repayment `tracks`, which revolving cards don't —
+ *    plus an explicit loan-name fallback (English "loan" / Hebrew "הלווא…").
  */
-const CREDIT_CARD_TERMS = [
-  'credit',
-  'card',
-  'visa',
-  'mastercard',
-  'amex',
-  'diners',
-  'אשראי', // "credit"
-  'כרטיס', // "card"
-  'ויזה', // Visa
-  'מאסטרקארד', // Mastercard
-  'ישראכרט', // Isracard
-  'כאל', // Cal
-  'לאומי קארד', // Leumi Card
-  'מקס', // Max
-  'דיינרס', // Diners
-];
-
-function isCreditCard(account: MoneytorAccountRow): boolean {
+function isInstallmentDebt(account: MoneytorAccountRow): boolean {
+  if (isMortgage(account)) return true;
+  if (account.monthlyPayment != null || (account.tracks?.length ?? 0) > 0) return true;
   const haystack = `${account.subtype ?? ''} ${account.name ?? ''}`.toLowerCase();
-  return CREDIT_CARD_TERMS.some((term) => haystack.includes(term));
+  return haystack.includes('loan') || haystack.includes('הלווא');
 }
 
 function debtBucket(account: MoneytorAccountRow): 'credit_card' | 'debt' {
-  return isCreditCard(account) ? 'credit_card' : 'debt';
+  return isInstallmentDebt(account) ? 'debt' : 'credit_card';
 }
 
 interface EditableSubtitleProps {
