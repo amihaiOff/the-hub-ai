@@ -10,7 +10,6 @@ import {
   type MoneytorAccountRow,
 } from '@/lib/hooks/use-moneytor';
 import { cn } from '@/lib/utils';
-import { isMortgage } from '@/components/assets/mortgages-section';
 
 function formatIls(value: number): string {
   return new Intl.NumberFormat('he-IL', {
@@ -43,26 +42,19 @@ function bankBucket(account: MoneytorAccountRow): 'current' | 'deposits' {
 }
 
 /**
- * Debt grouping: separate revolving credit cards from installment debt
- * (consumer loans + mortgages).
+ * Debt grouping: read the `subtype` Moneytor puts on the account row —
+ * it holds the raw `debtType` string (`credit_card` / `loan` / `mortgage`
+ * / …). Anything that isn't the exact `credit_card` value falls into the
+ * "Debt" bucket, which covers loans, mortgages, and unknown types.
  *
- * Rather than guessing credit-card issuer names, we identify installment debt
- * positively and treat everything else as a credit card:
- *  - Mortgages via the Assets page's shared `isMortgage` (name-based), so the
- *    two pages classify mortgages identically.
- *  - Loans via their repayment schedule — installment debt carries a
- *    `monthlyPayment` and/or repayment `tracks`, which revolving cards don't —
- *    plus an explicit loan-name fallback (English "loan" / Hebrew "הלווא…").
+ * Name-based heuristics (mortgage keyword, "loan", monthlyPayment
+ * presence) were too eager — a credit card with an active minimum
+ * payment or with a Hebrew "הלווא" substring in a description was
+ * getting misclassified. Trusting the provider's typed field is simpler
+ * and correct.
  */
-function isInstallmentDebt(account: MoneytorAccountRow): boolean {
-  if (isMortgage(account)) return true;
-  if (account.monthlyPayment != null || (account.tracks?.length ?? 0) > 0) return true;
-  const haystack = `${account.subtype ?? ''} ${account.name ?? ''}`.toLowerCase();
-  return haystack.includes('loan') || haystack.includes('הלווא');
-}
-
 function debtBucket(account: MoneytorAccountRow): 'credit_card' | 'debt' {
-  return isInstallmentDebt(account) ? 'debt' : 'credit_card';
+  return account.subtype === 'credit_card' ? 'credit_card' : 'debt';
 }
 
 interface EditableSubtitleProps {
