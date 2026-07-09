@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Check, ChevronDown, Loader2 } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { CalendarDays, Check, ChevronDown, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import {
@@ -10,14 +10,40 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import type { TaskCategoryRow } from '@/lib/hooks/use-tasks';
+import type { TaskCategoryRow, TaskRow } from '@/lib/hooks/use-tasks';
+import { PRIORITY_BORDER } from './task-list-view';
+
+type Priority = TaskRow['priority'];
+
+/** Options the quick-add form collects alongside the title. */
+export interface QuickAddOptions {
+  categoryId: string | null;
+  priority: Priority;
+  /** ISO date-only string (`YYYY-MM-DDT00:00:00.000Z`) or null. */
+  dueDate: string | null;
+}
+
+const PRIORITY_OPTIONS: { id: Priority; label: string }[] = [
+  { id: 'URGENT', label: 'Urgent' },
+  { id: 'HIGH', label: 'High' },
+  { id: 'MEDIUM', label: 'Medium' },
+  { id: 'LOW', label: 'Low' },
+];
+
+/** Short "Mon D" label for the due-date chip from a `YYYY-MM-DD` string. */
+function formatShortDate(d: string) {
+  return new Date(`${d}T00:00:00`).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  });
+}
 
 interface QuickAddPopoverProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   categories: TaskCategoryRow[];
   /** Fired when the user submits — parent creates the task. */
-  onSubmit: (title: string, categoryId: string | null) => void;
+  onSubmit: (title: string, opts: QuickAddOptions) => void;
   isSubmitting?: boolean;
   /** The button (or other element) this popover anchors to. */
   children: React.ReactNode;
@@ -77,20 +103,35 @@ function QuickAddForm({
   isSubmitting,
 }: {
   categories: TaskCategoryRow[];
-  onSubmit: (title: string, categoryId: string | null) => void;
+  onSubmit: (title: string, opts: QuickAddOptions) => void;
   onCancel: () => void;
   isSubmitting: boolean;
 }) {
   const [title, setTitle] = useState('');
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [priority, setPriority] = useState<Priority>('MEDIUM');
+  // Date-only string 'YYYY-MM-DD' from the native picker, or null.
+  const [dueDate, setDueDate] = useState<string | null>(null);
+  const dateRef = useRef<HTMLInputElement>(null);
 
   const submit = () => {
     const trimmed = title.trim();
     if (!trimmed || isSubmitting) return;
-    onSubmit(trimmed, categoryId);
+    onSubmit(trimmed, {
+      categoryId,
+      priority,
+      // Store date-only as midnight UTC — matches the detail sheet / calendar.
+      dueDate: dueDate ? `${dueDate}T00:00:00.000Z` : null,
+    });
   };
 
   const selectedCategory = categoryId ? categories.find((c) => c.id === categoryId) : null;
+  const openDatePicker = () => {
+    const el = dateRef.current;
+    if (!el) return;
+    if (typeof el.showPicker === 'function') el.showPicker();
+    else el.focus();
+  };
 
   return (
     <>
@@ -115,41 +156,125 @@ function QuickAddForm({
         )}
       />
 
-      {/* Footer: category picker on the left, submit on the right. */}
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+      {/* Footer: category / priority / due-date pickers on the left, submit
+          on the right. The pickers wrap on narrow widths; submit stays put. */}
+      <div className="mt-2 flex items-start justify-between gap-2">
+        <div className="flex flex-1 flex-wrap items-center gap-1.5">
+          {/* Category */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Choose category"
+                title={selectedCategory?.name ?? 'No category'}
+                className={cn(
+                  'border-border/60 hover:bg-muted/60 flex h-8 shrink-0 items-center gap-1 rounded-full border px-2 text-xs transition-colors',
+                  selectedCategory ? 'text-foreground' : 'text-muted-foreground'
+                )}
+              >
+                <span className="max-w-[7rem] truncate">
+                  {selectedCategory?.name ?? 'Category'}
+                </span>
+                <ChevronDown className="h-3 w-3" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="rounded-2xl">
+              <DropdownMenuItem
+                className={cn('rounded-lg text-sm', categoryId === null && 'bg-muted font-medium')}
+                onSelect={() => setCategoryId(null)}
+              >
+                No category
+              </DropdownMenuItem>
+              {categories.map((c) => (
+                <DropdownMenuItem
+                  key={c.id}
+                  className={cn(
+                    'rounded-lg text-sm',
+                    categoryId === c.id && 'bg-muted font-medium'
+                  )}
+                  onSelect={() => setCategoryId(c.id)}
+                >
+                  {c.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Priority (urgency) */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Choose urgency"
+                title={`Urgency: ${priority}`}
+                className="border-border/60 hover:bg-muted/60 text-foreground flex h-8 shrink-0 items-center gap-1 rounded-full border px-2 text-xs transition-colors"
+              >
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: PRIORITY_BORDER[priority] }}
+                />
+                <span>{PRIORITY_OPTIONS.find((p) => p.id === priority)?.label}</span>
+                <ChevronDown className="h-3 w-3" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="rounded-2xl">
+              {PRIORITY_OPTIONS.map((p) => (
+                <DropdownMenuItem
+                  key={p.id}
+                  className={cn(
+                    'gap-2 rounded-lg text-sm',
+                    priority === p.id && 'bg-muted font-medium'
+                  )}
+                  onSelect={() => setPriority(p.id)}
+                >
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: PRIORITY_BORDER[p.id] }}
+                  />
+                  {p.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Due date */}
+          <div className="relative flex items-center">
             <button
               type="button"
-              aria-label="Choose category"
-              title={selectedCategory?.name ?? 'No category'}
+              onClick={openDatePicker}
+              aria-label={dueDate ? `Due date: ${formatShortDate(dueDate)}` : 'Set due date'}
+              title={dueDate ? `Due ${formatShortDate(dueDate)}` : 'Set due date'}
               className={cn(
                 'border-border/60 hover:bg-muted/60 flex h-8 shrink-0 items-center gap-1 rounded-full border px-2 text-xs transition-colors',
-                selectedCategory ? 'text-foreground' : 'text-muted-foreground'
+                dueDate ? 'text-foreground' : 'text-muted-foreground'
               )}
             >
-              <span className="max-w-[8rem] truncate">{selectedCategory?.name ?? 'Category'}</span>
-              <ChevronDown className="h-3 w-3" />
+              <CalendarDays className="h-3.5 w-3.5" />
+              {dueDate && <span>{formatShortDate(dueDate)}</span>}
             </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="rounded-2xl">
-            <DropdownMenuItem
-              className={cn('rounded-lg text-sm', categoryId === null && 'bg-muted font-medium')}
-              onSelect={() => setCategoryId(null)}
-            >
-              No category
-            </DropdownMenuItem>
-            {categories.map((c) => (
-              <DropdownMenuItem
-                key={c.id}
-                className={cn('rounded-lg text-sm', categoryId === c.id && 'bg-muted font-medium')}
-                onSelect={() => setCategoryId(c.id)}
+            {dueDate && (
+              <button
+                type="button"
+                onClick={() => setDueDate(null)}
+                aria-label="Clear due date"
+                className="text-muted-foreground hover:text-foreground ml-0.5"
               >
-                {c.name}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                <X className="h-3 w-3" />
+              </button>
+            )}
+            {/* Native picker: kept in the DOM (not display:none) so showPicker()
+                works; visually collapsed under the button. */}
+            <input
+              ref={dateRef}
+              type="date"
+              value={dueDate ?? ''}
+              onChange={(e) => setDueDate(e.target.value || null)}
+              tabIndex={-1}
+              aria-hidden
+              className="pointer-events-none absolute bottom-0 left-0 h-0 w-0 opacity-0"
+            />
+          </div>
+        </div>
 
         <button
           type="button"
@@ -157,7 +282,7 @@ function QuickAddForm({
           disabled={!title.trim() || isSubmitting}
           aria-label="Create task"
           className={cn(
-            'bg-primary text-primary-foreground flex h-7 w-7 items-center justify-center rounded-full transition-transform',
+            'bg-primary text-primary-foreground flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-transform',
             'hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100'
           )}
         >

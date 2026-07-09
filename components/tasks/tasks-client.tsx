@@ -40,7 +40,7 @@ import { TaskArchive } from './task-archive';
 import { TaskDetailSheet } from './task-detail-sheet';
 import { TaskToolbar, type ViewOption } from './task-toolbar';
 import { CategoryManagerDialog } from './category-manager-dialog';
-import { QuickAddPopover } from './quick-add-popover';
+import { QuickAddPopover, type QuickAddOptions } from './quick-add-popover';
 import type { TaskSort } from './task-filters-bar';
 
 type ViewMode = 'list' | 'kanban' | 'table' | 'calendar';
@@ -135,9 +135,14 @@ export function TasksClient() {
     if (fabLongPress.consumedClick()) return;
     setQuickAddOpen(true);
   };
-  const handleQuickAddSubmit = (title: string, categoryId: string | null) => {
+  const handleQuickAddSubmit = (title: string, opts: QuickAddOptions) => {
     createTask.mutate(
-      { title, categoryId: categoryId ?? undefined },
+      {
+        title,
+        categoryId: opts.categoryId ?? undefined,
+        priority: opts.priority,
+        dueDate: opts.dueDate ?? undefined,
+      },
       { onSuccess: () => setQuickAddOpen(false) }
     );
   };
