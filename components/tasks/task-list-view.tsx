@@ -2,8 +2,9 @@
 
 import { AlertCircle, Check, ChevronDown, Minus, TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useUpdateTask, type TaskRow } from '@/lib/hooks/use-tasks';
+import { type TaskRow } from '@/lib/hooks/use-tasks';
 import { useLongPress } from '@/lib/hooks/use-long-press';
+import { useToggleTaskDone } from './task-undo';
 import { prettyStatus, prettyPriority } from './task-filters-bar';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { SelectionProps } from './task-selection';
@@ -113,15 +114,13 @@ function TaskCard({
   onEnterSelection: () => void;
   onToggleSelection: () => void;
 }) {
-  const update = useUpdateTask();
+  const setDone = useToggleTaskDone();
   const isDone = task.status === 'DONE';
   const hasChildren = (task.children?.length ?? 0) > 0;
 
   const { handlers, consumedClick } = useLongPress(onEnterSelection);
 
-  const toggleDone = (checked: boolean) => {
-    update.mutate({ id: task.id, patch: { status: checked ? 'DONE' : 'TODO' } });
-  };
+  const toggleDone = (checked: boolean) => setDone(task, checked);
 
   const activate = () => {
     if (consumedClick()) return;

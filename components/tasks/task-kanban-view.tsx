@@ -19,6 +19,7 @@ import { useLongPress } from '@/lib/hooks/use-long-press';
 import { CategoryIcon } from './category-icon';
 import { TASK_STATUSES, TASK_PRIORITIES } from '@/lib/validations/tasks';
 import { prettyStatus, PRIORITY_BORDER, DoneToggle } from './task-list-view';
+import { useToggleTaskDone } from './task-undo';
 import { prettyPriority } from './task-filters-bar';
 import type { SelectionProps } from './task-selection';
 
@@ -321,10 +322,9 @@ function DraggableKanbanCard({
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
   });
-  const update = useUpdateTask();
+  const setDone = useToggleTaskDone();
   const isDone = task.status === 'DONE';
-  const toggleDone = () =>
-    update.mutate({ id: task.id, patch: { status: isDone ? 'TODO' : 'DONE' } });
+  const toggleDone = () => setDone(task, !isDone);
   // Tint only the left edge by urgency; the selected state keeps its primary ring.
   const style: React.CSSProperties = {
     ...(transform ? { transform: CSS.Translate.toString(transform) } : {}),

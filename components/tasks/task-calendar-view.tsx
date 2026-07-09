@@ -3,10 +3,11 @@
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useUpdateTask, type TaskRow } from '@/lib/hooks/use-tasks';
+import { type TaskRow } from '@/lib/hooks/use-tasks';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CategoryIcon } from './category-icon';
 import { PriorityBadge } from './task-list-view';
+import { useToggleTaskDone } from './task-undo';
 
 export type CalendarMode = 'month' | 'week';
 
@@ -434,7 +435,7 @@ function WeekChip({ task, onOpen }: { task: TaskRow; onOpen: () => void }) {
 }
 
 function AgendaRow({ task, onOpen }: { task: TaskRow; onOpen: () => void }) {
-  const update = useUpdateTask();
+  const setDone = useToggleTaskDone();
   const isDone = task.status === 'DONE';
 
   return (
@@ -445,9 +446,7 @@ function AgendaRow({ task, onOpen }: { task: TaskRow; onOpen: () => void }) {
       <span onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
         <Checkbox
           checked={isDone}
-          onCheckedChange={(v) =>
-            update.mutate({ id: task.id, patch: { status: v === true ? 'DONE' : 'TODO' } })
-          }
+          onCheckedChange={(v) => setDone(task, v === true)}
           className="h-5 w-5 rounded-md"
           aria-label={isDone ? 'Mark task as not done' : 'Mark task as done'}
         />

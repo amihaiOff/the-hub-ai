@@ -26,6 +26,7 @@ import {
   type TaskTagRow,
 } from '@/lib/hooks/use-tasks';
 import { TASK_STATUSES, TASK_PRIORITIES } from '@/lib/validations/tasks';
+import { useToggleTaskDone } from './task-undo';
 import { prettyStatus, prettyPriority } from './task-filters-bar';
 
 interface TaskTableViewProps {
@@ -129,6 +130,7 @@ function TaskRowEls(props: RowProps) {
   const { task, categories, isExpanded, canExpand, onToggleExpand, onOpen, depth, children } =
     props;
   const update = useUpdateTask();
+  const setDone = useToggleTaskDone();
   const del = useDeleteTask();
   const isChild = depth > 0;
   const isDone = task.status === 'DONE';
@@ -156,9 +158,7 @@ function TaskRowEls(props: RowProps) {
             )}
             <Checkbox
               checked={isDone}
-              onCheckedChange={(v) =>
-                update.mutate({ id: task.id, patch: { status: v === true ? 'DONE' : 'TODO' } })
-              }
+              onCheckedChange={(v) => setDone(task, v === true)}
               className="h-4 w-4 rounded-md"
               aria-label={isDone ? 'Mark as not done' : 'Mark as done'}
             />

@@ -189,6 +189,22 @@
       0 4px 12px oklch(0 0 0 / 0.25);
   }
 
+  /* Depleting countdown bar for the tasks Undo button — shrinks from full
+     width to zero over its (JS-controlled) duration. Remounting the element
+     restarts the animation. */
+  .undo-countdown {
+    transform-origin: left;
+    animation: undo-countdown-deplete linear forwards;
+  }
+  @keyframes undo-countdown-deplete {
+    from {
+      transform: scaleX(1);
+    }
+    to {
+      transform: scaleX(0);
+    }
+  }
+
   /* Hover glow for interactive elements */
   .hover-glow {
     @apply transition-shadow duration-200;

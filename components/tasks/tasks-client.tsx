@@ -41,6 +41,7 @@ import { TaskDetailSheet } from './task-detail-sheet';
 import { TaskToolbar, type ViewOption } from './task-toolbar';
 import { CategoryManagerDialog } from './category-manager-dialog';
 import { QuickAddPopover, type QuickAddOptions } from './quick-add-popover';
+import { TaskUndoButton } from './task-undo';
 import type { TaskSort } from './task-filters-bar';
 
 type ViewMode = 'list' | 'kanban' | 'table' | 'calendar';
@@ -332,6 +333,10 @@ export function TasksClient() {
       />
 
       <CategoryManagerDialog open={categoryManagerOpen} onOpenChange={setCategoryManagerOpen} />
+
+      {/* Floating Undo — appears bottom-left for a few seconds after a task is
+          marked done, restoring its previous status on tap. */}
+      <TaskUndoButton />
 
       {/* Confirm bulk delete */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
