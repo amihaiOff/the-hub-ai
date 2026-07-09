@@ -325,10 +325,10 @@ function DraggableKanbanCard({
   const isDone = task.status === 'DONE';
   const toggleDone = () =>
     update.mutate({ id: task.id, patch: { status: isDone ? 'TODO' : 'DONE' } });
-  // Colour the border by urgency; the selected state keeps its primary ring.
+  // Tint only the left edge by urgency; the selected state keeps its primary ring.
   const style: React.CSSProperties = {
     ...(transform ? { transform: CSS.Translate.toString(transform) } : {}),
-    ...(selected ? {} : { borderColor: PRIORITY_BORDER[task.priority] }),
+    ...(selected ? {} : { borderLeftColor: PRIORITY_BORDER[task.priority], borderLeftWidth: 4 }),
   };
 
   // Gesture split on a card: quick tap opens it, press-and-move drags it
