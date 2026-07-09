@@ -11,6 +11,9 @@ jest.mock('@/lib/db', () => ({
       findFirst: jest.fn(),
       update: jest.fn(),
     },
+    budgetPayee: {
+      update: jest.fn(),
+    },
   },
 }));
 
@@ -99,17 +102,27 @@ describe('POST /api/budget/transactions/[id]/suggestion — guards', () => {
 });
 
 describe('POST /api/budget/transactions/[id]/suggestion — actions', () => {
-  it('approve applies the suggested category and clears suggestion fields', async () => {
+  const payee = (over: Record<string, unknown> = {}) => ({
+    id: 'payee-1',
+    categoryId: null,
+    neverDefault: false,
+    isBlacklisted: false,
+    ...over,
+  });
+
+  it('approve applies the suggested category, clears suggestion fields, and sets the payee default', async () => {
     mockGetCurrentContext.mockResolvedValueOnce(mockContext);
     (mockPrisma.budgetTransaction.findFirst as jest.Mock).mockResolvedValueOnce({
       id: 'tx-1',
       suggestedCategoryId: 'cat-1',
+      payee: payee(),
     });
     (mockPrisma.budgetTransaction.update as jest.Mock).mockResolvedValueOnce({});
+    (mockPrisma.budgetPayee.update as jest.Mock).mockResolvedValueOnce({});
     const res = await POST(makeRequest({ action: 'approve' }), params());
     const json = await res.json();
     expect(res.status).toBe(200);
-    expect(json.data).toEqual({ id: 'tx-1', action: 'approve' });
+    expect(json.data).toEqual({ id: 'tx-1', action: 'approve', payeeDefaultUpdated: true });
 
     const updateCall = (mockPrisma.budgetTransaction.update as jest.Mock).mock.calls[0][0];
     expect(updateCall.where).toEqual({ id: 'tx-1' });
@@ -119,19 +132,84 @@ describe('POST /api/budget/transactions/[id]/suggestion — actions', () => {
       suggestionConfidence: null,
       suggestedAt: null,
     });
+
+    // Payee default set to the approved category.
+    const payeeCall = (mockPrisma.budgetPayee.update as jest.Mock).mock.calls[0][0];
+    expect(payeeCall).toEqual({ where: { id: 'payee-1' }, data: { categoryId: 'cat-1' } });
   });
 
-  it('dismiss clears the suggestion without changing the category', async () => {
+  it('approve does NOT overwrite the default for a neverDefault payee', async () => {
     mockGetCurrentContext.mockResolvedValueOnce(mockContext);
     (mockPrisma.budgetTransaction.findFirst as jest.Mock).mockResolvedValueOnce({
       id: 'tx-1',
       suggestedCategoryId: 'cat-1',
+      payee: payee({ neverDefault: true }),
+    });
+    (mockPrisma.budgetTransaction.update as jest.Mock).mockResolvedValueOnce({});
+    const res = await POST(makeRequest({ action: 'approve' }), params());
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.data).toMatchObject({ action: 'approve', payeeDefaultUpdated: false });
+    expect(mockPrisma.budgetPayee.update).not.toHaveBeenCalled();
+  });
+
+  it('approve does NOT touch a blacklisted payee', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    (mockPrisma.budgetTransaction.findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 'tx-1',
+      suggestedCategoryId: 'cat-1',
+      payee: payee({ isBlacklisted: true }),
+    });
+    (mockPrisma.budgetTransaction.update as jest.Mock).mockResolvedValueOnce({});
+    const res = await POST(makeRequest({ action: 'approve' }), params());
+    const json = await res.json();
+    expect(json.data).toMatchObject({ payeeDefaultUpdated: false });
+    expect(mockPrisma.budgetPayee.update).not.toHaveBeenCalled();
+  });
+
+  it('approve skips a no-op when the payee default already matches', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    (mockPrisma.budgetTransaction.findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 'tx-1',
+      suggestedCategoryId: 'cat-1',
+      payee: payee({ categoryId: 'cat-1' }),
+    });
+    (mockPrisma.budgetTransaction.update as jest.Mock).mockResolvedValueOnce({});
+    const res = await POST(makeRequest({ action: 'approve' }), params());
+    const json = await res.json();
+    expect(json.data).toMatchObject({ payeeDefaultUpdated: false });
+    expect(mockPrisma.budgetPayee.update).not.toHaveBeenCalled();
+  });
+
+  it('approve still succeeds (200) when setting the payee default fails', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    (mockPrisma.budgetTransaction.findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 'tx-1',
+      suggestedCategoryId: 'cat-1',
+      payee: payee(),
+    });
+    (mockPrisma.budgetTransaction.update as jest.Mock).mockResolvedValueOnce({});
+    (mockPrisma.budgetPayee.update as jest.Mock).mockRejectedValueOnce(new Error('db down'));
+    const spy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const res = await POST(makeRequest({ action: 'approve' }), params());
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.data).toMatchObject({ payeeDefaultUpdated: false });
+    spy.mockRestore();
+  });
+
+  it('dismiss clears the suggestion without changing the category or payee default', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    (mockPrisma.budgetTransaction.findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 'tx-1',
+      suggestedCategoryId: 'cat-1',
+      payee: payee(),
     });
     (mockPrisma.budgetTransaction.update as jest.Mock).mockResolvedValueOnce({});
     const res = await POST(makeRequest({ action: 'dismiss' }), params());
     const json = await res.json();
     expect(res.status).toBe(200);
-    expect(json.data).toEqual({ id: 'tx-1', action: 'dismiss' });
+    expect(json.data).toMatchObject({ id: 'tx-1', action: 'dismiss', payeeDefaultUpdated: false });
 
     const updateCall = (mockPrisma.budgetTransaction.update as jest.Mock).mock.calls[0][0];
     // categoryId left untouched (undefined) on dismiss.
@@ -141,5 +219,6 @@ describe('POST /api/budget/transactions/[id]/suggestion — actions', () => {
       suggestionConfidence: null,
       suggestedAt: null,
     });
+    expect(mockPrisma.budgetPayee.update).not.toHaveBeenCalled();
   });
 });

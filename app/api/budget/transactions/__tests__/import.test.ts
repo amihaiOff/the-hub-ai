@@ -12,6 +12,13 @@ const createDecimal = (value: number) => ({
   valueOf: () => value,
 });
 
+// Keep NextRequest/NextResponse real but stub after() — it throws outside a
+// real request scope, and the post-import AI pass is out of scope for these tests.
+jest.mock('next/server', () => {
+  const actual = jest.requireActual('next/server');
+  return { ...actual, after: jest.fn() };
+});
+
 // Mock Prisma client
 jest.mock('@/lib/db', () => ({
   prisma: {

@@ -204,6 +204,8 @@ describe('POST /api/budget/transactions/suggest — per-item decisions', () => {
     expect(updateCall.data.suggestedCategoryId).toBe('cat-1');
     expect(updateCall.data.suggestionConfidence).toBe(0.92);
     expect(updateCall.data.suggestedAt).toBeInstanceOf(Date);
+    // The attempt is stamped alongside the suggestion.
+    expect(updateCall.data.categorizationAttemptedAt).toBeInstanceOf(Date);
 
     const logCall = (mockPrisma.budgetCategorizationLog.create as jest.Mock).mock.calls[0][0];
     expect(logCall.data).toMatchObject({
@@ -232,7 +234,10 @@ describe('POST /api/budget/transactions/suggest — per-item decisions', () => {
     const res = await POST(makeRequest());
     const json = await res.json();
     expect(json.data).toMatchObject({ lowConfidence: 1, suggested: 0, processed: 1 });
-    expect(mockPrisma.budgetTransaction.update).not.toHaveBeenCalled();
+    // Stamps categorizationAttemptedAt (so the auto pass won't retry) but does
+    // NOT attach a suggestion.
+    const updateCall = (mockPrisma.budgetTransaction.update as jest.Mock).mock.calls[0][0];
+    expect(updateCall.data).toEqual({ categorizationAttemptedAt: expect.any(Date) });
 
     const logCall = (mockPrisma.budgetCategorizationLog.create as jest.Mock).mock.calls[0][0];
     expect(logCall.data.status).toBe('low_confidence');
@@ -255,7 +260,9 @@ describe('POST /api/budget/transactions/suggest — per-item decisions', () => {
     const res = await POST(makeRequest());
     const json = await res.json();
     expect(json.data).toMatchObject({ noMatch: 1, suggested: 0, processed: 1 });
-    expect(mockPrisma.budgetTransaction.update).not.toHaveBeenCalled();
+    // Stamps categorizationAttemptedAt but attaches no suggestion.
+    const updateCall = (mockPrisma.budgetTransaction.update as jest.Mock).mock.calls[0][0];
+    expect(updateCall.data).toEqual({ categorizationAttemptedAt: expect.any(Date) });
 
     const logCall = (mockPrisma.budgetCategorizationLog.create as jest.Mock).mock.calls[0][0];
     expect(logCall.data.status).toBe('no_match');

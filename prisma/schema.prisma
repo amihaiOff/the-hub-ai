@@ -583,6 +583,10 @@ model BudgetTransaction {
   suggestedCategoryId   String?           @map("suggested_category_id")
   suggestionConfidence  Float?            @map("suggestion_confidence")
   suggestedAt           DateTime?         @map("suggested_at")
+  // Set once the AI has been asked about this transaction (whatever the
+  // outcome). Lets the automatic ingestion pass attempt each transaction
+  // exactly once instead of re-querying the model on every cron drain.
+  categorizationAttemptedAt DateTime?     @map("categorization_attempted_at")
   payeeId               String?           @map("payee_id")
   paymentMethod         PaymentMethod     @default(credit_card) @map("payment_method")
   paymentNumber         Int?              @map("payment_number") // For installments (e.g., 2 of 6)
@@ -617,6 +621,9 @@ model BudgetTransaction {
   @@index([transactionDate])
   @@index([categoryId])
   @@index([suggestedCategoryId])
+  // Supports the automatic-categorization drain query, which scans for
+  // household transactions the AI has not attempted yet.
+  @@index([householdId, categorizationAttemptedAt])
   @@index([payeeId])
   @@index([profileId])
   @@index([originalTransactionId])

@@ -68,7 +68,8 @@ Rules live on the Payees page in a tabbed UI (Payees / Rules tabs). Each rule ha
 1. Riseup category → budget category mapping (existing)
 2. Payee category rules (auto-set payee default)
 3. Payee default category fallback (existing)
-4. null (uncategorized)
+4. null (uncategorized) — automatically queued for an AI category guess (see
+   "AI automatic categorization" below)
 
 ### Bulk Apply
 
@@ -77,6 +78,59 @@ Rules live on the Payees page in a tabbed UI (Payees / Rules tabs). Each rule ha
 ### Backup/Restore
 
 Payee category rules are included in backup ZIP (`payee_category_rules.json`) and restored with the rest of the data (schema version 1.2+).
+
+## AI automatic categorization
+
+**Purpose:** Any expense transaction that the deterministic rules above leave
+uncategorized is automatically sent through an LLM (Claude Haiku, with web
+search for unfamiliar/Israeli merchants) to guess a budget category. The guess
+is surfaced in the UI for one-tap approval — it never sets the category on its
+own.
+
+### The guess model
+
+The AI's decision is stored on the transaction as a _suggestion_, separate from
+the real category:
+
+- `suggestedCategoryId`, `suggestionConfidence`, `suggestedAt` — the guess. The
+  transaction stays uncategorized (`categoryId` null) until the user approves.
+- `categorizationAttemptedAt` — set once the AI has been asked about the
+  transaction (whatever the outcome), so the automatic pass attempts each
+  transaction exactly once instead of re-querying on every run.
+
+Outcomes per transaction (all logged to `BudgetCategorizationLog`):
+
+- **suggested** — confidence ≥ 0.6: the guess is attached and shown.
+- **low_confidence** — below 0.6: logged only, no guess attached.
+- **no_match** — model found no fitting category: logged only.
+- **error** — query failed: logged; `categorizationAttemptedAt` is left unset so
+  a transient failure is retried on a later run.
+
+Shared logic lives in `lib/ai/suggest-categories.ts`
+(`prepareHousehold` + `runSuggestionBatch`). The Anthropic key is resolved per
+household (setting first, `ANTHROPIC_API_KEY` env fallback).
+
+### When guessing runs
+
+1. **Right after import (instant feedback).** The import and CSV-upload routes
+   fire a bounded post-response pass via Next.js `after()`
+   (`lib/ai/post-import-suggestion.ts`) so a typical import shows suggestions
+   within seconds without blocking the response.
+2. **Cron drain (durable, any size).** `/api/cron/suggest-categories` runs every
+   10 minutes and drains any still-unattempted uncategorized expenses across all
+   households in bounded batches within a wall-clock budget, mopping up large
+   imports over the following runs without risking a request timeout.
+3. **Manual button.** The "Suggest categories" button on the transactions page
+   still runs on demand; unlike the automatic passes it re-processes rows even
+   if previously attempted.
+
+### Approving a guess
+
+Approving a guess (green check in the suggestion bar) applies the category and
+**makes it the payee's default category**, so future transactions from the same
+payee are auto-categorized during ingestion. The default is not changed for
+payees flagged `neverDefault` or blacklisted. Dismissing (X) just clears the
+guess, leaving the transaction uncategorized.
 
 ## Account names
 
@@ -586,6 +640,11 @@ Stored in Vercel dashboard and GitHub Secrets:
 - **Net Worth Snapshots:** Every two weeks (1st and 15th of month)
   - Route: `/api/cron/create-snapshot`
   - Schedule: `0 0 1,15 * *`
+- **AI Categorization Drain:** Every 10 minutes
+  - Route: `/api/cron/suggest-categories`
+  - Schedule: `*/10 * * * *`
+  - Guesses categories for uncategorized expenses not yet attempted (see "AI
+    automatic categorization")
 
 Configured in `vercel.json`:
 
