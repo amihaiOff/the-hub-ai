@@ -42,19 +42,18 @@ function bankBucket(account: MoneytorAccountRow): 'current' | 'deposits' {
 }
 
 /**
- * Debt grouping: read the `subtype` Moneytor puts on the account row —
- * it holds the raw `debtType` string (`credit_card` / `loan` / `mortgage`
- * / …). Anything that isn't the exact `credit_card` value falls into the
- * "Debt" bucket, which covers loans, mortgages, and unknown types.
- *
- * Name-based heuristics (mortgage keyword, "loan", monthlyPayment
- * presence) were too eager — a credit card with an active minimum
- * payment or with a Hebrew "הלווא" substring in a description was
- * getting misclassified. Trusting the provider's typed field is simpler
- * and correct.
+ * Debt grouping: prefer Moneytor's typed `subtype` when it says
+ * `credit_card`. Some Israeli issuers (notably Max) come back with
+ * `subtype: 'loan'` even though they're revolving cards, so fall back
+ * to a name check for "card" / Hebrew "כרטיס" — that phrase only shows
+ * up on card products, never on a car loan or mortgage. Everything else
+ * (loans, mortgages, Hebrew "משכנתא", unknown types) lands in "Debt".
  */
 function debtBucket(account: MoneytorAccountRow): 'credit_card' | 'debt' {
-  return account.subtype === 'credit_card' ? 'credit_card' : 'debt';
+  if (account.subtype === 'credit_card') return 'credit_card';
+  const name = (account.name ?? '').toLowerCase();
+  if (name.includes('card') || name.includes('כרטיס')) return 'credit_card';
+  return 'debt';
 }
 
 interface EditableSubtitleProps {
