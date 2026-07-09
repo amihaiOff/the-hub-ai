@@ -12,6 +12,42 @@ const createDecimal = (value: number) => ({
   valueOf: () => value,
 });
 
+// Builds a complete transaction row (all scalars the transformer reads) so it
+// can be returned from findMany/findUnique mocks without missing-field errors.
+const fullTx = (overrides: Record<string, unknown> = {}) => ({
+  id: 'tx-x',
+  type: 'expense',
+  transactionDate: new Date('2024-01-15'),
+  paymentDate: null,
+  amountIls: createDecimal(100),
+  currency: 'ILS',
+  amountOriginal: createDecimal(100),
+  categoryId: null,
+  suggestedCategoryId: null,
+  suggestionConfidence: null,
+  payeeId: null,
+  paymentMethod: 'cash',
+  paymentNumber: null,
+  totalPayments: null,
+  notes: null,
+  source: 'manual',
+  isRecurring: false,
+  isSplit: false,
+  originalTransactionId: null,
+  paymentIdentifier: null,
+  excludedFromFlow: false,
+  profileId: null,
+  householdId: 'household-1',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  category: null,
+  suggestedCategory: null,
+  payee: null,
+  profile: null,
+  tags: [],
+  ...overrides,
+});
+
 // Mock Prisma client
 jest.mock('@/lib/db', () => ({
   prisma: {
@@ -366,6 +402,98 @@ describe('Transactions API', () => {
       expect(callArgs.where.paymentIdentifier).toBe('****-5678');
       expect(callArgs.where.type).toBe('income');
     });
+
+    it('should apply startDate and endDate range filters', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTransaction.count as jest.Mock).mockResolvedValueOnce(0);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/budget/transactions?startDate=2024-01-01&endDate=2024-01-31'
+      );
+      await GET(request);
+
+      const callArgs = (mockPrisma.budgetTransaction.findMany as jest.Mock).mock.calls[0][0];
+      expect(callArgs.where.transactionDate.gte).toBeInstanceOf(Date);
+      expect(callArgs.where.transactionDate.lte).toBeInstanceOf(Date);
+    });
+
+    it('should apply payeeId, profileId, source and paymentMethod filters', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTransaction.count as jest.Mock).mockResolvedValueOnce(0);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/budget/transactions?payeeId=payee-1&profileId=profile-1&source=manual&paymentMethod=cash'
+      );
+      await GET(request);
+
+      const callArgs = (mockPrisma.budgetTransaction.findMany as jest.Mock).mock.calls[0][0];
+      expect(callArgs.where.payeeId).toBe('payee-1');
+      expect(callArgs.where.profileId).toBe('profile-1');
+      expect(callArgs.where.source).toBe('manual');
+      expect(callArgs.where.paymentMethod).toBe('cash');
+    });
+
+    it('should apply categoryId filter when not uncategorized', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTransaction.count as jest.Mock).mockResolvedValueOnce(0);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/budget/transactions?categoryId=cat-1'
+      );
+      await GET(request);
+
+      const callArgs = (mockPrisma.budgetTransaction.findMany as jest.Mock).mock.calls[0][0];
+      expect(callArgs.where.categoryId).toBe('cat-1');
+    });
+
+    it('should apply tagIds filter when not uncategorized', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTransaction.count as jest.Mock).mockResolvedValueOnce(0);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/budget/transactions?tagIds=tag-1,tag-2'
+      );
+      await GET(request);
+
+      const callArgs = (mockPrisma.budgetTransaction.findMany as jest.Mock).mock.calls[0][0];
+      expect(callArgs.where.tags).toEqual({ some: { tagId: { in: ['tag-1', 'tag-2'] } } });
+    });
+
+    it('should apply limit/offset and compute hasMore=true when more remain', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTransaction.count as jest.Mock).mockResolvedValueOnce(10);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
+        fullTx({ id: 'tx-1' }),
+        fullTx({ id: 'tx-2' }),
+      ]);
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/budget/transactions?limit=2&offset=0'
+      );
+      const response = await GET(request);
+      const data = await response.json();
+
+      const callArgs = (mockPrisma.budgetTransaction.findMany as jest.Mock).mock.calls[0][0];
+      expect(callArgs.take).toBe(2);
+      expect(callArgs.skip).toBe(0);
+      expect(data.data.pagination.limit).toBe(2);
+      expect(data.data.pagination.hasMore).toBe(true);
+    });
+
+    it('should return 400 for invalid filter params (bad month format)', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+
+      const request = new NextRequest('http://localhost:3000/api/budget/transactions?month=2024-1');
+      const response = await GET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.success).toBe(false);
+    });
   });
 
   describe('POST /api/budget/transactions', () => {
@@ -602,6 +730,110 @@ describe('Transactions API', () => {
 
       expect(response.status).toBe(404);
       expect(data.error).toBe('One or more tags not found');
+    });
+
+    it('should return 404 when profile not found', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.householdMember.findFirst as jest.Mock).mockResolvedValueOnce(null);
+
+      const request = new NextRequest('http://localhost:3000/api/budget/transactions', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'expense',
+          transactionDate: '2024-01-15',
+          amountIls: 100,
+          currency: 'ILS',
+          paymentMethod: 'cash',
+          source: 'manual',
+          isRecurring: false,
+          profileId: 'invalid-profile',
+        }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(data.error).toBe('Profile not found');
+    });
+
+    it('should create a transaction with profile, tags, and explicit amountOriginal', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.householdMember.findFirst as jest.Mock).mockResolvedValueOnce({
+        profileId: 'profile-1',
+        householdId: 'household-1',
+      });
+      (mockPrisma.budgetTag.findMany as jest.Mock).mockResolvedValueOnce([
+        { id: 'tag-1' },
+        { id: 'tag-2' },
+      ]);
+      (mockPrisma.budgetTransaction.create as jest.Mock).mockResolvedValueOnce({ id: 'tx-1' });
+      (mockPrisma.budgetTransactionTag.create as jest.Mock).mockResolvedValue({});
+      (mockPrisma.budgetTransaction.findUnique as jest.Mock).mockResolvedValueOnce(
+        fullTx({
+          id: 'tx-1',
+          amountOriginal: createDecimal(120),
+          profileId: 'profile-1',
+          profile: { id: 'profile-1', name: 'Test Profile' },
+          tags: [{ tag: { id: 'tag-1' } }, { tag: { id: 'tag-2' } }],
+        })
+      );
+
+      const request = new NextRequest('http://localhost:3000/api/budget/transactions', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'expense',
+          transactionDate: '2024-01-15',
+          amountIls: 100,
+          amountOriginal: 120,
+          currency: 'ILS',
+          paymentMethod: 'cash',
+          source: 'manual',
+          isRecurring: false,
+          profileId: 'profile-1',
+          tagIds: ['tag-1', 'tag-2'],
+        }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.data.profileName).toBe('Test Profile');
+      expect(data.data.tagIds).toEqual(['tag-1', 'tag-2']);
+      expect(data.data.amountOriginal).toBe(120);
+      // One tag-link create per tag id
+      expect(mockPrisma.budgetTransactionTag.create).toHaveBeenCalledTimes(2);
+      // amountOriginal must be forwarded to the create call
+      const createArgs = (mockPrisma.budgetTransaction.create as jest.Mock).mock.calls[0][0];
+      expect(createArgs.data.amountOriginal).toBe(120);
+    });
+
+    it('should return 500 on database error', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTransaction.create as jest.Mock).mockRejectedValueOnce(
+        new Error('Database error')
+      );
+
+      const request = new NextRequest('http://localhost:3000/api/budget/transactions', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'expense',
+          transactionDate: '2024-01-15',
+          amountIls: 100,
+          currency: 'ILS',
+          paymentMethod: 'cash',
+          source: 'manual',
+          isRecurring: false,
+        }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data.error).toBe('Failed to create transaction');
     });
   });
 

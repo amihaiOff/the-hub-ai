@@ -173,4 +173,94 @@ describe('GET /api/moneytor/accounts', () => {
     expect(response.status).toBe(500);
     expect(data.ok).toBe(false);
   });
+
+  it('maps mortgage tracks from rawData.routesData with all fields present', async () => {
+    mockGetCurrentContext.mockResolvedValue(mockContext);
+    const mortgageRow = {
+      ...mockDebtRow,
+      id: 'acct-3',
+      rawData: {
+        startDate: '2020-05-01',
+        routesData: [
+          {
+            trackInterestType: { value: 'fixed' },
+            interest: '3.25',
+            remainder: 250000,
+            monthlyRepayment: '1200',
+          },
+        ],
+      },
+    };
+    (mockPrisma.moneytorAccount.findMany as jest.Mock).mockResolvedValue([mortgageRow]);
+
+    const response = await GET();
+    const data = await response.json();
+
+    const account = data.accounts[0];
+    expect(account.startDate).toBe('2020-05-01');
+    expect(account.tracks).toHaveLength(1);
+    expect(account.tracks[0]).toEqual({
+      interestType: 'fixed',
+      interest: 3.25,
+      remainder: 250000,
+      monthlyRepayment: 1200,
+    });
+  });
+
+  it('coerces missing track subfields to null', async () => {
+    mockGetCurrentContext.mockResolvedValue(mockContext);
+    const mortgageRow = {
+      ...mockDebtRow,
+      id: 'acct-4',
+      rawData: {
+        routesData: [
+          {
+            // no trackInterestType, no interest, no remainder, no monthlyRepayment
+          },
+        ],
+      },
+    };
+    (mockPrisma.moneytorAccount.findMany as jest.Mock).mockResolvedValue([mortgageRow]);
+
+    const response = await GET();
+    const data = await response.json();
+
+    const account = data.accounts[0];
+    expect(account.tracks[0]).toEqual({
+      interestType: null,
+      interest: null,
+      remainder: null,
+      monthlyRepayment: null,
+    });
+    // startDate absent from rawData -> null
+    expect(account.startDate).toBeNull();
+  });
+
+  it('leaves tracks undefined when routesData is empty or not an array', async () => {
+    mockGetCurrentContext.mockResolvedValue(mockContext);
+    const emptyRoutes = {
+      ...mockDebtRow,
+      id: 'acct-5',
+      rawData: { startDate: '2021-01-01', routesData: [] },
+    };
+    (mockPrisma.moneytorAccount.findMany as jest.Mock).mockResolvedValue([emptyRoutes]);
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(data.accounts[0].tracks).toBeUndefined();
+    expect(data.accounts[0].startDate).toBe('2021-01-01');
+  });
+
+  it('picks the latest syncedAt as asOf across rows', async () => {
+    mockGetCurrentContext.mockResolvedValue(mockContext);
+    const later = new Date('2026-07-01T08:00:00.000Z');
+    const laterRow = { ...mockBankRow, id: 'acct-6', syncedAt: later };
+    (mockPrisma.moneytorAccount.findMany as jest.Mock).mockResolvedValue([mockBankRow, laterRow]);
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(data.asOf).toBe(later.toISOString());
+  });
 });

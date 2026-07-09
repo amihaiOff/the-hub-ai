@@ -41,8 +41,16 @@ function ctx(userId: string) {
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
 
+const CUID = 'clv0abcde12345678901234';
+
 describe('GET /api/tasks/[id]', () => {
   beforeEach(() => jest.resetAllMocks());
+
+  it('returns 401 when unauthenticated', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(null);
+    const res = await GET(new NextRequest('http://localhost/api/tasks/t1'), params('t1'));
+    expect(res.status).toBe(401);
+  });
 
   it('returns 404 when task not found in this household', async () => {
     mockGetCurrentContext.mockResolvedValueOnce(ctx('u1'));
@@ -76,6 +84,198 @@ describe('GET /api/tasks/[id]', () => {
 
 describe('PATCH /api/tasks/[id]', () => {
   beforeEach(() => jest.resetAllMocks());
+
+  it('returns 401 when unauthenticated', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(null);
+    const res = await PATCH(
+      new NextRequest('http://localhost/api/tasks/t1', {
+        method: 'PATCH',
+        body: JSON.stringify({ title: 'x' }),
+      }),
+      params('t1')
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 400 on an invalid payload (empty title)', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(ctx('owner'));
+    const res = await PATCH(
+      new NextRequest('http://localhost/api/tasks/t1', {
+        method: 'PATCH',
+        body: JSON.stringify({ title: '' }),
+      }),
+      params('t1')
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 404 when the task does not exist in this household', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(ctx('owner'));
+    (mockPrisma.task.findFirst as jest.Mock).mockResolvedValueOnce(null);
+    const res = await PATCH(
+      new NextRequest('http://localhost/api/tasks/t1', {
+        method: 'PATCH',
+        body: JSON.stringify({ title: 'New' }),
+      }),
+      params('t1')
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('applies every optional scalar/relation field the client sends', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(ctx('owner'));
+    (mockPrisma.task.findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 't1',
+      ownerId: 'owner',
+      shares: [],
+    });
+    (mockPrisma.task.update as jest.Mock).mockResolvedValueOnce({ id: 't1' });
+    const res = await PATCH(
+      new NextRequest('http://localhost/api/tasks/t1', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          title: 'New',
+          notes: 'a note',
+          status: 'IN_PROGRESS',
+          priority: 'URGENT',
+          dueDate: '2026-01-01T00:00:00.000Z',
+          sortOrder: 5,
+          categoryId: CUID,
+          assigneeId: CUID,
+          tagIds: [CUID],
+          customFields: [{ id: 'f1', name: 'Field', type: 'text', value: 'v' }],
+        }),
+      }),
+      params('t1')
+    );
+    expect(res.status).toBe(200);
+    const { data } = (mockPrisma.task.update as jest.Mock).mock.calls[0][0];
+    expect(data.title).toBe('New');
+    expect(data.notes).toBe('a note');
+    expect(data.status).toBe('IN_PROGRESS');
+    expect(data.priority).toBe('URGENT');
+    expect(data.dueDate).toBeInstanceOf(Date);
+    expect(data.sortOrder).toBe(5);
+    expect(data.category).toEqual({ connect: { id: CUID } });
+    expect(data.assignee).toEqual({ connect: { id: CUID } });
+    expect(data.tags).toEqual({ set: [{ id: CUID }] });
+    expect(data.customFields).toEqual([{ id: 'f1', name: 'Field', type: 'text', value: 'v' }]);
+  });
+
+  it('disconnects nullable relations and clears dueDate when set to null', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(ctx('owner'));
+    (mockPrisma.task.findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 't1',
+      ownerId: 'owner',
+      shares: [],
+    });
+    (mockPrisma.task.update as jest.Mock).mockResolvedValueOnce({ id: 't1' });
+    const res = await PATCH(
+      new NextRequest('http://localhost/api/tasks/t1', {
+        method: 'PATCH',
+        body: JSON.stringify({ dueDate: null, categoryId: null, assigneeId: null }),
+      }),
+      params('t1')
+    );
+    expect(res.status).toBe(200);
+    const { data } = (mockPrisma.task.update as jest.Mock).mock.calls[0][0];
+    expect(data.dueDate).toBeNull();
+    expect(data.category).toEqual({ disconnect: true });
+    expect(data.assignee).toEqual({ disconnect: true });
+  });
+
+  it('validates and connects a non-null parent (assertParentAllowed + assertNotConvertingParentToChild)', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(ctx('owner'));
+    (mockPrisma.task.findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 't1',
+      ownerId: 'owner',
+      shares: [],
+    });
+    // assertParentAllowed: parent is a valid top-level task in the household.
+    (mockPrisma.task.findUnique as jest.Mock).mockResolvedValueOnce({
+      id: CUID,
+      parentTaskId: null,
+      householdId: 'hh-1',
+    });
+    // assertNotConvertingParentToChild: this task has no children.
+    (mockPrisma.task.count as jest.Mock).mockResolvedValueOnce(0);
+    (mockPrisma.task.update as jest.Mock).mockResolvedValueOnce({ id: 't1' });
+    const res = await PATCH(
+      new NextRequest('http://localhost/api/tasks/t1', {
+        method: 'PATCH',
+        body: JSON.stringify({ parentTaskId: CUID }),
+      }),
+      params('t1')
+    );
+    expect(res.status).toBe(200);
+    const { data } = (mockPrisma.task.update as jest.Mock).mock.calls[0][0];
+    expect(data.parent).toEqual({ connect: { id: CUID } });
+  });
+
+  it('disconnects the parent when parentTaskId is null (no validation calls)', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(ctx('owner'));
+    (mockPrisma.task.findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 't1',
+      ownerId: 'owner',
+      shares: [],
+    });
+    (mockPrisma.task.update as jest.Mock).mockResolvedValueOnce({ id: 't1' });
+    const res = await PATCH(
+      new NextRequest('http://localhost/api/tasks/t1', {
+        method: 'PATCH',
+        body: JSON.stringify({ parentTaskId: null }),
+      }),
+      params('t1')
+    );
+    expect(res.status).toBe(200);
+    expect(mockPrisma.task.findUnique).not.toHaveBeenCalled();
+    const { data } = (mockPrisma.task.update as jest.Mock).mock.calls[0][0];
+    expect(data.parent).toEqual({ disconnect: true });
+  });
+
+  it('maps a TaskValidationError to 400 (task with sub-tasks cannot become a child)', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(ctx('owner'));
+    (mockPrisma.task.findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 't1',
+      ownerId: 'owner',
+      shares: [],
+    });
+    (mockPrisma.task.findUnique as jest.Mock).mockResolvedValueOnce({
+      id: CUID,
+      parentTaskId: null,
+      householdId: 'hh-1',
+    });
+    // This task already has children -> converting it to a child throws.
+    (mockPrisma.task.count as jest.Mock).mockResolvedValueOnce(2);
+    const res = await PATCH(
+      new NextRequest('http://localhost/api/tasks/t1', {
+        method: 'PATCH',
+        body: JSON.stringify({ parentTaskId: CUID }),
+      }),
+      params('t1')
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 500 when the update unexpectedly fails', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(ctx('owner'));
+    (mockPrisma.task.findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 't1',
+      ownerId: 'owner',
+      shares: [],
+    });
+    (mockPrisma.task.update as jest.Mock).mockRejectedValueOnce(new Error('db down'));
+    const errSpy = jest.spyOn(console, 'error').mockImplementation();
+    const res = await PATCH(
+      new NextRequest('http://localhost/api/tasks/t1', {
+        method: 'PATCH',
+        body: JSON.stringify({ title: 'New' }),
+      }),
+      params('t1')
+    );
+    expect(res.status).toBe(500);
+    errSpy.mockRestore();
+  });
 
   it('rejects a shared read-only user', async () => {
     mockGetCurrentContext.mockResolvedValueOnce(ctx('reader'));
@@ -135,6 +335,33 @@ describe('PATCH /api/tasks/[id]', () => {
 
 describe('DELETE /api/tasks/[id]', () => {
   beforeEach(() => jest.resetAllMocks());
+
+  it('returns 401 when unauthenticated', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(null);
+    const res = await DELETE(new NextRequest('http://localhost/api/tasks/t1'), params('t1'));
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when the task does not exist in this household', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(ctx('owner'));
+    (mockPrisma.task.findFirst as jest.Mock).mockResolvedValueOnce(null);
+    const res = await DELETE(new NextRequest('http://localhost/api/tasks/t1'), params('t1'));
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 500 when the delete unexpectedly fails', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(ctx('owner'));
+    (mockPrisma.task.findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 't1',
+      ownerId: 'owner',
+      shares: [],
+    });
+    (mockPrisma.task.delete as jest.Mock).mockRejectedValueOnce(new Error('db down'));
+    const errSpy = jest.spyOn(console, 'error').mockImplementation();
+    const res = await DELETE(new NextRequest('http://localhost/api/tasks/t1'), params('t1'));
+    expect(res.status).toBe(500);
+    errSpy.mockRestore();
+  });
 
   it('403s a shared editor (only owner may delete)', async () => {
     mockGetCurrentContext.mockResolvedValueOnce(ctx('editor'));

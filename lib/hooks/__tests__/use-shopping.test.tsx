@@ -625,6 +625,236 @@ describe('Shopping Hooks', () => {
     });
   });
 
+  // ─── Query error paths ───────────────────────────────────────────────────────
+
+  describe('useShoppingWarnings (error)', () => {
+    it('should handle API failure for warnings', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: false, error: 'Failed to load warnings' }),
+      });
+
+      const { result } = renderHook(() => useShoppingWarnings(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      expect(result.current.error?.message).toBe('Failed to load warnings');
+    });
+
+    it('should fall back to a generic error message when none provided', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: false }),
+      });
+
+      const { result } = renderHook(() => useShoppingWarnings(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      expect(result.current.error?.message).toBe('API request failed');
+    });
+  });
+
+  // ─── Mutation error paths ────────────────────────────────────────────────────
+
+  describe('mutation error handling', () => {
+    it('useAddToCart should reject on API failure', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: false, error: 'Item not found' }),
+      });
+
+      const { result } = renderHook(() => useAddToCart(), { wrapper: createWrapper() });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync({ itemId: 'missing' });
+        })
+      ).rejects.toThrow('Item not found');
+    });
+
+    it('useDeleteShoppingItem should reject on API failure', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: false, error: 'Cannot delete' }),
+      });
+
+      const { result } = renderHook(() => useDeleteShoppingItem(), { wrapper: createWrapper() });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync('item-1');
+        })
+      ).rejects.toThrow('Cannot delete');
+    });
+
+    it('useClearCheckedItems should clear items and reject on failure', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: false, error: 'Nothing to clear' }),
+      });
+
+      const { result } = renderHook(() => useClearCheckedItems(), { wrapper: createWrapper() });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync();
+        })
+      ).rejects.toThrow('Nothing to clear');
+    });
+
+    it('useUpdateShoppingItem should reject on API failure', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: false, error: 'Invalid update' }),
+      });
+
+      const { result } = renderHook(() => useUpdateShoppingItem(), { wrapper: createWrapper() });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync({ id: 'item-1', name: '' });
+        })
+      ).rejects.toThrow('Invalid update');
+    });
+
+    it('useDeliverCart should reject on API failure', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: false, error: 'Cart is empty' }),
+      });
+
+      const { result } = renderHook(() => useDeliverCart(), { wrapper: createWrapper() });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync({});
+        })
+      ).rejects.toThrow('Cart is empty');
+    });
+
+    it('useUpdateCartQuantity should reject on API failure', async () => {
+      const queryClient = createTestQueryClient();
+      queryClient.setQueryData(['shopping', 'cart'], mockCartItems);
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      );
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: false, error: 'Bad quantity' }),
+      });
+
+      const { result } = renderHook(() => useUpdateCartQuantity(), { wrapper });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync({ id: 'cart-1', quantity: -1 });
+        })
+      ).rejects.toThrow('Bad quantity');
+    });
+  });
+
+  // ─── Optimistic updates + rollback ─────────────────────────────────────────────
+
+  describe('optimistic updates', () => {
+    function optimisticWrapper(client: QueryClient) {
+      return function Wrapper({ children }: { children: ReactNode }) {
+        return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+      };
+    }
+
+    it('useToggleCartItem applies optimistic change then rolls back on error', async () => {
+      const queryClient = createTestQueryClient();
+      queryClient.setQueryData(['shopping', 'cart'], mockCartItems);
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: false, error: 'toggle failed' }),
+      });
+
+      const { result } = renderHook(() => useToggleCartItem(), {
+        wrapper: optimisticWrapper(queryClient),
+      });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync({ id: 'cart-1', checked: true });
+        })
+      ).rejects.toThrow('toggle failed');
+
+      // onError should have restored the previous cache snapshot.
+      expect(queryClient.getQueryData(['shopping', 'cart'])).toEqual(mockCartItems);
+    });
+
+    it('useUpdateCartQuantity applies optimistic change then rolls back on error', async () => {
+      const queryClient = createTestQueryClient();
+      queryClient.setQueryData(['shopping', 'cart'], mockCartItems);
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: false, error: 'quantity failed' }),
+      });
+
+      const { result } = renderHook(() => useUpdateCartQuantity(), {
+        wrapper: optimisticWrapper(queryClient),
+      });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync({ id: 'cart-1', quantity: 99 });
+        })
+      ).rejects.toThrow('quantity failed');
+
+      expect(queryClient.getQueryData(['shopping', 'cart'])).toEqual(mockCartItems);
+    });
+
+    it('useRemoveFromCart optimistically removes then rolls back on error', async () => {
+      const queryClient = createTestQueryClient();
+      queryClient.setQueryData(['shopping', 'cart'], mockCartItems);
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: false, error: 'remove failed' }),
+      });
+
+      const { result } = renderHook(() => useRemoveFromCart(), {
+        wrapper: optimisticWrapper(queryClient),
+      });
+
+      await expect(
+        act(async () => {
+          await result.current.mutateAsync('cart-1');
+        })
+      ).rejects.toThrow('remove failed');
+
+      expect(queryClient.getQueryData(['shopping', 'cart'])).toEqual(mockCartItems);
+    });
+
+    it('useRemoveFromCart optimistically removes the item on success', async () => {
+      const queryClient = createTestQueryClient();
+      queryClient.setQueryData(['shopping', 'cart'], mockCartItems);
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data: { id: 'cart-1' } }),
+      });
+
+      const { result } = renderHook(() => useRemoveFromCart(), {
+        wrapper: optimisticWrapper(queryClient),
+      });
+
+      await act(async () => {
+        await result.current.mutateAsync('cart-1');
+      });
+
+      const cart = queryClient.getQueryData<ShoppingCartItem[]>(['shopping', 'cart']);
+      expect(cart?.find((i) => i.id === 'cart-1')).toBeUndefined();
+    });
+  });
+
   // ─── Cache invalidation ──────────────────────────────────────────────────────
 
   describe('Cache Invalidation', () => {

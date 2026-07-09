@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle, ChevronDown, Minus, TriangleAlert } from 'lucide-react';
+import { AlertCircle, Check, ChevronDown, Minus, TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUpdateTask, type TaskRow } from '@/lib/hooks/use-tasks';
 import { useLongPress } from '@/lib/hooks/use-long-press';
@@ -11,6 +11,60 @@ import type { SelectionProps } from './task-selection';
 interface TaskListViewProps extends SelectionProps {
   tasks: TaskRow[];
   onOpenTask: (id: string) => void;
+}
+
+/**
+ * Left-border accent colour by urgency (priority). Applied as an inline
+ * `borderLeftColor` + width so only the left edge is tinted (like the AI-guess
+ * accent on transaction rows); the rest of the border stays neutral. The
+ * selected state keeps its own primary ring instead. Shared with the kanban cards.
+ */
+export const PRIORITY_BORDER: Record<TaskRow['priority'], string> = {
+  URGENT: '#ef4444',
+  HIGH: '#f97316',
+  MEDIUM: '#eab308',
+  LOW: '#94a3b8',
+};
+
+/**
+ * Circular done toggle shown on each task card. Filled green with a check when
+ * done. Stops click/pointer propagation so it never opens the card or starts a
+ * drag (it lives inside draggable/clickable cards).
+ */
+export function DoneToggle({
+  done,
+  onToggle,
+  label,
+  className,
+}: {
+  done: boolean;
+  onToggle: () => void;
+  label: string;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={done}
+      aria-label={label}
+      title={label}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle();
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+      className={cn(
+        'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors',
+        done
+          ? 'border-emerald-500 bg-emerald-500 text-white'
+          : 'border-muted-foreground/40 hover:border-foreground hover:text-muted-foreground text-transparent',
+        className
+      )}
+    >
+      <Check className="h-3.5 w-3.5" />
+    </button>
+  );
 }
 
 /**
@@ -82,9 +136,13 @@ function TaskCard({
     <div
       onClick={activate}
       {...handlers}
+      style={
+        selected
+          ? undefined
+          : { borderLeftColor: PRIORITY_BORDER[task.priority], borderLeftWidth: 4 }
+      }
       className={cn(
-        'border-border/60 bg-card cursor-pointer touch-pan-y rounded-3xl border px-5 py-4 transition-colors select-none',
-        'hover:border-border',
+        'bg-card cursor-pointer touch-pan-y rounded-3xl border px-5 py-4 transition-colors select-none',
         selected && 'border-primary ring-primary/40 ring-2'
       )}
     >

@@ -36,10 +36,11 @@ import { TaskTableView } from './task-table-view';
 import { TaskListView } from './task-list-view';
 import { TaskKanbanView, type GroupBy } from './task-kanban-view';
 import { TaskCalendarView, type CalendarMode } from './task-calendar-view';
+import { TaskArchive } from './task-archive';
 import { TaskDetailSheet } from './task-detail-sheet';
 import { TaskToolbar, type ViewOption } from './task-toolbar';
 import { CategoryManagerDialog } from './category-manager-dialog';
-import { QuickAddPopover } from './quick-add-popover';
+import { QuickAddPopover, type QuickAddOptions } from './quick-add-popover';
 import type { TaskSort } from './task-filters-bar';
 
 type ViewMode = 'list' | 'kanban' | 'table' | 'calendar';
@@ -51,8 +52,8 @@ const VIEW_OPTIONS: ViewOption[] = [
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
 ];
 
-// Sorting UI was removed; tasks always come back due-date-earliest-first.
-const DEFAULT_SORT: TaskSort = 'due-asc';
+// No sort UI; tasks are ordered by urgency (priority), earliest due date breaking ties.
+const DEFAULT_SORT: TaskSort = 'priority';
 
 const PRIORITY_ORDER: Record<TaskRow['priority'], number> = {
   URGENT: 0,
@@ -88,6 +89,10 @@ export function TasksClient() {
   const deleteTask = useDeleteTask();
 
   const tasks = useMemo(() => sortTasks(rawTasks as TaskRow[], DEFAULT_SORT), [rawTasks]);
+  // Done tasks are pulled out of the active views into the Archive section at
+  // the bottom; marking a card done moves it there (and back when un-done).
+  const activeTasks = useMemo(() => tasks.filter((t) => t.status !== 'DONE'), [tasks]);
+  const doneTasks = useMemo(() => tasks.filter((t) => t.status === 'DONE'), [tasks]);
 
   const handleQuickAdd = () => {
     createTask.mutate({ title: 'New task' }, { onSuccess: (task) => setDetailId(task.id) });
@@ -130,9 +135,14 @@ export function TasksClient() {
     if (fabLongPress.consumedClick()) return;
     setQuickAddOpen(true);
   };
-  const handleQuickAddSubmit = (title: string, categoryId: string | null) => {
+  const handleQuickAddSubmit = (title: string, opts: QuickAddOptions) => {
     createTask.mutate(
-      { title, categoryId: categoryId ?? undefined },
+      {
+        title,
+        categoryId: opts.categoryId ?? undefined,
+        priority: opts.priority,
+        dueDate: opts.dueDate ?? undefined,
+      },
       { onSuccess: () => setQuickAddOpen(false) }
     );
   };
@@ -251,9 +261,11 @@ export function TasksClient() {
         </div>
       )}
 
-      {!isLoading && tasks.length === 0 && !error && view !== 'calendar' && (
-        <TaskEmptyState onCreate={handleQuickAdd} />
-      )}
+      {!isLoading &&
+        activeTasks.length === 0 &&
+        doneTasks.length === 0 &&
+        !error &&
+        view !== 'calendar' && <TaskEmptyState onCreate={handleQuickAdd} />}
 
       {/* Calendar renders even with no tasks so days can still be scheduled.
           Keyed on the mode so switching week/month re-anchors on today. */}
@@ -261,15 +273,15 @@ export function TasksClient() {
         <TaskCalendarView
           key={calendarView}
           mode={calendarView}
-          tasks={tasks}
+          tasks={activeTasks}
           onOpenTask={setDetailId}
           onAddTaskOnDate={handleAddTaskOnDate}
         />
       )}
 
-      {tasks.length > 0 && view === 'list' && (
+      {activeTasks.length > 0 && view === 'list' && (
         <TaskListView
-          tasks={tasks}
+          tasks={activeTasks}
           onOpenTask={setDetailId}
           selectionMode={selectionMode}
           selectedIds={selectedIds}
@@ -277,9 +289,9 @@ export function TasksClient() {
           onToggleSelection={toggleSelection}
         />
       )}
-      {tasks.length > 0 && view === 'kanban' && (
+      {activeTasks.length > 0 && view === 'kanban' && (
         <TaskKanbanView
-          tasks={tasks}
+          tasks={activeTasks}
           categories={categories}
           onOpenTask={setDetailId}
           groupBy={groupBy}
@@ -289,14 +301,25 @@ export function TasksClient() {
           onToggleSelection={toggleSelection}
         />
       )}
-      {tasks.length > 0 && view === 'table' && (
-        <TaskTableView tasks={tasks} categories={categories} tags={tags} onOpenTask={setDetailId} />
+      {activeTasks.length > 0 && view === 'table' && (
+        <TaskTableView
+          tasks={activeTasks}
+          categories={categories}
+          tags={tags}
+          onOpenTask={setDetailId}
+        />
       )}
 
-      {tasks.length > 0 && !selectionMode && (
+      {/* Archive — done tasks, collapsed at the bottom. */}
+      {doneTasks.length > 0 && !selectionMode && view !== 'calendar' && (
+        <TaskArchive tasks={doneTasks} onOpenTask={setDetailId} />
+      )}
+
+      {activeTasks.length > 0 && !selectionMode && (
         <div className="text-muted-foreground flex items-center justify-between rounded-2xl border px-4 py-2.5 text-xs">
           <span>
-            Showing {tasks.length} of {tasks.length} tasks
+            Showing {activeTasks.length} active
+            {doneTasks.length > 0 ? ` · ${doneTasks.length} archived` : ''}
           </span>
         </div>
       )}
@@ -405,7 +428,10 @@ function sortTasks(tasks: TaskRow[], sort: TaskSort): TaskRow[] {
       copy.sort((a, b) => dateCmp(b.dueDate, a.dueDate));
       break;
     case 'priority':
-      copy.sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
+      copy.sort(
+        (a, b) =>
+          PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority] || dateCmp(a.dueDate, b.dueDate)
+      );
       break;
     case 'title':
       copy.sort((a, b) => a.title.localeCompare(b.title));
