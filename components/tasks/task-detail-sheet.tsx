@@ -189,6 +189,7 @@ function TaskDetailBody({
           <input
             key={task.status}
             defaultValue={task.status}
+            maxLength={80}
             onBlur={(e) => {
               const next = e.target.value.trim();
               if (next !== task.status) patch('status', next);

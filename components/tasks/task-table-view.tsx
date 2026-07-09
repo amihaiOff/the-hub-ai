@@ -333,6 +333,7 @@ function StatusCell({
     <input
       key={value}
       defaultValue={value}
+      maxLength={80}
       onBlur={(e) => commit(e.target.value)}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
