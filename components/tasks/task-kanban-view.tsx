@@ -18,7 +18,7 @@ import { useUpdateTask, type TaskCategoryRow, type TaskRow } from '@/lib/hooks/u
 import { useLongPress } from '@/lib/hooks/use-long-press';
 import { CategoryIcon } from './category-icon';
 import { TASK_STATUSES, TASK_PRIORITIES } from '@/lib/validations/tasks';
-import { prettyStatus, PRIORITY_BORDER } from './task-list-view';
+import { prettyStatus, PRIORITY_BORDER, DoneToggle } from './task-list-view';
 import { prettyPriority } from './task-filters-bar';
 import type { SelectionProps } from './task-selection';
 
@@ -321,6 +321,10 @@ function DraggableKanbanCard({
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
   });
+  const update = useUpdateTask();
+  const isDone = task.status === 'DONE';
+  const toggleDone = () =>
+    update.mutate({ id: task.id, patch: { status: isDone ? 'TODO' : 'DONE' } });
   // Colour the border by urgency; the selected state keeps its primary ring.
   const style: React.CSSProperties = {
     ...(transform ? { transform: CSS.Translate.toString(transform) } : {}),
@@ -403,22 +407,34 @@ function DraggableKanbanCard({
           {selected && <Check className="h-3.5 w-3.5" />}
         </span>
       )}
-      {task.category && groupBy !== 'category' && (
-        <span className="text-muted-foreground bg-muted/60 mb-3 inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold tracking-wider uppercase">
-          {task.category.name}
-        </span>
-      )}
-      <div className="text-sm leading-snug font-semibold break-words">{task.title}</div>
-      {task.notes && (
-        <p className="text-muted-foreground mt-1.5 line-clamp-2 text-xs">{task.notes}</p>
-      )}
-      {task.assignee && (
-        <div className="mt-3">
-          <span className="bg-muted/70 flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold">
-            {initials(task.assignee.name)}
-          </span>
+      <div className="flex items-start gap-2.5">
+        {!selectionMode && (
+          <DoneToggle
+            done={isDone}
+            onToggle={toggleDone}
+            label={isDone ? `Mark “${task.title}” not done` : `Mark “${task.title}” done`}
+            className="mt-0.5"
+          />
+        )}
+        <div className="min-w-0 flex-1">
+          {task.category && groupBy !== 'category' && (
+            <span className="text-muted-foreground bg-muted/60 mb-3 inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold tracking-wider uppercase">
+              {task.category.name}
+            </span>
+          )}
+          <div className="text-sm leading-snug font-semibold break-words">{task.title}</div>
+          {task.notes && (
+            <p className="text-muted-foreground mt-1.5 line-clamp-2 text-xs">{task.notes}</p>
+          )}
+          {task.assignee && (
+            <div className="mt-3">
+              <span className="bg-muted/70 flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold">
+                {initials(task.assignee.name)}
+              </span>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle, ChevronDown, Minus, TriangleAlert } from 'lucide-react';
+import { AlertCircle, Check, ChevronDown, Minus, TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUpdateTask, type TaskRow } from '@/lib/hooks/use-tasks';
 import { useLongPress } from '@/lib/hooks/use-long-press';
@@ -24,6 +24,47 @@ export const PRIORITY_BORDER: Record<TaskRow['priority'], string> = {
   MEDIUM: '#eab308',
   LOW: '#94a3b8',
 };
+
+/**
+ * Circular done toggle shown on each task card. Filled green with a check when
+ * done. Stops click/pointer propagation so it never opens the card or starts a
+ * drag (it lives inside draggable/clickable cards).
+ */
+export function DoneToggle({
+  done,
+  onToggle,
+  label,
+  className,
+}: {
+  done: boolean;
+  onToggle: () => void;
+  label: string;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={done}
+      aria-label={label}
+      title={label}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle();
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+      className={cn(
+        'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors',
+        done
+          ? 'border-emerald-500 bg-emerald-500 text-white'
+          : 'border-muted-foreground/40 hover:border-foreground hover:text-muted-foreground text-transparent',
+        className
+      )}
+    >
+      <Check className="h-3.5 w-3.5" />
+    </button>
+  );
+}
 
 /**
  * Card-per-row list. Each card is a fixed grid of label/value rows —
