@@ -110,6 +110,47 @@ describe('drain behavior', () => {
     expect(mockRunBatch).toHaveBeenCalledTimes(4);
   });
 
+  it('stops before processing further households once the deadline passes and flags timedOut', async () => {
+    (mockPrisma.household.findMany as jest.Mock).mockResolvedValueOnce([
+      { id: 'hh-1' },
+      { id: 'hh-2' },
+    ]);
+    mockPrepare.mockResolvedValue({ ok: true, prepared });
+    // hh-1 drains in a single partial batch; hh-2 must never be touched.
+    mockRunBatch.mockResolvedValueOnce({ ...emptyCounts, processed: 2, suggested: 2 });
+
+    // Every dependency in the loop is mocked, so Date.now is called exactly:
+    // deadline calc → hh-1 top check → hh-1 batch check → hh-2 top check.
+    const nowSpy = jest.spyOn(Date, 'now');
+    nowSpy
+      .mockReturnValueOnce(0) // deadline = DEADLINE_MS
+      .mockReturnValueOnce(0) // hh-1 household check — within budget
+      .mockReturnValueOnce(0) // hh-1 batch check — within budget
+      .mockReturnValue(1e15); // hh-2 household check — past the deadline
+
+    const res = await GET(makeRequest());
+    const json = await res.json();
+    expect(json.results.timedOut).toBe(true);
+    expect(json.results.householdsProcessed).toBe(1);
+    expect(json.results.suggested).toBe(2);
+    expect(mockRunBatch).toHaveBeenCalledTimes(1);
+    expect(mockPrepare).toHaveBeenCalledTimes(1); // hh-2 never prepared
+    nowSpy.mockRestore();
+  });
+
+  it('stops a household after one full batch that produced only errors', async () => {
+    (mockPrisma.household.findMany as jest.Mock).mockResolvedValueOnce([{ id: 'hh-1' }]);
+    mockPrepare.mockResolvedValueOnce({ ok: true, prepared });
+    // Full batch, zero progress (all errors) — must not burn the remaining
+    // batches this run; the bounded retry counter handles it across runs.
+    mockRunBatch.mockResolvedValue({ ...emptyCounts, processed: 25, errors: 25 });
+
+    const res = await GET(makeRequest());
+    const json = await res.json();
+    expect(mockRunBatch).toHaveBeenCalledTimes(1);
+    expect(json.results.errors).toBe(25);
+  });
+
   it('processes multiple households independently', async () => {
     (mockPrisma.household.findMany as jest.Mock).mockResolvedValueOnce([
       { id: 'hh-1' },

@@ -7,12 +7,15 @@ import { prepareHousehold, runSuggestionBatch, MAX_BATCH_LIMIT } from '@/lib/ai/
 export const maxDuration = 60;
 
 // Stop starting new work with headroom to spare under maxDuration so the run
-// always returns cleanly (and logs its results) instead of being killed.
+// always returns cleanly (and logs its results) instead of being killed. The
+// same cutoff is handed to each batch so it won't start a model call past it.
 const DEADLINE_MS = 50_000;
-// Per household per run. Bounds cost and, since error rows are intentionally
-// left un-stamped (so transient failures get retried), caps how often such a
-// row can be re-attempted within a single run.
+// Per household per run — bounds cost/wall-clock even if batches keep coming
+// back full.
 const MAX_BATCHES_PER_HOUSEHOLD = 4;
+// Batch size per run; also the "drained" threshold (a short batch => no more
+// candidates). Kept as one local so the two never drift apart.
+const BATCH_LIMIT = MAX_BATCH_LIMIT;
 
 /**
  * GET /api/cron/suggest-categories
@@ -69,8 +72,9 @@ export async function GET(request: NextRequest) {
           break;
         }
         const counts = await runSuggestionBatch(householdId, prep.prepared, {
-          limit: MAX_BATCH_LIMIT,
+          limit: BATCH_LIMIT,
           onlyUnattempted: true,
+          deadlineMs: deadline,
         });
         results.processed += counts.processed;
         results.suggested += counts.suggested;
@@ -79,7 +83,14 @@ export async function GET(request: NextRequest) {
         results.errors += counts.errors;
 
         // Fewer candidates than the batch limit means this household is drained.
-        if (counts.processed < MAX_BATCH_LIMIT) break;
+        if (counts.processed < BATCH_LIMIT) break;
+
+        // A full batch that produced only errors (no suggestion/no-match/low)
+        // means the model is failing for this household right now (e.g. a bad
+        // key). Stop hammering it this run — the bounded retry counter will let
+        // the rows be re-tried on a later run, then give up.
+        const progress = counts.suggested + counts.lowConfidence + counts.noMatch;
+        if (progress === 0) break;
       }
     }
 

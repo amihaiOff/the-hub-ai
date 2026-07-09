@@ -7,6 +7,10 @@ export const CONFIDENCE_THRESHOLD = 0.6;
 export const DEFAULT_BATCH_LIMIT = 8;
 export const MAX_BATCH_LIMIT = 25;
 export const SUGGEST_CONCURRENCY = 3;
+// After this many failed AI attempts a transaction is marked attempted so a
+// persistent failure (bad key, sustained rate-limit) can't re-bill it forever.
+// Genuinely transient failures still get a few retries across drains.
+export const MAX_CATEGORIZATION_ERRORS = 3;
 
 export interface SuggestCounts {
   processed: number;
@@ -39,6 +43,12 @@ export interface RunBatchOptions {
    * the manual "Suggest" button leaves it false so the user can re-run.
    */
   onlyUnattempted?: boolean;
+  /**
+   * Absolute wall-clock cutoff (Date.now() ms). Once reached, no further model
+   * calls are started in this batch — the remaining rows stay unattempted for a
+   * later run. Guards the serverless timeout in the cron and post-import passes.
+   */
+  deadlineMs?: number;
 }
 
 export type SuggestResult =
@@ -99,10 +109,11 @@ export async function prepareHousehold(householdId: string): Promise<PrepareResu
  *   - suggested:       attach suggestedCategoryId (+ confidence/timestamp);
  *   - low_confidence:  log only, leave the transaction uncategorized;
  *   - no_match:        log only, leave the transaction uncategorized;
- *   - error:           log only.
+ *   - error:           log + bump categorizationErrorCount.
  * Every non-error attempt stamps categorizationAttemptedAt so the automatic
- * pass never re-queries the model for the same transaction. Errors are left
- * unstamped so a transient failure (e.g. rate limit) is retried on a later run.
+ * pass never re-queries the model for the same transaction. Errors bump a
+ * retry counter and stay re-queryable until it hits MAX_CATEGORIZATION_ERRORS,
+ * at which point the row is stamped so a persistent failure can't re-bill it.
  */
 export async function runSuggestionBatch(
   householdId: string,
@@ -152,6 +163,9 @@ export async function runSuggestionBatch(
   };
 
   await mapPool(transactions, SUGGEST_CONCURRENCY, async (tx) => {
+    // Respect the wall-clock cutoff: leave the remaining rows for a later run
+    // rather than risk overrunning the serverless timeout mid-write.
+    if (options.deadlineMs !== undefined && Date.now() >= options.deadlineMs) return;
     const name = tx.payee?.name || tx.notes || 'Unknown transaction';
     counts.processed++;
     try {
@@ -207,10 +221,27 @@ export async function runSuggestionBatch(
       });
     } catch (err) {
       counts.errors++;
+      // Bounded cross-run retry: record the failure. A transient error leaves
+      // the row unattempted so a later drain retries it, but once the failure
+      // count hits the cap we stamp categorizationAttemptedAt to give up — a
+      // persistent failure (bad key, sustained rate-limit) must not re-bill the
+      // same transaction on every run.
+      const nextErrorCount = (tx.categorizationErrorCount ?? 0) + 1;
+      const giveUp = nextErrorCount >= MAX_CATEGORIZATION_ERRORS;
+      try {
+        await prisma.budgetTransaction.update({
+          where: { id: tx.id },
+          data: {
+            categorizationErrorCount: nextErrorCount,
+            ...(giveUp ? { categorizationAttemptedAt: new Date() } : {}),
+          },
+        });
+      } catch (updateErr) {
+        console.error('Failed to record categorization error count:', updateErr);
+      }
       // Never let a logging failure escape the worker — one bad write must not
       // reject Promise.all and drop the partial counts / already-written
-      // suggestions from the rest of the batch. We deliberately do NOT stamp
-      // categorizationAttemptedAt on errors so a transient failure is retried.
+      // suggestions from the rest of the batch.
       try {
         await prisma.budgetCategorizationLog.create({
           data: {

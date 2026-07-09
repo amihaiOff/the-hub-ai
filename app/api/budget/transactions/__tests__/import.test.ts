@@ -55,9 +55,12 @@ jest.mock('@/lib/auth-utils', () => ({
   getCurrentContext: jest.fn(),
 }));
 
+import { after } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getCurrentContext } from '@/lib/auth-utils';
 import { POST } from '../../transactions/import/route';
+
+const mockAfter = after as jest.MockedFunction<typeof after>;
 
 const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
@@ -169,6 +172,8 @@ describe('Import Transactions API', () => {
     expect(data.success).toBe(true);
     expect(data.data.created).toBe(1);
     expect(data.data.duplicatesSkipped).toBe(0);
+    // Newly-created rows kick off the post-response AI categorization pass.
+    expect(mockAfter).toHaveBeenCalledTimes(1);
   });
 
   it('should create new payees for unknown payee names', async () => {
@@ -235,6 +240,8 @@ describe('Import Transactions API', () => {
     expect(response.status).toBe(200);
     expect(data.data.created).toBe(0);
     expect(data.data.duplicatesSkipped).toBe(1);
+    // Nothing new was created, so no AI pass is scheduled.
+    expect(mockAfter).not.toHaveBeenCalled();
   });
 
   // ==========================================

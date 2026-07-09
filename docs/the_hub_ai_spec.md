@@ -103,8 +103,9 @@ Outcomes per transaction (all logged to `BudgetCategorizationLog`):
 - **suggested** — confidence ≥ 0.6: the guess is attached and shown.
 - **low_confidence** — below 0.6: logged only, no guess attached.
 - **no_match** — model found no fitting category: logged only.
-- **error** — query failed: logged; `categorizationAttemptedAt` is left unset so
-  a transient failure is retried on a later run.
+- **error** — query failed: logged and `categorizationErrorCount` is bumped. A
+  transient failure is retried on later runs; after a few failures the row is
+  marked attempted so a persistent failure (e.g. a bad key) can't re-bill it.
 
 Shared logic lives in `lib/ai/suggest-categories.ts`
 (`prepareHousehold` + `runSuggestionBatch`). The Anthropic key is resolved per

@@ -15,6 +15,12 @@ import Anthropic from '@anthropic-ai/sdk';
 const MODEL = 'claude-haiku-4-5';
 const MAX_WEB_SEARCHES = 3;
 const MAX_STEPS = 5;
+// Cap a single categorization so one slow/hung request can't eat the whole
+// serverless budget. The automatic drain retries on a later run.
+const REQUEST_TIMEOUT_MS = 30_000;
+// We do our own bounded, cross-run retry (see categorizationErrorCount), so keep
+// the SDK's per-call retries low — retrying hard on a 429 only worsens it.
+const SDK_MAX_RETRIES = 1;
 
 export interface CategoryOption {
   id: string;
@@ -56,7 +62,11 @@ export async function categorizeTransaction(
   apiKey: string,
   input: CategorizeInput
 ): Promise<CategorizeResult> {
-  const client = new Anthropic({ apiKey });
+  const client = new Anthropic({
+    apiKey,
+    timeout: REQUEST_TIMEOUT_MS,
+    maxRetries: SDK_MAX_RETRIES,
+  });
   const validIds = new Set(input.categories.map((c) => c.id));
 
   const tools = [

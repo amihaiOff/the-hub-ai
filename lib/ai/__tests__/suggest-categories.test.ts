@@ -144,16 +144,56 @@ describe('runSuggestionBatch — attempt stamping', () => {
     expect(data).toEqual({ categorizationAttemptedAt: expect.any(Date) });
   });
 
-  it('does NOT stamp categorizationAttemptedAt on error (so it can be retried)', async () => {
+  it('bumps the error counter but does NOT stamp attemptedAt on a first transient error', async () => {
     (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
-      { id: 'tx-1', amountIls: 10, notes: null, payee: { name: 'Boom' } },
+      {
+        id: 'tx-1',
+        amountIls: 10,
+        notes: null,
+        payee: { name: 'Boom' },
+        categorizationErrorCount: 0,
+      },
     ]);
     mockCategorize.mockRejectedValueOnce(new Error('rate limited'));
     const counts = await runSuggestionBatch('hh-1', prepared, {});
     expect(counts).toMatchObject({ errors: 1 });
-    expect(mockPrisma.budgetTransaction.update).not.toHaveBeenCalled();
+    // Counter incremented, row left re-queryable (no attemptedAt) for a retry.
+    const data = (mockPrisma.budgetTransaction.update as jest.Mock).mock.calls[0][0].data;
+    expect(data).toEqual({ categorizationErrorCount: 1 });
     const logData = (mockPrisma.budgetCategorizationLog.create as jest.Mock).mock.calls[0][0].data;
     expect(logData.status).toBe('error');
+  });
+
+  it('gives up (stamps attemptedAt) once the error counter hits the cap', async () => {
+    (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
+      // Already failed twice; this third failure reaches MAX_CATEGORIZATION_ERRORS (3).
+      {
+        id: 'tx-1',
+        amountIls: 10,
+        notes: null,
+        payee: { name: 'Boom' },
+        categorizationErrorCount: 2,
+      },
+    ]);
+    mockCategorize.mockRejectedValueOnce(new Error('still failing'));
+    const counts = await runSuggestionBatch('hh-1', prepared, {});
+    expect(counts).toMatchObject({ errors: 1 });
+    const data = (mockPrisma.budgetTransaction.update as jest.Mock).mock.calls[0][0].data;
+    expect(data.categorizationErrorCount).toBe(3);
+    expect(data.categorizationAttemptedAt).toBeInstanceOf(Date);
+  });
+});
+
+describe('runSuggestionBatch — deadline', () => {
+  it('skips model calls once the deadline has passed (rows left for a later run)', async () => {
+    (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
+      { id: 'tx-1', amountIls: 10, notes: null, payee: { name: 'A' } },
+    ]);
+    // A deadline already in the past → no work should start.
+    const counts = await runSuggestionBatch('hh-1', prepared, { deadlineMs: Date.now() - 1 });
+    expect(counts.processed).toBe(0);
+    expect(mockCategorize).not.toHaveBeenCalled();
+    expect(mockPrisma.budgetTransaction.update).not.toHaveBeenCalled();
   });
 });
 

@@ -583,10 +583,15 @@ model BudgetTransaction {
   suggestedCategoryId   String?           @map("suggested_category_id")
   suggestionConfidence  Float?            @map("suggestion_confidence")
   suggestedAt           DateTime?         @map("suggested_at")
-  // Set once the AI has been asked about this transaction (whatever the
-  // outcome). Lets the automatic ingestion pass attempt each transaction
-  // exactly once instead of re-querying the model on every cron drain.
+  // Set once the AI has resolved this transaction (suggested / low-confidence /
+  // no-match, or given up after repeated errors). Lets the automatic ingestion
+  // pass attempt each transaction once instead of re-querying on every drain.
   categorizationAttemptedAt DateTime?     @map("categorization_attempted_at")
+  // Count of failed AI attempts (network / rate-limit / API errors). Transient
+  // failures are retried on later drains; once this hits the cap the row is
+  // marked attempted so a persistent failure (e.g. a bad key) can't re-bill the
+  // same transaction forever.
+  categorizationErrorCount Int            @default(0) @map("categorization_error_count")
   payeeId               String?           @map("payee_id")
   paymentMethod         PaymentMethod     @default(credit_card) @map("payment_method")
   paymentNumber         Int?              @map("payment_number") // For installments (e.g., 2 of 6)

@@ -198,6 +198,24 @@ describe('POST /api/budget/transactions/[id]/suggestion — actions', () => {
     spy.mockRestore();
   });
 
+  it('approve still categorizes the transaction when it has no payee', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    (mockPrisma.budgetTransaction.findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 'tx-1',
+      suggestedCategoryId: 'cat-1',
+      payee: null,
+    });
+    (mockPrisma.budgetTransaction.update as jest.Mock).mockResolvedValueOnce({});
+    const res = await POST(makeRequest({ action: 'approve' }), params());
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.data).toMatchObject({ action: 'approve', payeeDefaultUpdated: false });
+    expect(mockPrisma.budgetPayee.update).not.toHaveBeenCalled();
+    // The transaction itself is still categorized from the suggestion.
+    const updateCall = (mockPrisma.budgetTransaction.update as jest.Mock).mock.calls[0][0];
+    expect(updateCall.data.categoryId).toBe('cat-1');
+  });
+
   it('dismiss clears the suggestion without changing the category or payee default', async () => {
     mockGetCurrentContext.mockResolvedValueOnce(mockContext);
     (mockPrisma.budgetTransaction.findFirst as jest.Mock).mockResolvedValueOnce({
