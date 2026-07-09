@@ -164,15 +164,8 @@ function buildColumns(groupBy: GroupBy, categories: TaskCategoryRow[]): Column[]
       dotClass: PRIORITY_DOT[p],
     }));
   }
-  // category
+  // category — real categories first, "Uncategorized" pinned to the bottom.
   return [
-    {
-      key: NO_CATEGORY_ID,
-      label: 'Uncategorized',
-      dotClass: 'bg-muted-foreground/40',
-      icon: null,
-      color: null,
-    },
     ...categories.map((c) => ({
       key: c.id,
       label: c.name,
@@ -180,6 +173,13 @@ function buildColumns(groupBy: GroupBy, categories: TaskCategoryRow[]): Column[]
       icon: c.icon,
       color: c.color,
     })),
+    {
+      key: NO_CATEGORY_ID,
+      label: 'Uncategorized',
+      dotClass: 'bg-muted-foreground/40',
+      icon: null,
+      color: null,
+    },
   ];
 }
 
