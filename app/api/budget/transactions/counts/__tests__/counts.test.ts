@@ -27,13 +27,25 @@ jest.mock('@/lib/auth-utils', () => ({
   getCurrentContext: jest.fn(),
 }));
 
-import { NextRequest } from 'next/server';
+// Keep NextRequest/NextResponse real but stub after() — it throws outside a
+// real request scope; the read-triggered AI pass is exercised elsewhere.
+jest.mock('next/server', () => {
+  const actual = jest.requireActual('next/server');
+  return { ...actual, after: jest.fn() };
+});
+
+jest.mock('@/lib/ai/background-suggestion', () => ({
+  runReadTriggeredSuggestion: jest.fn(),
+}));
+
+import { NextRequest, after } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getCurrentContext } from '@/lib/auth-utils';
 import { GET } from '../route';
 
 const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
+const mockAfter = after as jest.MockedFunction<typeof after>;
 
 function createRequest(month?: string): NextRequest {
   const url = month
@@ -87,6 +99,17 @@ describe('Transaction Counts API', () => {
       expect(response.status).toBe(401);
       expect(body.success).toBe(false);
       expect(body.error).toBe('Unauthorized');
+      // No background categorization pass for an unauthenticated request.
+      expect(mockAfter).not.toHaveBeenCalled();
+    });
+
+    it('schedules a background categorization pass for an authenticated request', async () => {
+      mockGetCurrentContext.mockResolvedValue(mockContext);
+      (mockPrisma.budgetTransaction.count as jest.Mock).mockResolvedValue(3);
+
+      await GET(createRequest());
+
+      expect(mockAfter).toHaveBeenCalledTimes(1);
     });
 
     it('should return uncategorized count of 0 when all transactions have categories', async () => {

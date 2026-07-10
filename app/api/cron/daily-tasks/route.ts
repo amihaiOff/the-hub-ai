@@ -4,6 +4,12 @@ import { updateStockPriceCache, isStockPriceError } from '@/lib/api/stock-price'
 import { syncMoneytorForHouseholdAndLog } from '@/lib/api/moneytor-sync';
 import { MoneytorApiError } from '@/lib/api/moneytor';
 import { withCronLog } from '@/lib/utils/cron-logger';
+import { drainSuggestions, type DrainResult } from '@/lib/ai/drain-suggestions';
+
+// Absolute wall-clock budget for the whole run. The AI categorization drain
+// runs last and stops starting model calls at this cutoff, leaving headroom
+// under maxDuration (60s) so the run returns and logs cleanly.
+const RUN_DEADLINE_MS = 45_000;
 
 // Extend timeout for cron job processing many stock symbols
 export const maxDuration = 60;
@@ -27,9 +33,11 @@ export async function GET(request: NextRequest) {
   }
 
   return withCronLog('/api/cron/daily-tasks', async () => {
+    const runStartMs = Date.now();
     const results = {
       stockPrices: { updated: 0, failed: 0, symbols: [] as string[] },
       notifications: { created: 0, checked: 0 },
+      categorization: null as DrainResult | null,
       moneytor: {
         skipped: false as boolean | string,
         households: 0,
@@ -48,6 +56,18 @@ export async function GET(request: NextRequest) {
       await updateStockPrices(results);
       await checkMissingDeposits(results);
       await syncMoneytor(results);
+
+      // Best-effort daily backstop for automatic categorization: drain any
+      // uncategorized transactions the AI hasn't attempted yet (e.g. large
+      // imports or Moneytor-synced rows the post-import / read-triggered passes
+      // didn't reach). Bounded by the run deadline so it never risks the
+      // timeout; whatever it can't finish is picked up on the next day's run or
+      // when the user next views their transactions.
+      try {
+        results.categorization = await drainSuggestions(runStartMs + RUN_DEADLINE_MS);
+      } catch (err) {
+        console.error('Categorization drain failed in daily tasks:', err);
+      }
 
       return {
         body: {

@@ -1,9 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { getCurrentContext } from '@/lib/auth-utils';
 import { getHouseholdIdFromApiKey } from '@/lib/auth-api-key';
 import { parseRiseupCSV } from '@/lib/utils/riseup-csv-parser';
 import { importBulkSchema } from '@/lib/validations/budget';
 import { importTransactions } from '@/lib/utils/import-transactions';
+import { runPostImportSuggestion } from '@/lib/ai/background-suggestion';
+
+// Give the post-response AI categorization pass headroom under the timeout.
+export const maxDuration = 60;
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -107,6 +111,12 @@ export async function POST(request: NextRequest) {
 
     // Import using shared logic
     const result = await importTransactions(householdId, validation.data.transactions);
+
+    // Fire an AI categorization pass after the response is sent so the upload
+    // stays fast; the cron drain handles anything this bounded pass misses.
+    if (result.created > 0) {
+      after(() => runPostImportSuggestion(householdId));
+    }
 
     return NextResponse.json({
       success: true,

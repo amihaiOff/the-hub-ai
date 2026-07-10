@@ -1,8 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import { getCycleRangeForHousehold } from '@/lib/utils/billing-cycle-server';
+import { runReadTriggeredSuggestion } from '@/lib/ai/background-suggestion';
+
+// Give the post-response read-triggered AI categorization pass room to run.
+export const maxDuration = 60;
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,6 +16,14 @@ export async function GET(request: NextRequest) {
     }
 
     const householdId = context.activeHousehold.id;
+
+    // Activity-driven categorization: whenever the app checks the uncategorized
+    // count (i.e. the user is looking at their budget), kick off a background
+    // AI pass over any not-yet-attempted rows. This is the main automatic
+    // driver on plans without a frequent cron. It runs after the response and
+    // is self-limiting — once every row has been attempted it's a no-op.
+    after(() => runReadTriggeredSuggestion(householdId));
+
     const { searchParams } = new URL(request.url);
     const month = searchParams.get('month');
 

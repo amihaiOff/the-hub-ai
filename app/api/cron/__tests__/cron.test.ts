@@ -55,6 +55,21 @@ jest.mock('@/lib/api/exchange-rates', () => ({
   fetchExchangeRates: jest.fn().mockResolvedValue({ USD: 1, EUR: 1, GBP: 1, ILS: 1 }),
 }));
 
+// The daily-tasks route now runs an AI categorization drain last; stub it so
+// this suite's stock/pension/snapshot assertions aren't affected by it.
+jest.mock('@/lib/ai/drain-suggestions', () => ({
+  drainSuggestions: jest.fn().mockResolvedValue({
+    householdsProcessed: 0,
+    processed: 0,
+    suggested: 0,
+    lowConfidence: 0,
+    noMatch: 0,
+    errors: 0,
+    timedOut: false,
+    skipped: [],
+  }),
+}));
+
 import { GET as dailyTasksGET } from '../daily-tasks/route';
 import { GET as createSnapshotGET } from '../create-snapshot/route';
 import { prisma } from '@/lib/db';
