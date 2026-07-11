@@ -111,7 +111,7 @@ export function PageBodyEditor({ initialContent, onChange }: PageBodyEditorProps
           desktop. Hidden on touch-only viewports (the block itself is
           long-press-draggable via ProseMirror's built-in NodeSelection
           + touch-drag support). */}
-      <DragHandle editor={editor} className="hidden md:block">
+      <DragHandle editor={editor} nested className="hidden md:block">
         <div
           className="text-muted-foreground/60 hover:text-foreground flex h-6 w-4 cursor-grab items-center justify-center active:cursor-grabbing"
           aria-label="Drag block"
