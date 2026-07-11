@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -14,7 +14,6 @@ import { GripVertical } from 'lucide-react';
 import {
   Bold,
   Columns2,
-  Grid3x3,
   Heading1,
   Heading2,
   Image as ImageIcon,
@@ -25,14 +24,13 @@ import {
   Quote,
   Strikethrough,
   Table as TableIcon,
-  TableColumnsSplit,
-  TableRowsSplit,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { uploadPageImage } from '@/lib/hooks/use-pages';
 import { Column, ColumnBlock } from './columns-extension';
 import { SlashMenuExtension } from './slash-menu';
 import { CollapsibleHeading } from './collapsible-heading';
+import { TableFloatingControls } from './table-floating-controls';
 
 interface PageBodyEditorProps {
   /** Initial Tiptap JSON document (or null for an empty page). Read once. */
@@ -106,7 +104,7 @@ export function PageBodyEditor({ initialContent, onChange }: PageBodyEditorProps
       onDrop={(e) => handleData(e.dataTransfer, () => e.preventDefault())}
     >
       <Toolbar editor={editor} />
-      <TableControls editor={editor} />
+      <TableFloatingControls editor={editor} />
       {/* Six-dot drag handle floats to the left of the hovered block on
           desktop. Hidden on touch-only viewports (the block itself is
           long-press-draggable via ProseMirror's built-in NodeSelection
@@ -155,70 +153,6 @@ export function PageBodyEditor({ initialContent, onChange }: PageBodyEditorProps
         </div>
       </DragHandle>
       <EditorContent editor={editor} />
-    </div>
-  );
-}
-
-/**
- * Row + column controls that appear only when the caret is inside a table.
- * Sits under the main toolbar so users don't have to hunt for these
- * commands (Tiptap doesn't render its own UI for them).
- */
-function TableControls({ editor }: { editor: Editor }) {
-  const [inTable, setInTable] = useState(() => editor.isActive('table'));
-
-  useEffect(() => {
-    const update = () => setInTable(editor.isActive('table'));
-    editor.on('selectionUpdate', update);
-    editor.on('transaction', update);
-    return () => {
-      editor.off('selectionUpdate', update);
-      editor.off('transaction', update);
-    };
-  }, [editor]);
-
-  if (!inTable) return null;
-
-  const btn = (icon: React.ReactNode, label: string, run: () => void) => (
-    <button
-      key={label}
-      type="button"
-      onClick={run}
-      aria-label={label}
-      title={label}
-      className="hover:bg-muted/70 text-muted-foreground hover:text-foreground flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs transition-colors"
-    >
-      {icon}
-      <span className="hidden sm:inline">{label}</span>
-    </button>
-  );
-
-  return (
-    <div className="border-border/50 bg-background/80 mb-3 flex flex-wrap items-center gap-1 rounded-xl border px-2 py-1 backdrop-blur">
-      <span className="text-muted-foreground mr-1 flex items-center gap-1 text-[10px] font-semibold tracking-wider uppercase">
-        <Grid3x3 className="h-3 w-3" /> Table
-      </span>
-      {btn(<TableRowsSplit className="h-3.5 w-3.5" />, 'Row above', () =>
-        editor.chain().focus().addRowBefore().run()
-      )}
-      {btn(<TableRowsSplit className="h-3.5 w-3.5" />, 'Row below', () =>
-        editor.chain().focus().addRowAfter().run()
-      )}
-      {btn(<TableColumnsSplit className="h-3.5 w-3.5" />, 'Column left', () =>
-        editor.chain().focus().addColumnBefore().run()
-      )}
-      {btn(<TableColumnsSplit className="h-3.5 w-3.5" />, 'Column right', () =>
-        editor.chain().focus().addColumnAfter().run()
-      )}
-      {btn(<TableRowsSplit className="text-destructive h-3.5 w-3.5" />, 'Delete row', () =>
-        editor.chain().focus().deleteRow().run()
-      )}
-      {btn(<TableColumnsSplit className="text-destructive h-3.5 w-3.5" />, 'Delete column', () =>
-        editor.chain().focus().deleteColumn().run()
-      )}
-      {btn(<TableIcon className="text-destructive h-3.5 w-3.5" />, 'Delete table', () =>
-        editor.chain().focus().deleteTable().run()
-      )}
     </div>
   );
 }
