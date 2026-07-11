@@ -28,6 +28,16 @@ import {
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 const mockCategorize = categorizeTransaction as jest.MockedFunction<typeof categorizeTransaction>;
 
+// Zero usage stub — categorizeTransaction is mocked here, so token counts are
+// irrelevant; this just satisfies the CategorizeResult shape.
+const USAGE = {
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheCreationTokens: 0,
+  cacheReadTokens: 0,
+  webSearches: 0,
+};
+
 const CATEGORY_ROWS = [
   { id: 'cat-1', name: 'Groceries', group: { name: 'Food' } },
   { id: 'cat-2', name: 'Transit', group: { name: 'Transport' } },
@@ -125,7 +135,12 @@ describe('runSuggestionBatch — attempt stamping', () => {
     (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
       { id: 'tx-1', amountIls: 120, notes: null, payee: { name: 'Shufersal' } },
     ]);
-    mockCategorize.mockResolvedValueOnce({ categoryId: 'cat-1', confidence: 0.9, reasoning: 'x' });
+    mockCategorize.mockResolvedValueOnce({
+      categoryId: 'cat-1',
+      confidence: 0.9,
+      reasoning: 'x',
+      usage: USAGE,
+    });
     const counts = await runSuggestionBatch('hh-1', prepared, {});
     expect(counts).toMatchObject({ suggested: 1, processed: 1 });
     const data = (mockPrisma.budgetTransaction.update as jest.Mock).mock.calls[0][0].data;
@@ -137,7 +152,12 @@ describe('runSuggestionBatch — attempt stamping', () => {
     (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
       { id: 'tx-1', amountIls: 10, notes: null, payee: { name: 'Mystery' } },
     ]);
-    mockCategorize.mockResolvedValueOnce({ categoryId: null, confidence: 0, reasoning: 'x' });
+    mockCategorize.mockResolvedValueOnce({
+      categoryId: null,
+      confidence: 0,
+      reasoning: 'x',
+      usage: USAGE,
+    });
     const counts = await runSuggestionBatch('hh-1', prepared, {});
     expect(counts).toMatchObject({ noMatch: 1 });
     const data = (mockPrisma.budgetTransaction.update as jest.Mock).mock.calls[0][0].data;

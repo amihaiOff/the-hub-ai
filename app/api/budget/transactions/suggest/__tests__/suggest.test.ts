@@ -41,6 +41,16 @@ const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof ge
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 const mockCategorize = categorizeTransaction as jest.MockedFunction<typeof categorizeTransaction>;
 
+// Zero usage stub — these tests mock categorizeTransaction, so the exact token
+// counts don't matter; they only need to satisfy the CategorizeResult shape.
+const USAGE = {
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheCreationTokens: 0,
+  cacheReadTokens: 0,
+  webSearches: 0,
+};
+
 const mockContext = {
   user: { id: 'user-1', email: 't@x.com', name: 'Me' },
   profile: { id: 'profile-1', name: 'Me', image: null, color: '#3b82f6', userId: 'user-1' },
@@ -192,6 +202,7 @@ describe('POST /api/budget/transactions/suggest — per-item decisions', () => {
       categoryId: 'cat-1',
       confidence: 0.92,
       reasoning: 'grocery chain',
+      usage: USAGE,
     });
 
     const res = await POST(makeRequest());
@@ -229,6 +240,7 @@ describe('POST /api/budget/transactions/suggest — per-item decisions', () => {
       categoryId: 'cat-2',
       confidence: 0.4,
       reasoning: 'maybe transit',
+      usage: USAGE,
     });
 
     const res = await POST(makeRequest());
@@ -255,6 +267,7 @@ describe('POST /api/budget/transactions/suggest — per-item decisions', () => {
       categoryId: null,
       confidence: 0,
       reasoning: 'no fit',
+      usage: USAGE,
     });
 
     const res = await POST(makeRequest());
@@ -316,9 +329,9 @@ describe('POST /api/budget/transactions/suggest — per-item decisions', () => {
       { id: 'd', amountIls: 4, notes: null, payee: { name: 'D' } },
     ]);
     mockCategorize
-      .mockResolvedValueOnce({ categoryId: 'cat-1', confidence: 0.9, reasoning: 'x' }) // suggested
-      .mockResolvedValueOnce({ categoryId: 'cat-2', confidence: 0.5, reasoning: 'x' }) // low
-      .mockResolvedValueOnce({ categoryId: null, confidence: 0, reasoning: 'x' }) // no_match
+      .mockResolvedValueOnce({ categoryId: 'cat-1', confidence: 0.9, reasoning: 'x', usage: USAGE }) // suggested
+      .mockResolvedValueOnce({ categoryId: 'cat-2', confidence: 0.5, reasoning: 'x', usage: USAGE }) // low
+      .mockResolvedValueOnce({ categoryId: null, confidence: 0, reasoning: 'x', usage: USAGE }) // no_match
       .mockRejectedValueOnce(new Error('boom')); // error
 
     const res = await POST(makeRequest());
@@ -341,6 +354,7 @@ describe('POST /api/budget/transactions/suggest — per-item decisions', () => {
       categoryId: 'cat-1',
       confidence: 0.6,
       reasoning: 'edge',
+      usage: USAGE,
     });
 
     const res = await POST(makeRequest());

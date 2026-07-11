@@ -36,12 +36,23 @@ export interface CategorizeInput {
   categories: CategoryOption[];
 }
 
+/** Token/search usage for one categorization, summed across all model steps. */
+export interface CategorizeUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  webSearches: number;
+}
+
 export interface CategorizeResult {
   /** Chosen category id, or null when the model found no fitting category. */
   categoryId: string | null;
   /** Model's self-reported confidence, 0..1. */
   confidence: number;
   reasoning: string;
+  /** Billable usage accumulated across every model call for this transaction. */
+  usage: CategorizeUsage;
 }
 
 export function buildSystemPrompt(categories: CategoryOption[]): string {
@@ -105,7 +116,34 @@ export async function categorizeTransaction(
     .join('\n');
 
   const messages: Anthropic.Messages.MessageParam[] = [{ role: 'user', content: userText }];
-  const system = buildSystemPrompt(input.categories);
+  // System prompt as a cached block: the category list is large and identical
+  // for every transaction in a household, so caching it turns ~all of the
+  // system+tools input into cheap cache reads after the first call. The
+  // breakpoint sits on the system block, which caches the tools prefix too.
+  const system: Anthropic.Messages.TextBlockParam[] = [
+    {
+      type: 'text',
+      text: buildSystemPrompt(input.categories),
+      cache_control: { type: 'ephemeral' },
+    },
+  ];
+
+  // Accumulate billable usage across every step of this categorization.
+  const usage: CategorizeUsage = {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheCreationTokens: 0,
+    cacheReadTokens: 0,
+    webSearches: 0,
+  };
+  const addUsage = (u: Anthropic.Messages.Usage | undefined) => {
+    if (!u) return;
+    usage.inputTokens += u.input_tokens ?? 0;
+    usage.outputTokens += u.output_tokens ?? 0;
+    usage.cacheCreationTokens += u.cache_creation_input_tokens ?? 0;
+    usage.cacheReadTokens += u.cache_read_input_tokens ?? 0;
+    usage.webSearches += u.server_tool_use?.web_search_requests ?? 0;
+  };
 
   for (let step = 0; step < MAX_STEPS; step++) {
     const resp = await client.messages.create({
@@ -115,6 +153,7 @@ export async function categorizeTransaction(
       tools,
       messages,
     });
+    addUsage(resp.usage);
 
     const submit = resp.content.find(
       (b): b is Anthropic.Messages.ToolUseBlock =>
@@ -127,7 +166,7 @@ export async function categorizeTransaction(
           ? raw.categoryId
           : null;
       const confidence = Math.max(0, Math.min(1, Number(raw.confidence) || 0));
-      return { categoryId, confidence, reasoning: String(raw.reasoning ?? '') };
+      return { categoryId, confidence, reasoning: String(raw.reasoning ?? ''), usage };
     }
 
     // The web-search tool runs server-side within the turn; the only reason to
@@ -140,5 +179,5 @@ export async function categorizeTransaction(
     break;
   }
 
-  return { categoryId: null, confidence: 0, reasoning: 'Model did not return a decision.' };
+  return { categoryId: null, confidence: 0, reasoning: 'Model did not return a decision.', usage };
 }

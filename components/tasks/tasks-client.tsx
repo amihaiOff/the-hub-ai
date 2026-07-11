@@ -21,11 +21,20 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  DndContext,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
   useTasks,
   useTaskCategories,
   useTaskTags,
   useCreateTask,
   useDeleteTask,
+  useUpdateTask,
   type TaskRow,
 } from '@/lib/hooks/use-tasks';
 import type { TaskFilters } from '@/lib/validations/tasks';
@@ -94,6 +103,34 @@ export function TasksClient() {
   // the bottom; marking a card done moves it there (and back when un-done).
   const activeTasks = useMemo(() => tasks.filter((t) => !t.done), [tasks]);
   const doneTasks = useMemo(() => tasks.filter((t) => t.done), [tasks]);
+
+  // Calendar-view drag: drop an archive task onto a day cell to reschedule
+  // it. The day droppables use ids of the form `day:YYYY-MM-DD`; archive
+  // draggables use `task:<id>`. Reuses the same MouseSensor / TouchSensor
+  // pattern the kanban uses so vertical scrolls on mobile don't accidentally
+  // pick up a card.
+  const updateTask = useUpdateTask();
+  const calendarDndSensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } })
+  );
+  const handleCalendarDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const activeId = String(event.active.id ?? '');
+      const overId = event.over ? String(event.over.id) : '';
+      if (!activeId.startsWith('task:') || !overId.startsWith('day:')) return;
+      const taskId = activeId.slice('task:'.length);
+      const dayKey = overId.slice('day:'.length);
+      // Un-archive so the task appears on the calendar right away, and stamp
+      // the new due date using the same YYYY-MM-DDT00:00:00.000Z format the
+      // detail sheet writes.
+      updateTask.mutate({
+        id: taskId,
+        patch: { done: false, dueDate: `${dayKey}T00:00:00.000Z` },
+      });
+    },
+    [updateTask]
+  );
 
   const handleQuickAdd = () => {
     createTask.mutate({ title: 'New task' }, { onSuccess: (task) => setDetailId(task.id) });
@@ -269,15 +306,24 @@ export function TasksClient() {
         view !== 'calendar' && <TaskEmptyState onCreate={handleQuickAdd} />}
 
       {/* Calendar renders even with no tasks so days can still be scheduled.
-          Keyed on the mode so switching week/month re-anchors on today. */}
+          Keyed on the mode so switching week/month re-anchors on today.
+          Wrapped in a DndContext so archived tasks can be dragged onto a
+          day cell to reschedule + un-archive in one gesture. */}
       {!isLoading && !error && view === 'calendar' && (
-        <TaskCalendarView
-          key={calendarView}
-          mode={calendarView}
-          tasks={activeTasks}
-          onOpenTask={setDetailId}
-          onAddTaskOnDate={handleAddTaskOnDate}
-        />
+        <DndContext sensors={calendarDndSensors} onDragEnd={handleCalendarDragEnd}>
+          <div className="space-y-4">
+            <TaskCalendarView
+              key={calendarView}
+              mode={calendarView}
+              tasks={activeTasks}
+              onOpenTask={setDetailId}
+              onAddTaskOnDate={handleAddTaskOnDate}
+            />
+            {doneTasks.length > 0 && (
+              <TaskArchive tasks={doneTasks} onOpenTask={setDetailId} draggable />
+            )}
+          </div>
+        </DndContext>
       )}
 
       {activeTasks.length > 0 && view === 'list' && (

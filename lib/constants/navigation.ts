@@ -21,6 +21,7 @@ import {
   History,
   ListChecks,
   Activity,
+  DollarSign,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -108,6 +109,7 @@ export const navItems: NavEntry[] = [
       { href: '/labs/sync-log', label: 'Sync Log', icon: History },
       { href: '/labs/activity', label: 'Activity', icon: Activity },
       { href: '/labs/categorization-log', label: 'AI Categorization', icon: Sparkles },
+      { href: '/labs/ai-usage', label: 'AI Spend', icon: DollarSign },
     ],
   },
 ];
