@@ -20,7 +20,10 @@ declare module '@tiptap/core' {
 export const Column = Node.create({
   name: 'column',
   content: 'block+',
-  isolating: true,
+  // `isolating: true` was blocking cross-column drag-and-drop — ProseMirror
+  // treats isolating nodes as boundaries that slices can't cross, so
+  // dragging a paragraph from one column into the other silently failed.
+  // The column now behaves like a plain block container.
   selectable: false,
 
   parseHTML() {
