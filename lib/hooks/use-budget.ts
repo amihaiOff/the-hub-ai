@@ -95,6 +95,7 @@ export const budgetKeys = {
   accountNameIdentifiers: () => [...budgetKeys.all, 'accountNameIdentifiers'] as const,
   allMonthSummaries: () => [...budgetKeys.all, 'month'] as const,
   categorizationLogs: () => [...budgetKeys.all, 'categorizationLogs'] as const,
+  aiUsage: () => [...budgetKeys.all, 'aiUsage'] as const,
 };
 
 // Account name mapping types
@@ -557,6 +558,44 @@ export function useCategorizationLogs() {
   return useQuery({
     queryKey: budgetKeys.categorizationLogs(),
     queryFn: () => fetchApi<CategorizationLog[]>('/api/budget/categorization-logs'),
+  });
+}
+
+export interface AiUsageData {
+  currency: string;
+  currentMonth: {
+    month: string;
+    spendUsd: number;
+    transactionCount: number;
+    avgCostUsd: number;
+    tokens: {
+      input: number;
+      output: number;
+      cacheCreation: number;
+      cacheRead: number;
+      webSearches: number;
+    };
+    breakdown: {
+      inputUsd: number;
+      outputUsd: number;
+      cacheWriteUsd: number;
+      cacheReadUsd: number;
+      searchUsd: number;
+      totalUsd: number;
+    };
+  };
+  months: { month: string; spendUsd: number; transactionCount: number }[];
+  pricing: {
+    perMTok: { input: number; output: number; cacheWrite5m: number; cacheRead: number };
+    perWebSearch: number;
+  };
+}
+
+/** AI auto-categorization spend for the active household (Labs → AI Spend). */
+export function useAiUsage() {
+  return useQuery({
+    queryKey: budgetKeys.aiUsage(),
+    queryFn: () => fetchApi<AiUsageData>('/api/labs/ai-usage'),
   });
 }
 

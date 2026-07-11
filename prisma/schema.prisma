@@ -679,6 +679,14 @@ model BudgetCategorizationLog {
   resultCategoryName String?  @map("result_category_name")
   confidence         Float? // 0..1, null on error/no_match
   reasoning          String? // Short model rationale
+  // Billable usage for this categorization, summed across every model step.
+  // Null on rows written before usage tracking existed or when a call failed
+  // before returning usage. Cost is derived from these via lib/ai/pricing.ts.
+  inputTokens         Int? @map("input_tokens")
+  outputTokens        Int? @map("output_tokens")
+  cacheCreationTokens Int? @map("cache_creation_tokens")
+  cacheReadTokens     Int? @map("cache_read_tokens")
+  webSearches         Int? @map("web_searches")
   createdAt          DateTime @default(now()) @map("created_at")
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)

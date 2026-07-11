@@ -217,6 +217,11 @@ export async function runSuggestionBatch(
           resultCategoryName: chosenName,
           confidence: result.confidence,
           reasoning: result.reasoning || null,
+          inputTokens: result.usage.inputTokens,
+          outputTokens: result.usage.outputTokens,
+          cacheCreationTokens: result.usage.cacheCreationTokens,
+          cacheReadTokens: result.usage.cacheReadTokens,
+          webSearches: result.usage.webSearches,
         },
       });
     } catch (err) {
