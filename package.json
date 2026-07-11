@@ -42,6 +42,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@stackframe/stack": "^2.8.56",
     "@tanstack/react-query": "^5.90.16",
+    "@tanstack/react-table": "^8.21.3",
     "@tiptap/extension-collaboration": "^3.27.3",
     "@tiptap/extension-drag-handle": "^3.27.3",
     "@tiptap/extension-drag-handle-react": "^3.27.3",

@@ -10,6 +10,7 @@ import {
   CheckSquare,
   Code,
   Columns2,
+  Database,
   Heading1,
   Heading2,
   Heading3,
@@ -119,6 +120,13 @@ export const SLASH_ITEMS: SlashItem[] = [
         .deleteRange(range)
         .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
         .run(),
+  },
+  {
+    title: 'Database',
+    keywords: ['database', 'db', 'typed table', 'grid', 'notion'],
+    icon: Database,
+    command: ({ editor, range }) =>
+      editor.chain().focus().deleteRange(range).insertDatabase().run(),
   },
   {
     title: 'Two columns',

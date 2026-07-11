@@ -31,6 +31,7 @@ import { Column, ColumnBlock } from './columns-extension';
 import { SlashMenuExtension } from './slash-menu';
 import { CollapsibleHeading } from './collapsible-heading';
 import { TableFloatingControls } from './table-floating-controls';
+import { DatabaseBlock } from './database-extension';
 
 interface PageBodyEditorProps {
   /** Initial Tiptap JSON document (or null for an empty page). Read once. */
@@ -64,6 +65,7 @@ export function PageBodyEditor({ initialContent, onChange }: PageBodyEditorProps
       TableCell,
       ColumnBlock,
       Column,
+      DatabaseBlock,
       SlashMenuExtension,
     ],
     content: (initialContent as object) ?? '',
