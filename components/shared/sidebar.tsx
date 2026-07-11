@@ -11,6 +11,7 @@ import { useGeneralLogUnreadCount } from '@/lib/hooks/use-general-log';
 import { LogOut, LogIn, ChevronDown, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from './logo';
+import { AreasNav } from './areas-nav';
 import { Button } from '@/components/ui/button';
 import { navItems, settingsItem, isNavHeader, type NavItem } from '@/lib/constants/navigation';
 
@@ -159,8 +160,8 @@ export function Sidebar() {
             A thin scrollbar appears only when content overflows so users
             discover that the nav scrolls. */}
         <nav className="sidebar-scroll min-h-0 flex-1 space-y-1 overflow-y-auto p-4">
-          {navItems.map((entry) =>
-            isNavHeader(entry) ? (
+          {navItems.map((entry) => {
+            const node = isNavHeader(entry) ? (
               <p
                 key={entry.header}
                 className="text-sidebar-foreground/50 px-3 pt-4 pb-1 text-xs font-semibold tracking-wider uppercase"
@@ -175,8 +176,19 @@ export function Sidebar() {
                 uncategorizedCount={uncategorizedCount}
                 activityUnreadCount={activityUnreadCount ?? 0}
               />
-            )
-          )}
+            );
+            // Areas lives immediately after Tasks — inlined here instead of
+            // at the bottom of the nav so its position is obvious in the list.
+            if (!isNavHeader(entry) && entry.href === '/tasks') {
+              return (
+                <div key="tasks-with-areas">
+                  {node}
+                  <AreasNav variant="desktop" />
+                </div>
+              );
+            }
+            return node;
+          })}
         </nav>
 
         {/* Sync data — manual Moneytor pull. Lives just above Settings so

@@ -12,7 +12,12 @@ import { ReactNode } from 'react';
 const mockPathname = jest.fn().mockReturnValue('/');
 jest.mock('next/navigation', () => ({
   usePathname: () => mockPathname(),
+  useRouter: () => ({ push: jest.fn() }),
 }));
+
+// AreasNav is data-driven (pages hooks + router) and covered elsewhere; stub it
+// so these MobileMenu tests stay focused on the static nav.
+jest.mock('../areas-nav', () => ({ AreasNav: () => null }));
 
 // Mock @stackframe/stack
 const mockUser = {

@@ -41,6 +41,9 @@ model User {
   ownedTasks Task[]        @relation("TaskOwner")
   taskShares TaskShare[]
 
+  // Pages (Notion-like documents) authored by this user
+  ownedPages Page[] @relation("PageOwner")
+
   @@map("users")
 }
 
@@ -133,6 +136,9 @@ model Household {
   tasks          Task[]
   taskCategories TaskCategory[]
   taskTags       TaskTag[]
+
+  // Pages module (Notion-like documents)
+  pages Page[]
 
   // Cross-cutting activity log (renames, stale-row deletes, etc.)
   generalLogs GeneralLog[]
@@ -583,6 +589,15 @@ model BudgetTransaction {
   suggestedCategoryId   String?           @map("suggested_category_id")
   suggestionConfidence  Float?            @map("suggestion_confidence")
   suggestedAt           DateTime?         @map("suggested_at")
+  // Set once the AI has resolved this transaction (suggested / low-confidence /
+  // no-match, or given up after repeated errors). Lets the automatic ingestion
+  // pass attempt each transaction once instead of re-querying on every drain.
+  categorizationAttemptedAt DateTime?     @map("categorization_attempted_at")
+  // Count of failed AI attempts (network / rate-limit / API errors). Transient
+  // failures are retried on later drains; once this hits the cap the row is
+  // marked attempted so a persistent failure (e.g. a bad key) can't re-bill the
+  // same transaction forever.
+  categorizationErrorCount Int            @default(0) @map("categorization_error_count")
   payeeId               String?           @map("payee_id")
   paymentMethod         PaymentMethod     @default(credit_card) @map("payment_method")
   paymentNumber         Int?              @map("payment_number") // For installments (e.g., 2 of 6)
@@ -617,6 +632,9 @@ model BudgetTransaction {
   @@index([transactionDate])
   @@index([categoryId])
   @@index([suggestedCategoryId])
+  // Supports the automatic-categorization drain query, which scans for
+  // household transactions the AI has not attempted yet.
+  @@index([householdId, categorizationAttemptedAt])
   @@index([payeeId])
   @@index([profileId])
   @@index([originalTransactionId])
@@ -1250,6 +1268,30 @@ model Task {
   @@index([parentTaskId])
   @@index([ownerId])
   @@map("tasks")
+}
+
+// Page - a Notion-like document of rich content (text, images, tables, links,
+// 2-column layouts). Content is stored as a Tiptap/ProseMirror JSON document.
+// Household-scoped and listed under "Areas" in the sidebar.
+model Page {
+  id          String   @id @default(cuid())
+  title       String   @default("")
+  // Optional leading emoji shown beside the title (e.g. "📓").
+  emoji       String?
+  // Tiptap JSON document. Null until the user types anything.
+  content     Json?
+  sortOrder   Int      @default(0) @map("sort_order")
+  ownerId     String   @map("owner_id")
+  householdId String   @map("household_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  owner     User      @relation("PageOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  household Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@index([householdId, sortOrder])
+  @@map("pages")
 }
 
 // Household-scoped single-select category. Each task belongs to at most one

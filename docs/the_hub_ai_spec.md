@@ -68,7 +68,8 @@ Rules live on the Payees page in a tabbed UI (Payees / Rules tabs). Each rule ha
 1. Riseup category → budget category mapping (existing)
 2. Payee category rules (auto-set payee default)
 3. Payee default category fallback (existing)
-4. null (uncategorized)
+4. null (uncategorized) — automatically queued for an AI category guess (see
+   "AI automatic categorization" below)
 
 ### Bulk Apply
 
@@ -77,6 +78,76 @@ Rules live on the Payees page in a tabbed UI (Payees / Rules tabs). Each rule ha
 ### Backup/Restore
 
 Payee category rules are included in backup ZIP (`payee_category_rules.json`) and restored with the rest of the data (schema version 1.2+).
+
+## AI automatic categorization
+
+**Purpose:** Any expense transaction that the deterministic rules above leave
+uncategorized is automatically sent through an LLM (Claude Haiku, with web
+search for unfamiliar/Israeli merchants) to guess a budget category. The guess
+is surfaced in the UI for one-tap approval — it never sets the category on its
+own.
+
+### The guess model
+
+The AI's decision is stored on the transaction as a _suggestion_, separate from
+the real category:
+
+- `suggestedCategoryId`, `suggestionConfidence`, `suggestedAt` — the guess. The
+  transaction stays uncategorized (`categoryId` null) until the user approves.
+- `categorizationAttemptedAt` — set once the AI has been asked about the
+  transaction (whatever the outcome), so the automatic pass attempts each
+  transaction exactly once instead of re-querying on every run.
+
+Outcomes per transaction (all logged to `BudgetCategorizationLog`):
+
+- **suggested** — confidence ≥ 0.6: the guess is attached and shown.
+- **low_confidence** — below 0.6: logged only, no guess attached.
+- **no_match** — model found no fitting category: logged only.
+- **error** — query failed: logged and `categorizationErrorCount` is bumped. A
+  transient failure is retried on later runs; after a few failures the row is
+  marked attempted so a persistent failure (e.g. a bad key) can't re-bill it.
+
+Shared logic lives in `lib/ai/suggest-categories.ts`
+(`prepareHousehold` + `runSuggestionBatch`). The Anthropic key is resolved per
+household (setting first, `ANTHROPIC_API_KEY` env fallback).
+
+### When guessing runs
+
+The automatic passes are all post-response (Next.js `after()`) or folded into an
+existing cron, so none blocks a user request. They deliberately avoid needing a
+frequent cron, because the Vercel Hobby plan caps crons at once/day and two
+total.
+
+1. **Right after import (instant feedback).** The import and CSV-upload routes
+   fire a bounded post-response pass via `after()`
+   (`lib/ai/background-suggestion.ts` → `runPostImportSuggestion`) so a typical
+   import shows suggestions within seconds.
+2. **Read-triggered (activity-driven — the main driver).** Whenever the app
+   fetches the uncategorized count — i.e. the user is looking at their budget —
+   the counts route fires a bounded `after()` pass (`runReadTriggeredSuggestion`)
+   over not-yet-attempted rows. This continuously drains the backlog as the user
+   browses, needs no cron, and is self-limiting: once every row has been
+   attempted it's a no-op.
+3. **Daily backstop.** A bounded, time-boxed drain (`drainSuggestions`) is folded
+   into the existing `/api/cron/daily-tasks` cron (after Moneytor sync), so rows
+   the user never views — e.g. Moneytor-synced transactions — still get attempted
+   within a day. No new cron entry (respects the Hobby limits).
+4. **Manual / on-demand.** The "Suggest categories" button on the transactions
+   page runs on demand and, unlike the automatic passes, re-processes rows even
+   if previously attempted. The `/api/cron/suggest-categories` endpoint runs the
+   same drain and can be scheduled more frequently on paid plans.
+
+All passes share one wall-clock guard (`deadlineMs`) plus the bounded per-row
+error-retry counter, so none can overrun the serverless timeout in a way that
+loses work — a killed pass just leaves the remaining rows for the next one.
+
+### Approving a guess
+
+Approving a guess (green check in the suggestion bar) applies the category and
+**makes it the payee's default category**, so future transactions from the same
+payee are auto-categorized during ingestion. The default is not changed for
+payees flagged `neverDefault` or blacklisted. Dismissing (X) just clears the
+guess, leaving the transaction uncategorized.
 
 ## Account names
 
@@ -404,6 +475,34 @@ Const vs. non const expenses
 6. User clicks specific notification → navigates to relevant page
 7. User can mark as read or dismiss
 
+## Pages / Areas (Notion-like documents)
+
+Free-form rich documents for notes, plans, references — anything that doesn't
+fit the structured modules. Household-scoped and listed under an **Areas**
+section in the sidebar (and mobile menu): an expandable row that lists the
+household's pages (emoji + title) with a **New page** button at the bottom.
+
+**A page has:**
+
+- A **title** with an **optional emoji** (Notion-style), both edited inline and
+  autosaved.
+- A **body** built on Tiptap, supporting: headings, bold/italic/strike, bullet
+  and numbered lists, quotes, code, **links**, **images**, **tables**, and a
+  **two-column layout** (columns sit side by side on wide screens, stack on
+  mobile).
+
+**Images** are uploaded to **Vercel Blob** (`POST /api/pages/upload`, requires
+`BLOB_READ_WRITE_TOKEN`) via the toolbar button or by pasting/dropping an image;
+if uploads aren't configured the editor falls back to embedding an image URL.
+
+**Storage:** content is persisted as a Tiptap/ProseMirror JSON document on the
+`pages` table (`title`, `emoji`, `content` JSONB, `sort_order`, `owner_id`,
+`household_id`). Title/emoji and body edits autosave (debounced) via
+`PATCH /api/pages/[id]`. New pages sort to the top of the Areas list.
+
+**Routes:** `/areas/[id]` renders a page in the app shell.
+`GET/POST /api/pages`, `GET/PATCH/DELETE /api/pages/[id]`, `POST /api/pages/upload`.
+
 # Development & Deployment
 
 ## Code Quality Practices
@@ -586,6 +685,12 @@ Stored in Vercel dashboard and GitHub Secrets:
 - **Net Worth Snapshots:** Every two weeks (1st and 15th of month)
   - Route: `/api/cron/create-snapshot`
   - Schedule: `0 0 1,15 * *`
+- **AI Categorization Drain:** Folded into the daily-tasks cron (not a separate
+  schedule, to stay within the Hobby 2-cron / once-per-day limits). A manual/
+  on-demand `/api/cron/suggest-categories` endpoint runs the same drain and can
+  be scheduled more frequently on paid plans.
+  - Guesses categories for uncategorized expenses not yet attempted (see "AI
+    automatic categorization")
 
 Configured in `vercel.json`:
 

@@ -1,8 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { getCurrentContext } from '@/lib/auth-utils';
 import { importBulkSchema } from '@/lib/validations/budget';
 import { getFirstZodError } from '@/lib/validations/common';
 import { importTransactions } from '@/lib/utils/import-transactions';
+import { runPostImportSuggestion } from '@/lib/ai/background-suggestion';
+
+// Give the post-response AI categorization pass headroom under the timeout.
+export const maxDuration = 60;
 
 /**
  * POST /api/budget/transactions/import
@@ -14,6 +18,8 @@ import { importTransactions } from '@/lib/utils/import-transactions';
  * - Falls back to payee's default category if no mapping
  * - Detects duplicates: transactionDate + payeeName.toLowerCase() + amountIls
  * - Creates transactions one-by-one (Neon compatibility)
+ * - Kicks off an AI categorization pass for anything still uncategorized
+ *   (see runPostImportSuggestion); the cron drain mops up the overflow.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -37,6 +43,12 @@ export async function POST(request: NextRequest) {
     const { transactions } = validation.data;
 
     const result = await importTransactions(householdId, transactions);
+
+    // Fire an AI categorization pass after the response is sent so the import
+    // stays fast; the cron drain handles anything this bounded pass misses.
+    if (result.created > 0) {
+      after(() => runPostImportSuggestion(householdId));
+    }
 
     return NextResponse.json({
       success: true,
