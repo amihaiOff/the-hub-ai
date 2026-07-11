@@ -9,6 +9,8 @@ import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
+import { DragHandle } from '@tiptap/extension-drag-handle-react';
+import { GripVertical } from 'lucide-react';
 import {
   Bold,
   Columns2,
@@ -30,6 +32,7 @@ import { cn } from '@/lib/utils';
 import { uploadPageImage } from '@/lib/hooks/use-pages';
 import { Column, ColumnBlock } from './columns-extension';
 import { SlashMenuExtension } from './slash-menu';
+import { CollapsibleHeading } from './collapsible-heading';
 
 interface PageBodyEditorProps {
   /** Initial Tiptap JSON document (or null for an empty page). Read once. */
@@ -47,7 +50,10 @@ interface PageBodyEditorProps {
 export function PageBodyEditor({ initialContent, onChange }: PageBodyEditorProps) {
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ link: false }),
+      // Our CollapsibleHeading replaces StarterKit's default Heading so
+      // headings gain a `collapsed` attribute and the outline-toggle UX.
+      StarterKit.configure({ link: false, heading: false }),
+      CollapsibleHeading.configure({ levels: [1, 2, 3] }),
       Link.configure({
         openOnClick: false,
         autolink: true,
@@ -101,6 +107,18 @@ export function PageBodyEditor({ initialContent, onChange }: PageBodyEditorProps
     >
       <Toolbar editor={editor} />
       <TableControls editor={editor} />
+      {/* Six-dot drag handle floats to the left of the hovered block on
+          desktop. Hidden on touch-only viewports (the block itself is
+          long-press-draggable via ProseMirror's built-in NodeSelection
+          + touch-drag support). */}
+      <DragHandle editor={editor} className="hidden md:block">
+        <div
+          className="text-muted-foreground/60 hover:text-foreground flex h-6 w-4 cursor-grab items-center justify-center active:cursor-grabbing"
+          aria-label="Drag block"
+        >
+          <GripVertical className="h-4 w-4" />
+        </div>
+      </DragHandle>
       <EditorContent editor={editor} />
     </div>
   );

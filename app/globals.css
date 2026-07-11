@@ -209,9 +209,15 @@
   .page-body {
     font-size: 0.95rem;
     line-height: 1.65;
+    /* Room for the drag handle + heading chevron on the left. */
+    padding-left: 1.75rem;
   }
   .page-body:focus {
     outline: none;
+  }
+  /* Blocks hidden by a collapsed heading — see collapsible-heading.tsx. */
+  .page-body .hidden-by-collapse {
+    display: none;
   }
   .page-body p {
     margin: 0.35rem 0;
