@@ -298,25 +298,49 @@
     }
   }
 
-  /* Editable tables inside the page body. */
+  /* Editable tables inside the page body. Notion-style: an outer
+     rounded container, an uppercase small-caps header row, and light
+     row dividers only — no per-cell grid so the table reads as a list
+     of rows, not a spreadsheet. */
   .page-body table {
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     width: 100%;
-    margin: 0.6rem 0;
+    margin: 0.75rem 0;
     table-layout: fixed;
+    border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+    border-radius: 0.75rem;
     overflow: hidden;
+    background: color-mix(in oklab, var(--card) 60%, transparent);
   }
   .page-body th,
   .page-body td {
-    border: 1px solid var(--border);
-    padding: 0.4rem 0.6rem;
+    padding: 0.55rem 0.85rem;
     vertical-align: top;
     position: relative;
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 45%, transparent);
+  }
+  .page-body tr:last-child > td,
+  .page-body tr:last-child > th {
+    border-bottom: none;
+  }
+  /* Faint vertical divider between columns, but no double-line on the
+     outer edges. Keeps columns legible without the spreadsheet feel. */
+  .page-body th + th,
+  .page-body td + td {
+    border-left: 1px solid color-mix(in oklab, var(--border) 30%, transparent);
   }
   .page-body th {
-    background: var(--muted);
+    background: color-mix(in oklab, var(--muted) 70%, transparent);
+    color: color-mix(in oklab, var(--muted-foreground) 100%, transparent);
     font-weight: 600;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     text-align: left;
+  }
+  .page-body tbody tr:hover {
+    background: color-mix(in oklab, var(--muted) 25%, transparent);
   }
   .page-body .selectedCell::after {
     content: '';
@@ -333,6 +357,37 @@
     width: 4px;
     background: var(--primary);
     cursor: col-resize;
+  }
+
+  /* Database block — the typed grid uses its own scoped styling so
+     the inline table rules above don't apply. Numeric cells get
+     right-aligned tabular-nums, headers pick up the same uppercase
+     small-caps treatment. */
+  .database-block table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    background: color-mix(in oklab, var(--card) 60%, transparent);
+  }
+  .database-block th,
+  .database-block td {
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 45%, transparent);
+  }
+  .database-block th + th,
+  .database-block td + td {
+    border-left: 1px solid color-mix(in oklab, var(--border) 30%, transparent);
+  }
+  .database-block tr:last-child > td {
+    border-bottom: none;
+  }
+  .database-block tbody tr:hover {
+    background: color-mix(in oklab, var(--muted) 25%, transparent);
+  }
+  .database-block input[type='number'] {
+    font-variant-numeric: tabular-nums;
+  }
+  .database-block input[type='checkbox'] {
+    accent-color: var(--primary);
   }
   /* Empty-node placeholder for the title/first line. */
   .page-body p.is-editor-empty:first-child::before {

@@ -35,12 +35,16 @@ import {
   type DatabaseRow,
 } from './database-extension';
 
-const TYPE_META: Record<DatabaseColumnType, { label: string; icon: typeof Baseline }> = {
-  text: { label: 'Text', icon: Baseline },
-  number: { label: 'Number', icon: Hash },
-  date: { label: 'Date', icon: Calendar },
-  select: { label: 'Select', icon: ListChecks },
-  checkbox: { label: 'Checkbox', icon: SquareCheckBig },
+const TYPE_META: Record<
+  DatabaseColumnType,
+  { label: string; icon: typeof Baseline; color: string }
+> = {
+  // Tint the header type icon so the column type is legible at a glance.
+  text: { label: 'Text', icon: Baseline, color: 'text-slate-400' },
+  number: { label: 'Number', icon: Hash, color: 'text-blue-400' },
+  date: { label: 'Date', icon: Calendar, color: 'text-emerald-400' },
+  select: { label: 'Select', icon: ListChecks, color: 'text-violet-400' },
+  checkbox: { label: 'Checkbox', icon: SquareCheckBig, color: 'text-amber-400' },
 };
 
 /**
@@ -143,20 +147,17 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
 
   return (
     <NodeViewWrapper as="div" className="database-block my-4">
-      <div className="border-border/60 overflow-x-auto rounded-2xl border">
+      <div className="border-border/40 bg-card/40 overflow-x-auto rounded-2xl border">
         <table className="w-full text-sm">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="bg-muted/30">
+              <tr key={headerGroup.id} className="bg-muted/40">
                 {headerGroup.headers.map((header) => {
                   const col = columns.find((c) => c.id === header.column.id);
                   if (!col) return null;
                   const sort = header.column.getIsSorted();
                   return (
-                    <th
-                      key={header.id}
-                      className="border-border/40 min-w-[8rem] border-r border-b p-0 last:border-r-0"
-                    >
+                    <th key={header.id} className="min-w-[8rem] p-0">
                       <ColumnHeader
                         column={col}
                         sort={sort}
@@ -171,13 +172,13 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                   );
                 })}
                 {editable && (
-                  <th className="border-border/40 w-10 border-b p-0">
+                  <th className="w-10 p-0">
                     <button
                       type="button"
                       onClick={addColumn}
                       aria-label="Add column"
                       title="Add column"
-                      className="text-muted-foreground/70 hover:bg-muted/60 hover:text-foreground flex h-full w-full items-center justify-center"
+                      className="text-muted-foreground/70 hover:bg-muted/70 hover:text-foreground flex h-full w-full items-center justify-center"
                     >
                       <Plus className="h-4 w-4" />
                     </button>
@@ -190,15 +191,12 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
             {table.getRowModel().rows.map((tableRow) => {
               const row = tableRow.original;
               return (
-                <tr key={row.id} className="group hover:bg-muted/20">
+                <tr key={row.id} className="group">
                   {tableRow.getVisibleCells().map((cell) => {
                     const col = columns.find((c) => c.id === cell.column.id);
                     if (!col) return null;
                     return (
-                      <td
-                        key={cell.id}
-                        className="border-border/40 border-r border-b p-0 align-top last:border-r-0"
-                      >
+                      <td key={cell.id} className="p-0 align-top">
                         <CellEditor
                           column={col}
                           value={row.cells[col.id]}
@@ -209,7 +207,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                     );
                   })}
                   {editable && (
-                    <td className="border-border/40 w-10 border-b p-0 align-middle">
+                    <td className="w-10 p-0 align-middle">
                       <button
                         type="button"
                         onClick={() => deleteRow(row.id)}
@@ -285,17 +283,18 @@ function ColumnHeader({
   if (name !== column.name && document.activeElement?.getAttribute('data-col-id') !== column.id) {
     setName(column.name);
   }
-  const TypeIcon = TYPE_META[column.type].icon;
+  const typeMeta = TYPE_META[column.type];
+  const TypeIcon = typeMeta.icon;
 
   return (
-    <div className="relative flex items-stretch">
+    <div className="group/header relative flex items-stretch">
       <button
         type="button"
         onClick={editable ? onToggleSort : undefined}
         title={sort ? `Sorted ${sort}` : 'Click to sort'}
-        className="flex flex-1 items-center gap-2 px-3 py-2 text-left text-xs font-semibold tracking-wider uppercase"
+        className="text-muted-foreground flex flex-1 items-center gap-2 px-3 py-2 text-left text-[0.7rem] font-semibold tracking-[0.08em] uppercase"
       >
-        <TypeIcon className="text-muted-foreground h-3.5 w-3.5" />
+        <TypeIcon className={cn('h-3.5 w-3.5 shrink-0', typeMeta.color)} />
         {editable ? (
           <input
             data-col-id={column.id}
@@ -313,14 +312,16 @@ function ColumnHeader({
               }
             }}
             onClick={(e) => e.stopPropagation()}
-            className="text-foreground min-w-0 flex-1 bg-transparent tracking-wider uppercase outline-none"
+            className="text-foreground/85 min-w-0 flex-1 bg-transparent tracking-[0.08em] uppercase outline-none"
           />
         ) : (
-          <span className="text-foreground min-w-0 flex-1 truncate">{column.name}</span>
+          <span className="text-foreground/85 min-w-0 flex-1 truncate">{column.name}</span>
         )}
-        {sort === 'asc' && <ArrowUp className="text-muted-foreground h-3.5 w-3.5" />}
-        {sort === 'desc' && <ArrowDown className="text-muted-foreground h-3.5 w-3.5" />}
-        {editable && sort === false && <ArrowUpDown className="text-muted-foreground/50 h-3 w-3" />}
+        {sort === 'asc' && <ArrowUp className="text-primary h-3.5 w-3.5" />}
+        {sort === 'desc' && <ArrowDown className="text-primary h-3.5 w-3.5" />}
+        {editable && sort === false && (
+          <ArrowUpDown className="text-muted-foreground/40 h-3 w-3 opacity-0 transition-opacity group-hover/header:opacity-100" />
+        )}
       </button>
       {editable && (
         <button
@@ -330,7 +331,7 @@ function ColumnHeader({
             setMenuOpen((o) => !o);
           }}
           aria-label="Column options"
-          className="text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 border-border/40 flex w-6 items-center justify-center border-l"
+          className="text-muted-foreground/50 hover:text-foreground hover:bg-muted/40 flex w-6 items-center justify-center opacity-0 transition-opacity group-hover/header:opacity-100"
         >
           <ChevronDown className="h-3.5 w-3.5" />
         </button>
