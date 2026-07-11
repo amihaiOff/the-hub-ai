@@ -111,7 +111,42 @@ export function PageBodyEditor({ initialContent, onChange }: PageBodyEditorProps
           desktop. Hidden on touch-only viewports (the block itself is
           long-press-draggable via ProseMirror's built-in NodeSelection
           + touch-drag support). */}
-      <DragHandle editor={editor} nested className="hidden md:block">
+      {/* `nested` reaches into columns / lists so their children get the
+          handle. Two custom rules exclude the `columnBlock` and `column`
+          nodes themselves as drag targets — otherwise the default
+          left-edge scoring picked the outer container and grabbing one
+          paragraph moved both columns. Mirrors the built-in
+          `listWrapperDeprioritize` rule that hides <ul>/<ol> in favour
+          of the <li>. */}
+      {/* `nested` reaches into columns and lists so their children get
+          the drag handle. Two knobs are needed to make columns behave:
+          - `edgeDetection: 'none'` disables the default "cursor near
+             left/top edge → prefer parent" scoring. That default deducts
+             `strength * depth = 500 * 3` from a paragraph inside a
+             column, which alone exceeds the base score of 1000 and
+             excludes the paragraph from the candidate set.
+          - Custom rules that hard-exclude the `columnBlock` and
+             `column` nodes as drag targets. Otherwise dragging near a
+             column child still resolves to the outer container and
+             moves both columns together (Notion's rule for `<ul>` /
+             `<ol>` — see the built-in `listWrapperDeprioritize`). */}
+      <DragHandle
+        editor={editor}
+        nested={{
+          edgeDetection: 'none',
+          rules: [
+            {
+              id: 'skip-column-block',
+              evaluate: ({ node }) => (node.type.name === 'columnBlock' ? 1000 : 0),
+            },
+            {
+              id: 'skip-column',
+              evaluate: ({ node }) => (node.type.name === 'column' ? 1000 : 0),
+            },
+          ],
+        }}
+        className="hidden md:block"
+      >
         <div
           className="text-muted-foreground/60 hover:text-foreground flex h-6 w-4 cursor-grab items-center justify-center active:cursor-grabbing"
           aria-label="Drag block"
