@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useDroppable } from '@dnd-kit/core';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { type TaskRow } from '@/lib/hooks/use-tasks';
@@ -254,56 +255,18 @@ function MonthGrid({
 
       {/* Month grid */}
       <div className="grid grid-cols-7 gap-1">
-        {gridDays.map((date) => {
-          const key = dayKey(date);
-          const dayTasks = byDay.get(key) ?? [];
-          const inMonth = date.getMonth() === currentMonth;
-          const isToday = key === todayKey;
-          const isSelected = key === selectedKey;
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onSelect(key)}
-              aria-label={`${date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}${
-                dayTasks.length
-                  ? `, ${dayTasks.length} task${dayTasks.length === 1 ? '' : 's'}`
-                  : ''
-              }`}
-              aria-pressed={isSelected}
-              className={cn(
-                'flex min-h-14 flex-col items-center gap-1 rounded-xl border p-1 transition-colors sm:min-h-16',
-                inMonth ? 'border-border/50' : 'border-transparent opacity-40',
-                isSelected ? 'border-primary ring-primary/40 ring-2' : 'hover:bg-muted/50'
-              )}
-            >
-              <span
-                className={cn(
-                  'flex h-6 w-6 items-center justify-center rounded-full text-xs',
-                  isToday ? 'bg-primary text-primary-foreground font-semibold' : 'text-foreground'
-                )}
-              >
-                {date.getDate()}
-              </span>
-              {dayTasks.length > 0 && (
-                <span className="flex flex-wrap items-center justify-center gap-0.5">
-                  {dayTasks.slice(0, MAX_DOTS).map((t) => (
-                    <span
-                      key={t.id}
-                      className="h-1.5 w-1.5 rounded-full"
-                      style={{ backgroundColor: dotColor(t) }}
-                    />
-                  ))}
-                  {dayTasks.length > MAX_DOTS && (
-                    <span className="text-muted-foreground text-[9px] leading-none">
-                      +{dayTasks.length - MAX_DOTS}
-                    </span>
-                  )}
-                </span>
-              )}
-            </button>
-          );
-        })}
+        {gridDays.map((date) => (
+          <MonthDayCell
+            key={dayKey(date)}
+            date={date}
+            dayKeyStr={dayKey(date)}
+            dayTasks={byDay.get(dayKey(date)) ?? []}
+            inMonth={date.getMonth() === currentMonth}
+            isToday={dayKey(date) === todayKey}
+            isSelected={dayKey(date) === selectedKey}
+            onSelect={onSelect}
+          />
+        ))}
       </div>
 
       {/* Agenda for the selected day */}
@@ -342,6 +305,77 @@ function MonthGrid({
   );
 }
 
+/**
+ * A single month-grid day cell, wired up as a @dnd-kit droppable. The
+ * calendar wraps everything in a DndContext at the tasks-client level;
+ * dropping an archive-task onto this cell PATCHes the task with the new
+ * due date + un-archives it.
+ */
+function MonthDayCell({
+  date,
+  dayKeyStr,
+  dayTasks,
+  inMonth,
+  isToday,
+  isSelected,
+  onSelect,
+}: {
+  date: Date;
+  dayKeyStr: string;
+  dayTasks: TaskRow[];
+  inMonth: boolean;
+  isToday: boolean;
+  isSelected: boolean;
+  onSelect: (key: string) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `day:${dayKeyStr}`,
+    data: { dayKey: dayKeyStr },
+  });
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      onClick={() => onSelect(dayKeyStr)}
+      aria-label={`${date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}${
+        dayTasks.length ? `, ${dayTasks.length} task${dayTasks.length === 1 ? '' : 's'}` : ''
+      }`}
+      aria-pressed={isSelected}
+      className={cn(
+        'flex min-h-14 flex-col items-center gap-1 rounded-xl border p-1 transition-colors sm:min-h-16',
+        inMonth ? 'border-border/50' : 'border-transparent opacity-40',
+        isSelected ? 'border-primary ring-primary/40 ring-2' : 'hover:bg-muted/50',
+        isOver && 'bg-primary/10 border-primary/60 ring-primary/40 ring-2'
+      )}
+    >
+      <span
+        className={cn(
+          'flex h-6 w-6 items-center justify-center rounded-full text-xs',
+          isToday ? 'bg-primary text-primary-foreground font-semibold' : 'text-foreground'
+        )}
+      >
+        {date.getDate()}
+      </span>
+      {dayTasks.length > 0 && (
+        <span className="flex flex-wrap items-center justify-center gap-0.5">
+          {dayTasks.slice(0, MAX_DOTS).map((t) => (
+            <span
+              key={t.id}
+              className="h-1.5 w-1.5 rounded-full"
+              style={{ backgroundColor: dotColor(t) }}
+            />
+          ))}
+          {dayTasks.length > MAX_DOTS && (
+            <span className="text-muted-foreground text-[9px] leading-none">
+              +{dayTasks.length - MAX_DOTS}
+            </span>
+          )}
+        </span>
+      )}
+    </button>
+  );
+}
+
 function WeekColumns({
   weekDays,
   byDay,
@@ -363,37 +397,75 @@ function WeekColumns({
         const dayTasks = byDay.get(key) ?? [];
         const isToday = key === todayKey;
         return (
-          <div
+          <WeekDayColumn
             key={key}
-            className={cn(
-              'rounded-xl border p-2 sm:min-h-28',
-              isToday ? 'border-primary/50 bg-primary/5' : 'border-border/50'
-            )}
-          >
-            <div className="mb-1.5 flex items-center justify-between gap-1">
-              <span className={cn('text-xs font-medium', isToday && 'text-primary')}>
-                {date.toLocaleDateString(undefined, { weekday: 'short' })} {date.getDate()}
-              </span>
-              <button
-                type="button"
-                onClick={() => onAddTaskOnDate(`${key}T00:00:00.000Z`)}
-                aria-label={`Add task on ${date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}`}
-                className="text-muted-foreground hover:text-primary hover:bg-primary/10 flex h-6 w-6 items-center justify-center rounded-lg"
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <div className="space-y-1">
-              {dayTasks.map((task) => (
-                <WeekChip key={task.id} task={task} onOpen={() => onOpenTask(task.id)} />
-              ))}
-              {dayTasks.length === 0 && (
-                <p className="text-muted-foreground/60 py-1 text-center text-xs">—</p>
-              )}
-            </div>
-          </div>
+            date={date}
+            dayKeyStr={key}
+            dayTasks={dayTasks}
+            isToday={isToday}
+            onOpenTask={onOpenTask}
+            onAddTaskOnDate={onAddTaskOnDate}
+          />
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * A single week-view day column, wired up as a droppable. Same pattern as
+ * `MonthDayCell`: the id is `day:<YYYY-MM-DD>`; the parent's DndContext
+ * handles reassigning the task's due date on drop.
+ */
+function WeekDayColumn({
+  date,
+  dayKeyStr,
+  dayTasks,
+  isToday,
+  onOpenTask,
+  onAddTaskOnDate,
+}: {
+  date: Date;
+  dayKeyStr: string;
+  dayTasks: TaskRow[];
+  isToday: boolean;
+  onOpenTask: (id: string) => void;
+  onAddTaskOnDate: (iso: string) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `day:${dayKeyStr}`,
+    data: { dayKey: dayKeyStr },
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'rounded-xl border p-2 sm:min-h-28',
+        isToday ? 'border-primary/50 bg-primary/5' : 'border-border/50',
+        isOver && 'bg-primary/10 border-primary/60 ring-primary/40 ring-2'
+      )}
+    >
+      <div className="mb-1.5 flex items-center justify-between gap-1">
+        <span className={cn('text-xs font-medium', isToday && 'text-primary')}>
+          {date.toLocaleDateString(undefined, { weekday: 'short' })} {date.getDate()}
+        </span>
+        <button
+          type="button"
+          onClick={() => onAddTaskOnDate(`${dayKeyStr}T00:00:00.000Z`)}
+          aria-label={`Add task on ${date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}`}
+          className="text-muted-foreground hover:text-primary hover:bg-primary/10 flex h-6 w-6 items-center justify-center rounded-lg"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <div className="space-y-1">
+        {dayTasks.map((task) => (
+          <WeekChip key={task.id} task={task} onOpen={() => onOpenTask(task.id)} />
+        ))}
+        {dayTasks.length === 0 && (
+          <p className="text-muted-foreground/60 py-1 text-center text-xs">—</p>
+        )}
+      </div>
     </div>
   );
 }
