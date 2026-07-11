@@ -162,8 +162,8 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
 
           {/* Navigation */}
           <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-            {navItems.map((entry) =>
-              isNavHeader(entry) ? (
+            {navItems.map((entry) => {
+              const node = isNavHeader(entry) ? (
                 <p
                   key={entry.header}
                   className="text-muted-foreground px-3 pt-4 pb-1 text-xs font-semibold tracking-wider uppercase"
@@ -178,9 +178,17 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
                   onNavClick={handleNavClick}
                   activityUnreadCount={activityUnreadCount ?? 0}
                 />
-              )
-            )}
-            <AreasNav variant="mobile" onNavigate={handleNavClick} />
+              );
+              if (!isNavHeader(entry) && entry.href === '/tasks') {
+                return (
+                  <div key="tasks-with-areas">
+                    {node}
+                    <AreasNav variant="mobile" onNavigate={handleNavClick} />
+                  </div>
+                );
+              }
+              return node;
+            })}
           </nav>
 
           {/* Sync data — global Moneytor pull. Sits just above Settings,

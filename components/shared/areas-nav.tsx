@@ -3,14 +3,17 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { ChevronDown, FileText, LayoutPanelLeft, Loader2, Plus } from 'lucide-react';
+import { ChevronRight, FileText, LayoutPanelLeft, Loader2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { usePages, useCreatePage } from '@/lib/hooks/use-pages';
 
 /**
- * "Areas" sidebar section — an expandable row that lists the household's pages
- * (Notion-like documents) with a button at the bottom to create a new one.
- * Shared by the desktop sidebar and the mobile menu via the `variant` prop.
+ * "Areas" sidebar entry — a nav row that opens a floating popup with the
+ * household's pages (Notion-like documents) plus a "New page" affordance,
+ * instead of expanding inline. The right-pointing ChevronRight signals the
+ * popup direction. Shared by the desktop sidebar and the mobile menu via
+ * the `variant` prop.
  */
 export function AreasNav({
   variant,
@@ -25,14 +28,14 @@ export function AreasNav({
   const createPage = useCreatePage();
 
   const sectionActive = pathname.startsWith('/areas');
-  const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
-  const expanded = manualExpanded !== null ? manualExpanded : sectionActive;
+  const [open, setOpen] = useState(false);
 
   const handleCreate = () => {
     createPage.mutate(
       {},
       {
         onSuccess: (page) => {
+          setOpen(false);
           onNavigate?.();
           router.push(`/areas/${page.id}`);
         },
@@ -49,36 +52,37 @@ export function AreasNav({
   const parentIdleCls = isMobile
     ? 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
     : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground';
-  const subActiveCls = isMobile
-    ? 'bg-accent text-accent-foreground'
-    : 'bg-sidebar-accent text-sidebar-accent-foreground';
-  const subIdleCls = isMobile
-    ? 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-    : 'text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground';
-  const borderCls = isMobile ? 'border-border/40' : 'border-sidebar-border/30';
+  const subActiveCls = 'bg-accent text-accent-foreground';
+  const subIdleCls = 'text-foreground/70 hover:bg-accent/60 hover:text-foreground';
 
   return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setManualExpanded(!expanded)}
-        aria-expanded={expanded}
-        className={cn(
-          'flex w-full items-center justify-between rounded-lg px-3 font-medium transition-all',
-          rowText,
-          rowPad,
-          sectionActive ? parentActiveCls : parentIdleCls
-        )}
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-expanded={open}
+          className={cn(
+            'flex w-full items-center justify-between rounded-lg px-3 font-medium transition-all',
+            rowText,
+            rowPad,
+            sectionActive ? parentActiveCls : parentIdleCls
+          )}
+        >
+          <span className="flex items-center gap-3">
+            <LayoutPanelLeft className="h-5 w-5" />
+            Areas
+          </span>
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side={isMobile ? 'top' : 'right'}
+        align="start"
+        sideOffset={8}
+        collisionPadding={12}
+        className="w-64 rounded-2xl border p-1 shadow-xl"
       >
-        <span className="flex items-center gap-3">
-          <LayoutPanelLeft className="h-5 w-5" />
-          Areas
-        </span>
-        <ChevronDown className={cn('h-4 w-4 transition-transform', expanded && 'rotate-180')} />
-      </button>
-
-      {expanded && (
-        <div className={cn('mt-1 ml-4 space-y-1 border-l pl-3', borderCls)}>
+        <div className="max-h-[60vh] overflow-y-auto">
           {pages.map((p) => {
             const href = `/areas/${p.id}`;
             const active = pathname === href;
@@ -86,7 +90,10 @@ export function AreasNav({
               <Link
                 key={p.id}
                 href={href}
-                onClick={onNavigate}
+                onClick={() => {
+                  setOpen(false);
+                  onNavigate?.();
+                }}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
                   'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-all',
@@ -104,27 +111,27 @@ export function AreasNav({
           })}
 
           {pages.length === 0 && (
-            <p className="text-muted-foreground/70 px-2.5 py-1 text-xs">No pages yet</p>
+            <p className="text-muted-foreground/70 px-2.5 py-2 text-xs">No pages yet</p>
           )}
-
-          <button
-            type="button"
-            onClick={handleCreate}
-            disabled={createPage.isPending}
-            className={cn(
-              'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-all disabled:opacity-60',
-              subIdleCls
-            )}
-          >
-            {createPage.isPending ? (
-              <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-            ) : (
-              <Plus className="h-4 w-4 shrink-0" />
-            )}
-            <span className="flex-1 text-left">New page</span>
-          </button>
         </div>
-      )}
-    </div>
+
+        <button
+          type="button"
+          onClick={handleCreate}
+          disabled={createPage.isPending}
+          className={cn(
+            'mt-1 flex w-full items-center gap-2.5 rounded-lg border-t px-2.5 pt-2.5 pb-2 text-sm font-medium transition-all disabled:opacity-60',
+            'border-border/40 text-foreground/80 hover:text-foreground'
+          )}
+        >
+          {createPage.isPending ? (
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+          ) : (
+            <Plus className="h-4 w-4 shrink-0" />
+          )}
+          <span className="flex-1 text-left">New page</span>
+        </button>
+      </PopoverContent>
+    </Popover>
   );
 }
