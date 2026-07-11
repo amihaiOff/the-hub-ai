@@ -11,6 +11,7 @@ import { useGeneralLogUnreadCount } from '@/lib/hooks/use-general-log';
 import { LogOut, LogIn, ChevronDown, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from './logo';
+import { AreasNav } from './areas-nav';
 import { Button } from '@/components/ui/button';
 import { navItems, settingsItem, isNavHeader, type NavItem } from '@/lib/constants/navigation';
 
@@ -177,6 +178,7 @@ export function Sidebar() {
               />
             )
           )}
+          <AreasNav variant="desktop" />
         </nav>
 
         {/* Sync data — manual Moneytor pull. Lives just above Settings so

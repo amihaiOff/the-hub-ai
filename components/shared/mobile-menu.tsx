@@ -18,6 +18,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { navItems, settingsItem, isNavHeader, type NavItem } from '@/lib/constants/navigation';
+import { AreasNav } from './areas-nav';
 
 interface MobileMenuProps {
   open: boolean;
@@ -179,6 +180,7 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
                 />
               )
             )}
+            <AreasNav variant="mobile" onNavigate={handleNavClick} />
           </nav>
 
           {/* Sync data — global Moneytor pull. Sits just above Settings,

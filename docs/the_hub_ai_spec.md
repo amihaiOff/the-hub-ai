@@ -475,6 +475,34 @@ Const vs. non const expenses
 6. User clicks specific notification → navigates to relevant page
 7. User can mark as read or dismiss
 
+## Pages / Areas (Notion-like documents)
+
+Free-form rich documents for notes, plans, references — anything that doesn't
+fit the structured modules. Household-scoped and listed under an **Areas**
+section in the sidebar (and mobile menu): an expandable row that lists the
+household's pages (emoji + title) with a **New page** button at the bottom.
+
+**A page has:**
+
+- A **title** with an **optional emoji** (Notion-style), both edited inline and
+  autosaved.
+- A **body** built on Tiptap, supporting: headings, bold/italic/strike, bullet
+  and numbered lists, quotes, code, **links**, **images**, **tables**, and a
+  **two-column layout** (columns sit side by side on wide screens, stack on
+  mobile).
+
+**Images** are uploaded to **Vercel Blob** (`POST /api/pages/upload`, requires
+`BLOB_READ_WRITE_TOKEN`) via the toolbar button or by pasting/dropping an image;
+if uploads aren't configured the editor falls back to embedding an image URL.
+
+**Storage:** content is persisted as a Tiptap/ProseMirror JSON document on the
+`pages` table (`title`, `emoji`, `content` JSONB, `sort_order`, `owner_id`,
+`household_id`). Title/emoji and body edits autosave (debounced) via
+`PATCH /api/pages/[id]`. New pages sort to the top of the Areas list.
+
+**Routes:** `/areas/[id]` renders a page in the app shell.
+`GET/POST /api/pages`, `GET/PATCH/DELETE /api/pages/[id]`, `POST /api/pages/upload`.
+
 # Development & Deployment
 
 ## Code Quality Practices

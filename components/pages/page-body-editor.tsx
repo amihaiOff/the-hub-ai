@@ -1,0 +1,225 @@
+'use client';
+
+import { useCallback } from 'react';
+import { EditorContent, useEditor, type Editor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Link from '@tiptap/extension-link';
+import Image from '@tiptap/extension-image';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableHeader } from '@tiptap/extension-table-header';
+import { TableCell } from '@tiptap/extension-table-cell';
+import {
+  Bold,
+  Columns2,
+  Heading1,
+  Heading2,
+  Image as ImageIcon,
+  Italic,
+  Link2,
+  List,
+  ListOrdered,
+  Quote,
+  Strikethrough,
+  Table as TableIcon,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { uploadPageImage } from '@/lib/hooks/use-pages';
+import { Column, ColumnBlock } from './columns-extension';
+
+interface PageBodyEditorProps {
+  /** Initial Tiptap JSON document (or null for an empty page). Read once. */
+  initialContent: unknown;
+  /** Fired (debounced by the parent) with the latest JSON document. */
+  onChange: (doc: unknown) => void;
+}
+
+/**
+ * The Notion-like body editor: rich text, images (uploaded to Blob), tables,
+ * links and a two-column layout. Content is stored as Tiptap JSON. The parent
+ * keys this component on the page id, so it mounts fresh per page and we read
+ * `initialContent` once instead of resetting on every keystroke.
+ */
+export function PageBodyEditor({ initialContent, onChange }: PageBodyEditorProps) {
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({ link: false }),
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+        HTMLAttributes: { class: 'text-primary underline underline-offset-2' },
+      }),
+      Image.configure({ inline: false, HTMLAttributes: { class: 'page-image' } }),
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      ColumnBlock,
+      Column,
+    ],
+    content: (initialContent as object) ?? '',
+    onUpdate: ({ editor }) => onChange(editor.getJSON()),
+    editorProps: {
+      attributes: {
+        class: 'page-body min-h-[60vh] px-1 py-2 focus:outline-none',
+      },
+    },
+    immediatelyRender: false,
+  });
+
+  // Paste/drop of image files → upload to Blob and insert. Handled at the React
+  // wrapper level (not in useEditor's initializer, which can't reference the
+  // editor it is creating). preventDefault stops ProseMirror pasting a filename.
+  const handleData = useCallback(
+    (dt: DataTransfer | null, prevent: () => void) => {
+      if (!editor || !dt) return;
+      const images = Array.from(dt.files).filter((f) => f.type.startsWith('image/'));
+      if (images.length === 0) return;
+      prevent();
+      for (const file of images) {
+        uploadPageImage(file)
+          .then((url) => editor.chain().focus().setImage({ src: url }).run())
+          .catch((err) => {
+            alert(err instanceof Error ? err.message : 'Image upload failed');
+          });
+      }
+    },
+    [editor]
+  );
+
+  if (!editor) return null;
+
+  return (
+    <div
+      onPaste={(e) => handleData(e.clipboardData, () => e.preventDefault())}
+      onDrop={(e) => handleData(e.dataTransfer, () => e.preventDefault())}
+    >
+      <Toolbar editor={editor} />
+      <EditorContent editor={editor} />
+    </div>
+  );
+}
+
+function Toolbar({ editor }: { editor: Editor }) {
+  const addLink = useCallback(() => {
+    const prev = editor.getAttributes('link').href as string | undefined;
+    const url = window.prompt('Link URL', prev ?? 'https://');
+    if (url === null) return;
+    if (url === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+      return;
+    }
+    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+  }, [editor]);
+
+  const onPickImage = useCallback(
+    async (file: File | undefined) => {
+      if (!file) return;
+      try {
+        const url = await uploadPageImage(file);
+        editor.chain().focus().setImage({ src: url }).run();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Image upload failed';
+        // Offer a URL fallback when uploads aren't configured.
+        const url = window.prompt(`${msg}\n\nPaste an image URL instead:`, '');
+        if (url) editor.chain().focus().setImage({ src: url }).run();
+      }
+    },
+    [editor]
+  );
+
+  // Build the file input imperatively (no React ref) so opening the picker
+  // stays entirely inside an event handler.
+  const openImagePicker = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = () => void onPickImage(input.files?.[0]);
+    input.click();
+  }, [onPickImage]);
+
+  const btns = [
+    {
+      icon: Heading1,
+      label: 'Heading 1',
+      on: () => editor.chain().focus().toggleHeading({ level: 1 }).run(),
+      active: () => editor.isActive('heading', { level: 1 }),
+    },
+    {
+      icon: Heading2,
+      label: 'Heading 2',
+      on: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
+      active: () => editor.isActive('heading', { level: 2 }),
+    },
+    {
+      icon: Bold,
+      label: 'Bold',
+      on: () => editor.chain().focus().toggleBold().run(),
+      active: () => editor.isActive('bold'),
+    },
+    {
+      icon: Italic,
+      label: 'Italic',
+      on: () => editor.chain().focus().toggleItalic().run(),
+      active: () => editor.isActive('italic'),
+    },
+    {
+      icon: Strikethrough,
+      label: 'Strikethrough',
+      on: () => editor.chain().focus().toggleStrike().run(),
+      active: () => editor.isActive('strike'),
+    },
+    {
+      icon: List,
+      label: 'Bullet list',
+      on: () => editor.chain().focus().toggleBulletList().run(),
+      active: () => editor.isActive('bulletList'),
+    },
+    {
+      icon: ListOrdered,
+      label: 'Numbered list',
+      on: () => editor.chain().focus().toggleOrderedList().run(),
+      active: () => editor.isActive('orderedList'),
+    },
+    {
+      icon: Quote,
+      label: 'Quote',
+      on: () => editor.chain().focus().toggleBlockquote().run(),
+      active: () => editor.isActive('blockquote'),
+    },
+    { icon: Link2, label: 'Link', on: addLink, active: () => editor.isActive('link') },
+    { icon: ImageIcon, label: 'Image', on: openImagePicker, active: () => false },
+    {
+      icon: TableIcon,
+      label: 'Table',
+      on: () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+      active: () => editor.isActive('table'),
+    },
+    {
+      icon: Columns2,
+      label: '2 columns',
+      on: () => editor.chain().focus().setColumns().run(),
+      active: () => editor.isActive('columnBlock'),
+    },
+  ];
+
+  return (
+    <div className="border-border/50 bg-background/80 sticky top-0 z-10 mb-3 flex flex-wrap items-center gap-0.5 rounded-xl border p-1 backdrop-blur">
+      {btns.map(({ icon: Icon, label, on, active }) => (
+        <button
+          key={label}
+          type="button"
+          onClick={on}
+          aria-label={label}
+          title={label}
+          className={cn(
+            'hover:bg-muted/70 flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
+            active() ? 'bg-muted text-foreground' : 'text-muted-foreground'
+          )}
+        >
+          <Icon className="h-4 w-4" />
+        </button>
+      ))}
+    </div>
+  );
+}
