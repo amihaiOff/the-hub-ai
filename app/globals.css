@@ -286,9 +286,16 @@
   .page-column {
     flex: 1 1 0;
     min-width: 0;
-    border: 1px dashed var(--border);
-    border-radius: 0.6rem;
-    padding: 0.5rem 0.75rem;
+    padding: 0.25rem 0.75rem;
+  }
+  /* On the side-by-side layout, a faint vertical divider between the two
+     columns instead of a full box around each — lightly signals the split
+     without turning the layout into a form. Stacked mobile layout keeps no
+     divider (each column is a full-width block). */
+  @media (min-width: 640px) {
+    .page-column + .page-column {
+      border-left: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+    }
   }
 
   /* Editable tables inside the page body. */
