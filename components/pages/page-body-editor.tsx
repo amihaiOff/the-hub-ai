@@ -17,6 +17,8 @@ import {
   Heading1,
   Heading2,
   Image as ImageIcon,
+  IndentDecrease,
+  IndentIncrease,
   Italic,
   Link2,
   List,
@@ -239,6 +241,18 @@ function Toolbar({ editor }: { editor: Editor }) {
       label: 'Numbered list',
       on: () => editor.chain().focus().toggleOrderedList().run(),
       active: () => editor.isActive('orderedList'),
+    },
+    {
+      icon: IndentIncrease,
+      label: 'Indent list item',
+      on: () => editor.chain().focus().sinkListItem('listItem').run(),
+      active: () => false,
+    },
+    {
+      icon: IndentDecrease,
+      label: 'Outdent list item',
+      on: () => editor.chain().focus().liftListItem('listItem').run(),
+      active: () => false,
     },
     {
       icon: Quote,

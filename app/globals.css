@@ -247,6 +247,21 @@
     padding-left: 1.4rem;
     margin: 0.35rem 0;
   }
+  /* Nested lists indent further and switch marker style, like a doc editor. */
+  .page-body ul ul {
+    list-style: circle;
+    margin: 0.15rem 0;
+  }
+  .page-body ul ul ul {
+    list-style: square;
+  }
+  .page-body ol ol {
+    list-style: lower-alpha;
+    margin: 0.15rem 0;
+  }
+  .page-body ol ol ol {
+    list-style: lower-roman;
+  }
   .page-body blockquote {
     border-left: 3px solid var(--border);
     padding-left: 0.85rem;
