@@ -54,7 +54,11 @@ export function DoneToggle({
         e.stopPropagation();
         onToggle();
       }}
-      onPointerDown={(e) => e.stopPropagation()}
+      // No React `onPointerDown` here: any synthetic pointer handler in the
+      // mounted tree causes react-dom to attach non-passive
+      // pointerdown/pointermove delegates on `document`, which iOS Safari
+      // then waits on before starting the first scroll. onClick alone is
+      // enough — the card's long-press hook uses native passive listeners.
       className={cn(
         'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors',
         done
@@ -151,7 +155,8 @@ function TaskCard({
       {/* Header: checkbox + title. The leading checkbox toggles DONE normally,
           and reflects selection while in selection mode. */}
       <div className="flex items-start gap-3">
-        <span onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+        {/* Same reasoning as DoneToggle above — no React onPointerDown here. */}
+        <span onClick={(e) => e.stopPropagation()}>
           <Checkbox
             checked={selectionMode ? selected : isDone}
             onCheckedChange={(v) => (selectionMode ? onToggleSelection() : toggleDone(v === true))}
