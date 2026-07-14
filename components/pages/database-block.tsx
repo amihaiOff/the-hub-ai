@@ -152,14 +152,50 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
     [rows]
   );
 
-  const addRow = () => setRows([...rows, makeRow(columns)]);
+  // After add-row / add-column we want to (a) scroll the new cell into
+  // view and (b) drop the user into edit mode on it. Track the intent
+  // and honor it in a post-render effect once the DOM contains the new
+  // row/column.
+  const [focusIntent, setFocusIntent] = useState<{ kind: 'row' | 'column'; id: string } | null>(
+    null
+  );
+
+  const addRow = () => {
+    const row = makeRow(columns);
+    setRows([...rows, row]);
+    setFocusIntent({ kind: 'row', id: row.id });
+  };
   const deleteRow = (rowId: string) => setRows(rows.filter((r) => r.id !== rowId));
 
   const addColumn = () => {
     const col = makeColumn('New column', 'text');
     setColumns([...columns, col]);
     setRows(rows.map((r) => ({ ...r, cells: { ...r.cells, [col.id]: null } })));
+    setFocusIntent({ kind: 'column', id: col.id });
   };
+
+  useEffect(() => {
+    if (!focusIntent) return;
+    // Wait one frame so the added row/column has rendered.
+    const raf = requestAnimationFrame(() => {
+      if (focusIntent.kind === 'row') {
+        const tr = document.querySelector<HTMLTableRowElement>(`[data-row-id="${focusIntent.id}"]`);
+        // First text-ish input in the row — typically the Name cell.
+        const input = tr?.querySelector<HTMLInputElement>(
+          'input:not([type="checkbox"]):not([type="date"]):not([type="number"]), input'
+        );
+        tr?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        input?.focus();
+        input?.select?.();
+      } else {
+        const th = document.querySelector<HTMLElement>(`[data-col-header-id="${focusIntent.id}"]`);
+        th?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+        // ColumnHeader picks up autoStartEdit via prop (see JSX below).
+      }
+      setFocusIntent(null);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [focusIntent]);
   const deleteColumn = (colId: string) => {
     setColumns(columns.filter((c) => c.id !== colId));
     setRows(
@@ -221,11 +257,17 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                   if (!col) return null;
                   const sort = header.column.getIsSorted();
                   return (
-                    <th key={header.id} className="p-0" style={{ width: '10rem' }}>
+                    <th
+                      key={header.id}
+                      data-col-header-id={col.id}
+                      className="p-0"
+                      style={{ width: '10rem' }}
+                    >
                       <ColumnHeader
                         column={col}
                         sort={sort}
                         editable={editable}
+                        autoStartEdit={focusIntent?.kind === 'column' && focusIntent.id === col.id}
                         onToggleSort={() => header.column.toggleSorting()}
                         onRename={(name) => renameColumn(col.id, name)}
                         onChangeType={(type) => changeColumnType(col.id, type)}
@@ -438,6 +480,7 @@ function ColumnHeader({
   column,
   sort,
   editable,
+  autoStartEdit,
   onToggleSort,
   onRename,
   onChangeType,
@@ -447,6 +490,7 @@ function ColumnHeader({
   column: DatabaseColumn;
   sort: false | 'asc' | 'desc';
   editable: boolean;
+  autoStartEdit?: boolean;
   onToggleSort: () => void;
   onRename: (name: string) => void;
   onChangeType: (type: DatabaseColumnType) => void;
@@ -455,7 +499,11 @@ function ColumnHeader({
 }) {
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
   const menuOpen = menuAnchor !== null;
-  const [editing, setEditing] = useState(false);
+  // Seed edit-mode from autoStartEdit on FIRST mount only — a newly-
+  // added column mounts a fresh ColumnHeader (keyed on column.id) so
+  // the initializer fires exactly when we want it to. React 19 bans
+  // setState inside an effect, so this is the right shape.
+  const [editing, setEditing] = useState(() => Boolean(autoStartEdit && editable));
   const [mobileSheet, setMobileSheet] = useState(false);
   const [name, setName] = useState(column.name);
   // Long-press detection for mobile — 500ms without moving fires the sheet.
