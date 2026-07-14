@@ -567,7 +567,7 @@ function ColumnHeader({
           }}
           aria-label="Delete column"
           title="Delete column"
-          className="text-muted-foreground/70 hover:bg-destructive/15 hover:text-destructive absolute top-0.5 left-0.5 hidden h-4 w-4 items-center justify-center rounded-md opacity-0 transition-opacity group-hover/header:opacity-100 md:flex"
+          className="text-muted-foreground/70 hover:bg-destructive/15 hover:text-destructive absolute top-0 left-0 hidden h-3.5 w-3.5 items-center justify-center rounded-br-md opacity-0 transition-opacity group-hover/header:opacity-100 md:flex"
         >
           <X className="h-3 w-3" />
         </button>
@@ -849,6 +849,14 @@ function ColumnMobileSheet({
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         side="bottom"
+        // Changing type calls updateAttributes on the Tiptap node, which
+        // can pull focus back into the editor. Radix treats that as an
+        // outside interaction and closes the sheet — so we swallow those
+        // events. The X button in the header still calls onOpenChange
+        // directly, and Delete-column closes explicitly.
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+        onFocusOutside={(e) => e.preventDefault()}
         className="flex max-h-[85vh] flex-col gap-0 rounded-t-2xl p-0 sm:bottom-4 sm:mx-auto sm:h-auto sm:max-w-md sm:rounded-2xl sm:border"
       >
         <SheetHeader className="border-border/40 border-b p-4">
