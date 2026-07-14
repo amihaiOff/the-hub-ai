@@ -17,8 +17,8 @@ export interface DatabaseColumn {
   id: string;
   name: string;
   type: DatabaseColumnType;
-  /** Present for `select` columns. Each option carries a stable id + label. */
-  options?: { id: string; label: string }[];
+  /** Present for `select` columns. Each option carries a stable id + label + optional color key (see SELECT_COLORS in database-block). */
+  options?: { id: string; label: string; color?: string }[];
 }
 
 export type DatabaseCellValue = string | number | boolean | null;
@@ -51,9 +51,9 @@ function defaultColumns(): DatabaseColumn[] {
       name: 'Status',
       type: 'select',
       options: [
-        { id: newId('opt'), label: 'Todo' },
-        { id: newId('opt'), label: 'Doing' },
-        { id: newId('opt'), label: 'Done' },
+        { id: newId('opt'), label: 'Todo', color: 'slate' },
+        { id: newId('opt'), label: 'Doing', color: 'blue' },
+        { id: newId('opt'), label: 'Done', color: 'emerald' },
       ],
     },
     { id: newId('col'), name: 'Due', type: 'date' },
@@ -143,6 +143,6 @@ export function makeRow(cols: DatabaseColumn[]): DatabaseRow {
   };
 }
 
-export function makeSelectOption(label: string) {
-  return { id: newId('opt'), label };
+export function makeSelectOption(label: string, color?: string) {
+  return { id: newId('opt'), label, color };
 }

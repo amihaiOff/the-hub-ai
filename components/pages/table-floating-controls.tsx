@@ -50,7 +50,9 @@ export function TableFloatingControls({ editor }: { editor: Editor }) {
       if (target?.closest('[data-table-controls]')) return;
 
       const table = target?.closest('table') as HTMLTableElement | null;
-      if (!table || !dom.contains(table)) {
+      // Database blocks render their own <table> but have their own edge
+      // + tabs, delete-row gutter, and column menu — don't overlay them.
+      if (!table || !dom.contains(table) || table.closest('.database-block')) {
         clearAll();
         return;
       }

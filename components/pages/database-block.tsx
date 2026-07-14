@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { NodeViewProps } from '@tiptap/react';
 import { NodeViewWrapper } from '@tiptap/react';
 import {
@@ -39,7 +40,6 @@ const TYPE_META: Record<
   DatabaseColumnType,
   { label: string; icon: typeof Baseline; color: string }
 > = {
-  // Tint the header type icon so the column type is legible at a glance.
   text: { label: 'Text', icon: Baseline, color: 'text-slate-400' },
   number: { label: 'Number', icon: Hash, color: 'text-blue-400' },
   date: { label: 'Date', icon: Calendar, color: 'text-emerald-400' },
@@ -48,15 +48,53 @@ const TYPE_META: Record<
 };
 
 /**
+ * Palette for `select` option pills. Keys are persisted on the option's
+ * `color` field so the swatch survives reload. Anything unknown falls
+ * back to `slate` at render time — see `getSelectColor`.
+ */
+export const SELECT_COLORS = [
+  {
+    key: 'slate',
+    pill: 'bg-slate-500/15 text-slate-300 ring-slate-400/30',
+    swatch: 'bg-slate-400',
+  },
+  { key: 'blue', pill: 'bg-blue-500/20 text-blue-200 ring-blue-400/30', swatch: 'bg-blue-400' },
+  {
+    key: 'emerald',
+    pill: 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30',
+    swatch: 'bg-emerald-400',
+  },
+  {
+    key: 'amber',
+    pill: 'bg-amber-500/20 text-amber-200 ring-amber-400/30',
+    swatch: 'bg-amber-400',
+  },
+  { key: 'rose', pill: 'bg-rose-500/20 text-rose-200 ring-rose-400/30', swatch: 'bg-rose-400' },
+  {
+    key: 'violet',
+    pill: 'bg-violet-500/20 text-violet-200 ring-violet-400/30',
+    swatch: 'bg-violet-400',
+  },
+  { key: 'pink', pill: 'bg-pink-500/20 text-pink-200 ring-pink-400/30', swatch: 'bg-pink-400' },
+  {
+    key: 'orange',
+    pill: 'bg-orange-500/20 text-orange-200 ring-orange-400/30',
+    swatch: 'bg-orange-400',
+  },
+] as const;
+
+function getSelectColor(key: string | undefined) {
+  return SELECT_COLORS.find((c) => c.key === key) ?? SELECT_COLORS[0];
+}
+
+/**
  * NodeView for the Notion-like "database" block. Renders a TanStack Table
- * with click-header sorting, per-column type controls, per-cell editors
- * keyed on the column's type, and add/delete affordances for rows and
- * columns. Persists edits by writing new `columns` / `rows` attribute
- * values back to the ProseMirror node.
+ * with click-header sorting, per-column type controls, per-cell editors,
+ * and hover-only add/delete affordances via floating edge tabs + leading
+ * gutter. Persists edits by writing new `columns` / `rows` attributes back
+ * to the ProseMirror node.
  */
 export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewProps) {
-  // Fall back to empty arrays so an incompletely-parsed node never crashes
-  // — the insert command always seeds both attributes so this is defensive.
   const columns = (node.attrs.columns ?? []) as DatabaseColumn[];
   const rows = (node.attrs.rows ?? []) as DatabaseRow[];
 
@@ -95,7 +133,6 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
         rows.map((r) => (r.id === rowId ? { ...r, cells: { ...r.cells, [colId]: value } } : r))
       );
     },
-    // rows is captured by closure; setRows depends on updateAttributes
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [rows]
   );
@@ -112,7 +149,6 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
     setColumns(columns.filter((c) => c.id !== colId));
     setRows(
       rows.map((r) => {
-        // Strip the removed column's value from every row.
         const { [colId]: _dropped, ...rest } = r.cells;
         return { ...r, cells: rest };
       })
@@ -126,14 +162,11 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
       columns.map((c) => {
         if (c.id !== colId) return c;
         const next: DatabaseColumn = { ...c, type };
-        // Ensure `select` columns always have an options array.
         if (type === 'select' && !next.options) next.options = [];
         if (type !== 'select') delete next.options;
         return next;
       })
     );
-    // Coerce existing values so a type change doesn't leave garbage that
-    // won't render (e.g. leaving a string in a checkbox column).
     setRows(
       rows.map((r) => {
         const raw = r.cells[colId];
@@ -141,17 +174,27 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
       })
     );
   };
-  const setSelectOptions = (colId: string, options: { id: string; label: string }[]) => {
+  const setSelectOptions = (
+    colId: string,
+    options: { id: string; label: string; color?: string }[]
+  ) => {
     setColumns(columns.map((c) => (c.id === colId ? { ...c, options } : c)));
   };
 
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+
   return (
-    <NodeViewWrapper as="div" className="database-block my-4">
-      <div className="border-border/40 bg-card/40 overflow-x-auto rounded-2xl border">
+    <NodeViewWrapper as="div" className="database-block group/db relative my-4">
+      <div
+        ref={wrapperRef}
+        className="border-border/40 bg-card/40 relative overflow-x-auto rounded-2xl border"
+      >
         <table className="w-full text-sm">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className="bg-muted/40">
+                {/* Leading gutter — matches the hover-only delete cell in the body. */}
+                {editable && <th className="w-8 p-0" aria-hidden />}
                 {headerGroup.headers.map((header) => {
                   const col = columns.find((c) => c.id === header.column.id);
                   if (!col) return null;
@@ -171,19 +214,6 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                     </th>
                   );
                 })}
-                {editable && (
-                  <th className="w-10 p-0">
-                    <button
-                      type="button"
-                      onClick={addColumn}
-                      aria-label="Add column"
-                      title="Add column"
-                      className="text-muted-foreground/70 hover:bg-muted/70 hover:text-foreground flex h-full w-full items-center justify-center"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
-                  </th>
-                )}
               </tr>
             ))}
           </thead>
@@ -191,7 +221,20 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
             {table.getRowModel().rows.map((tableRow) => {
               const row = tableRow.original;
               return (
-                <tr key={row.id} className="group">
+                <tr key={row.id} className="group/row">
+                  {editable && (
+                    <td className="w-8 p-0 align-middle">
+                      <button
+                        type="button"
+                        onClick={() => deleteRow(row.id)}
+                        aria-label="Delete row"
+                        title="Delete row"
+                        className="text-muted-foreground/50 hover:bg-destructive/10 hover:text-destructive flex h-full w-full items-center justify-center opacity-0 transition-opacity group-hover/row:opacity-100"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </td>
+                  )}
                   {tableRow.getVisibleCells().map((cell) => {
                     const col = columns.find((c) => c.id === cell.column.id);
                     if (!col) return null;
@@ -206,39 +249,9 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                       </td>
                     );
                   })}
-                  {editable && (
-                    <td className="w-10 p-0 align-middle">
-                      <button
-                        type="button"
-                        onClick={() => deleteRow(row.id)}
-                        aria-label="Delete row"
-                        title="Delete row"
-                        className="text-muted-foreground/40 hover:bg-destructive/10 hover:text-destructive flex h-full w-full items-center justify-center opacity-0 transition-opacity group-hover:opacity-100"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </td>
-                  )}
                 </tr>
               );
             })}
-            {editable && (
-              <tr>
-                <td
-                  colSpan={columns.length + 1}
-                  className="text-muted-foreground/70 hover:text-foreground p-0"
-                >
-                  <button
-                    type="button"
-                    onClick={addRow}
-                    aria-label="Add row"
-                    className="hover:bg-muted/40 flex h-8 w-full items-center gap-2 pl-3 text-left text-xs transition-colors"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> New row
-                  </button>
-                </td>
-              </tr>
-            )}
             {rows.length === 0 && !editable && (
               <tr>
                 <td
@@ -252,6 +265,29 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
           </tbody>
         </table>
       </div>
+
+      {editable && (
+        <>
+          <button
+            type="button"
+            onClick={addColumn}
+            aria-label="Add column"
+            title="Add column"
+            className="border-border/40 bg-background/70 text-muted-foreground/60 hover:text-primary hover:border-primary/40 hover:bg-primary/10 absolute top-0 -right-1 flex h-full w-5 items-center justify-center rounded-r-lg border border-l-0 opacity-0 backdrop-blur transition-opacity group-hover/db:opacity-100"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={addRow}
+            aria-label="Add row"
+            title="Add row"
+            className="border-border/40 bg-background/70 text-muted-foreground/60 hover:text-primary hover:border-primary/40 hover:bg-primary/10 absolute -bottom-1 left-0 flex h-5 w-full items-center justify-center rounded-b-lg border border-t-0 opacity-0 backdrop-blur transition-opacity group-hover/db:opacity-100"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        </>
+      )}
     </NodeViewWrapper>
   );
 }
@@ -275,11 +311,12 @@ function ColumnHeader({
   onRename: (name: string) => void;
   onChangeType: (type: DatabaseColumnType) => void;
   onDelete: () => void;
-  onSetOptions: (opts: { id: string; label: string }[]) => void;
+  onSetOptions: (opts: { id: string; label: string; color?: string }[]) => void;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
+  const menuOpen = menuAnchor !== null;
   const [name, setName] = useState(column.name);
-  // Keep local input in sync when the underlying column name changes elsewhere.
+
   if (name !== column.name && document.activeElement?.getAttribute('data-col-id') !== column.id) {
     setName(column.name);
   }
@@ -328,7 +365,7 @@ function ColumnHeader({
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            setMenuOpen((o) => !o);
+            setMenuAnchor((cur) => (cur ? null : (e.currentTarget as HTMLButtonElement)));
           }}
           aria-label="Column options"
           className="text-muted-foreground/50 hover:text-foreground hover:bg-muted/40 flex w-6 items-center justify-center opacity-0 transition-opacity group-hover/header:opacity-100"
@@ -339,8 +376,9 @@ function ColumnHeader({
 
       {menuOpen && (
         <ColumnMenu
+          anchor={menuAnchor}
           column={column}
-          onClose={() => setMenuOpen(false)}
+          onClose={() => setMenuAnchor(null)}
           onChangeType={onChangeType}
           onDelete={onDelete}
           onSetOptions={onSetOptions}
@@ -350,24 +388,77 @@ function ColumnHeader({
   );
 }
 
+/**
+ * The column-options popover. Portalled to <body> with fixed positioning
+ * so it overlays whatever's below the table — the table container has
+ * `overflow-x-auto`, which would otherwise clip a plain `absolute`
+ * dropdown on short tables. Closes on outside-click and Escape.
+ */
 function ColumnMenu({
+  anchor,
   column,
   onClose,
   onChangeType,
   onDelete,
   onSetOptions,
 }: {
+  anchor: HTMLElement | null;
   column: DatabaseColumn;
   onClose: () => void;
   onChangeType: (type: DatabaseColumnType) => void;
   onDelete: () => void;
-  onSetOptions: (opts: { id: string; label: string }[]) => void;
+  onSetOptions: (opts: { id: string; label: string; color?: string }[]) => void;
 }) {
   const [newOption, setNewOption] = useState('');
-  return (
+  const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!anchor) return;
+    const place = () => {
+      const rect = anchor.getBoundingClientRect();
+      const width = 240;
+      // Prefer right-aligned to the trigger; clamp inside viewport.
+      const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8);
+      setPos({ top: rect.bottom + 4, left });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [anchor]);
+
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node | null;
+      if (!t) return;
+      if (menuRef.current?.contains(t)) return;
+      if (anchor && anchor.contains(t)) return;
+      onClose();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [anchor, onClose]);
+
+  if (!pos) return null;
+
+  const content = (
     <div
+      ref={menuRef}
       role="menu"
-      className="bg-popover text-popover-foreground absolute top-full right-0 z-50 mt-1 w-56 rounded-xl border p-1 shadow-xl"
+      style={{ position: 'fixed', top: pos.top, left: pos.left, width: 240 }}
+      className="bg-popover text-popover-foreground z-[100] rounded-xl border p-1 shadow-xl"
     >
       <p className="text-muted-foreground px-2 pt-1 pb-1 text-[10px] font-semibold tracking-wider uppercase">
         Column type
@@ -380,14 +471,16 @@ function ColumnMenu({
             type="button"
             onClick={() => {
               onChangeType(t);
-              onClose();
+              // Keep the menu open when switching TO select so the user can
+              // immediately edit options; otherwise close it.
+              if (t !== 'select') onClose();
             }}
             className={cn(
               'hover:bg-muted/60 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs',
               column.type === t && 'bg-muted/50 font-medium'
             )}
           >
-            <Icon className="h-3.5 w-3.5" /> {TYPE_META[t].label}
+            <Icon className={cn('h-3.5 w-3.5', TYPE_META[t].color)} /> {TYPE_META[t].label}
           </button>
         );
       })}
@@ -398,29 +491,66 @@ function ColumnMenu({
             Options
           </p>
           <div className="space-y-1 px-1 pb-1">
-            {(column.options ?? []).map((opt) => (
-              <div key={opt.id} className="flex items-center gap-1">
-                <span className="bg-muted/60 flex-1 truncate rounded-md px-2 py-1 text-xs">
-                  {opt.label}
-                </span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    onSetOptions((column.options ?? []).filter((o) => o.id !== opt.id))
-                  }
-                  aria-label={`Remove ${opt.label}`}
-                  className="text-muted-foreground/60 hover:text-destructive"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
+            {(column.options ?? []).map((opt) => {
+              const c = getSelectColor(opt.color);
+              return (
+                <div key={opt.id} className="relative flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setColorPickerFor((cur) => (cur === opt.id ? null : opt.id))}
+                    aria-label={`Color for ${opt.label}`}
+                    className={cn('h-3.5 w-3.5 shrink-0 rounded-full', c.swatch)}
+                  />
+                  <span
+                    className={cn('flex-1 truncate rounded-md px-2 py-1 text-xs ring-1', c.pill)}
+                  >
+                    {opt.label}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onSetOptions((column.options ?? []).filter((o) => o.id !== opt.id))
+                    }
+                    aria-label={`Remove ${opt.label}`}
+                    className="text-muted-foreground/60 hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                  {colorPickerFor === opt.id && (
+                    <div className="bg-popover absolute top-full left-0 z-[110] mt-1 flex flex-wrap gap-1 rounded-lg border p-1.5 shadow-lg">
+                      {SELECT_COLORS.map((sc) => (
+                        <button
+                          key={sc.key}
+                          type="button"
+                          onClick={() => {
+                            onSetOptions(
+                              (column.options ?? []).map((o) =>
+                                o.id === opt.id ? { ...o, color: sc.key } : o
+                              )
+                            );
+                            setColorPickerFor(null);
+                          }}
+                          aria-label={sc.key}
+                          className={cn(
+                            'h-4 w-4 rounded-full ring-1 ring-white/10 hover:ring-2 hover:ring-white/40',
+                            sc.swatch,
+                            opt.color === sc.key && 'ring-2 ring-white/70'
+                          )}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 const label = newOption.trim();
                 if (!label) return;
-                onSetOptions([...(column.options ?? []), makeSelectOption(label)]);
+                // Cycle colors so successive options are visually distinct.
+                const next = SELECT_COLORS[(column.options?.length ?? 0) % SELECT_COLORS.length];
+                onSetOptions([...(column.options ?? []), makeSelectOption(label, next.key)]);
                 setNewOption('');
               }}
               className="flex gap-1"
@@ -456,6 +586,8 @@ function ColumnMenu({
       </div>
     </div>
   );
+
+  return createPortal(content, document.body);
 }
 
 // ─── Cell editors ────────────────────────────────────────────────────────
@@ -517,34 +649,142 @@ function CellEditor({
           />
         </div>
       );
-    case 'select': {
-      const options = column.options ?? [];
-      const selectedId = typeof value === 'string' ? value : '';
-      const selectedLabel = options.find((o) => o.id === selectedId)?.label ?? '';
-      return (
-        <select
-          value={selectedId}
-          onChange={(e) => onChange(e.target.value || null)}
-          disabled={disabled}
-          className="w-full bg-transparent px-3 py-2 text-sm outline-none"
-          aria-label={`${column.name}: ${selectedLabel || 'empty'}`}
-        >
-          <option value=""></option>
-          {options.map((opt) => (
-            <option key={opt.id} value={opt.id}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      );
-    }
+    case 'select':
+      return <SelectCell column={column} value={value} onChange={onChange} disabled={disabled} />;
   }
+}
+
+/**
+ * Custom select cell. Uses a colored pill for the current value and a
+ * portalled popover for picking / clearing — a native `<select>` can't
+ * render the per-option color, and we want click-outside to dismiss.
+ */
+function SelectCell({
+  column,
+  value,
+  onChange,
+  disabled,
+}: {
+  column: DatabaseColumn;
+  value: DatabaseCellValue;
+  onChange: (v: DatabaseCellValue) => void;
+  disabled: boolean;
+}) {
+  const options = column.options ?? [];
+  const selectedId = typeof value === 'string' ? value : '';
+  const selected = options.find((o) => o.id === selectedId);
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const popRef = useRef<HTMLDivElement | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const place = () => {
+      const rect = triggerRef.current!.getBoundingClientRect();
+      const width = Math.max(180, rect.width);
+      const left = Math.min(rect.left, window.innerWidth - width - 8);
+      setPos({ top: rect.bottom + 4, left, width });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node | null;
+      if (!t) return;
+      if (popRef.current?.contains(t)) return;
+      if (triggerRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const selColor = selected ? getSelectColor(selected.color) : null;
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => !disabled && setOpen((o) => !o)}
+        disabled={disabled}
+        aria-label={`${column.name}: ${selected?.label ?? 'empty'}`}
+        className="flex h-full w-full items-center px-3 py-2 text-left text-sm"
+      >
+        {selected && selColor ? (
+          <span className={cn('rounded-md px-2 py-0.5 text-xs ring-1', selColor.pill)}>
+            {selected.label}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/60 text-xs">Empty</span>
+        )}
+      </button>
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            ref={popRef}
+            style={{ position: 'fixed', top: pos.top, left: pos.left, minWidth: pos.width }}
+            className="bg-popover text-popover-foreground z-[100] max-h-64 overflow-y-auto rounded-xl border p-1 shadow-xl"
+          >
+            <button
+              type="button"
+              onClick={() => {
+                onChange(null);
+                setOpen(false);
+              }}
+              className="hover:bg-muted/60 text-muted-foreground flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs"
+            >
+              <X className="h-3 w-3" /> Clear
+            </button>
+            {options.map((opt) => {
+              const c = getSelectColor(opt.color);
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.id);
+                    setOpen(false);
+                  }}
+                  className="hover:bg-muted/60 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs"
+                >
+                  <span className={cn('h-2.5 w-2.5 rounded-full', c.swatch)} />
+                  <span className={cn('rounded-md px-1.5 py-0.5 ring-1', c.pill)}>{opt.label}</span>
+                </button>
+              );
+            })}
+            {options.length === 0 && (
+              <p className="text-muted-foreground px-2 py-2 text-xs">
+                No options — add some in the column menu.
+              </p>
+            )}
+          </div>,
+          document.body
+        )}
+    </>
+  );
 }
 
 // ─── Sort + type coercion helpers ────────────────────────────────────────
 
 function sortByType(col: DatabaseColumn, a: DatabaseCellValue, b: DatabaseCellValue): number {
-  // Nulls sort last regardless of direction — TanStack flips sign for desc.
   if (a == null && b == null) return 0;
   if (a == null) return 1;
   if (b == null) return -1;
@@ -558,7 +798,6 @@ function sortByType(col: DatabaseColumn, a: DatabaseCellValue, b: DatabaseCellVa
       const opts = col.options ?? [];
       const ia = opts.findIndex((o) => o.id === a);
       const ib = opts.findIndex((o) => o.id === b);
-      // Options in the column's declared order — matches how the header menu lists them.
       return (ia === -1 ? Infinity : ia) - (ib === -1 ? Infinity : ib);
     }
     case 'date':

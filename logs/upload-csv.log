@@ -1,0 +1,28 @@
+=== Tue Mar 17 13:01:26 IST 2026 ===
+Found: /Users/amihaio/Downloads/transactions (11).csv
+/Users/amihaio/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+Uploading transactions (11).csv to https://the-hub-ai-ten.vercel.app/api/budget/transactions/import-csv ...
+Success!
+  Created:           15
+  Duplicates skipped: 2725
+  New payees:        רמי לוי אסתר המלכה תל אביב, AMAZON DIGI* BP7HR2R81 SEATTLE       USA
+
+=== Tue Mar 17 13:01:31 IST 2026 ===
+Found: /Users/amihaio/Downloads/transactions (11).csv
+/Users/amihaio/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+Uploading transactions (11).csv to https://the-hub-ai-ten.vercel.app/api/budget/transactions/import-csv ...
+Success!
+  Created:           0
+  Duplicates skipped: 2740
+
+=== Tue Mar 17 13:02:09 IST 2026 ===
+Found: /Users/amihaio/Downloads/transactions (11).csv
+/Users/amihaio/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+Uploading transactions (11).csv to https://the-hub-ai-ten.vercel.app/api/budget/transactions/import-csv ...
+Success!
+  Created:           0
+  Duplicates skipped: 2740
+
