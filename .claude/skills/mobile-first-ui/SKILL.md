@@ -119,6 +119,42 @@ kicks in immediately on the first touch.
 <div className="touch-manipulation">…tappable card…</div>
 ```
 
+### React synthetic pointer handlers are non-passive — iOS holds the first touch
+
+Symptom: same "first tap doesn't scroll" — but persists even after
+switching the card to `touch-manipulation`.
+
+Cause: React's synthetic `onPointerDown`/`onPointerMove` attach as
+**non-passive** listeners. iOS Safari treats non-passive handlers as
+"might call `preventDefault()`", so on the first touch it holds the
+scroll gesture briefly to see if the JS wants to cancel it. Subsequent
+touches feel fine because the browser has "learned" the gesture pattern.
+`touch-manipulation` doesn't fix this — it only disables double-tap
+detection, not the passive-listener check.
+
+Fix: attach the pointer handlers via native `addEventListener` with
+`{ passive: true }` inside a `useEffect`, using a ref-callback to grab
+the node. The browser then knows scroll can start immediately.
+
+`useLongPress` in `lib/hooks/use-long-press.ts` exposes `bindRef` for
+exactly this case:
+
+```tsx
+const { bindRef, consumedClick } = useLongPress(onEnterSelection);
+return (
+  <div ref={bindRef} onClick={activate}>
+    …card…
+  </div>
+);
+// vs the non-passive React synthetic path:
+//   <div {...handlers}>
+```
+
+Rule of thumb: on any element that IS a primary scroll target (list
+cards, feed rows, wide scrollable panels), reach for the `bindRef` /
+native-passive path. Non-scroll targets (buttons, small controls) can
+keep the synthetic handlers.
+
 ### `@dnd-kit` sets `touch-action: none` on draggables
 
 `useDraggable` / `useSortable` add `touch-action: none` via `setNodeRef` so
