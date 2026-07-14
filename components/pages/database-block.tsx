@@ -26,6 +26,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   makeColumn,
   makeRow,
@@ -448,7 +449,23 @@ function ColumnHeader({
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
   const menuOpen = menuAnchor !== null;
   const [editing, setEditing] = useState(false);
+  const [mobileSheet, setMobileSheet] = useState(false);
   const [name, setName] = useState(column.name);
+  // Long-press detection for mobile — 500ms without moving fires the sheet.
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearPress = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  };
+  const startPress = () => {
+    clearPress();
+    pressTimer.current = setTimeout(() => {
+      pressTimer.current = null;
+      setMobileSheet(true);
+    }, 500);
+  };
 
   if (!editing && name !== column.name) {
     // Sync external rename into local state without triggering an effect.
@@ -462,8 +479,21 @@ function ColumnHeader({
       <button
         type="button"
         onClick={editable ? onToggleSort : undefined}
+        onTouchStart={editable ? startPress : undefined}
+        onTouchMove={clearPress}
+        onTouchEnd={clearPress}
+        onTouchCancel={clearPress}
+        onContextMenu={
+          // Long-press on desktop also opens the sheet; block the browser menu.
+          editable
+            ? (e) => {
+                e.preventDefault();
+                setMobileSheet(true);
+              }
+            : undefined
+        }
         title={sort ? `Sorted ${sort}` : 'Click to sort'}
-        className="text-muted-foreground flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left text-[0.7rem] font-semibold tracking-[0.08em] uppercase"
+        className="text-muted-foreground flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left text-[0.7rem] font-semibold tracking-[0.08em] uppercase select-none"
       >
         <TypeIcon className={cn('h-3.5 w-3.5 shrink-0', typeMeta.color)} />
         {editable && editing ? (
@@ -513,6 +543,7 @@ function ColumnHeader({
           <ArrowUpDown className="text-muted-foreground/40 h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover/header:opacity-100" />
         )}
       </button>
+      {/* Desktop only — chevron opens the type/options menu. */}
       {editable && (
         <button
           type="button"
@@ -521,12 +552,12 @@ function ColumnHeader({
             setMenuAnchor((cur) => (cur ? null : (e.currentTarget as HTMLButtonElement)));
           }}
           aria-label="Column options"
-          className="text-muted-foreground/50 hover:text-foreground hover:bg-muted/40 flex w-6 shrink-0 items-center justify-center opacity-0 transition-opacity group-hover/header:opacity-100"
+          className="text-muted-foreground/50 hover:text-foreground hover:bg-muted/40 hidden w-6 shrink-0 items-center justify-center opacity-0 transition-opacity group-hover/header:opacity-100 md:flex"
         >
           <ChevronDown className="h-3.5 w-3.5" />
         </button>
       )}
-      {/* Quick delete-column shortcut, top-right corner of the header cell. */}
+      {/* Desktop only — quick delete-column X in the top-LEFT corner. */}
       {editable && (
         <button
           type="button"
@@ -536,7 +567,7 @@ function ColumnHeader({
           }}
           aria-label="Delete column"
           title="Delete column"
-          className="text-muted-foreground/70 hover:bg-destructive/15 hover:text-destructive absolute top-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-md opacity-0 transition-opacity group-hover/header:opacity-100"
+          className="text-muted-foreground/70 hover:bg-destructive/15 hover:text-destructive absolute top-0.5 left-0.5 hidden h-4 w-4 items-center justify-center rounded-md opacity-0 transition-opacity group-hover/header:opacity-100 md:flex"
         >
           <X className="h-3 w-3" />
         </button>
@@ -547,6 +578,19 @@ function ColumnHeader({
           anchor={menuAnchor}
           column={column}
           onClose={() => setMenuAnchor(null)}
+          onChangeType={onChangeType}
+          onDelete={onDelete}
+          onSetOptions={onSetOptions}
+        />
+      )}
+
+      {mobileSheet && (
+        <ColumnMobileSheet
+          column={column}
+          sort={sort}
+          onClose={() => setMobileSheet(false)}
+          onToggleSort={onToggleSort}
+          onRename={onRename}
           onChangeType={onChangeType}
           onDelete={onDelete}
           onSetOptions={onSetOptions}
@@ -756,6 +800,246 @@ function ColumnMenu({
   );
 
   return createPortal(content, document.body);
+}
+
+// ─── Mobile column sheet ────────────────────────────────────────────────
+
+/**
+ * Bottom-sheet column controls for touch devices. Opened via long-press
+ * on the header (or right-click on desktop). Exposes sort / rename /
+ * type-change / options / delete in a single scrollable pane.
+ */
+function ColumnMobileSheet({
+  column,
+  sort,
+  onClose,
+  onToggleSort,
+  onRename,
+  onChangeType,
+  onDelete,
+  onSetOptions,
+}: {
+  column: DatabaseColumn;
+  sort: false | 'asc' | 'desc';
+  onClose: () => void;
+  onToggleSort: () => void;
+  onRename: (name: string) => void;
+  onChangeType: (type: DatabaseColumnType) => void;
+  onDelete: () => void;
+  onSetOptions: (opts: { id: string; label: string; color?: string }[]) => void;
+}) {
+  const [nameDraft, setNameDraft] = useState(column.name);
+  const [newOption, setNewOption] = useState('');
+  const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
+
+  const commitName = () => {
+    const trimmed = nameDraft.trim();
+    if (trimmed && trimmed !== column.name) onRename(trimmed);
+    else setNameDraft(column.name);
+  };
+
+  const setSort = (dir: 'asc' | 'desc') => {
+    // Toggle-sort cycles asc → desc → off; iterate to reach the desired state.
+    let safety = 3;
+    while (sort !== dir && safety-- > 0) onToggleSort();
+    onClose();
+  };
+
+  return (
+    <Sheet open onOpenChange={(open) => !open && onClose()}>
+      <SheetContent
+        side="bottom"
+        className="flex max-h-[85vh] flex-col gap-0 rounded-t-2xl p-0 sm:bottom-4 sm:mx-auto sm:h-auto sm:max-w-md sm:rounded-2xl sm:border"
+      >
+        <SheetHeader className="border-border/40 border-b p-4">
+          <SheetTitle className="text-left text-base">{column.name}</SheetTitle>
+        </SheetHeader>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          {/* Rename */}
+          <label className="text-muted-foreground mb-2 block text-[10px] font-semibold tracking-wider uppercase">
+            Name
+          </label>
+          <input
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            onBlur={commitName}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
+            }}
+            className="border-border/60 bg-background focus:border-primary/60 w-full rounded-lg border px-3 py-2.5 text-base outline-none"
+          />
+
+          {/* Sort */}
+          <p className="text-muted-foreground mt-5 mb-2 text-[10px] font-semibold tracking-wider uppercase">
+            Sort
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setSort('asc')}
+              className={cn(
+                'flex min-h-11 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm',
+                sort === 'asc'
+                  ? 'border-primary/60 bg-primary/10 text-primary'
+                  : 'border-border/60 hover:bg-muted/50'
+              )}
+            >
+              <ArrowUp className="h-4 w-4" /> Ascending
+            </button>
+            <button
+              type="button"
+              onClick={() => setSort('desc')}
+              className={cn(
+                'flex min-h-11 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm',
+                sort === 'desc'
+                  ? 'border-primary/60 bg-primary/10 text-primary'
+                  : 'border-border/60 hover:bg-muted/50'
+              )}
+            >
+              <ArrowDown className="h-4 w-4" /> Descending
+            </button>
+          </div>
+
+          {/* Type */}
+          <p className="text-muted-foreground mt-5 mb-2 text-[10px] font-semibold tracking-wider uppercase">
+            Type
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {(Object.keys(TYPE_META) as DatabaseColumnType[]).map((t) => {
+              const Icon = TYPE_META[t].icon;
+              const active = column.type === t;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => onChangeType(t)}
+                  className={cn(
+                    'flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-sm',
+                    active
+                      ? 'border-primary/60 bg-primary/10 text-primary'
+                      : 'border-border/60 hover:bg-muted/50'
+                  )}
+                >
+                  <Icon className={cn('h-4 w-4', TYPE_META[t].color)} />
+                  {TYPE_META[t].label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Options (select only) */}
+          {column.type === 'select' && (
+            <>
+              <p className="text-muted-foreground mt-5 mb-2 text-[10px] font-semibold tracking-wider uppercase">
+                Options
+              </p>
+              <div className="space-y-2">
+                {(column.options ?? []).map((opt, i) => {
+                  const c = resolveOptionColor(opt, i);
+                  return (
+                    <div key={opt.id} className="relative">
+                      <div className="border-border/60 flex items-center gap-2 rounded-lg border px-2 py-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setColorPickerFor((cur) => (cur === opt.id ? null : opt.id))
+                          }
+                          aria-label={`Color for ${opt.label}`}
+                          className={cn('h-5 w-5 shrink-0 rounded-full', c.swatch)}
+                        />
+                        <span
+                          className={cn(
+                            'flex-1 truncate rounded-md px-2 py-1 text-sm ring-1',
+                            c.pill
+                          )}
+                        >
+                          {opt.label}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onSetOptions((column.options ?? []).filter((o) => o.id !== opt.id))
+                          }
+                          aria-label={`Remove ${opt.label}`}
+                          className="text-muted-foreground/70 hover:text-destructive flex h-8 w-8 items-center justify-center"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      {colorPickerFor === opt.id && (
+                        <div className="bg-popover mt-1 flex flex-wrap gap-1.5 rounded-lg border p-2 shadow-lg">
+                          {SELECT_COLORS.map((sc) => (
+                            <button
+                              key={sc.key}
+                              type="button"
+                              onClick={() => {
+                                onSetOptions(
+                                  (column.options ?? []).map((o) =>
+                                    o.id === opt.id ? { ...o, color: sc.key } : o
+                                  )
+                                );
+                                setColorPickerFor(null);
+                              }}
+                              aria-label={sc.key}
+                              className={cn(
+                                'h-7 w-7 rounded-full ring-1 ring-white/10',
+                                sc.swatch,
+                                opt.color === sc.key && 'ring-2 ring-white/70'
+                              )}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const label = newOption.trim();
+                    if (!label) return;
+                    const next =
+                      SELECT_COLORS[(column.options?.length ?? 0) % SELECT_COLORS.length];
+                    onSetOptions([...(column.options ?? []), makeSelectOption(label, next.key)]);
+                    setNewOption('');
+                  }}
+                  className="flex gap-2"
+                >
+                  <input
+                    value={newOption}
+                    onChange={(e) => setNewOption(e.target.value)}
+                    placeholder="Add option"
+                    className="border-border/60 bg-background flex-1 rounded-lg border px-3 py-2 text-sm outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm font-medium"
+                  >
+                    Add
+                  </button>
+                </form>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Destructive footer */}
+        <div className="border-border/40 border-t p-4">
+          <button
+            type="button"
+            onClick={() => {
+              onDelete();
+              onClose();
+            }}
+            className="hover:bg-destructive/10 text-destructive border-destructive/40 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium"
+          >
+            <Trash2 className="h-4 w-4" /> Delete column
+          </button>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
 }
 
 // ─── Cell editors ────────────────────────────────────────────────────────
