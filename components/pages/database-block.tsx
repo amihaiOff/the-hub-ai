@@ -88,6 +88,20 @@ function getSelectColor(key: string | undefined) {
 }
 
 /**
+ * Best-effort color for an option that pre-dates the `color` field. We
+ * cycle through the palette by index so a legacy 3-option column
+ * (Todo/Doing/Done) reads as three distinct colors instead of three
+ * grey pills.
+ */
+function resolveOptionColor(
+  opt: { color?: string } | undefined,
+  index: number
+): (typeof SELECT_COLORS)[number] {
+  if (opt?.color) return getSelectColor(opt.color);
+  return SELECT_COLORS[index % SELECT_COLORS.length];
+}
+
+/**
  * NodeView for the Notion-like "database" block. Renders a TanStack Table
  * with click-header sorting, per-column type controls, per-cell editors,
  * and hover-only add/delete affordances via floating edge tabs + leading
@@ -273,7 +287,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
             onClick={addColumn}
             aria-label="Add column"
             title="Add column"
-            className="border-border/40 bg-background/70 text-muted-foreground/60 hover:text-primary hover:border-primary/40 hover:bg-primary/10 absolute top-0 -right-1 flex h-full w-5 items-center justify-center rounded-r-lg border border-l-0 opacity-0 backdrop-blur transition-opacity group-hover/db:opacity-100"
+            className="border-border/40 bg-background/70 text-muted-foreground/60 hover:text-primary hover:border-primary/40 hover:bg-primary/10 pointer-events-none absolute top-0 -right-1 flex h-full w-5 items-center justify-center rounded-r-lg border border-l-0 opacity-0 backdrop-blur transition-opacity group-hover/db:pointer-events-auto group-hover/db:opacity-100"
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
@@ -282,7 +296,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
             onClick={addRow}
             aria-label="Add row"
             title="Add row"
-            className="border-border/40 bg-background/70 text-muted-foreground/60 hover:text-primary hover:border-primary/40 hover:bg-primary/10 absolute -bottom-1 left-0 flex h-5 w-full items-center justify-center rounded-b-lg border border-t-0 opacity-0 backdrop-blur transition-opacity group-hover/db:opacity-100"
+            className="border-border/40 bg-background/70 text-muted-foreground/60 hover:text-primary hover:border-primary/40 hover:bg-primary/10 pointer-events-none absolute -bottom-1 left-0 flex h-5 w-full items-center justify-center rounded-b-lg border border-t-0 opacity-0 backdrop-blur transition-opacity group-hover/db:pointer-events-auto group-hover/db:opacity-100"
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
@@ -491,8 +505,8 @@ function ColumnMenu({
             Options
           </p>
           <div className="space-y-1 px-1 pb-1">
-            {(column.options ?? []).map((opt) => {
-              const c = getSelectColor(opt.color);
+            {(column.options ?? []).map((opt, i) => {
+              const c = resolveOptionColor(opt, i);
               return (
                 <div key={opt.id} className="relative flex items-center gap-1">
                   <button
@@ -715,7 +729,8 @@ function SelectCell({
     };
   }, [open]);
 
-  const selColor = selected ? getSelectColor(selected.color) : null;
+  const selectedIndex = selected ? options.findIndex((o) => o.id === selected.id) : -1;
+  const selColor = selected ? resolveOptionColor(selected, Math.max(0, selectedIndex)) : null;
 
   return (
     <>
@@ -753,8 +768,8 @@ function SelectCell({
             >
               <X className="h-3 w-3" /> Clear
             </button>
-            {options.map((opt) => {
-              const c = getSelectColor(opt.color);
+            {options.map((opt, i) => {
+              const c = resolveOptionColor(opt, i);
               return (
                 <button
                   key={opt.id}
