@@ -194,10 +194,32 @@ export const SlashMenu = forwardRef<MenuHandle, MenuProps>(function SlashMenu(
   };
 
   const containerRef = useRef<HTMLDivElement>(null);
+  // Place the menu near the caret, but keep it inside the *visible* viewport:
+  // flip above the caret when there isn't room below, clamp horizontally, and
+  // cap the height to the available space (so it scrolls instead of running off
+  // screen). VisualViewport accounts for the on-screen keyboard on mobile.
+  const MENU_W = 256; // w-64
+  const MENU_MAX = 288; // max 18rem
+  const GAP = 6;
   const position = clientRect
     ? (() => {
         const rect = clientRect();
-        return rect ? { top: rect.bottom + 6, left: rect.left } : null;
+        if (!rect) return null;
+        const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+        const viewTop = vv?.offsetTop ?? 0;
+        const viewLeft = vv?.offsetLeft ?? 0;
+        const viewW = vv?.width ?? (typeof window !== 'undefined' ? window.innerWidth : 1024);
+        const viewH = vv?.height ?? (typeof window !== 'undefined' ? window.innerHeight : 768);
+        const spaceBelow = viewTop + viewH - rect.bottom - GAP;
+        const spaceAbove = rect.top - viewTop - GAP;
+        const openUp = spaceBelow < 180 && spaceAbove > spaceBelow;
+        const maxHeight = Math.max(
+          120,
+          Math.min(MENU_MAX, Math.floor(openUp ? spaceAbove : spaceBelow))
+        );
+        const top = openUp ? rect.top - GAP - maxHeight : rect.bottom + GAP;
+        const left = Math.min(Math.max(rect.left, viewLeft + 8), viewLeft + viewW - MENU_W - 8);
+        return { top, left, maxHeight };
       })()
     : null;
 
@@ -225,9 +247,18 @@ export const SlashMenu = forwardRef<MenuHandle, MenuProps>(function SlashMenu(
   return (
     <div
       ref={containerRef}
-      style={position ? { position: 'fixed', top: position.top, left: position.left } : undefined}
+      style={
+        position
+          ? {
+              position: 'fixed',
+              top: position.top,
+              left: position.left,
+              maxHeight: position.maxHeight,
+            }
+          : undefined
+      }
       className={cn(
-        'bg-popover text-popover-foreground z-50 max-h-72 w-64 overflow-y-auto rounded-2xl border p-1 shadow-xl',
+        'bg-popover text-popover-foreground z-50 w-64 overflow-y-auto overscroll-contain rounded-2xl border p-1 shadow-xl',
         !position && 'invisible'
       )}
       role="listbox"

@@ -14,15 +14,9 @@ import { GripVertical } from 'lucide-react';
 import {
   Bold,
   Columns2,
-  Heading1,
-  Heading2,
   Image as ImageIcon,
-  IndentDecrease,
-  IndentIncrease,
   Italic,
   Link2,
-  List,
-  ListOrdered,
   Quote,
   Strikethrough,
   Table as TableIcon,
@@ -30,6 +24,7 @@ import {
 import { cn } from '@/lib/utils';
 import { uploadPageImage } from '@/lib/hooks/use-pages';
 import { Column, ColumnBlock } from './columns-extension';
+import { ListIndentControls } from './list-indent-controls';
 import { SlashMenuExtension } from './slash-menu';
 import { CollapsibleHeading } from './collapsible-heading';
 import { TableFloatingControls } from './table-floating-controls';
@@ -157,6 +152,7 @@ export function PageBodyEditor({ initialContent, onChange }: PageBodyEditorProps
         </div>
       </DragHandle>
       <EditorContent editor={editor} />
+      <ListIndentControls editor={editor} />
     </div>
   );
 }
@@ -201,18 +197,6 @@ function Toolbar({ editor }: { editor: Editor }) {
 
   const btns = [
     {
-      icon: Heading1,
-      label: 'Heading 1',
-      on: () => editor.chain().focus().toggleHeading({ level: 1 }).run(),
-      active: () => editor.isActive('heading', { level: 1 }),
-    },
-    {
-      icon: Heading2,
-      label: 'Heading 2',
-      on: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
-      active: () => editor.isActive('heading', { level: 2 }),
-    },
-    {
       icon: Bold,
       label: 'Bold',
       on: () => editor.chain().focus().toggleBold().run(),
@@ -229,30 +213,6 @@ function Toolbar({ editor }: { editor: Editor }) {
       label: 'Strikethrough',
       on: () => editor.chain().focus().toggleStrike().run(),
       active: () => editor.isActive('strike'),
-    },
-    {
-      icon: List,
-      label: 'Bullet list',
-      on: () => editor.chain().focus().toggleBulletList().run(),
-      active: () => editor.isActive('bulletList'),
-    },
-    {
-      icon: ListOrdered,
-      label: 'Numbered list',
-      on: () => editor.chain().focus().toggleOrderedList().run(),
-      active: () => editor.isActive('orderedList'),
-    },
-    {
-      icon: IndentIncrease,
-      label: 'Indent list item',
-      on: () => editor.chain().focus().sinkListItem('listItem').run(),
-      active: () => false,
-    },
-    {
-      icon: IndentDecrease,
-      label: 'Outdent list item',
-      on: () => editor.chain().focus().liftListItem('listItem').run(),
-      active: () => false,
     },
     {
       icon: Quote,
