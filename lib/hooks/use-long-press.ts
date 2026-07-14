@@ -37,6 +37,17 @@ export function useLongPress(
   const origin = useRef<{ x: number; y: number } | null>(null);
   const fired = useRef(false);
 
+  // Hold the latest callback in a ref so `start` stays identity-stable
+  // across renders. Callers commonly pass a fresh inline arrow each
+  // render (e.g. `onEnterSelection={() => enter(task.id)}`); without the
+  // ref that would rebuild `start`, re-run the native-listener effect,
+  // and detach/reattach listeners on every render — leaving a brief gap
+  // where iOS's first touchstart lands on nothing.
+  const onLongPressRef = useRef(onLongPress);
+  useEffect(() => {
+    onLongPressRef.current = onLongPress;
+  });
+
   const cancel = useCallback((_e?: React.PointerEvent) => {
     if (timer.current) {
       clearTimeout(timer.current);
@@ -54,10 +65,10 @@ export function useLongPress(
       origin.current = { x, y };
       timer.current = setTimeout(() => {
         fired.current = true;
-        onLongPress();
+        onLongPressRef.current();
       }, delay);
     },
-    [delay, onLongPress]
+    [delay]
   );
 
   const move = useCallback(
