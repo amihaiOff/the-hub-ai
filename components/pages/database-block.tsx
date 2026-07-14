@@ -196,25 +196,24 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
   };
 
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const tbodyRef = useRef<HTMLTableSectionElement | null>(null);
 
   return (
-    <NodeViewWrapper as="div" className="database-block group/db relative my-4">
+    <NodeViewWrapper as="div" className="database-block group/db relative my-4 pl-9">
       <div
         ref={wrapperRef}
         className="border-border/40 bg-card/40 relative overflow-x-auto rounded-2xl border"
       >
-        <table className="w-full text-sm">
+        <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className="bg-muted/40">
-                {/* Leading gutter — matches the hover-only delete cell in the body. */}
-                {editable && <th className="w-8 p-0" aria-hidden />}
                 {headerGroup.headers.map((header) => {
                   const col = columns.find((c) => c.id === header.column.id);
                   if (!col) return null;
                   const sort = header.column.getIsSorted();
                   return (
-                    <th key={header.id} className="min-w-[8rem] p-0">
+                    <th key={header.id} className="p-0" style={{ width: '10rem' }}>
                       <ColumnHeader
                         column={col}
                         sort={sort}
@@ -231,24 +230,11 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
               </tr>
             ))}
           </thead>
-          <tbody>
+          <tbody ref={tbodyRef}>
             {table.getRowModel().rows.map((tableRow) => {
               const row = tableRow.original;
               return (
-                <tr key={row.id} className="group/row">
-                  {editable && (
-                    <td className="w-8 p-0 align-middle">
-                      <button
-                        type="button"
-                        onClick={() => deleteRow(row.id)}
-                        aria-label="Delete row"
-                        title="Delete row"
-                        className="text-muted-foreground/50 hover:bg-destructive/10 hover:text-destructive flex h-full w-full items-center justify-center opacity-0 transition-opacity group-hover/row:opacity-100"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </td>
-                  )}
+                <tr key={row.id} className="group/row" data-row-id={row.id}>
                   {tableRow.getVisibleCells().map((cell) => {
                     const col = columns.find((c) => c.id === cell.column.id);
                     if (!col) return null;
@@ -280,6 +266,8 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
         </table>
       </div>
 
+      {editable && <DeleteRowGutter tbodyRef={tbodyRef} rows={rows} onDelete={deleteRow} />}
+
       {editable && (
         <>
           <button
@@ -306,6 +294,117 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
   );
 }
 
+// ─── Delete-row gutter (outside the table, hover-only) ─────────────────
+
+/**
+ * A column of delete-row buttons sitting to the LEFT of the table, in the
+ * padding of the NodeViewWrapper. Each button is absolute-positioned to
+ * match its row's vertical center; we resync on any tbody / row size
+ * change so alignment stays true through row adds/deletes and text edits.
+ */
+function DeleteRowGutter({
+  tbodyRef,
+  rows,
+  onDelete,
+}: {
+  tbodyRef: React.RefObject<HTMLTableSectionElement | null>;
+  rows: DatabaseRow[];
+  onDelete: (rowId: string) => void;
+}) {
+  const [positions, setPositions] = useState<{ id: string; top: number; height: number }[]>([]);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const tbody = tbodyRef.current;
+    if (!tbody) return;
+    const onOver = (e: MouseEvent) => {
+      const tr = (e.target as Element | null)?.closest('tr[data-row-id]');
+      const id = tr?.getAttribute('data-row-id') ?? null;
+      setHoveredId(id);
+    };
+    const onLeave = (e: MouseEvent) => {
+      // Keep visible while the pointer is heading toward the gutter button.
+      const rel = e.relatedTarget as Element | null;
+      if (rel?.closest('[data-delete-row-btn]')) return;
+      setHoveredId(null);
+    };
+    tbody.addEventListener('mouseover', onOver);
+    tbody.addEventListener('mouseleave', onLeave);
+    return () => {
+      tbody.removeEventListener('mouseover', onOver);
+      tbody.removeEventListener('mouseleave', onLeave);
+    };
+  }, [tbodyRef]);
+
+  useLayoutEffect(() => {
+    const tbody = tbodyRef.current;
+    if (!tbody) return;
+    const measure = () => {
+      const tbodyTop = tbody.getBoundingClientRect().top;
+      // The gutter is positioned relative to the NodeViewWrapper, which
+      // wraps the whole block including my-4 margin. To place a button
+      // at row Y we need the row's top relative to the wrapper — but
+      // since the gutter itself is a sibling of the scroll-wrap
+      // (both inside the wrapper) and inherits the wrapper's coord
+      // system, we can compute from the wrapper's own top.
+      const wrapper = tbody.closest('.database-block') as HTMLElement | null;
+      const wrapperTop = wrapper?.getBoundingClientRect().top ?? tbodyTop;
+      const next: { id: string; top: number; height: number }[] = [];
+      for (const tr of Array.from(tbody.children)) {
+        if (!(tr instanceof HTMLElement)) continue;
+        const id = tr.getAttribute('data-row-id');
+        if (!id) continue;
+        const rect = tr.getBoundingClientRect();
+        next.push({ id, top: rect.top - wrapperTop, height: rect.height });
+      }
+      setPositions(next);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(tbody);
+    for (const tr of Array.from(tbody.children)) {
+      if (tr instanceof HTMLElement) ro.observe(tr);
+    }
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+    // Re-measure whenever the row set changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tbodyRef, rows.length]);
+
+  return (
+    <div
+      className="pointer-events-none absolute top-0 left-0 h-full w-8"
+      aria-hidden={positions.length === 0}
+    >
+      {positions.map((p) => {
+        const active = hoveredId === p.id;
+        return (
+          <button
+            key={p.id}
+            type="button"
+            data-delete-row-btn=""
+            onClick={() => onDelete(p.id)}
+            onMouseEnter={() => setHoveredId(p.id)}
+            onMouseLeave={() => setHoveredId(null)}
+            aria-label="Delete row"
+            title="Delete row"
+            style={{ top: p.top, height: p.height, opacity: active ? 1 : 0 }}
+            className={cn(
+              'text-muted-foreground/70 hover:bg-destructive/15 hover:text-destructive absolute left-0 flex w-7 items-center justify-center rounded-lg transition-opacity',
+              active ? 'pointer-events-auto' : 'pointer-events-none'
+            )}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Column header (name + sort + type/delete menu) ─────────────────────
 
 function ColumnHeader({
@@ -329,31 +428,35 @@ function ColumnHeader({
 }) {
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
   const menuOpen = menuAnchor !== null;
+  const [editing, setEditing] = useState(false);
   const [name, setName] = useState(column.name);
 
-  if (name !== column.name && document.activeElement?.getAttribute('data-col-id') !== column.id) {
+  if (!editing && name !== column.name) {
+    // Sync external rename into local state without triggering an effect.
     setName(column.name);
   }
   const typeMeta = TYPE_META[column.type];
   const TypeIcon = typeMeta.icon;
 
   return (
-    <div className="group/header relative flex items-stretch">
+    <div className="group/header relative flex w-full items-stretch">
       <button
         type="button"
         onClick={editable ? onToggleSort : undefined}
         title={sort ? `Sorted ${sort}` : 'Click to sort'}
-        className="text-muted-foreground flex flex-1 items-center gap-2 px-3 py-2 text-left text-[0.7rem] font-semibold tracking-[0.08em] uppercase"
+        className="text-muted-foreground flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left text-[0.7rem] font-semibold tracking-[0.08em] uppercase"
       >
         <TypeIcon className={cn('h-3.5 w-3.5 shrink-0', typeMeta.color)} />
-        {editable ? (
+        {editable && editing ? (
           <input
             data-col-id={column.id}
+            autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
             onBlur={() => {
               if (name.trim() && name !== column.name) onRename(name.trim());
               else if (!name.trim()) setName(column.name);
+              setEditing(false);
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
@@ -363,15 +466,32 @@ function ColumnHeader({
               }
             }}
             onClick={(e) => e.stopPropagation()}
+            // Intrinsic input widths break table sizing (default size=20
+            // ≈ 180px), so we only mount the input while editing. Display
+            // mode uses a <span class="truncate"> that respects min-w-0.
+            size={1}
             className="text-foreground/85 min-w-0 flex-1 bg-transparent tracking-[0.08em] uppercase outline-none"
           />
         ) : (
-          <span className="text-foreground/85 min-w-0 flex-1 truncate">{column.name}</span>
+          <span
+            onDoubleClick={
+              editable
+                ? (e) => {
+                    e.stopPropagation();
+                    setEditing(true);
+                  }
+                : undefined
+            }
+            title={editable ? 'Double-click to rename' : undefined}
+            className="text-foreground/85 min-w-0 flex-1 truncate"
+          >
+            {column.name}
+          </span>
         )}
-        {sort === 'asc' && <ArrowUp className="text-primary h-3.5 w-3.5" />}
-        {sort === 'desc' && <ArrowDown className="text-primary h-3.5 w-3.5" />}
+        {sort === 'asc' && <ArrowUp className="text-primary h-3.5 w-3.5 shrink-0" />}
+        {sort === 'desc' && <ArrowDown className="text-primary h-3.5 w-3.5 shrink-0" />}
         {editable && sort === false && (
-          <ArrowUpDown className="text-muted-foreground/40 h-3 w-3 opacity-0 transition-opacity group-hover/header:opacity-100" />
+          <ArrowUpDown className="text-muted-foreground/40 h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover/header:opacity-100" />
         )}
       </button>
       {editable && (
@@ -382,9 +502,24 @@ function ColumnHeader({
             setMenuAnchor((cur) => (cur ? null : (e.currentTarget as HTMLButtonElement)));
           }}
           aria-label="Column options"
-          className="text-muted-foreground/50 hover:text-foreground hover:bg-muted/40 flex w-6 items-center justify-center opacity-0 transition-opacity group-hover/header:opacity-100"
+          className="text-muted-foreground/50 hover:text-foreground hover:bg-muted/40 flex w-6 shrink-0 items-center justify-center opacity-0 transition-opacity group-hover/header:opacity-100"
         >
           <ChevronDown className="h-3.5 w-3.5" />
+        </button>
+      )}
+      {/* Quick delete-column shortcut, top-right corner of the header cell. */}
+      {editable && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          aria-label="Delete column"
+          title="Delete column"
+          className="text-muted-foreground/70 hover:bg-destructive/15 hover:text-destructive absolute top-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-md opacity-0 transition-opacity group-hover/header:opacity-100"
+        >
+          <X className="h-3 w-3" />
         </button>
       )}
 

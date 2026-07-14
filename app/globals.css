@@ -392,12 +392,6 @@
   .database-block td + td {
     border-left: 1px solid color-mix(in oklab, var(--border) 30%, transparent);
   }
-  /* Leading gutter (delete-row / thead spacer) should look like an outside
-     margin, not a column — no border between it and the first data cell. */
-  .database-block th[aria-hidden] + th,
-  .database-block tr > td:first-child + td {
-    border-left: none;
-  }
   .database-block tr:last-child > td {
     border-bottom: none;
   }
