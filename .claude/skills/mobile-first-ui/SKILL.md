@@ -107,10 +107,9 @@ const formatDisplayValue = useCallback(
 Symptom: "first tap doesn't scroll — I have to lift and try again."
 Cause: `touch-action: pan-y` still lets iOS Safari hold the initial touch
 briefly to see if it's a double-tap-to-zoom gesture. On elements the user
-taps (cards, list rows), use `touch-manipulation` instead — it allows pan
-
-- pinch and disables the double-tap detection, so scroll kicks in
-  immediately on the first touch.
+taps (cards, list rows), use `touch-manipulation` instead — it allows
+panning and pinch-zoom but disables the double-tap detection, so scroll
+kicks in immediately on the first touch.
 
 ```tsx
 // BAD — first tap sometimes doesn't scroll
