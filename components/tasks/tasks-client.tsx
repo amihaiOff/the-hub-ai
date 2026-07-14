@@ -429,7 +429,11 @@ export function TasksClient() {
         >
           <button
             type="button"
-            {...fabLongPress.handlers}
+            // bindRef (native passive listeners) instead of {...handlers}
+            // — spreading React synthetic onPointerDown here causes
+            // react-dom to install non-passive document pointer delegates
+            // that stall the first touch scroll on iOS.
+            ref={fabLongPress.bindRef}
             onClick={handleFabClick}
             disabled={createTask.isPending}
             aria-label="New task (short press: quick add · long press: full editor)"

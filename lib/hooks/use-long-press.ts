@@ -126,6 +126,14 @@ export function useLongPress(
   }, []);
 
   return {
+    /**
+     * @deprecated Prefer `bindRef` on any element rendered in a scrollable
+     * page. React attaches synthetic `onPointerDown` / `onPointerMove`
+     * as non-passive document delegates, and iOS Safari stalls the first
+     * touch scroll waiting to see if any of them will preventDefault().
+     * `bindRef` uses `{ passive: true }` native listeners so scroll
+     * starts immediately.
+     */
     handlers: {
       onPointerDown,
       onPointerMove,
