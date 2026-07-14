@@ -76,7 +76,7 @@ export function AreasNav({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        side={isMobile ? 'top' : 'right'}
+        side="right"
         align="start"
         sideOffset={8}
         collisionPadding={12}
