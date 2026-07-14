@@ -6,13 +6,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Always follow this workflow for any coding task:**
 
-1. **Debug** (if fixing a bug) - Use `debugging-agent` to investigate root cause before fixing
+1. **Debug** (if fixing a bug) - Use `debugging-agent` to investigate root cause before fixing.
+   A `UserPromptSubmit` hook (`.claude/hooks/route-to-debugging-agent.sh`) auto-injects
+   a reminder whenever the user's message contains problem-signal keywords
+   (bug/broken/error/doesn't work/etc.) — respect that reminder.
 2. **Code** - Implement the fix/feature
 3. **Test** - Use `testing-agent` to verify changes work and don't break existing functionality
 4. **Review** - Use `reviewer-agent` to check code quality, security, and best practices
 5. **Update Spec** (if applicable) - Update `docs/the_hub_ai_spec.md` when features, architecture, or behavior changes
 
 **This workflow is mandatory.** Do not skip the test and review steps after writing code. The agents should be run in parallel when possible to save time.
+
+## Plan-Mode Ask (IMPORTANT)
+
+Before starting any task where the implementation approach has real tradeoffs
+— genuine architectural choice, two viable approaches with different implications,
+a change that could go several different directions — **ask the user whether to
+enter plan mode first.** Phrasing: "This has real tradeoffs (options X vs Y).
+Want me to go into plan mode first, or should I pick and go?"
+
+Skip the ask for small, well-scoped changes (bug fix with an obvious cause,
+single-file styling tweak, adding a field to an existing model). The trigger is
+_tradeoffs_, not size — a big straightforward refactor doesn't need it, but a
+small feature with two competing implementations does.
 
 Example after completing a coding task:
 

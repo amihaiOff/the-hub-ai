@@ -250,6 +250,74 @@ Cause: Missing deduplication
 Fix: Check for existing unread notification before creating
 ```
 
+## Tiptap NodeView + Radix Dialog: focus-outside closes the dialog
+
+Symptom: a Radix `Sheet` / `Dialog` rendered inside a Tiptap NodeView
+closes as soon as the user changes a node attribute (e.g. tapping a type
+button in a mobile column sheet).
+
+Cause: `updateAttributes` (or any `chain().updateAttributes().run()`) can
+pull focus back into the ProseMirror editor. Radix treats that focus /
+pointer event as an interaction outside the dialog and fires
+`onOpenChange(false)`.
+
+Fix: swallow the offending interaction handlers on `SheetContent` /
+`DialogContent` so the dialog stays open through attribute updates.
+Explicit close paths (built-in X, destructive footer button) still work.
+
+```tsx
+<SheetContent
+  onPointerDownOutside={(e) => e.preventDefault()}
+  onInteractOutside={(e) => e.preventDefault()}
+  onFocusOutside={(e) => e.preventDefault()}
+  side="bottom"
+>
+```
+
+## React 19 lint: no `setState` inside `useEffect` — use a lazy `useState` initializer
+
+Symptom: `Error: Calling setState synchronously within an effect can
+trigger cascading renders` on a `useEffect` that seeds local state from a
+prop.
+
+Pattern to reach for: **lazy `useState` initializer.** Works when the
+component is guaranteed to mount fresh with the correct prop (e.g. keyed
+by an id, so a new row/column mounts a new component instance).
+
+```tsx
+// BAD in React 19
+const [editing, setEditing] = useState(false);
+useEffect(() => {
+  if (autoStartEdit) setEditing(true);
+}, [autoStartEdit]);
+
+// GOOD — initializer runs once on mount
+const [editing, setEditing] = useState(() => Boolean(autoStartEdit));
+```
+
+If the prop changes across renders and needs to re-trigger, prefer
+deriving the value inline (`const editing = autoStartEdit ?? localEditing`)
+or hoisting the state to the parent, rather than reaching for an effect.
+
+## Playwright: `click({ force: true })` doesn't always reach the element
+
+`force: true` skips actionability _checks_ but Playwright still dispatches
+a real click at the coordinates — if an overlapping element intercepts
+pointer events at that point, the click hits the wrong node.
+
+For smoke tests where you know the target and the actionability check is
+the only obstacle, drop to a direct DOM click via `page.evaluate`:
+
+```ts
+await page.evaluate(() => {
+  document.querySelectorAll('.database-block button[aria-label="Column options"]')[1]?.click();
+});
+```
+
+Works because a synchronous DOM `.click()` bypasses hit-testing entirely.
+Only use for scripted tests — real-user simulations should stick to
+proper clicks so you catch overlap bugs.
+
 ## Quick Diagnostic Commands
 
 ```bash

@@ -100,6 +100,106 @@ const formatDisplayValue = useCallback(
 );
 ```
 
+## Touch & Scroll (iOS gotchas)
+
+### `touch-manipulation` beats `touch-pan-y` on tappable cards
+
+Symptom: "first tap doesn't scroll — I have to lift and try again."
+Cause: `touch-action: pan-y` still lets iOS Safari hold the initial touch
+briefly to see if it's a double-tap-to-zoom gesture. On elements the user
+taps (cards, list rows), use `touch-manipulation` instead — it allows
+panning and pinch-zoom but disables the double-tap detection, so scroll
+kicks in immediately on the first touch.
+
+```tsx
+// BAD — first tap sometimes doesn't scroll
+<div className="touch-pan-y">…tappable card…</div>
+
+// GOOD
+<div className="touch-manipulation">…tappable card…</div>
+```
+
+### React synthetic pointer handlers are non-passive — iOS holds the first touch
+
+Symptom: same "first tap doesn't scroll" — but persists even after
+switching the card to `touch-manipulation`.
+
+Cause: React's synthetic `onPointerDown`/`onPointerMove` attach as
+**non-passive** listeners. iOS Safari treats non-passive handlers as
+"might call `preventDefault()`", so on the first touch it holds the
+scroll gesture briefly to see if the JS wants to cancel it. Subsequent
+touches feel fine because the browser has "learned" the gesture pattern.
+`touch-manipulation` doesn't fix this — it only disables double-tap
+detection, not the passive-listener check.
+
+Fix: attach the pointer handlers via native `addEventListener` with
+`{ passive: true }` inside a `useEffect`, using a ref-callback to grab
+the node. The browser then knows scroll can start immediately.
+
+`useLongPress` in `lib/hooks/use-long-press.ts` exposes `bindRef` for
+exactly this case:
+
+```tsx
+const { bindRef, consumedClick } = useLongPress(onEnterSelection);
+return (
+  <div ref={bindRef} onClick={activate}>
+    …card…
+  </div>
+);
+// vs the non-passive React synthetic path:
+//   <div {...handlers}>
+```
+
+Rule of thumb: on any element that IS a primary scroll target (list
+cards, feed rows, wide scrollable panels), reach for the `bindRef` /
+native-passive path. Non-scroll targets (buttons, small controls) can
+keep the synthetic handlers.
+
+### `@dnd-kit` sets `touch-action: none` on draggables
+
+`useDraggable` / `useSortable` add `touch-action: none` via `setNodeRef` so
+the browser doesn't hijack the pointer for scroll during a drag. Side
+effect: **native scroll on that element is dead** even when no drag is
+active. If the row needs to stay scrollable (e.g. touch-scrolling a list
+of draggable cards on mobile), override with inline style:
+
+```tsx
+<div ref={setNodeRef} style={{ touchAction: 'pan-y' }} {...listeners}>
+```
+
+Combine with `TouchSensor({ activationConstraint: { delay: 220, tolerance: 8 } })`
+so a long-press still activates the drag while short taps + swipes scroll
+natively.
+
+## Wide Tables — `table-layout: fixed` for real horizontal scroll
+
+Symptom: table with `w-full` and many columns — cells collapse to fit the
+viewport instead of overflowing horizontally.
+Cause: default auto-layout distributes 100% width across columns; per-cell
+`min-width` is a soft floor that browsers ignore when total content
+exceeds the container. Result: no scroll, columns crammed.
+
+Fix: `table-layout: fixed` with an explicit table width based on column
+count. `min-w-full` keeps small tables filling the viewport.
+
+```tsx
+<div className="overflow-x-auto">
+  <table
+    className="min-w-full"
+    style={{ tableLayout: 'fixed', width: `${columns.length * 10}rem` }}
+  >
+    {columns.map((c) => (
+      <th key={c.id} style={{ width: '10rem' }}>
+        …
+      </th>
+    ))}
+  </table>
+</div>
+```
+
+Style the scrollbar to match the theme (see `.database-block .overflow-x-auto`
+in `app/globals.css` for the pattern).
+
 ## Checklist
 
 - [ ] Works on 320px width
