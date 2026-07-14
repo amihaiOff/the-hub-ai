@@ -205,7 +205,14 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
         ref={wrapperRef}
         className="border-border/40 bg-card/40 relative overflow-x-auto rounded-2xl border"
       >
-        <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
+        {/* Table width = column count × 10rem so table-layout: fixed cells
+            keep their intrinsic size. On narrow viewports the table
+            exceeds the wrapper and `overflow-x-auto` gives a real
+            horizontal scroll — `w-full` would collapse cells instead. */}
+        <table
+          className="min-w-full text-sm"
+          style={{ tableLayout: 'fixed', width: `${columns.length * 10}rem` }}
+        >
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className="bg-muted/40">
@@ -276,7 +283,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
             onClick={addColumn}
             aria-label="Add column"
             title="Add column"
-            className="border-border/40 bg-background/70 text-muted-foreground/60 hover:text-primary hover:border-primary/40 hover:bg-primary/10 pointer-events-none absolute top-0 -right-1 flex h-full w-5 items-center justify-center rounded-r-lg border border-l-0 opacity-0 backdrop-blur transition-opacity group-hover/db:pointer-events-auto group-hover/db:opacity-100"
+            className="border-border/40 bg-background/70 text-muted-foreground/60 hover:text-primary hover:border-primary/40 hover:bg-primary/10 absolute top-0 -right-1 flex h-full w-5 items-center justify-center rounded-r-lg border border-l-0 opacity-100 backdrop-blur transition-opacity md:pointer-events-none md:opacity-0 md:group-hover/db:pointer-events-auto md:group-hover/db:opacity-100"
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
@@ -285,7 +292,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
             onClick={addRow}
             aria-label="Add row"
             title="Add row"
-            className="border-border/40 bg-background/70 text-muted-foreground/60 hover:text-primary hover:border-primary/40 hover:bg-primary/10 pointer-events-none absolute -bottom-1 left-0 flex h-5 w-full items-center justify-center rounded-b-lg border border-t-0 opacity-0 backdrop-blur transition-opacity group-hover/db:pointer-events-auto group-hover/db:opacity-100"
+            className="border-border/40 bg-background/70 text-muted-foreground/60 hover:text-primary hover:border-primary/40 hover:bg-primary/10 absolute -bottom-1 left-0 flex h-5 w-full items-center justify-center rounded-b-lg border border-t-0 opacity-100 backdrop-blur transition-opacity md:pointer-events-none md:opacity-0 md:group-hover/db:pointer-events-auto md:group-hover/db:opacity-100"
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
