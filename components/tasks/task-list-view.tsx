@@ -141,7 +141,10 @@ function TaskCard({
           : { borderLeftColor: PRIORITY_BORDER[task.priority], borderLeftWidth: 4 }
       }
       className={cn(
-        'bg-card cursor-pointer touch-pan-y rounded-3xl border px-5 py-4 transition-colors select-none',
+        // touch-manipulation (not pan-y) so iOS Safari doesn't hold the
+        // first touch waiting to see if it becomes a double-tap zoom —
+        // that's the "first tap doesn't scroll" symptom on this list.
+        'bg-card cursor-pointer touch-manipulation rounded-3xl border px-5 py-4 transition-colors select-none',
         selected && 'border-primary ring-primary/40 ring-2'
       )}
     >

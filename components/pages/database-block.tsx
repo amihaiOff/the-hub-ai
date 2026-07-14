@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { NodeViewProps } from '@tiptap/react';
 import { NodeViewWrapper } from '@tiptap/react';
 import {
@@ -25,6 +26,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   makeColumn,
   makeRow,
@@ -39,7 +41,6 @@ const TYPE_META: Record<
   DatabaseColumnType,
   { label: string; icon: typeof Baseline; color: string }
 > = {
-  // Tint the header type icon so the column type is legible at a glance.
   text: { label: 'Text', icon: Baseline, color: 'text-slate-400' },
   number: { label: 'Number', icon: Hash, color: 'text-blue-400' },
   date: { label: 'Date', icon: Calendar, color: 'text-emerald-400' },
@@ -48,15 +49,67 @@ const TYPE_META: Record<
 };
 
 /**
+ * Palette for `select` option pills. Keys are persisted on the option's
+ * `color` field so the swatch survives reload. Anything unknown falls
+ * back to `slate` at render time — see `getSelectColor`.
+ */
+export const SELECT_COLORS = [
+  {
+    key: 'slate',
+    pill: 'bg-slate-500/15 text-slate-300 ring-slate-400/30',
+    swatch: 'bg-slate-400',
+  },
+  { key: 'blue', pill: 'bg-blue-500/20 text-blue-200 ring-blue-400/30', swatch: 'bg-blue-400' },
+  {
+    key: 'emerald',
+    pill: 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30',
+    swatch: 'bg-emerald-400',
+  },
+  {
+    key: 'amber',
+    pill: 'bg-amber-500/20 text-amber-200 ring-amber-400/30',
+    swatch: 'bg-amber-400',
+  },
+  { key: 'rose', pill: 'bg-rose-500/20 text-rose-200 ring-rose-400/30', swatch: 'bg-rose-400' },
+  {
+    key: 'violet',
+    pill: 'bg-violet-500/20 text-violet-200 ring-violet-400/30',
+    swatch: 'bg-violet-400',
+  },
+  { key: 'pink', pill: 'bg-pink-500/20 text-pink-200 ring-pink-400/30', swatch: 'bg-pink-400' },
+  {
+    key: 'orange',
+    pill: 'bg-orange-500/20 text-orange-200 ring-orange-400/30',
+    swatch: 'bg-orange-400',
+  },
+] as const;
+
+function getSelectColor(key: string | undefined) {
+  return SELECT_COLORS.find((c) => c.key === key) ?? SELECT_COLORS[0];
+}
+
+/**
+ * Best-effort color for an option that pre-dates the `color` field. We
+ * cycle through the palette by index so a legacy 3-option column
+ * (Todo/Doing/Done) reads as three distinct colors instead of three
+ * grey pills.
+ */
+function resolveOptionColor(
+  opt: { color?: string } | undefined,
+  index: number
+): (typeof SELECT_COLORS)[number] {
+  if (opt?.color) return getSelectColor(opt.color);
+  return SELECT_COLORS[index % SELECT_COLORS.length];
+}
+
+/**
  * NodeView for the Notion-like "database" block. Renders a TanStack Table
- * with click-header sorting, per-column type controls, per-cell editors
- * keyed on the column's type, and add/delete affordances for rows and
- * columns. Persists edits by writing new `columns` / `rows` attribute
- * values back to the ProseMirror node.
+ * with click-header sorting, per-column type controls, per-cell editors,
+ * and hover-only add/delete affordances via floating edge tabs + leading
+ * gutter. Persists edits by writing new `columns` / `rows` attributes back
+ * to the ProseMirror node.
  */
 export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewProps) {
-  // Fall back to empty arrays so an incompletely-parsed node never crashes
-  // — the insert command always seeds both attributes so this is defensive.
   const columns = (node.attrs.columns ?? []) as DatabaseColumn[];
   const rows = (node.attrs.rows ?? []) as DatabaseRow[];
 
@@ -95,24 +148,58 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
         rows.map((r) => (r.id === rowId ? { ...r, cells: { ...r.cells, [colId]: value } } : r))
       );
     },
-    // rows is captured by closure; setRows depends on updateAttributes
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [rows]
   );
 
-  const addRow = () => setRows([...rows, makeRow(columns)]);
+  // After add-row / add-column we want to (a) scroll the new cell into
+  // view and (b) drop the user into edit mode on it. Track the intent
+  // and honor it in a post-render effect once the DOM contains the new
+  // row/column.
+  const [focusIntent, setFocusIntent] = useState<{ kind: 'row' | 'column'; id: string } | null>(
+    null
+  );
+
+  const addRow = () => {
+    const row = makeRow(columns);
+    setRows([...rows, row]);
+    setFocusIntent({ kind: 'row', id: row.id });
+  };
   const deleteRow = (rowId: string) => setRows(rows.filter((r) => r.id !== rowId));
 
   const addColumn = () => {
     const col = makeColumn('New column', 'text');
     setColumns([...columns, col]);
     setRows(rows.map((r) => ({ ...r, cells: { ...r.cells, [col.id]: null } })));
+    setFocusIntent({ kind: 'column', id: col.id });
   };
+
+  useEffect(() => {
+    if (!focusIntent) return;
+    // Wait one frame so the added row/column has rendered.
+    const raf = requestAnimationFrame(() => {
+      if (focusIntent.kind === 'row') {
+        const tr = document.querySelector<HTMLTableRowElement>(`[data-row-id="${focusIntent.id}"]`);
+        // First text-ish input in the row — typically the Name cell.
+        const input = tr?.querySelector<HTMLInputElement>(
+          'input:not([type="checkbox"]):not([type="date"]):not([type="number"]), input'
+        );
+        tr?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        input?.focus();
+        input?.select?.();
+      } else {
+        const th = document.querySelector<HTMLElement>(`[data-col-header-id="${focusIntent.id}"]`);
+        th?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+        // ColumnHeader picks up autoStartEdit via prop (see JSX below).
+      }
+      setFocusIntent(null);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [focusIntent]);
   const deleteColumn = (colId: string) => {
     setColumns(columns.filter((c) => c.id !== colId));
     setRows(
       rows.map((r) => {
-        // Strip the removed column's value from every row.
         const { [colId]: _dropped, ...rest } = r.cells;
         return { ...r, cells: rest };
       })
@@ -126,14 +213,11 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
       columns.map((c) => {
         if (c.id !== colId) return c;
         const next: DatabaseColumn = { ...c, type };
-        // Ensure `select` columns always have an options array.
         if (type === 'select' && !next.options) next.options = [];
         if (type !== 'select') delete next.options;
         return next;
       })
     );
-    // Coerce existing values so a type change doesn't leave garbage that
-    // won't render (e.g. leaving a string in a checkbox column).
     setRows(
       rows.map((r) => {
         const raw = r.cells[colId];
@@ -141,14 +225,30 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
       })
     );
   };
-  const setSelectOptions = (colId: string, options: { id: string; label: string }[]) => {
+  const setSelectOptions = (
+    colId: string,
+    options: { id: string; label: string; color?: string }[]
+  ) => {
     setColumns(columns.map((c) => (c.id === colId ? { ...c, options } : c)));
   };
 
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const tbodyRef = useRef<HTMLTableSectionElement | null>(null);
+
   return (
-    <NodeViewWrapper as="div" className="database-block my-4">
-      <div className="border-border/40 bg-card/40 overflow-x-auto rounded-2xl border">
-        <table className="w-full text-sm">
+    <NodeViewWrapper as="div" className="database-block group/db relative my-4 pl-9">
+      <div
+        ref={wrapperRef}
+        className="border-border/40 bg-card/40 relative overflow-x-auto rounded-2xl border"
+      >
+        {/* Table width = column count × 10rem so table-layout: fixed cells
+            keep their intrinsic size. On narrow viewports the table
+            exceeds the wrapper and `overflow-x-auto` gives a real
+            horizontal scroll — `w-full` would collapse cells instead. */}
+        <table
+          className="min-w-full text-sm"
+          style={{ tableLayout: 'fixed', width: `${columns.length * 10}rem` }}
+        >
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className="bg-muted/40">
@@ -157,11 +257,17 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                   if (!col) return null;
                   const sort = header.column.getIsSorted();
                   return (
-                    <th key={header.id} className="min-w-[8rem] p-0">
+                    <th
+                      key={header.id}
+                      data-col-header-id={col.id}
+                      className="p-0"
+                      style={{ width: '10rem' }}
+                    >
                       <ColumnHeader
                         column={col}
                         sort={sort}
                         editable={editable}
+                        autoStartEdit={focusIntent?.kind === 'column' && focusIntent.id === col.id}
                         onToggleSort={() => header.column.toggleSorting()}
                         onRename={(name) => renameColumn(col.id, name)}
                         onChangeType={(type) => changeColumnType(col.id, type)}
@@ -171,27 +277,14 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                     </th>
                   );
                 })}
-                {editable && (
-                  <th className="w-10 p-0">
-                    <button
-                      type="button"
-                      onClick={addColumn}
-                      aria-label="Add column"
-                      title="Add column"
-                      className="text-muted-foreground/70 hover:bg-muted/70 hover:text-foreground flex h-full w-full items-center justify-center"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
-                  </th>
-                )}
               </tr>
             ))}
           </thead>
-          <tbody>
+          <tbody ref={tbodyRef}>
             {table.getRowModel().rows.map((tableRow) => {
               const row = tableRow.original;
               return (
-                <tr key={row.id} className="group">
+                <tr key={row.id} className="group/row" data-row-id={row.id}>
                   {tableRow.getVisibleCells().map((cell) => {
                     const col = columns.find((c) => c.id === cell.column.id);
                     if (!col) return null;
@@ -206,39 +299,9 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                       </td>
                     );
                   })}
-                  {editable && (
-                    <td className="w-10 p-0 align-middle">
-                      <button
-                        type="button"
-                        onClick={() => deleteRow(row.id)}
-                        aria-label="Delete row"
-                        title="Delete row"
-                        className="text-muted-foreground/40 hover:bg-destructive/10 hover:text-destructive flex h-full w-full items-center justify-center opacity-0 transition-opacity group-hover:opacity-100"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </td>
-                  )}
                 </tr>
               );
             })}
-            {editable && (
-              <tr>
-                <td
-                  colSpan={columns.length + 1}
-                  className="text-muted-foreground/70 hover:text-foreground p-0"
-                >
-                  <button
-                    type="button"
-                    onClick={addRow}
-                    aria-label="Add row"
-                    className="hover:bg-muted/40 flex h-8 w-full items-center gap-2 pl-3 text-left text-xs transition-colors"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> New row
-                  </button>
-                </td>
-              </tr>
-            )}
             {rows.length === 0 && !editable && (
               <tr>
                 <td
@@ -252,7 +315,162 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
           </tbody>
         </table>
       </div>
+
+      {editable && <DeleteRowGutter tbodyRef={tbodyRef} rows={rows} onDelete={deleteRow} />}
+
+      {editable && (
+        <>
+          <button
+            type="button"
+            onClick={addColumn}
+            aria-label="Add column"
+            title="Add column"
+            className="border-border/40 bg-background/70 text-muted-foreground/60 hover:text-primary hover:border-primary/40 hover:bg-primary/10 absolute top-0 -right-1 flex h-full w-5 items-center justify-center rounded-r-lg border border-l-0 opacity-100 backdrop-blur transition-opacity md:pointer-events-none md:opacity-0 md:group-hover/db:pointer-events-auto md:group-hover/db:opacity-100"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={addRow}
+            aria-label="Add row"
+            title="Add row"
+            className="border-border/40 bg-background/70 text-muted-foreground/60 hover:text-primary hover:border-primary/40 hover:bg-primary/10 absolute -bottom-1 left-0 flex h-5 w-full items-center justify-center rounded-b-lg border border-t-0 opacity-100 backdrop-blur transition-opacity md:pointer-events-none md:opacity-0 md:group-hover/db:pointer-events-auto md:group-hover/db:opacity-100"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        </>
+      )}
     </NodeViewWrapper>
+  );
+}
+
+// ─── Delete-row gutter (outside the table, hover-only) ─────────────────
+
+/**
+ * A column of delete-row buttons sitting to the LEFT of the table, in the
+ * padding of the NodeViewWrapper. Each button is absolute-positioned to
+ * match its row's vertical center; we resync on any tbody / row size
+ * change so alignment stays true through row adds/deletes and text edits.
+ */
+function DeleteRowGutter({
+  tbodyRef,
+  rows,
+  onDelete,
+}: {
+  tbodyRef: React.RefObject<HTMLTableSectionElement | null>;
+  rows: DatabaseRow[];
+  onDelete: (rowId: string) => void;
+}) {
+  const [positions, setPositions] = useState<{ id: string; top: number; height: number }[]>([]);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  // Deferred-clear timer: mouse leaves the row → wait a beat before hiding
+  // so the pointer's transit through the padding gap to the button doesn't
+  // strand it in a "hidden" state and cancel the click. Any mouseenter on
+  // the button clears the timer.
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelHide = useCallback(() => {
+    if (hideTimer.current) {
+      clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+  }, []);
+  const scheduleHide = useCallback(() => {
+    cancelHide();
+    hideTimer.current = setTimeout(() => setHoveredId(null), 200);
+  }, [cancelHide]);
+
+  useEffect(() => {
+    const tbody = tbodyRef.current;
+    if (!tbody) return;
+    const onOver = (e: MouseEvent) => {
+      const tr = (e.target as Element | null)?.closest('tr[data-row-id]');
+      const id = tr?.getAttribute('data-row-id') ?? null;
+      if (id) {
+        cancelHide();
+        setHoveredId(id);
+      }
+    };
+    const onLeave = () => scheduleHide();
+    tbody.addEventListener('mouseover', onOver);
+    tbody.addEventListener('mouseleave', onLeave);
+    return () => {
+      tbody.removeEventListener('mouseover', onOver);
+      tbody.removeEventListener('mouseleave', onLeave);
+      cancelHide();
+    };
+  }, [tbodyRef, cancelHide, scheduleHide]);
+
+  useLayoutEffect(() => {
+    const tbody = tbodyRef.current;
+    if (!tbody) return;
+    const measure = () => {
+      const tbodyTop = tbody.getBoundingClientRect().top;
+      // The gutter is positioned relative to the NodeViewWrapper, which
+      // wraps the whole block including my-4 margin. To place a button
+      // at row Y we need the row's top relative to the wrapper — but
+      // since the gutter itself is a sibling of the scroll-wrap
+      // (both inside the wrapper) and inherits the wrapper's coord
+      // system, we can compute from the wrapper's own top.
+      const wrapper = tbody.closest('.database-block') as HTMLElement | null;
+      const wrapperTop = wrapper?.getBoundingClientRect().top ?? tbodyTop;
+      const next: { id: string; top: number; height: number }[] = [];
+      for (const tr of Array.from(tbody.children)) {
+        if (!(tr instanceof HTMLElement)) continue;
+        const id = tr.getAttribute('data-row-id');
+        if (!id) continue;
+        const rect = tr.getBoundingClientRect();
+        next.push({ id, top: rect.top - wrapperTop, height: rect.height });
+      }
+      setPositions(next);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(tbody);
+    for (const tr of Array.from(tbody.children)) {
+      if (tr instanceof HTMLElement) ro.observe(tr);
+    }
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+    // Re-measure whenever the row set changes.
+  }, [tbodyRef, rows.length]);
+
+  return (
+    <div
+      className="pointer-events-none absolute top-0 left-0 h-full w-8"
+      aria-hidden={positions.length === 0}
+    >
+      {positions.map((p) => {
+        const active = hoveredId === p.id;
+        return (
+          <button
+            key={p.id}
+            type="button"
+            data-delete-row-btn=""
+            onClick={() => {
+              cancelHide();
+              onDelete(p.id);
+            }}
+            onMouseEnter={() => {
+              cancelHide();
+              setHoveredId(p.id);
+            }}
+            onMouseLeave={() => scheduleHide()}
+            aria-label="Delete row"
+            title="Delete row"
+            style={{ top: p.top, height: p.height, opacity: active ? 1 : 0 }}
+            className={cn(
+              'text-muted-foreground/70 hover:bg-destructive/15 hover:text-destructive absolute left-1 flex w-6 items-center justify-center rounded-lg transition-opacity',
+              active ? 'pointer-events-auto' : 'pointer-events-none'
+            )}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -262,6 +480,7 @@ function ColumnHeader({
   column,
   sort,
   editable,
+  autoStartEdit,
   onToggleSort,
   onRename,
   onChangeType,
@@ -271,38 +490,77 @@ function ColumnHeader({
   column: DatabaseColumn;
   sort: false | 'asc' | 'desc';
   editable: boolean;
+  autoStartEdit?: boolean;
   onToggleSort: () => void;
   onRename: (name: string) => void;
   onChangeType: (type: DatabaseColumnType) => void;
   onDelete: () => void;
-  onSetOptions: (opts: { id: string; label: string }[]) => void;
+  onSetOptions: (opts: { id: string; label: string; color?: string }[]) => void;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
+  const menuOpen = menuAnchor !== null;
+  // Seed edit-mode from autoStartEdit on FIRST mount only — a newly-
+  // added column mounts a fresh ColumnHeader (keyed on column.id) so
+  // the initializer fires exactly when we want it to. React 19 bans
+  // setState inside an effect, so this is the right shape.
+  const [editing, setEditing] = useState(() => Boolean(autoStartEdit && editable));
+  const [mobileSheet, setMobileSheet] = useState(false);
   const [name, setName] = useState(column.name);
-  // Keep local input in sync when the underlying column name changes elsewhere.
-  if (name !== column.name && document.activeElement?.getAttribute('data-col-id') !== column.id) {
+  // Long-press detection for mobile — 500ms without moving fires the sheet.
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearPress = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  };
+  const startPress = () => {
+    clearPress();
+    pressTimer.current = setTimeout(() => {
+      pressTimer.current = null;
+      setMobileSheet(true);
+    }, 500);
+  };
+
+  if (!editing && name !== column.name) {
+    // Sync external rename into local state without triggering an effect.
     setName(column.name);
   }
   const typeMeta = TYPE_META[column.type];
   const TypeIcon = typeMeta.icon;
 
   return (
-    <div className="group/header relative flex items-stretch">
+    <div className="group/header relative flex w-full items-stretch">
       <button
         type="button"
         onClick={editable ? onToggleSort : undefined}
+        onTouchStart={editable ? startPress : undefined}
+        onTouchMove={clearPress}
+        onTouchEnd={clearPress}
+        onTouchCancel={clearPress}
+        onContextMenu={
+          // Long-press on desktop also opens the sheet; block the browser menu.
+          editable
+            ? (e) => {
+                e.preventDefault();
+                setMobileSheet(true);
+              }
+            : undefined
+        }
         title={sort ? `Sorted ${sort}` : 'Click to sort'}
-        className="text-muted-foreground flex flex-1 items-center gap-2 px-3 py-2 text-left text-[0.7rem] font-semibold tracking-[0.08em] uppercase"
+        className="text-muted-foreground flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left text-[0.7rem] font-semibold tracking-[0.08em] uppercase select-none"
       >
         <TypeIcon className={cn('h-3.5 w-3.5 shrink-0', typeMeta.color)} />
-        {editable ? (
+        {editable && editing ? (
           <input
             data-col-id={column.id}
+            autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
             onBlur={() => {
               if (name.trim() && name !== column.name) onRename(name.trim());
               else if (!name.trim()) setName(column.name);
+              setEditing(false);
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
@@ -312,35 +570,82 @@ function ColumnHeader({
               }
             }}
             onClick={(e) => e.stopPropagation()}
+            // Intrinsic input widths break table sizing (default size=20
+            // ≈ 180px), so we only mount the input while editing. Display
+            // mode uses a <span class="truncate"> that respects min-w-0.
+            size={1}
             className="text-foreground/85 min-w-0 flex-1 bg-transparent tracking-[0.08em] uppercase outline-none"
           />
         ) : (
-          <span className="text-foreground/85 min-w-0 flex-1 truncate">{column.name}</span>
+          <span
+            onDoubleClick={
+              editable
+                ? (e) => {
+                    e.stopPropagation();
+                    setEditing(true);
+                  }
+                : undefined
+            }
+            title={editable ? 'Double-click to rename' : undefined}
+            className="text-foreground/85 min-w-0 flex-1 truncate"
+          >
+            {column.name}
+          </span>
         )}
-        {sort === 'asc' && <ArrowUp className="text-primary h-3.5 w-3.5" />}
-        {sort === 'desc' && <ArrowDown className="text-primary h-3.5 w-3.5" />}
+        {sort === 'asc' && <ArrowUp className="text-primary h-3.5 w-3.5 shrink-0" />}
+        {sort === 'desc' && <ArrowDown className="text-primary h-3.5 w-3.5 shrink-0" />}
         {editable && sort === false && (
-          <ArrowUpDown className="text-muted-foreground/40 h-3 w-3 opacity-0 transition-opacity group-hover/header:opacity-100" />
+          <ArrowUpDown className="text-muted-foreground/40 h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover/header:opacity-100" />
         )}
       </button>
+      {/* Desktop only — chevron opens the type/options menu. */}
       {editable && (
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            setMenuOpen((o) => !o);
+            setMenuAnchor((cur) => (cur ? null : (e.currentTarget as HTMLButtonElement)));
           }}
           aria-label="Column options"
-          className="text-muted-foreground/50 hover:text-foreground hover:bg-muted/40 flex w-6 items-center justify-center opacity-0 transition-opacity group-hover/header:opacity-100"
+          className="text-muted-foreground/50 hover:text-foreground hover:bg-muted/40 hidden w-6 shrink-0 items-center justify-center opacity-0 transition-opacity group-hover/header:opacity-100 md:flex"
         >
           <ChevronDown className="h-3.5 w-3.5" />
+        </button>
+      )}
+      {/* Desktop only — quick delete-column X in the top-LEFT corner. */}
+      {editable && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          aria-label="Delete column"
+          title="Delete column"
+          className="text-muted-foreground/70 hover:bg-destructive/15 hover:text-destructive absolute top-0 left-0 hidden h-3.5 w-3.5 items-center justify-center rounded-br-md opacity-0 transition-opacity group-hover/header:opacity-100 md:flex"
+        >
+          <X className="h-3 w-3" />
         </button>
       )}
 
       {menuOpen && (
         <ColumnMenu
+          anchor={menuAnchor}
           column={column}
-          onClose={() => setMenuOpen(false)}
+          onClose={() => setMenuAnchor(null)}
+          onChangeType={onChangeType}
+          onDelete={onDelete}
+          onSetOptions={onSetOptions}
+        />
+      )}
+
+      {mobileSheet && (
+        <ColumnMobileSheet
+          column={column}
+          sort={sort}
+          onClose={() => setMobileSheet(false)}
+          onToggleSort={onToggleSort}
+          onRename={onRename}
           onChangeType={onChangeType}
           onDelete={onDelete}
           onSetOptions={onSetOptions}
@@ -350,24 +655,77 @@ function ColumnHeader({
   );
 }
 
+/**
+ * The column-options popover. Portalled to <body> with fixed positioning
+ * so it overlays whatever's below the table — the table container has
+ * `overflow-x-auto`, which would otherwise clip a plain `absolute`
+ * dropdown on short tables. Closes on outside-click and Escape.
+ */
 function ColumnMenu({
+  anchor,
   column,
   onClose,
   onChangeType,
   onDelete,
   onSetOptions,
 }: {
+  anchor: HTMLElement | null;
   column: DatabaseColumn;
   onClose: () => void;
   onChangeType: (type: DatabaseColumnType) => void;
   onDelete: () => void;
-  onSetOptions: (opts: { id: string; label: string }[]) => void;
+  onSetOptions: (opts: { id: string; label: string; color?: string }[]) => void;
 }) {
   const [newOption, setNewOption] = useState('');
-  return (
+  const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!anchor) return;
+    const place = () => {
+      const rect = anchor.getBoundingClientRect();
+      const width = 240;
+      // Prefer right-aligned to the trigger; clamp inside viewport.
+      const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8);
+      setPos({ top: rect.bottom + 4, left });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [anchor]);
+
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node | null;
+      if (!t) return;
+      if (menuRef.current?.contains(t)) return;
+      if (anchor && anchor.contains(t)) return;
+      onClose();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [anchor, onClose]);
+
+  if (!pos) return null;
+
+  const content = (
     <div
+      ref={menuRef}
       role="menu"
-      className="bg-popover text-popover-foreground absolute top-full right-0 z-50 mt-1 w-56 rounded-xl border p-1 shadow-xl"
+      style={{ position: 'fixed', top: pos.top, left: pos.left, width: 240 }}
+      className="bg-popover text-popover-foreground z-[100] rounded-xl border p-1 shadow-xl"
     >
       <p className="text-muted-foreground px-2 pt-1 pb-1 text-[10px] font-semibold tracking-wider uppercase">
         Column type
@@ -380,14 +738,16 @@ function ColumnMenu({
             type="button"
             onClick={() => {
               onChangeType(t);
-              onClose();
+              // Keep the menu open when switching TO select so the user can
+              // immediately edit options; otherwise close it.
+              if (t !== 'select') onClose();
             }}
             className={cn(
               'hover:bg-muted/60 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs',
               column.type === t && 'bg-muted/50 font-medium'
             )}
           >
-            <Icon className="h-3.5 w-3.5" /> {TYPE_META[t].label}
+            <Icon className={cn('h-3.5 w-3.5', TYPE_META[t].color)} /> {TYPE_META[t].label}
           </button>
         );
       })}
@@ -398,29 +758,66 @@ function ColumnMenu({
             Options
           </p>
           <div className="space-y-1 px-1 pb-1">
-            {(column.options ?? []).map((opt) => (
-              <div key={opt.id} className="flex items-center gap-1">
-                <span className="bg-muted/60 flex-1 truncate rounded-md px-2 py-1 text-xs">
-                  {opt.label}
-                </span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    onSetOptions((column.options ?? []).filter((o) => o.id !== opt.id))
-                  }
-                  aria-label={`Remove ${opt.label}`}
-                  className="text-muted-foreground/60 hover:text-destructive"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
+            {(column.options ?? []).map((opt, i) => {
+              const c = resolveOptionColor(opt, i);
+              return (
+                <div key={opt.id} className="relative flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setColorPickerFor((cur) => (cur === opt.id ? null : opt.id))}
+                    aria-label={`Color for ${opt.label}`}
+                    className={cn('h-3.5 w-3.5 shrink-0 rounded-full', c.swatch)}
+                  />
+                  <span
+                    className={cn('flex-1 truncate rounded-md px-2 py-1 text-xs ring-1', c.pill)}
+                  >
+                    {opt.label}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onSetOptions((column.options ?? []).filter((o) => o.id !== opt.id))
+                    }
+                    aria-label={`Remove ${opt.label}`}
+                    className="text-muted-foreground/60 hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                  {colorPickerFor === opt.id && (
+                    <div className="bg-popover absolute top-full left-0 z-[110] mt-1 flex flex-wrap gap-1 rounded-lg border p-1.5 shadow-lg">
+                      {SELECT_COLORS.map((sc) => (
+                        <button
+                          key={sc.key}
+                          type="button"
+                          onClick={() => {
+                            onSetOptions(
+                              (column.options ?? []).map((o) =>
+                                o.id === opt.id ? { ...o, color: sc.key } : o
+                              )
+                            );
+                            setColorPickerFor(null);
+                          }}
+                          aria-label={sc.key}
+                          className={cn(
+                            'h-4 w-4 rounded-full ring-1 ring-white/10 hover:ring-2 hover:ring-white/40',
+                            sc.swatch,
+                            opt.color === sc.key && 'ring-2 ring-white/70'
+                          )}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 const label = newOption.trim();
                 if (!label) return;
-                onSetOptions([...(column.options ?? []), makeSelectOption(label)]);
+                // Cycle colors so successive options are visually distinct.
+                const next = SELECT_COLORS[(column.options?.length ?? 0) % SELECT_COLORS.length];
+                onSetOptions([...(column.options ?? []), makeSelectOption(label, next.key)]);
                 setNewOption('');
               }}
               className="flex gap-1"
@@ -455,6 +852,256 @@ function ColumnMenu({
         </button>
       </div>
     </div>
+  );
+
+  return createPortal(content, document.body);
+}
+
+// ─── Mobile column sheet ────────────────────────────────────────────────
+
+/**
+ * Bottom-sheet column controls for touch devices. Opened via long-press
+ * on the header (or right-click on desktop). Exposes sort / rename /
+ * type-change / options / delete in a single scrollable pane.
+ */
+function ColumnMobileSheet({
+  column,
+  sort,
+  onClose,
+  onToggleSort,
+  onRename,
+  onChangeType,
+  onDelete,
+  onSetOptions,
+}: {
+  column: DatabaseColumn;
+  sort: false | 'asc' | 'desc';
+  onClose: () => void;
+  onToggleSort: () => void;
+  onRename: (name: string) => void;
+  onChangeType: (type: DatabaseColumnType) => void;
+  onDelete: () => void;
+  onSetOptions: (opts: { id: string; label: string; color?: string }[]) => void;
+}) {
+  const [nameDraft, setNameDraft] = useState(column.name);
+  const [newOption, setNewOption] = useState('');
+  const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
+
+  const commitName = () => {
+    const trimmed = nameDraft.trim();
+    if (trimmed && trimmed !== column.name) onRename(trimmed);
+    else setNameDraft(column.name);
+  };
+
+  const setSort = (dir: 'asc' | 'desc') => {
+    // Toggle-sort cycles asc → desc → off; iterate to reach the desired state.
+    let safety = 3;
+    while (sort !== dir && safety-- > 0) onToggleSort();
+    onClose();
+  };
+
+  return (
+    <Sheet open onOpenChange={(open) => !open && onClose()}>
+      <SheetContent
+        side="bottom"
+        // Changing type calls updateAttributes on the Tiptap node, which
+        // can pull focus back into the editor. Radix treats that as an
+        // outside interaction and closes the sheet — so we swallow those
+        // events. The X button in the header still calls onOpenChange
+        // directly, and Delete-column closes explicitly.
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+        onFocusOutside={(e) => e.preventDefault()}
+        className="flex max-h-[85vh] flex-col gap-0 rounded-t-2xl p-0 sm:bottom-4 sm:mx-auto sm:h-auto sm:max-w-md sm:rounded-2xl sm:border"
+      >
+        <SheetHeader className="border-border/40 border-b p-4">
+          <SheetTitle className="text-left text-base">{column.name}</SheetTitle>
+        </SheetHeader>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          {/* Rename */}
+          <label className="text-muted-foreground mb-2 block text-[10px] font-semibold tracking-wider uppercase">
+            Name
+          </label>
+          <input
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            onBlur={commitName}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
+            }}
+            className="border-border/60 bg-background focus:border-primary/60 w-full rounded-lg border px-3 py-2.5 text-base outline-none"
+          />
+
+          {/* Sort */}
+          <p className="text-muted-foreground mt-5 mb-2 text-[10px] font-semibold tracking-wider uppercase">
+            Sort
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setSort('asc')}
+              className={cn(
+                'flex min-h-11 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm',
+                sort === 'asc'
+                  ? 'border-primary/60 bg-primary/10 text-primary'
+                  : 'border-border/60 hover:bg-muted/50'
+              )}
+            >
+              <ArrowUp className="h-4 w-4" /> Ascending
+            </button>
+            <button
+              type="button"
+              onClick={() => setSort('desc')}
+              className={cn(
+                'flex min-h-11 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm',
+                sort === 'desc'
+                  ? 'border-primary/60 bg-primary/10 text-primary'
+                  : 'border-border/60 hover:bg-muted/50'
+              )}
+            >
+              <ArrowDown className="h-4 w-4" /> Descending
+            </button>
+          </div>
+
+          {/* Type */}
+          <p className="text-muted-foreground mt-5 mb-2 text-[10px] font-semibold tracking-wider uppercase">
+            Type
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {(Object.keys(TYPE_META) as DatabaseColumnType[]).map((t) => {
+              const Icon = TYPE_META[t].icon;
+              const active = column.type === t;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => onChangeType(t)}
+                  className={cn(
+                    'flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-sm',
+                    active
+                      ? 'border-primary/60 bg-primary/10 text-primary'
+                      : 'border-border/60 hover:bg-muted/50'
+                  )}
+                >
+                  <Icon className={cn('h-4 w-4', TYPE_META[t].color)} />
+                  {TYPE_META[t].label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Options (select only) */}
+          {column.type === 'select' && (
+            <>
+              <p className="text-muted-foreground mt-5 mb-2 text-[10px] font-semibold tracking-wider uppercase">
+                Options
+              </p>
+              <div className="space-y-2">
+                {(column.options ?? []).map((opt, i) => {
+                  const c = resolveOptionColor(opt, i);
+                  return (
+                    <div key={opt.id} className="relative">
+                      <div className="border-border/60 flex items-center gap-2 rounded-lg border px-2 py-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setColorPickerFor((cur) => (cur === opt.id ? null : opt.id))
+                          }
+                          aria-label={`Color for ${opt.label}`}
+                          className={cn('h-5 w-5 shrink-0 rounded-full', c.swatch)}
+                        />
+                        <span
+                          className={cn(
+                            'flex-1 truncate rounded-md px-2 py-1 text-sm ring-1',
+                            c.pill
+                          )}
+                        >
+                          {opt.label}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onSetOptions((column.options ?? []).filter((o) => o.id !== opt.id))
+                          }
+                          aria-label={`Remove ${opt.label}`}
+                          className="text-muted-foreground/70 hover:text-destructive flex h-8 w-8 items-center justify-center"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      {colorPickerFor === opt.id && (
+                        <div className="bg-popover mt-1 flex flex-wrap gap-1.5 rounded-lg border p-2 shadow-lg">
+                          {SELECT_COLORS.map((sc) => (
+                            <button
+                              key={sc.key}
+                              type="button"
+                              onClick={() => {
+                                onSetOptions(
+                                  (column.options ?? []).map((o) =>
+                                    o.id === opt.id ? { ...o, color: sc.key } : o
+                                  )
+                                );
+                                setColorPickerFor(null);
+                              }}
+                              aria-label={sc.key}
+                              className={cn(
+                                'h-7 w-7 rounded-full ring-1 ring-white/10',
+                                sc.swatch,
+                                opt.color === sc.key && 'ring-2 ring-white/70'
+                              )}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const label = newOption.trim();
+                    if (!label) return;
+                    const next =
+                      SELECT_COLORS[(column.options?.length ?? 0) % SELECT_COLORS.length];
+                    onSetOptions([...(column.options ?? []), makeSelectOption(label, next.key)]);
+                    setNewOption('');
+                  }}
+                  className="flex gap-2"
+                >
+                  <input
+                    value={newOption}
+                    onChange={(e) => setNewOption(e.target.value)}
+                    placeholder="Add option"
+                    className="border-border/60 bg-background flex-1 rounded-lg border px-3 py-2 text-sm outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm font-medium"
+                  >
+                    Add
+                  </button>
+                </form>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Destructive footer */}
+        <div className="border-border/40 border-t p-4">
+          <button
+            type="button"
+            onClick={() => {
+              onDelete();
+              onClose();
+            }}
+            className="hover:bg-destructive/10 text-destructive border-destructive/40 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium"
+          >
+            <Trash2 className="h-4 w-4" /> Delete column
+          </button>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -517,34 +1164,143 @@ function CellEditor({
           />
         </div>
       );
-    case 'select': {
-      const options = column.options ?? [];
-      const selectedId = typeof value === 'string' ? value : '';
-      const selectedLabel = options.find((o) => o.id === selectedId)?.label ?? '';
-      return (
-        <select
-          value={selectedId}
-          onChange={(e) => onChange(e.target.value || null)}
-          disabled={disabled}
-          className="w-full bg-transparent px-3 py-2 text-sm outline-none"
-          aria-label={`${column.name}: ${selectedLabel || 'empty'}`}
-        >
-          <option value=""></option>
-          {options.map((opt) => (
-            <option key={opt.id} value={opt.id}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      );
-    }
+    case 'select':
+      return <SelectCell column={column} value={value} onChange={onChange} disabled={disabled} />;
   }
+}
+
+/**
+ * Custom select cell. Uses a colored pill for the current value and a
+ * portalled popover for picking / clearing — a native `<select>` can't
+ * render the per-option color, and we want click-outside to dismiss.
+ */
+function SelectCell({
+  column,
+  value,
+  onChange,
+  disabled,
+}: {
+  column: DatabaseColumn;
+  value: DatabaseCellValue;
+  onChange: (v: DatabaseCellValue) => void;
+  disabled: boolean;
+}) {
+  const options = column.options ?? [];
+  const selectedId = typeof value === 'string' ? value : '';
+  const selected = options.find((o) => o.id === selectedId);
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const popRef = useRef<HTMLDivElement | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const place = () => {
+      const rect = triggerRef.current!.getBoundingClientRect();
+      const width = Math.max(180, rect.width);
+      const left = Math.min(rect.left, window.innerWidth - width - 8);
+      setPos({ top: rect.bottom + 4, left, width });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node | null;
+      if (!t) return;
+      if (popRef.current?.contains(t)) return;
+      if (triggerRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const selectedIndex = selected ? options.findIndex((o) => o.id === selected.id) : -1;
+  const selColor = selected ? resolveOptionColor(selected, Math.max(0, selectedIndex)) : null;
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => !disabled && setOpen((o) => !o)}
+        disabled={disabled}
+        aria-label={`${column.name}: ${selected?.label ?? 'empty'}`}
+        className="flex h-full w-full items-center px-3 py-2 text-left text-sm"
+      >
+        {selected && selColor ? (
+          <span className={cn('rounded-md px-2 py-0.5 text-xs ring-1', selColor.pill)}>
+            {selected.label}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/60 text-xs">Empty</span>
+        )}
+      </button>
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            ref={popRef}
+            style={{ position: 'fixed', top: pos.top, left: pos.left, minWidth: pos.width }}
+            className="bg-popover text-popover-foreground z-[100] max-h-64 overflow-y-auto rounded-xl border p-1 shadow-xl"
+          >
+            <button
+              type="button"
+              onClick={() => {
+                onChange(null);
+                setOpen(false);
+              }}
+              className="hover:bg-muted/60 text-muted-foreground flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs"
+            >
+              <X className="h-3 w-3" /> Clear
+            </button>
+            {options.map((opt, i) => {
+              const c = resolveOptionColor(opt, i);
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.id);
+                    setOpen(false);
+                  }}
+                  className="hover:bg-muted/60 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs"
+                >
+                  <span className={cn('h-2.5 w-2.5 rounded-full', c.swatch)} />
+                  <span className={cn('rounded-md px-1.5 py-0.5 ring-1', c.pill)}>{opt.label}</span>
+                </button>
+              );
+            })}
+            {options.length === 0 && (
+              <p className="text-muted-foreground px-2 py-2 text-xs">
+                No options — add some in the column menu.
+              </p>
+            )}
+          </div>,
+          document.body
+        )}
+    </>
+  );
 }
 
 // ─── Sort + type coercion helpers ────────────────────────────────────────
 
 function sortByType(col: DatabaseColumn, a: DatabaseCellValue, b: DatabaseCellValue): number {
-  // Nulls sort last regardless of direction — TanStack flips sign for desc.
   if (a == null && b == null) return 0;
   if (a == null) return 1;
   if (b == null) return -1;
@@ -558,7 +1314,6 @@ function sortByType(col: DatabaseColumn, a: DatabaseCellValue, b: DatabaseCellVa
       const opts = col.options ?? [];
       const ia = opts.findIndex((o) => o.id === a);
       const ib = opts.findIndex((o) => o.id === b);
-      // Options in the column's declared order — matches how the header menu lists them.
       return (ia === -1 ? Infinity : ia) - (ib === -1 ? Infinity : ib);
     }
     case 'date':

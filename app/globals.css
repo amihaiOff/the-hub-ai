@@ -404,6 +404,27 @@
   .database-block input[type='checkbox'] {
     accent-color: var(--primary);
   }
+  /* Thin, theme-matched horizontal scrollbar on the table's overflow
+     wrapper. Firefox uses `scrollbar-*`; Chromium/Safari use the
+     ::-webkit-scrollbar pseudos. Track blends into the block, thumb
+     picks up the same border tint used for cell dividers. */
+  .database-block .overflow-x-auto {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--border) 70%, transparent) transparent;
+  }
+  .database-block .overflow-x-auto::-webkit-scrollbar {
+    height: 8px;
+  }
+  .database-block .overflow-x-auto::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .database-block .overflow-x-auto::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--border) 55%, transparent);
+    border-radius: 999px;
+  }
+  .database-block .overflow-x-auto::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--border) 90%, transparent);
+  }
   /* Empty-node placeholder for the title/first line. */
   .page-body p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);
