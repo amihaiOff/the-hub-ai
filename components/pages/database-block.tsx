@@ -313,6 +313,21 @@ function DeleteRowGutter({
 }) {
   const [positions, setPositions] = useState<{ id: string; top: number; height: number }[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  // Deferred-clear timer: mouse leaves the row → wait a beat before hiding
+  // so the pointer's transit through the padding gap to the button doesn't
+  // strand it in a "hidden" state and cancel the click. Any mouseenter on
+  // the button clears the timer.
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelHide = useCallback(() => {
+    if (hideTimer.current) {
+      clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+  }, []);
+  const scheduleHide = useCallback(() => {
+    cancelHide();
+    hideTimer.current = setTimeout(() => setHoveredId(null), 200);
+  }, [cancelHide]);
 
   useEffect(() => {
     const tbody = tbodyRef.current;
@@ -320,21 +335,20 @@ function DeleteRowGutter({
     const onOver = (e: MouseEvent) => {
       const tr = (e.target as Element | null)?.closest('tr[data-row-id]');
       const id = tr?.getAttribute('data-row-id') ?? null;
-      setHoveredId(id);
+      if (id) {
+        cancelHide();
+        setHoveredId(id);
+      }
     };
-    const onLeave = (e: MouseEvent) => {
-      // Keep visible while the pointer is heading toward the gutter button.
-      const rel = e.relatedTarget as Element | null;
-      if (rel?.closest('[data-delete-row-btn]')) return;
-      setHoveredId(null);
-    };
+    const onLeave = () => scheduleHide();
     tbody.addEventListener('mouseover', onOver);
     tbody.addEventListener('mouseleave', onLeave);
     return () => {
       tbody.removeEventListener('mouseover', onOver);
       tbody.removeEventListener('mouseleave', onLeave);
+      cancelHide();
     };
-  }, [tbodyRef]);
+  }, [tbodyRef, cancelHide, scheduleHide]);
 
   useLayoutEffect(() => {
     const tbody = tbodyRef.current;
@@ -371,7 +385,6 @@ function DeleteRowGutter({
       window.removeEventListener('resize', measure);
     };
     // Re-measure whenever the row set changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tbodyRef, rows.length]);
 
   return (
@@ -386,14 +399,20 @@ function DeleteRowGutter({
             key={p.id}
             type="button"
             data-delete-row-btn=""
-            onClick={() => onDelete(p.id)}
-            onMouseEnter={() => setHoveredId(p.id)}
-            onMouseLeave={() => setHoveredId(null)}
+            onClick={() => {
+              cancelHide();
+              onDelete(p.id);
+            }}
+            onMouseEnter={() => {
+              cancelHide();
+              setHoveredId(p.id);
+            }}
+            onMouseLeave={() => scheduleHide()}
             aria-label="Delete row"
             title="Delete row"
             style={{ top: p.top, height: p.height, opacity: active ? 1 : 0 }}
             className={cn(
-              'text-muted-foreground/70 hover:bg-destructive/15 hover:text-destructive absolute left-0 flex w-7 items-center justify-center rounded-lg transition-opacity',
+              'text-muted-foreground/70 hover:bg-destructive/15 hover:text-destructive absolute left-1 flex w-6 items-center justify-center rounded-lg transition-opacity',
               active ? 'pointer-events-auto' : 'pointer-events-none'
             )}
           >
