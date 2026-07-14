@@ -100,6 +100,71 @@ const formatDisplayValue = useCallback(
 );
 ```
 
+## Touch & Scroll (iOS gotchas)
+
+### `touch-manipulation` beats `touch-pan-y` on tappable cards
+
+Symptom: "first tap doesn't scroll — I have to lift and try again."
+Cause: `touch-action: pan-y` still lets iOS Safari hold the initial touch
+briefly to see if it's a double-tap-to-zoom gesture. On elements the user
+taps (cards, list rows), use `touch-manipulation` instead — it allows pan
+
+- pinch and disables the double-tap detection, so scroll kicks in
+  immediately on the first touch.
+
+```tsx
+// BAD — first tap sometimes doesn't scroll
+<div className="touch-pan-y">…tappable card…</div>
+
+// GOOD
+<div className="touch-manipulation">…tappable card…</div>
+```
+
+### `@dnd-kit` sets `touch-action: none` on draggables
+
+`useDraggable` / `useSortable` add `touch-action: none` via `setNodeRef` so
+the browser doesn't hijack the pointer for scroll during a drag. Side
+effect: **native scroll on that element is dead** even when no drag is
+active. If the row needs to stay scrollable (e.g. touch-scrolling a list
+of draggable cards on mobile), override with inline style:
+
+```tsx
+<div ref={setNodeRef} style={{ touchAction: 'pan-y' }} {...listeners}>
+```
+
+Combine with `TouchSensor({ activationConstraint: { delay: 220, tolerance: 8 } })`
+so a long-press still activates the drag while short taps + swipes scroll
+natively.
+
+## Wide Tables — `table-layout: fixed` for real horizontal scroll
+
+Symptom: table with `w-full` and many columns — cells collapse to fit the
+viewport instead of overflowing horizontally.
+Cause: default auto-layout distributes 100% width across columns; per-cell
+`min-width` is a soft floor that browsers ignore when total content
+exceeds the container. Result: no scroll, columns crammed.
+
+Fix: `table-layout: fixed` with an explicit table width based on column
+count. `min-w-full` keeps small tables filling the viewport.
+
+```tsx
+<div className="overflow-x-auto">
+  <table
+    className="min-w-full"
+    style={{ tableLayout: 'fixed', width: `${columns.length * 10}rem` }}
+  >
+    {columns.map((c) => (
+      <th key={c.id} style={{ width: '10rem' }}>
+        …
+      </th>
+    ))}
+  </table>
+</div>
+```
+
+Style the scrollbar to match the theme (see `.database-block .overflow-x-auto`
+in `app/globals.css` for the pattern).
+
 ## Checklist
 
 - [ ] Works on 320px width
