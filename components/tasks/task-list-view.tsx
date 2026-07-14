@@ -118,7 +118,7 @@ function TaskCard({
   const isDone = task.done;
   const hasChildren = (task.children?.length ?? 0) > 0;
 
-  const { handlers, consumedClick } = useLongPress(onEnterSelection);
+  const { bindRef, consumedClick } = useLongPress(onEnterSelection);
 
   const toggleDone = (checked: boolean) => setDone(task, checked);
 
@@ -133,8 +133,8 @@ function TaskCard({
   // keyboard users act through those focusable children.
   return (
     <div
+      ref={bindRef}
       onClick={activate}
-      {...handlers}
       style={
         selected
           ? undefined
