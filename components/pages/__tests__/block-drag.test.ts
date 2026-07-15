@@ -4,6 +4,7 @@
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import {
+  buildDeleteTransaction,
   buildMoveTransaction,
   computeDropTarget,
   topLevelPos,
@@ -129,6 +130,36 @@ describe('topLevelPos', () => {
     editor.commands.setTextSelection(target);
     // The top-level block is the outer bulletList, which starts at position 0.
     expect(topLevelPos(editor.state)).toBe(0);
+    editor.destroy();
+  });
+});
+
+describe('buildDeleteTransaction', () => {
+  it('deletes the addressed top-level block', () => {
+    const editor = makeEditor('<p>A</p><p>B</p><p>C</p>');
+    const positions: number[] = [];
+    editor.state.doc.forEach((_n, off) => positions.push(off));
+    const tr = buildDeleteTransaction(editor.state, positions[1]); // delete B
+    expect(tr).not.toBeNull();
+    editor.view.dispatch(tr!);
+    expect(editor.state.doc.textContent).toBe('AC');
+    editor.destroy();
+  });
+
+  it('replaces the sole block with an empty paragraph instead of emptying the doc', () => {
+    const editor = makeEditor('<p>only</p>');
+    const tr = buildDeleteTransaction(editor.state, 0);
+    expect(tr).not.toBeNull();
+    editor.view.dispatch(tr!);
+    expect(editor.state.doc.childCount).toBe(1);
+    expect(editor.state.doc.firstChild?.type.name).toBe('paragraph');
+    expect(editor.state.doc.textContent).toBe('');
+    editor.destroy();
+  });
+
+  it('returns null when there is no node at the position', () => {
+    const editor = makeEditor('<p>A</p>');
+    expect(buildDeleteTransaction(editor.state, editor.state.doc.content.size)).toBeNull();
     editor.destroy();
   });
 });

@@ -373,9 +373,9 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                     onClick={addRow}
                     aria-label="Add row"
                     title="Add row"
-                    className="text-muted-foreground/60 hover:text-primary hover:bg-primary/10 flex w-full items-center justify-center gap-1 py-1.5 text-xs transition-colors"
+                    className="text-muted-foreground/60 hover:text-primary hover:bg-primary/10 flex w-full items-center justify-center gap-1 py-0.5 text-xs transition-colors"
                   >
-                    <Plus className="h-3.5 w-3.5" />
+                    <Plus className="h-3 w-3" />
                   </button>
                 </td>
               </tr>

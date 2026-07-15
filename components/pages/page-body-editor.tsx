@@ -19,8 +19,10 @@ import {
   Italic,
   Link2,
   Quote,
+  Redo2,
   Strikethrough,
   Table as TableIcon,
+  Undo2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { uploadPageImage } from '@/lib/hooks/use-pages';
@@ -228,7 +230,29 @@ function Toolbar({ editor }: { editor: Editor }) {
     input.click();
   }, [onPickImage]);
 
-  const btns = [
+  const btns: {
+    icon: typeof Bold;
+    label: string;
+    on: () => void;
+    active: () => boolean;
+    disabled?: () => boolean;
+  }[] = [
+    // Undo / redo operate on ProseMirror history, so they cover every editor
+    // operation — text edits, database row/column changes, block reorders.
+    {
+      icon: Undo2,
+      label: 'Undo',
+      on: () => editor.chain().focus().undo().run(),
+      active: () => false,
+      disabled: () => !editor.can().undo(),
+    },
+    {
+      icon: Redo2,
+      label: 'Redo',
+      on: () => editor.chain().focus().redo().run(),
+      active: () => false,
+      disabled: () => !editor.can().redo(),
+    },
     {
       icon: Bold,
       label: 'Bold',
@@ -271,15 +295,17 @@ function Toolbar({ editor }: { editor: Editor }) {
 
   return (
     <div className="border-border/50 bg-background/80 sticky top-0 z-10 mb-3 flex flex-wrap items-center gap-0.5 rounded-xl border p-1 backdrop-blur">
-      {btns.map(({ icon: Icon, label, on, active }) => (
+      {btns.map(({ icon: Icon, label, on, active, disabled }) => (
         <button
           key={label}
           type="button"
           onClick={on}
+          disabled={disabled?.() ?? false}
           aria-label={label}
           title={label}
           className={cn(
             'hover:bg-muted/70 flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
+            'disabled:pointer-events-none disabled:opacity-30',
             active() ? 'bg-muted text-foreground' : 'text-muted-foreground'
           )}
         >

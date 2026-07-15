@@ -98,3 +98,20 @@ export function buildMoveTransaction(
   tr = tr.insert(mapped, node);
   return tr.scrollIntoView();
 }
+
+/**
+ * Build a transaction that deletes the top-level node starting at `from`.
+ * Returns `null` if there's no node there. When it's the document's only
+ * top-level block, the block is replaced with an empty paragraph instead of
+ * removed, so the doc never ends up empty (which the schema forbids).
+ */
+export function buildDeleteTransaction(state: EditorState, from: number): Transaction | null {
+  const node = state.doc.nodeAt(from);
+  if (!node) return null;
+  const to = from + node.nodeSize;
+  if (state.doc.childCount <= 1) {
+    const paragraph = state.schema.nodes.paragraph.create();
+    return state.tr.replaceWith(0, state.doc.content.size, paragraph).scrollIntoView();
+  }
+  return state.tr.delete(from, to).scrollIntoView();
+}
