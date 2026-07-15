@@ -12,14 +12,20 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Check, ChevronRight, MoreHorizontal } from 'lucide-react';
+import { Check, ChevronRight, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useUpdateTask, type TaskCategoryRow, type TaskRow } from '@/lib/hooks/use-tasks';
+import {
+  useCreateTask,
+  useUpdateTask,
+  type TaskCategoryRow,
+  type TaskRow,
+} from '@/lib/hooks/use-tasks';
 import { useLongPress } from '@/lib/hooks/use-long-press';
 import { CategoryIcon } from './category-icon';
 import { TASK_PRIORITIES } from '@/lib/validations/tasks';
 import { prettyStatus, PRIORITY_BORDER, DoneToggle } from './task-list-view';
 import { useToggleTaskDone } from './task-undo';
+import { QuickAddPopover, type QuickAddOptions } from './quick-add-popover';
 import { prettyPriority } from './task-filters-bar';
 import type { SelectionProps } from './task-selection';
 
@@ -119,6 +125,7 @@ export function TaskKanbanView({
               key={col.key}
               column={col}
               tasks={grouped[col.key] ?? []}
+              categories={categories}
               onOpenTask={onOpenTask}
               groupBy={groupBy}
               collapsed={collapsed.has(col.key)}
@@ -206,6 +213,7 @@ function groupTasks(
 function Column({
   column,
   tasks,
+  categories,
   onOpenTask,
   groupBy,
   collapsed,
@@ -217,6 +225,7 @@ function Column({
 }: {
   column: Column;
   tasks: TaskRow[];
+  categories: TaskCategoryRow[];
   onOpenTask: (id: string) => void;
   groupBy: GroupBy;
   collapsed: boolean;
@@ -226,6 +235,28 @@ function Column({
   // and dropping stays enabled during selection mode. A collapsed group keeps
   // its header droppable so cards can still be dropped onto it.
   const { setNodeRef, isOver } = useDroppable({ id: column.key });
+
+  // Quick-add from the column header (+). Pre-fills the field this board is
+  // grouped by: category → the column's category, priority → the column's
+  // priority, status → stamped on the created task.
+  const createTask = useCreateTask();
+  const [addOpen, setAddOpen] = useState(false);
+  const presetCategoryId =
+    groupBy === 'category' ? (column.key === NO_CATEGORY_ID ? null : column.key) : null;
+  const presetPriority = groupBy === 'priority' ? (column.key as TaskRow['priority']) : undefined;
+
+  const handleAddSubmit = (title: string, opts: QuickAddOptions) => {
+    createTask.mutate(
+      {
+        title,
+        categoryId: opts.categoryId ?? undefined,
+        priority: opts.priority,
+        dueDate: opts.dueDate ?? undefined,
+        status: groupBy === 'status' && column.key !== NO_STATUS ? column.key : undefined,
+      },
+      { onSuccess: () => setAddOpen(false) }
+    );
+  };
 
   return (
     <div
@@ -263,13 +294,27 @@ function Column({
             {tasks.length}
           </span>
         </button>
-        <button
-          type="button"
-          aria-label="Column options"
-          className="text-muted-foreground hover:bg-muted/50 rounded-lg p-1"
+        <QuickAddPopover
+          open={addOpen}
+          onOpenChange={setAddOpen}
+          categories={categories}
+          initialCategoryId={presetCategoryId}
+          initialPriority={presetPriority}
+          isSubmitting={createTask.isPending}
+          onSubmit={handleAddSubmit}
+          side="bottom"
+          align="end"
         >
-          <MoreHorizontal className="h-4 w-4" />
-        </button>
+          <button
+            type="button"
+            onClick={() => setAddOpen(true)}
+            aria-label={`Add task in ${column.label}`}
+            title={`Add task in ${column.label}`}
+            className="text-muted-foreground hover:bg-muted/50 hover:text-foreground rounded-lg p-1"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </QuickAddPopover>
       </div>
       {/* Two columns of cards under each group, filling the screen width.
           min-height keeps an empty group a valid drop target. */}

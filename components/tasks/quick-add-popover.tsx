@@ -45,6 +45,13 @@ interface QuickAddPopoverProps {
   /** Fired when the user submits — parent creates the task. */
   onSubmit: (title: string, opts: QuickAddOptions) => void;
   isSubmitting?: boolean;
+  /** Pre-select a category (e.g. when adding from a kanban category column). */
+  initialCategoryId?: string | null;
+  /** Pre-select a priority (e.g. when adding from a kanban priority column). */
+  initialPriority?: Priority;
+  /** Popover placement relative to the anchor. Defaults to the FAB layout. */
+  side?: 'top' | 'bottom' | 'left' | 'right';
+  align?: 'start' | 'center' | 'end';
   /** The button (or other element) this popover anchors to. */
   children: React.ReactNode;
 }
@@ -62,15 +69,20 @@ export function QuickAddPopover({
   categories,
   onSubmit,
   isSubmitting = false,
+  initialCategoryId,
+  initialPriority,
+  side = 'top',
+  align = 'end',
   children,
 }: QuickAddPopoverProps) {
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverAnchor asChild>{children}</PopoverAnchor>
       <PopoverContent
-        side="top"
-        align="end"
+        side={side}
+        align={align}
         sideOffset={12}
+        collisionPadding={12}
         className="w-[min(22rem,calc(100vw-2.5rem))] rounded-2xl border p-3 shadow-xl"
         onOpenAutoFocus={(e) => {
           // Radix's default focus target scrolls itself into view, which
@@ -90,6 +102,8 @@ export function QuickAddPopover({
           onSubmit={onSubmit}
           onCancel={() => onOpenChange(false)}
           isSubmitting={isSubmitting}
+          initialCategoryId={initialCategoryId ?? null}
+          initialPriority={initialPriority ?? 'MEDIUM'}
         />
       </PopoverContent>
     </Popover>
@@ -101,15 +115,19 @@ function QuickAddForm({
   onSubmit,
   onCancel,
   isSubmitting,
+  initialCategoryId,
+  initialPriority,
 }: {
   categories: TaskCategoryRow[];
   onSubmit: (title: string, opts: QuickAddOptions) => void;
   onCancel: () => void;
   isSubmitting: boolean;
+  initialCategoryId: string | null;
+  initialPriority: Priority;
 }) {
   const [title, setTitle] = useState('');
-  const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [priority, setPriority] = useState<Priority>('MEDIUM');
+  const [categoryId, setCategoryId] = useState<string | null>(initialCategoryId);
+  const [priority, setPriority] = useState<Priority>(initialPriority);
   // Date-only string 'YYYY-MM-DD' from the native picker, or null.
   const [dueDate, setDueDate] = useState<string | null>(null);
   const dateRef = useRef<HTMLInputElement>(null);
