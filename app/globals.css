@@ -395,7 +395,13 @@
   }
   /* On mobile, break out of the page-body's left padding and the shell's
      horizontal padding so the grid spans (nearly) the full screen width and
-     sits flush with the page — no cramped column inset. */
+     sits flush with the page — no cramped column inset.
+     NOTE: the offsets below are coupled to two ancestor paddings — keep them
+     in sync if either changes:
+       - AppShell content wrapper `p-4`            → 1rem  (both sides)
+       - `.page-body` `padding-left: 1.75rem`      → 1.75rem (left only)
+     (The shell's `safe-px` env() insets are intentionally left intact so the
+     grid never slides under a device notch.) */
   @media (max-width: 767px) {
     .page-body .database-block {
       margin-left: calc(-1.75rem - 1rem);

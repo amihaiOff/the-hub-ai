@@ -112,10 +112,10 @@ function resolveOptionColor(
 
 /**
  * NodeView for the Notion-like "database" block. Renders a TanStack Table
- * with click-header sorting, per-column type controls, per-cell editors,
- * and hover-only add/delete affordances via floating edge tabs + leading
- * gutter. Persists edits by writing new `columns` / `rows` attributes back
- * to the ProseMirror node.
+ * with click-header sorting, per-column type controls, per-cell editors, an
+ * in-header add-column cell (+), an in-table add-row row (+), and a
+ * hover-only delete-row gutter. Persists edits by writing new `columns` /
+ * `rows` attributes back to the ProseMirror node.
  */
 export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewProps) {
   const columns = (node.attrs.columns ?? []) as DatabaseColumn[];
@@ -176,9 +176,10 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
 
   const addRow = () => {
     const row = makeRow(columns);
-    // Clear any active sort so the appended row is guaranteed to appear at the
-    // visual bottom (a sort would otherwise place the new empty row wherever
-    // its blank value falls — e.g. at the top under a descending sort).
+    // Deliberate UX choice: clear any active sort so the appended row is
+    // guaranteed to appear at the visual bottom. A sort would otherwise place
+    // the new empty row wherever its blank value falls (e.g. at the top under
+    // a descending sort). The user can re-sort by clicking a header again.
     if (sorting.length) setSorting([]);
     setRows([...rows, row]);
     setFocusIntent({ kind: 'row', id: row.id });
@@ -1185,6 +1186,46 @@ function ColumnMobileSheet({
 
 // ─── Cell editors ────────────────────────────────────────────────────────
 
+/**
+ * Text cell: a textarea (not an input) so long values wrap onto multiple
+ * lines and the row grows to fit. Auto-sizes the height to its content — via
+ * `field-sizing:content` where supported (Chromium), and a JS fallback
+ * (reset to `auto`, then grow to `scrollHeight`) everywhere else, since iOS
+ * Safari / Firefox don't yet support `field-sizing`.
+ */
+function TextCell({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (v: DatabaseCellValue) => void;
+  disabled: boolean;
+}) {
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+  const resize = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+  // Resize on mount and whenever the value changes (typing, sort, external
+  // edit). useLayoutEffect avoids a one-frame flash of the wrong height.
+  useLayoutEffect(resize, [value, resize]);
+
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onInput={resize}
+      disabled={disabled}
+      rows={1}
+      className="[field-sizing:content] w-full resize-none overflow-hidden bg-transparent px-3 py-2 text-sm leading-snug break-words whitespace-pre-wrap outline-none"
+    />
+  );
+}
+
 function CellEditor({
   column,
   value,
@@ -1199,18 +1240,7 @@ function CellEditor({
   const disabled = !editable;
   switch (column.type) {
     case 'text':
-      // A textarea (not an input) so long values wrap onto multiple lines and
-      // the row grows to fit. `field-sizing:content` auto-sizes the height to
-      // the content in supported browsers; `rows={1}` is the baseline height.
-      return (
-        <textarea
-          value={(value as string) ?? ''}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
-          rows={1}
-          className="[field-sizing:content] w-full resize-none bg-transparent px-3 py-2 text-sm leading-snug break-words whitespace-pre-wrap outline-none"
-        />
-      );
+      return <TextCell value={(value as string) ?? ''} onChange={onChange} disabled={disabled} />;
     case 'number':
       return (
         <input

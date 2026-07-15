@@ -361,8 +361,9 @@ export const ALL_EMOJIS: EmojiEntry[] = EMOJI_GROUPS.flatMap((g) => g.emojis);
 
 /**
  * Filter emojis by a free-text query, matching against name + keyword tokens
- * (prefix match, so "mon" finds "money"). Returns everything for an empty
- * query. Results are de-duplicated by glyph.
+ * (substring match, so "mon" or "one" both find "money"). Multiple terms are
+ * AND-ed. Returns everything for an empty query. Results are de-duplicated by
+ * glyph (the same glyph can be listed under more than one group).
  */
 export function searchEmojis(query: string): EmojiEntry[] {
   const q = query.trim().toLowerCase();
