@@ -293,6 +293,19 @@ SKIP_AUTH="true"                         # DEV ONLY - bypasses OAuth for local d
 - `main` - Production branch (deploys to Vercel production)
 - `develop` - Development/preview branch (deploys to Vercel preview)
 
+**How agent sessions actually ship changes (IMPORTANT):**
+
+- **Develop on and push directly to `develop`** (`git push -u origin develop`). Do
+  not open a PR unless explicitly asked.
+- **Merge `develop` → `main` only when the user explicitly says "Merge".** `main`
+  is production.
+- **Multiple sessions push concurrently**, so a push may be rejected as
+  non-fast-forward. When that happens: `git fetch origin develop` → **rebase**
+  onto `origin/develop` → re-run `npm run type-check` (a rebase can pull in other
+  sessions' dep bumps / `schema.prisma` changes → also re-run `npx prisma
+generate`) → push again.
+- Never put the model id in commits/PRs/code.
+
 **Environments:**
 
 | Environment | Branch    | Database                | Purpose             |
@@ -433,6 +446,29 @@ npx prisma db push
 - **Email allowlist** - only specified emails can access (configured in auth callback)
 - **Stock prices cached 6 hours** - don't over-fetch external APIs
 - **Net worth snapshots bi-weekly** - not daily (to reduce database growth)
+
+## Agent Task Backlog ("for Claude")
+
+The user maintains a dev/app-improvement backlog **inside an Areas page** (the
+Notion-like Pages feature) named **"the hub Ai"**: a **database block** with a
+**"for Claude" column**. Rows with that column checked are tasks for a Claude
+Code session to implement.
+
+- **Read it over the API (no MCP):** `GET /api/agent/backlog` with
+  `Authorization: Bearer <token>`. Use the dedicated read-only **`AGENT_READ_TOKEN`**
+  (or the full-access `API_SECRET`). It returns each flagged row as a task with
+  its other columns + the owning page's text as context. Extraction logic lives
+  in `lib/agent/backlog.ts`; the route is `app/api/agent/backlog/route.ts`.
+- **Run the loop:** the **`implement-app-tasks`** skill fetches the backlog,
+  analyses the whole set first (clarity, duplicates, consolidation, conflicts),
+  implements only the clear/non-conflicting tasks via the dev workflow, and
+  **batches all questions to the end** (skips unclear tasks instead of guessing).
+  It's read-only against the backlog — it does not write status back to the page.
+- **Requirements for a session to use it:** the session's environment must allow
+  outbound egress to `the-hub-ai-ten.vercel.app` (the default web sandbox's
+  network policy blocks it — create the environment with an open/allowlisted
+  policy) and have `HUB_AI_API_KEY` set to the read token. Also requires
+  `AGENT_READ_TOKEN` (or `API_SECRET`) set in the deployed Vercel env.
 
 ## Python Scripts
 
