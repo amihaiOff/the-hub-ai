@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { uploadPageImage } from '@/lib/hooks/use-pages';
 import { Column, ColumnBlock } from './columns-extension';
 import { ListIndentControls, canOutdentWithinList } from './list-indent-controls';
+import { MobileBlockDragHandle } from './mobile-block-drag-handle';
 import { SlashMenuExtension } from './slash-menu';
 import { CollapsibleHeading } from './collapsible-heading';
 import { TableFloatingControls } from './table-floating-controls';
@@ -182,6 +183,9 @@ export function PageBodyEditor({ initialContent, onChange }: PageBodyEditorProps
       </DragHandle>
       <EditorContent editor={editor} />
       <ListIndentControls editor={editor} />
+      {/* Touch/mobile block reordering — the desktop DragHandle above uses the
+          HTML5 drag API, which doesn't work on touch. */}
+      <MobileBlockDragHandle editor={editor} />
     </div>
   );
 }

@@ -497,6 +497,14 @@ household's pages (emoji + title) with a **New page** button at the bottom.
 Outdenting stops at the top level — a top-level list item can't be lifted out of
 the list into a plain paragraph (the outdent control disables itself there).
 
+**Reordering blocks:** on desktop, a six-dot drag handle appears to the left of
+the hovered block (HTML5 drag). On mobile/touch, a six-dot grip appears beside
+the selected block and reorders top-level blocks via a custom Pointer-Events
+drag (with a drop-indicator line and edge auto-scroll) — the desktop handle's
+HTML5 drag doesn't work on touch. Mobile reordering is scoped to top-level
+blocks (a two-column block moves as a unit; dropping a block inside a column is
+not offered).
+
 **Database block:** a Notion-like grid with typed columns (text / number / date /
 select / checkbox), click-header sorting, and per-cell editors. Text cells wrap
 onto multiple lines. Add a column via the **+** in a trailing narrow header cell,
