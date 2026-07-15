@@ -485,11 +485,25 @@ household's pages (emoji + title) with a **New page** button at the bottom.
 **A page has:**
 
 - A **title** with an **optional emoji** (Notion-style), both edited inline and
-  autosaved.
+  autosaved. The **emoji picker** is searchable — type a word (e.g. `money`,
+  `cat`, `chart`) to filter the bank by name/keyword, or paste a glyph directly;
+  pressing Enter picks the top match.
 - A **body** built on Tiptap, supporting: headings, bold/italic/strike, bullet
-  and numbered lists, quotes, code, **links**, **images**, **tables**, and a
+  and numbered lists, quotes, code, **links**, **images**, **tables**, a
   **two-column layout** (columns sit side by side on wide screens, stack on
-  mobile).
+  mobile), and a typed **database block**.
+
+**Lists:** indent/outdent via Tab / Shift-Tab or the floating list controls.
+Outdenting stops at the top level — a top-level list item can't be lifted out of
+the list into a plain paragraph (the outdent control disables itself there).
+
+**Database block:** a Notion-like grid with typed columns (text / number / date /
+select / checkbox), click-header sorting, and per-cell editors. Text cells wrap
+onto multiple lines. Add a column via the **+** in a trailing narrow header cell,
+and add a row via the **+** in a narrow row at the bottom of the table; a new row
+always lands at the bottom (any active sort is cleared). Deleting a column asks
+for confirmation first. The grid renders borderless (row dividers only) and, on
+mobile, spans the full screen width so it reads as embedded in the page.
 
 **Images** are uploaded to **Vercel Blob** (`POST /api/pages/upload`, requires
 `BLOB_READ_WRITE_TOKEN`) via the toolbar button or by pasting/dropping an image;
