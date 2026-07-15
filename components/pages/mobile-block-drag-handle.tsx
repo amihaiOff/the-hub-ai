@@ -124,9 +124,16 @@ export function MobileBlockDragHandle({ editor }: { editor: Editor }) {
     dragFrom.current = null;
     insertPos.current = null;
   }, []);
-  // Safety net: if the component unmounts while a drag is in flight, remove the
-  // window listeners so they can't fire against a dead component.
-  useEffect(() => () => teardown.current?.(), []);
+  // Safety net: if the component unmounts mid-drag or mid-long-press, remove the
+  // window listeners and cancel the pending timer so neither fires against a
+  // dead component.
+  useEffect(
+    () => () => {
+      teardown.current?.();
+      if (pressTimer.current) clearTimeout(pressTimer.current);
+    },
+    []
+  );
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -247,13 +254,18 @@ export function MobileBlockDragHandle({ editor }: { editor: Editor }) {
     const onKey = (ev: KeyboardEvent) => {
       if (ev.key === 'Escape') setMenu(null);
     };
+    // Any document change (edit elsewhere, another block deleted) can shift
+    // positions, so close rather than risk acting on a stale block position.
+    const closeOnTx = () => setMenu(null);
     document.addEventListener('pointerdown', onDown);
     document.addEventListener('keydown', onKey);
+    editor.on('transaction', closeOnTx);
     return () => {
       document.removeEventListener('pointerdown', onDown);
       document.removeEventListener('keydown', onKey);
+      editor.off('transaction', closeOnTx);
     };
-  }, [menu]);
+  }, [menu, editor]);
 
   const deleteBlock = useCallback(() => {
     if (!menu) return;
@@ -310,6 +322,7 @@ export function MobileBlockDragHandle({ editor }: { editor: Editor }) {
           >
             <button
               type="button"
+              role="menuitem"
               onClick={deleteBlock}
               className="hover:bg-destructive/10 text-destructive flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm"
             >
