@@ -28,6 +28,14 @@ import {
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   makeColumn,
   makeRow,
   makeSelectOption,
@@ -119,6 +127,12 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
   const setRows = (next: DatabaseRow[]) => updateAttributes({ rows: next });
 
   const [sorting, setSorting] = useState<SortingState>([]);
+  // Column pending deletion — drives the confirmation dialog. Deletion is
+  // destructive (drops the column and every cell under it), so all delete
+  // entry points route through here instead of removing immediately.
+  const [confirmDeleteCol, setConfirmDeleteCol] = useState<{ id: string; name: string } | null>(
+    null
+  );
 
   const columnHelper = useMemo(() => createColumnHelper<DatabaseRow>(), []);
   const tableColumns = useMemo(
@@ -162,6 +176,10 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
 
   const addRow = () => {
     const row = makeRow(columns);
+    // Clear any active sort so the appended row is guaranteed to appear at the
+    // visual bottom (a sort would otherwise place the new empty row wherever
+    // its blank value falls — e.g. at the top under a descending sort).
+    if (sorting.length) setSorting([]);
     setRows([...rows, row]);
     setFocusIntent({ kind: 'row', id: row.id });
   };
@@ -180,9 +198,11 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
     const raf = requestAnimationFrame(() => {
       if (focusIntent.kind === 'row') {
         const tr = document.querySelector<HTMLTableRowElement>(`[data-row-id="${focusIntent.id}"]`);
-        // First text-ish input in the row — typically the Name cell.
-        const input = tr?.querySelector<HTMLInputElement>(
-          'input:not([type="checkbox"]):not([type="date"]):not([type="number"]), input'
+        // First text-ish field in the row — typically the Name cell. Text
+        // cells render as a <textarea> (so long values wrap), so match that
+        // first, then fall back to other inputs.
+        const input = tr?.querySelector<HTMLTextAreaElement | HTMLInputElement>(
+          'textarea, input:not([type="checkbox"]):not([type="date"]):not([type="number"]), input'
         );
         tr?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
         input?.focus();
@@ -196,7 +216,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
     });
     return () => cancelAnimationFrame(raf);
   }, [focusIntent]);
-  const deleteColumn = (colId: string) => {
+  const performDeleteColumn = (colId: string) => {
     setColumns(columns.filter((c) => c.id !== colId));
     setRows(
       rows.map((r) => {
@@ -204,6 +224,12 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
         return { ...r, cells: rest };
       })
     );
+  };
+  // Ask before deleting — all delete entry points (quick-X, column menu,
+  // mobile sheet) call this, which opens the confirmation dialog.
+  const requestDeleteColumn = (colId: string) => {
+    const col = columns.find((c) => c.id === colId);
+    setConfirmDeleteCol({ id: colId, name: col?.name ?? 'this column' });
   };
   const renameColumn = (colId: string, name: string) => {
     setColumns(columns.map((c) => (c.id === colId ? { ...c, name } : c)));
@@ -235,19 +261,21 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const tbodyRef = useRef<HTMLTableSectionElement | null>(null);
 
+  // A narrow trailing "add column" cell (2.5rem) lives in the header when
+  // editable; include its width so table-layout: fixed leaves room for it.
+  const addColWidthRem = editable ? 2.5 : 0;
+  const tableWidthRem = columns.length * 10 + addColWidthRem;
+
   return (
     <NodeViewWrapper as="div" className="database-block group/db relative my-4 pl-9">
-      <div
-        ref={wrapperRef}
-        className="border-border/40 bg-card/40 relative overflow-x-auto rounded-2xl border"
-      >
-        {/* Table width = column count × 10rem so table-layout: fixed cells
-            keep their intrinsic size. On narrow viewports the table
-            exceeds the wrapper and `overflow-x-auto` gives a real
-            horizontal scroll — `w-full` would collapse cells instead. */}
+      <div ref={wrapperRef} className="relative overflow-x-auto">
+        {/* Table width = column count × 10rem (+ the narrow add-column cell)
+            so table-layout: fixed cells keep their intrinsic size. On narrow
+            viewports the table exceeds the wrapper and `overflow-x-auto` gives
+            a real horizontal scroll — `w-full` would collapse cells instead. */}
         <table
           className="min-w-full text-sm"
-          style={{ tableLayout: 'fixed', width: `${columns.length * 10}rem` }}
+          style={{ tableLayout: 'fixed', width: `${tableWidthRem}rem` }}
         >
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -271,12 +299,31 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                         onToggleSort={() => header.column.toggleSorting()}
                         onRename={(name) => renameColumn(col.id, name)}
                         onChangeType={(type) => changeColumnType(col.id, type)}
-                        onDelete={() => deleteColumn(col.id)}
+                        onDelete={() => requestDeleteColumn(col.id)}
                         onSetOptions={(opts) => setSelectOptions(col.id, opts)}
                       />
                     </th>
                   );
                 })}
+                {/* Narrow add-column cell — a plus in the header spawns a
+                    new column (replaces the old floating edge tab). */}
+                {editable && (
+                  <th
+                    data-add-column-cell=""
+                    className="p-0 align-middle"
+                    style={{ width: '2.5rem' }}
+                  >
+                    <button
+                      type="button"
+                      onClick={addColumn}
+                      aria-label="Add column"
+                      title="Add column"
+                      className="text-muted-foreground/60 hover:text-primary hover:bg-primary/10 flex h-full w-full items-center justify-center py-2 transition-colors"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </th>
+                )}
               </tr>
             ))}
           </thead>
@@ -299,6 +346,9 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                       </td>
                     );
                   })}
+                  {/* Filler cell under the add-column header so row dividers
+                      run the full table width. */}
+                  {editable && <td data-add-column-cell="" className="p-0" />}
                 </tr>
               );
             })}
@@ -312,34 +362,62 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                 </td>
               </tr>
             )}
+            {/* Narrow add-row row — a full-width plus at the bottom of the
+                table adds a new row (replaces the old floating edge tab). */}
+            {editable && (
+              <tr data-add-row="">
+                <td colSpan={columns.length + 1} className="p-0">
+                  <button
+                    type="button"
+                    onClick={addRow}
+                    aria-label="Add row"
+                    title="Add row"
+                    className="text-muted-foreground/60 hover:text-primary hover:bg-primary/10 flex w-full items-center justify-center gap-1 py-1.5 text-xs transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
 
       {editable && <DeleteRowGutter tbodyRef={tbodyRef} rows={rows} onDelete={deleteRow} />}
 
-      {editable && (
-        <>
-          <button
-            type="button"
-            onClick={addColumn}
-            aria-label="Add column"
-            title="Add column"
-            className="border-border/40 bg-background/70 text-muted-foreground/60 hover:text-primary hover:border-primary/40 hover:bg-primary/10 absolute top-0 -right-1 flex h-full w-5 items-center justify-center rounded-r-lg border border-l-0 opacity-100 backdrop-blur transition-opacity md:pointer-events-none md:opacity-0 md:group-hover/db:pointer-events-auto md:group-hover/db:opacity-100"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={addRow}
-            aria-label="Add row"
-            title="Add row"
-            className="border-border/40 bg-background/70 text-muted-foreground/60 hover:text-primary hover:border-primary/40 hover:bg-primary/10 absolute -bottom-1 left-0 flex h-5 w-full items-center justify-center rounded-b-lg border border-t-0 opacity-100 backdrop-blur transition-opacity md:pointer-events-none md:opacity-0 md:group-hover/db:pointer-events-auto md:group-hover/db:opacity-100"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
-        </>
-      )}
+      <Dialog
+        open={confirmDeleteCol !== null}
+        onOpenChange={(open) => !open && setConfirmDeleteCol(null)}
+      >
+        <DialogContent className="rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Delete this column?</DialogTitle>
+            <DialogDescription>
+              This removes the “{confirmDeleteCol?.name}” column and its values from every row. This
+              can’t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setConfirmDeleteCol(null)}
+              className="hover:bg-muted/60 rounded-lg px-4 py-2 text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (confirmDeleteCol) performDeleteColumn(confirmDeleteCol.id);
+                setConfirmDeleteCol(null);
+              }}
+              className="bg-destructive hover:bg-destructive/90 flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white"
+            >
+              <Trash2 className="h-4 w-4" /> Delete column
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </NodeViewWrapper>
   );
 }
@@ -1121,12 +1199,16 @@ function CellEditor({
   const disabled = !editable;
   switch (column.type) {
     case 'text':
+      // A textarea (not an input) so long values wrap onto multiple lines and
+      // the row grows to fit. `field-sizing:content` auto-sizes the height to
+      // the content in supported browsers; `rows={1}` is the baseline height.
       return (
-        <input
+        <textarea
           value={(value as string) ?? ''}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
-          className="w-full bg-transparent px-3 py-2 text-sm outline-none"
+          rows={1}
+          className="[field-sizing:content] w-full resize-none bg-transparent px-3 py-2 text-sm leading-snug break-words whitespace-pre-wrap outline-none"
         />
       );
     case 'number':

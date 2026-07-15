@@ -382,18 +382,26 @@
     border-collapse: separate;
     border-spacing: 0;
     width: 100%;
-    background: color-mix(in oklab, var(--card) 60%, transparent);
+    /* No outer border / background — the grid reads as content embedded in
+       the page (light row dividers only), not a boxed spreadsheet. */
+    background: transparent;
   }
   .database-block th,
   .database-block td {
     border-bottom: 1px solid color-mix(in oklab, var(--border) 45%, transparent);
   }
-  .database-block th + th,
-  .database-block td + td {
-    border-left: 1px solid color-mix(in oklab, var(--border) 30%, transparent);
-  }
   .database-block tr:last-child > td {
     border-bottom: none;
+  }
+  /* On mobile, break out of the page-body's left padding and the shell's
+     horizontal padding so the grid spans (nearly) the full screen width and
+     sits flush with the page — no cramped column inset. */
+  @media (max-width: 767px) {
+    .page-body .database-block {
+      margin-left: calc(-1.75rem - 1rem);
+      margin-right: -1rem;
+      padding-left: 0;
+    }
   }
   .database-block tbody tr:hover {
     background: color-mix(in oklab, var(--muted) 25%, transparent);
