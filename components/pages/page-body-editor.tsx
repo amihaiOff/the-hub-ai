@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
+import { Extension } from '@tiptap/core';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -24,11 +25,38 @@ import {
 import { cn } from '@/lib/utils';
 import { uploadPageImage } from '@/lib/hooks/use-pages';
 import { Column, ColumnBlock } from './columns-extension';
-import { ListIndentControls } from './list-indent-controls';
+import { ListIndentControls, canOutdentWithinList } from './list-indent-controls';
 import { SlashMenuExtension } from './slash-menu';
 import { CollapsibleHeading } from './collapsible-heading';
 import { TableFloatingControls } from './table-floating-controls';
 import { DatabaseBlock } from './database-extension';
+
+/**
+ * Keeps Shift-Tab (outdent) from lifting a top-level list item out of the
+ * list into a plain paragraph. Nested items still outdent one level toward
+ * their parent; a top-level item's Shift-Tab is swallowed so the item stays
+ * in the list. Higher priority than StarterKit's listItem so this runs first.
+ */
+const ListOutdentGuard = Extension.create({
+  name: 'listOutdentGuard',
+  priority: 1000,
+  addKeyboardShortcuts() {
+    return {
+      'Shift-Tab': ({ editor }) => {
+        const inList = editor.isActive('listItem') || editor.isActive('taskItem');
+        if (!inList) return false; // Not in a list — let default handling run.
+        if (canOutdentWithinList(editor)) {
+          return (
+            editor.chain().focus().liftListItem('listItem').run() ||
+            editor.chain().focus().liftListItem('taskItem').run()
+          );
+        }
+        // Top-level list item: consume the key so it can't leave the list.
+        return true;
+      },
+    };
+  },
+});
 
 interface PageBodyEditorProps {
   /** Initial Tiptap JSON document (or null for an empty page). Read once. */
@@ -64,6 +92,7 @@ export function PageBodyEditor({ initialContent, onChange }: PageBodyEditorProps
       Column,
       DatabaseBlock,
       SlashMenuExtension,
+      ListOutdentGuard,
     ],
     content: (initialContent as object) ?? '',
     onUpdate: ({ editor }) => onChange(editor.getJSON()),
