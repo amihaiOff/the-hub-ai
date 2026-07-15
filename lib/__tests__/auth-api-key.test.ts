@@ -9,7 +9,7 @@ jest.mock('@/lib/db', () => ({
 }));
 
 import { prisma } from '@/lib/db';
-import { getHouseholdIdFromApiKey } from '@/lib/auth-api-key';
+import { getHouseholdIdFromApiKey, getHouseholdIdFromAgentKey } from '@/lib/auth-api-key';
 
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 
@@ -72,6 +72,54 @@ describe('getHouseholdIdFromApiKey', () => {
     (mockPrisma.household.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
     const result = await getHouseholdIdFromApiKey(makeRequest('Bearer test-secret'));
+    expect(result).toBeNull();
+  });
+
+  it('rejects the read-only agent token (write path stays admin-only)', async () => {
+    process.env.API_SECRET = 'admin-secret';
+    process.env.AGENT_READ_TOKEN = 'read-token';
+    const result = await getHouseholdIdFromApiKey(makeRequest('Bearer read-token'));
+    expect(result).toBeNull();
+  });
+});
+
+describe('getHouseholdIdFromAgentKey', () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    jest.resetAllMocks();
+    process.env = { ...originalEnv };
+    delete process.env.API_SECRET;
+    delete process.env.UPLOAD_SCRIPT_API_KEY;
+    delete process.env.AGENT_READ_TOKEN;
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  it('accepts the dedicated read-only token', async () => {
+    process.env.AGENT_READ_TOKEN = 'read-token';
+    (mockPrisma.household.findFirst as jest.Mock).mockResolvedValueOnce({ id: 'hh-1' });
+    const result = await getHouseholdIdFromAgentKey(makeRequest('Bearer read-token'));
+    expect(result).toBe('hh-1');
+  });
+
+  it('also accepts the full-access API secret', async () => {
+    process.env.API_SECRET = 'admin-secret';
+    (mockPrisma.household.findFirst as jest.Mock).mockResolvedValueOnce({ id: 'hh-1' });
+    const result = await getHouseholdIdFromAgentKey(makeRequest('Bearer admin-secret'));
+    expect(result).toBe('hh-1');
+  });
+
+  it('rejects an unknown token', async () => {
+    process.env.AGENT_READ_TOKEN = 'read-token';
+    const result = await getHouseholdIdFromAgentKey(makeRequest('Bearer nope'));
+    expect(result).toBeNull();
+  });
+
+  it('returns null when no tokens are configured', async () => {
+    const result = await getHouseholdIdFromAgentKey(makeRequest('Bearer anything'));
     expect(result).toBeNull();
   });
 });
