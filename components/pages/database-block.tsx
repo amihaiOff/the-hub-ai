@@ -1187,11 +1187,14 @@ function ColumnMobileSheet({
 // ─── Cell editors ────────────────────────────────────────────────────────
 
 /**
- * Text cell: a textarea (not an input) so long values wrap onto multiple
- * lines and the row grows to fit. Auto-sizes the height to its content — via
- * `field-sizing:content` where supported (Chromium), and a JS fallback
- * (reset to `auto`, then grow to `scrollHeight`) everywhere else, since iOS
- * Safari / Firefox don't yet support `field-sizing`.
+ * Text cell: a textarea (not an input) so long values wrap onto multiple lines
+ * and the row grows to fit. Auto-sizes with the CSS "grid replica" technique —
+ * an invisible sibling holds the same wrapped text and drives the shared grid
+ * cell's height; the textarea stretches to fill it. This is font/measure-safe
+ * (no JS height, no `field-sizing` support gap) so the line never clips on
+ * mobile the way a `scrollHeight` measurement taken before web-font load does.
+ * The replica and textarea MUST keep identical text metrics (padding, size,
+ * leading, wrapping) or the two heights diverge.
  */
 function TextCell({
   value,
@@ -1202,27 +1205,26 @@ function TextCell({
   onChange: (v: DatabaseCellValue) => void;
   disabled: boolean;
 }) {
-  const ref = useRef<HTMLTextAreaElement | null>(null);
-  const resize = useCallback(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  }, []);
-  // Resize on mount and whenever the value changes (typing, sort, external
-  // edit). useLayoutEffect avoids a one-frame flash of the wrong height.
-  useLayoutEffect(resize, [value, resize]);
-
+  const typography = 'px-3 py-2 text-sm leading-snug break-words whitespace-pre-wrap';
   return (
-    <textarea
-      ref={ref}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      onInput={resize}
-      disabled={disabled}
-      rows={1}
-      className="[field-sizing:content] w-full resize-none overflow-hidden bg-transparent px-3 py-2 text-sm leading-snug break-words whitespace-pre-wrap outline-none"
-    />
+    <div className="grid min-w-0">
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        rows={1}
+        className={cn(
+          typography,
+          'col-start-1 row-start-1 w-full resize-none overflow-hidden bg-transparent outline-none'
+        )}
+      />
+      {/* Invisible size-driver: same text + metrics as the textarea. The
+          trailing space makes a trailing newline (and an empty value) reserve
+          a line so the box never collapses below the visible text. */}
+      <div aria-hidden className={cn(typography, 'invisible col-start-1 row-start-1')}>
+        {value + ' '}
+      </div>
+    </div>
   );
 }
 
