@@ -1,357 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-
-// A broad, browsable emoji bank grouped by category. Not the full Unicode set —
-// but wide enough to pick a fitting page icon without a heavy dependency. The
-// input at the top still accepts any typed/pasted emoji.
-const EMOJI_GROUPS: { label: string; emojis: string[] }[] = [
-  {
-    label: 'Smileys & people',
-    emojis: [
-      '😀',
-      '😄',
-      '😁',
-      '😅',
-      '😂',
-      '🙂',
-      '😉',
-      '😊',
-      '😍',
-      '😘',
-      '😜',
-      '🤪',
-      '🤓',
-      '😎',
-      '🥳',
-      '🤩',
-      '🤔',
-      '🤨',
-      '😐',
-      '😴',
-      '😌',
-      '😔',
-      '😢',
-      '😭',
-      '😤',
-      '😠',
-      '🤯',
-      '😱',
-      '🤗',
-      '🤫',
-      '🤥',
-      '😶',
-      '🙄',
-      '😇',
-      '🥰',
-      '😋',
-      '👍',
-      '👎',
-      '👏',
-      '🙌',
-      '🙏',
-      '💪',
-      '👋',
-      '🤝',
-      '✌️',
-      '🤞',
-      '👀',
-      '🧠',
-      '🫶',
-      '👶',
-      '🧒',
-      '👨',
-      '👩',
-      '🧑',
-      '👴',
-      '👵',
-      '👨‍👩‍👧‍👦',
-      '👨‍💻',
-      '👩‍💻',
-      '🕺',
-      '💃',
-    ],
-  },
-  {
-    label: 'Animals & nature',
-    emojis: [
-      '🐶',
-      '🐱',
-      '🐭',
-      '🐹',
-      '🐰',
-      '🦊',
-      '🐻',
-      '🐼',
-      '🐨',
-      '🐯',
-      '🦁',
-      '🐮',
-      '🐷',
-      '🐸',
-      '🐵',
-      '🐔',
-      '🐧',
-      '🐦',
-      '🦆',
-      '🦉',
-      '🐴',
-      '🦄',
-      '🐝',
-      '🦋',
-      '🐢',
-      '🐙',
-      '🐠',
-      '🐬',
-      '🐳',
-      '🐊',
-      '🐘',
-      '🦒',
-      '🦓',
-      '🌱',
-      '🌲',
-      '🌳',
-      '🌴',
-      '🌵',
-      '🌸',
-      '🌷',
-      '🌹',
-      '🌻',
-      '🍀',
-      '🍁',
-      '🍄',
-      '🌍',
-      '🌙',
-      '⭐',
-      '🌟',
-      '☀️',
-      '🌈',
-      '☁️',
-      '⚡',
-      '❄️',
-      '🔥',
-      '💧',
-    ],
-  },
-  {
-    label: 'Food & drink',
-    emojis: [
-      '🍎',
-      '🍐',
-      '🍊',
-      '🍋',
-      '🍌',
-      '🍉',
-      '🍇',
-      '🍓',
-      '🫐',
-      '🍒',
-      '🍑',
-      '🥝',
-      '🍅',
-      '🥑',
-      '🥦',
-      '🥕',
-      '🌽',
-      '🥔',
-      '🍞',
-      '🧀',
-      '🥚',
-      '🍔',
-      '🍟',
-      '🍕',
-      '🌭',
-      '🥪',
-      '🌮',
-      '🍣',
-      '🍜',
-      '🍝',
-      '🍲',
-      '🍰',
-      '🎂',
-      '🍪',
-      '🍫',
-      '🍩',
-      '☕',
-      '🍵',
-      '🧃',
-      '🍺',
-      '🍷',
-      '🥂',
-    ],
-  },
-  {
-    label: 'Travel & places',
-    emojis: [
-      '🏠',
-      '🏡',
-      '🏢',
-      '🏥',
-      '🏦',
-      '🏫',
-      '🏨',
-      '⛪',
-      '🏰',
-      '🗼',
-      '🏝️',
-      '⛰️',
-      '🌋',
-      '🏕️',
-      '✈️',
-      '🚀',
-      '🚗',
-      '🚕',
-      '🚙',
-      '🚌',
-      '🚲',
-      '🛵',
-      '🚂',
-      '🚆',
-      '⛵',
-      '🚤',
-      '🗺️',
-      '🧭',
-      '📍',
-      '🚦',
-      '🌉',
-      '🎡',
-    ],
-  },
-  {
-    label: 'Activities & objects',
-    emojis: [
-      '⚽',
-      '🏀',
-      '🏈',
-      '🎾',
-      '🏐',
-      '🏓',
-      '🎿',
-      '⛷️',
-      '🏂',
-      '🏊',
-      '🚴',
-      '🧗',
-      '🎯',
-      '🎮',
-      '🎲',
-      '🎸',
-      '🎹',
-      '🎺',
-      '🎻',
-      '🥁',
-      '🎵',
-      '🎧',
-      '🎤',
-      '🎬',
-      '📷',
-      '📸',
-      '📹',
-      '🎨',
-      '🖌️',
-      '✏️',
-      '🖊️',
-      '📚',
-      '📖',
-      '📓',
-      '📔',
-      '📕',
-      '📗',
-      '📘',
-      '📙',
-      '📄',
-      '📃',
-      '📝',
-      '📌',
-      '📎',
-      '🖇️',
-      '📁',
-      '🗂️',
-      '🗒️',
-      '📅',
-      '📆',
-      '⏰',
-      '⏳',
-      '🔔',
-      '🔦',
-      '💡',
-      '🔒',
-      '🔑',
-      '🗝️',
-      '🔧',
-      '🔨',
-      '🛠️',
-      '⚙️',
-      '🧰',
-      '🧲',
-      '🔬',
-      '🔭',
-      '💻',
-      '🖥️',
-      '⌨️',
-      '🖱️',
-      '📱',
-      '☎️',
-      '🖨️',
-      '💾',
-      '💿',
-    ],
-  },
-  {
-    label: 'Symbols & finance',
-    emojis: [
-      '❤️',
-      '🧡',
-      '💛',
-      '💚',
-      '💙',
-      '💜',
-      '🖤',
-      '🤍',
-      '💯',
-      '✅',
-      '☑️',
-      '❌',
-      '⭕',
-      '❓',
-      '❗',
-      '⚠️',
-      '🚫',
-      '♻️',
-      '⭐',
-      '🌟',
-      '🔥',
-      '✨',
-      '🎉',
-      '🎊',
-      '🎁',
-      '🏆',
-      '🥇',
-      '🎖️',
-      '💰',
-      '💵',
-      '💳',
-      '🪙',
-      '💎',
-      '📈',
-      '📉',
-      '📊',
-      '🧾',
-      '🏷️',
-      '🧮',
-      '⚖️',
-      '📌',
-      '📢',
-      '🔗',
-      '🧩',
-      '🎯',
-      '🚩',
-      '🏁',
-    ],
-  },
-];
+import { EMOJI_GROUPS, searchEmojis } from './emoji-data';
 
 export function EmojiPicker({
   value,
@@ -363,14 +15,38 @@ export function EmojiPicker({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
 
   const pick = (emoji: string | null) => {
     onSelect(emoji);
+    setQuery('');
     setOpen(false);
   };
 
+  // Search results (flat) when there's a query; otherwise show the grouped
+  // browse view. Recomputed only when the query changes.
+  const searching = query.trim().length > 0;
+  const results = useMemo(() => (searching ? searchEmojis(query) : []), [query, searching]);
+
+  // Enter picks the top search hit; if nothing matches but the user typed an
+  // actual emoji, use that (so pasting a glyph still works).
+  const commitTyped = () => {
+    if (results.length > 0) {
+      pick(results[0].char);
+      return;
+    }
+    const v = query.trim();
+    if (v && /\p{Extended_Pictographic}/u.test(v)) pick([...v][0] ?? v);
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) setQuery('');
+      }}
+    >
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -390,40 +66,66 @@ export function EmojiPicker({
       <PopoverContent align="start" className="w-72 rounded-2xl p-3">
         <input
           autoFocus
-          defaultValue=""
-          placeholder="Type or paste an emoji…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search emoji (e.g. money, cat)…"
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
-              const v = (e.target as HTMLInputElement).value.trim();
-              if (v) pick([...v][0] ?? v);
+              commitTyped();
             }
           }}
           className="border-border/60 focus:ring-primary/40 mb-2 h-8 w-full rounded-lg border bg-transparent px-2 text-sm outline-none focus:ring-1"
         />
         <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
-          {EMOJI_GROUPS.map((group) => (
-            <div key={group.label}>
-              <p className="text-muted-foreground/70 mb-1 px-0.5 text-[10px] font-semibold tracking-wider uppercase">
-                {group.label}
-              </p>
+          {searching ? (
+            results.length > 0 ? (
               <div className="grid grid-cols-8 gap-1">
-                {group.emojis.map((e, i) => (
+                {results.map((e) => (
                   <button
-                    key={`${e}-${i}`}
+                    key={e.char}
                     type="button"
-                    onClick={() => pick(e)}
+                    onClick={() => pick(e.char)}
+                    title={e.name}
                     className={cn(
                       'hover:bg-muted flex h-7 w-7 items-center justify-center rounded-md text-lg leading-none transition-colors',
-                      value === e && 'bg-muted'
+                      value === e.char && 'bg-muted'
                     )}
                   >
-                    {e}
+                    {e.char}
                   </button>
                 ))}
               </div>
-            </div>
-          ))}
+            ) : (
+              <p className="text-muted-foreground px-1 py-4 text-center text-xs">
+                No emoji found for “{query.trim()}”. Press Enter to use a pasted emoji.
+              </p>
+            )
+          ) : (
+            EMOJI_GROUPS.map((group) => (
+              <div key={group.label}>
+                <p className="text-muted-foreground/70 mb-1 px-0.5 text-[10px] font-semibold tracking-wider uppercase">
+                  {group.label}
+                </p>
+                <div className="grid grid-cols-8 gap-1">
+                  {group.emojis.map((e, i) => (
+                    <button
+                      key={`${e.char}-${i}`}
+                      type="button"
+                      onClick={() => pick(e.char)}
+                      title={e.name}
+                      className={cn(
+                        'hover:bg-muted flex h-7 w-7 items-center justify-center rounded-md text-lg leading-none transition-colors',
+                        value === e.char && 'bg-muted'
+                      )}
+                    >
+                      {e.char}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
         </div>
         {value && (
           <button
