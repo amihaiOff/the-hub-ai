@@ -24,8 +24,9 @@ Or naturally: "Do the Claude tasks from the Areas page", "Work through the app b
 The backlog is read from the deployed app:
 
 - `HUB_AI_API_URL` — base URL. Defaults to `https://the-hub-ai-ten.vercel.app`.
-- `HUB_AI_API_KEY` — the shared API secret (the app's `API_SECRET` /
-  `UPLOAD_SCRIPT_API_KEY`). Required.
+- `HUB_AI_API_KEY` — the bearer token. Use the app's dedicated **read-only**
+  `AGENT_READ_TOKEN` (preferred — it only unlocks these read endpoints); the
+  full-access `API_SECRET` also works. Required.
 
 If `HUB_AI_API_KEY` isn't set, stop and ask the user to provide it — don't guess.
 

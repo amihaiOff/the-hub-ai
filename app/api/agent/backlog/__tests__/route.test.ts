@@ -9,14 +9,16 @@ jest.mock('@/lib/db', () => ({
 }));
 
 jest.mock('@/lib/auth-api-key', () => ({
-  getHouseholdIdFromApiKey: jest.fn(),
+  getHouseholdIdFromAgentKey: jest.fn(),
 }));
 
 import { prisma } from '@/lib/db';
-import { getHouseholdIdFromApiKey } from '@/lib/auth-api-key';
+import { getHouseholdIdFromAgentKey } from '@/lib/auth-api-key';
 import { GET } from '../route';
 
-const mockAuth = getHouseholdIdFromApiKey as jest.MockedFunction<typeof getHouseholdIdFromApiKey>;
+const mockAuth = getHouseholdIdFromAgentKey as jest.MockedFunction<
+  typeof getHouseholdIdFromAgentKey
+>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 
 const req = () => new NextRequest('http://localhost/api/agent/backlog');
