@@ -24,6 +24,8 @@ export async function GET() {
     //     stock_price_history ("portfolio old design" — superseded by Moneytor accounts)
     //   - verification_tokens (auth artifacts)
     //   - cron_run_logs (runtime telemetry)
+    //   - budget_categorization_logs (AI-categorization telemetry: token usage +
+    //     decision audit log; regenerable, not user content)
     const [
       users,
       profiles,
@@ -67,6 +69,7 @@ export async function GET() {
       moneytorPensionFunds,
       moneytorPensionSnapshots,
       generalLogs,
+      pages,
     ] = await Promise.all([
       prisma.user.findMany(),
       prisma.profile.findMany(),
@@ -110,12 +113,13 @@ export async function GET() {
       prisma.moneytorPensionFund.findMany(),
       prisma.moneytorPensionSnapshot.findMany(),
       prisma.generalLog.findMany(),
+      prisma.page.findMany(),
     ]);
 
     // Create backup metadata
     const metadata = {
       backupDate: new Date().toISOString(),
-      schemaVersion: '2.2',
+      schemaVersion: '2.3',
       createdBy: user.email,
       counts: {
         users: users.length,
@@ -160,6 +164,7 @@ export async function GET() {
         moneytorPensionFunds: moneytorPensionFunds.length,
         moneytorPensionSnapshots: moneytorPensionSnapshots.length,
         generalLogs: generalLogs.length,
+        pages: pages.length,
       },
     };
 
@@ -240,6 +245,7 @@ export async function GET() {
       JSON.stringify(moneytorPensionSnapshots, jsonSerializer, 2)
     );
     zip.file('general_logs.json', JSON.stringify(generalLogs, jsonSerializer, 2));
+    zip.file('pages.json', JSON.stringify(pages, jsonSerializer, 2));
 
     // Generate ZIP as Blob
     const zipBlob = await zip.generateAsync({ type: 'blob' });

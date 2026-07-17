@@ -64,6 +64,20 @@ const mockPrisma = {
   moneytorAccountSnapshot: createMockFns('moneytorAccountSnapshot'),
   moneytorPensionFund: createMockFns('moneytorPensionFund'),
   moneytorPensionSnapshot: createMockFns('moneytorPensionSnapshot'),
+  // Tables added to the restore round-trip in schema version 2.3.
+  partnerContact: createMockFns('partnerContact'),
+  ccGenericPayeeName: createMockFns('ccGenericPayeeName'),
+  budgetAccountName: createMockFns('budgetAccountName'),
+  generalLog: createMockFns('generalLog'),
+  moneytorRealEstate: createMockFns('moneytorRealEstate'),
+  moneytorRealEstateSnapshot: createMockFns('moneytorRealEstateSnapshot'),
+  moneytorDropLog: createMockFns('moneytorDropLog'),
+  moneytorSyncLog: createMockFns('moneytorSyncLog'),
+  taskCategory: createMockFns('taskCategory'),
+  taskTag: createMockFns('taskTag'),
+  task: { ...createMockFns('task'), update: jest.fn() },
+  taskShare: createMockFns('taskShare'),
+  page: createMockFns('page'),
 };
 
 jest.mock('@/lib/db', () => ({

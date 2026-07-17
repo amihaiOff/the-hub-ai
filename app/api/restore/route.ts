@@ -9,6 +9,7 @@ import {
   TransactionType,
   TransactionSource,
   PaymentMethod,
+  TaskPriority,
 } from '@prisma/client';
 
 // Extend timeout for restore operations (Neon serverless can be slow)
@@ -58,7 +59,18 @@ export async function POST(request: NextRequest) {
 
     // Accept all backups produced since the format stabilised. Older versions
     // simply have empty arrays for tables added in later releases.
-    const supportedVersions = ['1.0', '1.1', '1.2', '1.3', '1.4', '1.5', '2.0', '2.1', '2.2'];
+    const supportedVersions = [
+      '1.0',
+      '1.1',
+      '1.2',
+      '1.3',
+      '1.4',
+      '1.5',
+      '2.0',
+      '2.1',
+      '2.2',
+      '2.3',
+    ];
     if (!supportedVersions.includes(metadata.schemaVersion)) {
       return NextResponse.json(
         { success: false, error: `Unsupported schema version: ${metadata.schemaVersion}` },
@@ -134,6 +146,30 @@ export async function POST(request: NextRequest) {
     const moneytorPensionSnapshots = await parseFile<Record<string, unknown>>(
       'moneytor_pension_snapshots.json'
     );
+    // Schema version 2.x tables that the backup captured but earlier restore
+    // versions dropped. Empty arrays for older backups that predate them.
+    const partnerContacts = await parseFile<Record<string, unknown>>('partner_contacts.json');
+    const ccGenericPayeeNames = await parseFile<Record<string, unknown>>(
+      'cc_generic_payee_names.json'
+    );
+    const budgetAccountNames = await parseFile<Record<string, unknown>>(
+      'budget_account_names.json'
+    );
+    const moneytorDropLogs = await parseFile<Record<string, unknown>>('moneytor_drop_logs.json');
+    const moneytorRealEstate = await parseFile<Record<string, unknown>>(
+      'moneytor_real_estate.json'
+    );
+    const moneytorRealEstateSnapshots = await parseFile<Record<string, unknown>>(
+      'moneytor_real_estate_snapshots.json'
+    );
+    const moneytorSyncLogs = await parseFile<Record<string, unknown>>('moneytor_sync_logs.json');
+    const taskCategories = await parseFile<Record<string, unknown>>('task_categories.json');
+    const taskTags = await parseFile<Record<string, unknown>>('task_tags.json');
+    const tasks = await parseFile<Record<string, unknown>>('tasks.json');
+    const taskShares = await parseFile<Record<string, unknown>>('task_shares.json');
+    const generalLogs = await parseFile<Record<string, unknown>>('general_logs.json');
+    // Schema version 2.3+ (empty for older backups).
+    const pages = await parseFile<Record<string, unknown>>('pages.json');
 
     // Execute operations sequentially without transaction
     // Neon serverless doesn't support long-running transactions well
@@ -141,6 +177,23 @@ export async function POST(request: NextRequest) {
 
     // Delete all existing data in reverse order of dependencies
     console.log('Deleting existing data...');
+    // Tasks module (children first: shares → tasks → tags/categories). Deleting
+    // tasks cascades the implicit task↔tag join rows.
+    await prisma.taskShare.deleteMany();
+    await prisma.task.deleteMany();
+    await prisma.taskTag.deleteMany();
+    await prisma.taskCategory.deleteMany();
+    // Pages (Areas documents)
+    await prisma.page.deleteMany();
+    // Household-scoped leaf tables added to the backup in the 2.x line
+    await prisma.partnerContact.deleteMany();
+    await prisma.ccGenericPayeeName.deleteMany();
+    await prisma.budgetAccountName.deleteMany();
+    await prisma.generalLog.deleteMany();
+    await prisma.moneytorDropLog.deleteMany();
+    await prisma.moneytorSyncLog.deleteMany();
+    await prisma.moneytorRealEstateSnapshot.deleteMany();
+    await prisma.moneytorRealEstate.deleteMany();
     // Moneytor tables (no children other than household — safe to wipe first)
     await prisma.moneytorPensionSnapshot.deleteMany();
     await prisma.moneytorPensionFund.deleteMany();
@@ -166,6 +219,10 @@ export async function POST(request: NextRequest) {
     await prisma.budgetTag.deleteMany();
     // Original tables
     await prisma.netWorthSnapshot.deleteMany();
+    // Legacy stock-portfolio tables (old design, superseded by Moneytor). The
+    // backup no longer writes stock_*.json, so on a 2.x restore these parse as
+    // empty arrays — the deletes below just clear any pre-existing rows. Kept so
+    // restoring an older (1.x) backup that still contains them round-trips.
     await prisma.stockPriceHistory.deleteMany();
     await prisma.stockAccountCash.deleteMany();
     await prisma.stockHolding.deleteMany();
@@ -818,6 +875,265 @@ export async function POST(request: NextRequest) {
           householdId: ps.householdId as string,
           createdAt: new Date(ps.createdAt as string),
           updatedAt: new Date(ps.updatedAt as string),
+        },
+      });
+    }
+
+    // 33. Partner Contacts
+    for (const pc of partnerContacts) {
+      await prisma.partnerContact.create({
+        data: {
+          id: pc.id as string,
+          name: pc.name as string,
+          phone: pc.phone as string,
+          householdId: pc.householdId as string,
+          createdAt: new Date(pc.createdAt as string),
+          updatedAt: new Date(pc.updatedAt as string),
+        },
+      });
+    }
+
+    // 34. CC Generic Payee Names
+    for (const cg of ccGenericPayeeNames) {
+      await prisma.ccGenericPayeeName.create({
+        data: {
+          id: cg.id as string,
+          name: cg.name as string,
+          householdId: cg.householdId as string,
+          createdAt: new Date(cg.createdAt as string),
+        },
+      });
+    }
+
+    // 35. Budget Account Names
+    for (const ban of budgetAccountNames) {
+      await prisma.budgetAccountName.create({
+        data: {
+          id: ban.id as string,
+          accountNumber: ban.accountNumber as string,
+          name: ban.name as string,
+          householdId: ban.householdId as string,
+          createdAt: new Date(ban.createdAt as string),
+          updatedAt: new Date(ban.updatedAt as string),
+        },
+      });
+    }
+
+    // 36. General Logs
+    for (const gl of generalLogs) {
+      await prisma.generalLog.create({
+        data: {
+          id: gl.id as string,
+          householdId: gl.householdId as string,
+          type: gl.type as string,
+          subjectType: (gl.subjectType as string | null) ?? null,
+          subjectId: (gl.subjectId as string | null) ?? null,
+          oldValue: (gl.oldValue as string | null) ?? null,
+          newValue: (gl.newValue as string | null) ?? null,
+          description: (gl.description as string | null) ?? null,
+          readAt: gl.readAt ? new Date(gl.readAt as string) : null,
+          createdAt: new Date(gl.createdAt as string),
+        },
+      });
+    }
+
+    // 37. Moneytor Real Estate
+    for (const re of moneytorRealEstate) {
+      const num = (k: string) => (re[k] != null ? (re[k] as number | string) : null);
+      const date = (k: string) => (re[k] ? new Date(re[k] as string) : null);
+      await prisma.moneytorRealEstate.create({
+        data: {
+          id: re.id as string,
+          productId: re.productId as string,
+          name: re.name as string,
+          currentValue: re.currentValue as number | string,
+          balanceInBase: re.balanceInBase as number | string,
+          currency: (re.currency as string) ?? 'ILS',
+          ownership: num('ownership'),
+          purchasePrice: num('purchasePrice'),
+          purchaseDate: date('purchaseDate'),
+          purchaseExpenses: num('purchaseExpenses'),
+          country: (re.country as string | null) ?? null,
+          city: (re.city as string | null) ?? null,
+          street: (re.street as string | null) ?? null,
+          houseNumber: (re.houseNumber as string | null) ?? null,
+          address: (re.address as string | null) ?? null,
+          latitude: num('latitude'),
+          longitude: num('longitude'),
+          propertyType: (re.propertyType as string | null) ?? null,
+          propertyCondition: (re.propertyCondition as string | null) ?? null,
+          measurementUnit: (re.measurementUnit as string | null) ?? null,
+          builtArea: num('builtArea'),
+          gardenBalconySize: num('gardenBalconySize'),
+          bedrooms: (re.bedrooms as number | null) ?? null,
+          floor: (re.floor as number | null) ?? null,
+          apartmentFloors: (re.apartmentFloors as string | null) ?? null,
+          rent: num('rent'),
+          rentSuggestion: num('rentSuggestion'),
+          rentType: (re.rentType as string | null) ?? null,
+          incomeFrequency: (re.incomeFrequency as string | null) ?? null,
+          saleCommission: num('saleCommission'),
+          profitTax: num('profitTax'),
+          generalSellingExpenses: num('generalSellingExpenses'),
+          legalExpenses: num('legalExpenses'),
+          linkedMortgageRef: (re.linkedMortgageRef as string | null) ?? null,
+          customSubtitle: (re.customSubtitle as string | null) ?? null,
+          rawData: (re.rawData as object) ?? undefined,
+          stableKey: (re.stableKey as string | null) ?? null,
+          userCanonicalId: (re.userCanonicalId as string | null) ?? null,
+          missingSince: date('missingSince'),
+          householdId: re.householdId as string,
+          syncedAt: new Date(re.syncedAt as string),
+          createdAt: new Date(re.createdAt as string),
+          updatedAt: new Date(re.updatedAt as string),
+        },
+      });
+    }
+
+    // 38. Moneytor Real Estate Snapshots
+    for (const res of moneytorRealEstateSnapshots) {
+      await prisma.moneytorRealEstateSnapshot.create({
+        data: {
+          id: res.id as string,
+          snapshotMonth: new Date(res.snapshotMonth as string),
+          productId: res.productId as string,
+          name: res.name as string,
+          currentValue: res.currentValue as number | string,
+          balanceInBase: res.balanceInBase as number | string,
+          currency: res.currency as string,
+          householdId: res.householdId as string,
+          createdAt: new Date(res.createdAt as string),
+          updatedAt: new Date(res.updatedAt as string),
+        },
+      });
+    }
+
+    // 39. Moneytor Drop Logs
+    for (const dl of moneytorDropLogs) {
+      await prisma.moneytorDropLog.create({
+        data: {
+          id: dl.id as string,
+          householdId: dl.householdId as string,
+          originalMoneytorId: (dl.originalMoneytorId as string | null) ?? null,
+          budgetTransactionId: (dl.budgetTransactionId as string | null) ?? null,
+          transactionDate: new Date(dl.transactionDate as string),
+          amountIls: dl.amountIls as number | string,
+          payeeName: (dl.payeeName as string | null) ?? null,
+          description: (dl.description as string | null) ?? null,
+          reason: dl.reason as string,
+          droppedAt: new Date(dl.droppedAt as string),
+        },
+      });
+    }
+
+    // 40. Moneytor Sync Logs
+    for (const sl of moneytorSyncLogs) {
+      await prisma.moneytorSyncLog.create({
+        data: {
+          id: sl.id as string,
+          householdId: sl.householdId as string,
+          source: sl.source as string,
+          startedAt: new Date(sl.startedAt as string),
+          completedAt: new Date(sl.completedAt as string),
+          durationMs: sl.durationMs as number,
+          success: sl.success as boolean,
+          errorMessage: (sl.errorMessage as string | null) ?? null,
+          results: (sl.results as object) ?? undefined,
+          createdAt: new Date(sl.createdAt as string),
+        },
+      });
+    }
+
+    // 41. Task Categories (before tasks)
+    for (const tc of taskCategories) {
+      await prisma.taskCategory.create({
+        data: {
+          id: tc.id as string,
+          name: tc.name as string,
+          color: (tc.color as string | null) ?? null,
+          icon: (tc.icon as string | null) ?? null,
+          sortOrder: tc.sortOrder as number,
+          householdId: tc.householdId as string,
+          createdAt: new Date(tc.createdAt as string),
+        },
+      });
+    }
+
+    // 42. Task Tags (before tasks — the m2m connect target)
+    for (const tt of taskTags) {
+      await prisma.taskTag.create({
+        data: {
+          id: tt.id as string,
+          name: tt.name as string,
+          color: (tt.color as string | null) ?? null,
+          householdId: tt.householdId as string,
+          createdAt: new Date(tt.createdAt as string),
+        },
+      });
+    }
+
+    // 43. Tasks (two-pass for the parentTaskId self-reference; connect tags)
+    const tasksWithParent: { id: string; parentTaskId: string }[] = [];
+    for (const t of tasks) {
+      if (t.parentTaskId) {
+        tasksWithParent.push({ id: t.id as string, parentTaskId: t.parentTaskId as string });
+      }
+      const tagIds = ((t.tags as { id: string }[] | undefined) ?? []).map((x) => ({ id: x.id }));
+      await prisma.task.create({
+        data: {
+          id: t.id as string,
+          title: t.title as string,
+          notes: (t.notes as string | null) ?? null,
+          status: (t.status as string) ?? '',
+          done: (t.done as boolean) ?? false,
+          priority: t.priority as TaskPriority,
+          dueDate: t.dueDate ? new Date(t.dueDate as string) : null,
+          sortOrder: t.sortOrder as number,
+          customFields: (t.customFields as object) ?? undefined,
+          categoryId: (t.categoryId as string | null) ?? null,
+          ownerId: t.ownerId as string,
+          assigneeId: (t.assigneeId as string | null) ?? null,
+          // parentTaskId set in the second pass to handle self-references
+          householdId: t.householdId as string,
+          createdAt: new Date(t.createdAt as string),
+          updatedAt: new Date(t.updatedAt as string),
+          ...(tagIds.length ? { tags: { connect: tagIds } } : {}),
+        },
+      });
+    }
+    for (const ref of tasksWithParent) {
+      await prisma.task.update({
+        where: { id: ref.id },
+        data: { parentTaskId: ref.parentTaskId },
+      });
+    }
+
+    // 44. Task Shares (after tasks + users)
+    for (const ts of taskShares) {
+      await prisma.taskShare.create({
+        data: {
+          id: ts.id as string,
+          taskId: ts.taskId as string,
+          userId: ts.userId as string,
+          canEdit: (ts.canEdit as boolean) ?? true,
+          createdAt: new Date(ts.createdAt as string),
+        },
+      });
+    }
+
+    // 45. Pages (Areas documents — after users + households)
+    for (const pg of pages) {
+      await prisma.page.create({
+        data: {
+          id: pg.id as string,
+          title: (pg.title as string) ?? '',
+          emoji: (pg.emoji as string | null) ?? null,
+          content: (pg.content as object) ?? undefined,
+          sortOrder: pg.sortOrder as number,
+          ownerId: pg.ownerId as string,
+          householdId: pg.householdId as string,
+          createdAt: new Date(pg.createdAt as string),
+          updatedAt: new Date(pg.updatedAt as string),
         },
       });
     }

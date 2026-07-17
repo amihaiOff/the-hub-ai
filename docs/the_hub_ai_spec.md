@@ -77,7 +77,18 @@ Rules live on the Payees page in a tabbed UI (Payees / Rules tabs). Each rule ha
 
 ### Backup/Restore
 
-Payee category rules are included in backup ZIP (`payee_category_rules.json`) and restored with the rest of the data (schema version 1.2+).
+`GET /api/backup` produces a ZIP with one JSON file per table plus `metadata.json`
+(current `schemaVersion: 2.3`). `POST /api/restore` wipes the database and
+re-inserts everything from a ZIP, in dependency order. Backup and restore are
+kept in lockstep — every table the backup captures is also restored, including
+the **Areas `pages`**, the full **tasks** module (tasks + categories, tags,
+shares), partner contacts, budget account names, cc-generic payee names,
+moneytor real-estate (+snapshots), moneytor sync/drop logs, and general logs.
+Payee category rules are included too (`payee_category_rules.json`, schema 1.2+).
+
+Intentionally **excluded** (regenerable telemetry / superseded data): raw
+`moneytor_transactions`, the old stock-portfolio tables, `verification_tokens`,
+`cron_run_logs`, and `budget_categorization_logs` (AI-categorization telemetry).
 
 ## AI automatic categorization
 
