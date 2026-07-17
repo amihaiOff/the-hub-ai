@@ -82,9 +82,16 @@ export function PageBodyEditor({ initialContent, onChange }: PageBodyEditorProps
       StarterKit.configure({ link: false, heading: false }),
       CollapsibleHeading.configure({ levels: [1, 2, 3] }),
       Link.configure({
-        openOnClick: false,
+        // Open links on click (the editor is always editable, and the Link
+        // extension only opens a link when openOnClick is on) — links open in a
+        // new tab. Editing a link still works via the toolbar Link button.
+        openOnClick: true,
         autolink: true,
-        HTMLAttributes: { class: 'text-primary underline underline-offset-2' },
+        HTMLAttributes: {
+          class: 'text-primary underline underline-offset-2',
+          target: '_blank',
+          rel: 'noopener noreferrer',
+        },
       }),
       Image.configure({ inline: false, HTMLAttributes: { class: 'page-image' } }),
       Table.configure({ resizable: true }),
