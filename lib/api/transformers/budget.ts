@@ -53,6 +53,17 @@ export interface BudgetTransactionRow {
  * dates → `YYYY-MM-DD` for calendar-only columns and full ISO for
  * timestamps, relations flattened into `*Name` mirrors.
  */
+/**
+ * The JSON shape API clients receive. Exported so `lib/hooks/use-budget.ts`
+ * (and any other consumer) can pin its own type to this one — prevents
+ * response-shape drift between server and client.
+ *
+ * If you add a field to the transformer body below, this type updates
+ * automatically via `ReturnType`. TypeScript will then flag any client
+ * hook whose local `BudgetTransaction` interface still lacks the field.
+ */
+export type BudgetTransactionResponse = ReturnType<typeof transformTransaction>;
+
 export function transformTransaction(tx: BudgetTransactionRow) {
   return {
     id: tx.id,
