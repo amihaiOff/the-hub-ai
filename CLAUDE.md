@@ -230,6 +230,28 @@ Configured in `vercel.json`:
 - Optimistic updates for instant UI feedback
 - Example hook: `useQuery(['portfolio', userId], () => fetchPortfolio(userId))`
 
+### State Management Boundary (IMPORTANT)
+
+Rules to keep server + client state cleanly separated:
+
+- **Server state → TanStack Query.** Anything that lives on the backend
+  and could change out-of-band — transactions, categories, accounts,
+  the current household, all API-derived data. Use `useQuery` /
+  `useMutation`; query keys live in centralised factories
+  (see `budgetKeys` in `lib/hooks/use-budget.ts` for the pattern).
+- **UI-only client state → Zustand or local `useState`.** Modal open
+  flags, currently-selected filters, expanded sections, drag/drop
+  intermediate state. Never anything that could reasonably come from
+  the server.
+- **Never** copy server data into Zustand or `useState`. If a
+  component needs to "hold on to" a value from the server, keep it in
+  Query and reference it via `useQuery(...).data` — you get automatic
+  freshness and invalidation.
+- Mutations that invalidate related caches should use the shared
+  helpers where they exist (see `invalidateBudgetTransactionCaches`
+  in `lib/hooks/use-budget.ts`) rather than repeating the invalidation
+  list inline.
+
 ### Styling & Design
 
 - **Mobile-first responsive design**
