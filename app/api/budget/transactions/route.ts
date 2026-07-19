@@ -3,7 +3,7 @@ import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { createTransactionSchema, transactionFiltersSchema } from '@/lib/validations/budget';
 import { getFirstZodError } from '@/lib/validations/common';
-import { getCycleRangeForHousehold } from '@/lib/utils/billing-cycle-server';
+import { getMonthTransactionWhereForHousehold } from '@/lib/utils/billing-cycle-server';
 import { Prisma } from '@prisma/client';
 
 /**
@@ -132,11 +132,14 @@ export async function GET(request: NextRequest) {
 
     // Date filters
     if (filters.month) {
-      const { from, to } = await getCycleRangeForHousehold(householdId, filters.month);
-      where.transactionDate = {
-        gte: from,
-        lt: to,
-      };
+      // Credit cards use the billing cycle; bank/other use the calendar month.
+      // Merged via AND so it composes with the payee-blacklist OR above (the
+      // fragment carries its own OR).
+      const monthWhere = await getMonthTransactionWhereForHousehold(householdId, filters.month);
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        monthWhere,
+      ];
     } else {
       if (filters.startDate) {
         where.transactionDate = {

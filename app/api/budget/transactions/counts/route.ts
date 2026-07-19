@@ -2,7 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { Prisma } from '@prisma/client';
-import { getCycleRangeForHousehold } from '@/lib/utils/billing-cycle-server';
+import { getMonthTransactionWhereForHousehold } from '@/lib/utils/billing-cycle-server';
 import { runReadTriggeredSuggestion } from '@/lib/ai/background-suggestion';
 
 // Give the post-response read-triggered AI categorization pass room to run.
@@ -43,8 +43,13 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         );
       }
-      const { from, to } = await getCycleRangeForHousehold(householdId, month);
-      where.transactionDate = { gte: from, lt: to };
+      // Credit cards use the billing cycle; bank/other use the calendar month.
+      // Merged via AND so it composes with the payee-blacklist OR above.
+      const monthWhere = await getMonthTransactionWhereForHousehold(householdId, month);
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        monthWhere,
+      ];
     }
 
     const uncategorized = await prisma.budgetTransaction.count({ where });

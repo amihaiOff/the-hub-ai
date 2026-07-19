@@ -36,6 +36,31 @@
 
 # Monthly Budget
 
+## Monthly period (billing cycle vs calendar month)
+
+A `YYYY-MM` budget month is **payment-method-aware**:
+
+- **Credit-card** transactions follow the household **billing cycle** — the
+  `Household.billingCycleStartDay` (1/2/10). With start day 10, "June" is the
+  card statement cycle `Jun 10 → Jul 10` (matches how card charges are billed).
+- **Everything else** (bank transfer, cash, check, other) follows the whole
+  **calendar month** (`Jun 1 → Jul 1`), regardless of the start-day setting.
+
+When the start day is 1 the two windows coincide. The split is computed by
+`monthTransactionWhere` (`lib/utils/billing-cycle.ts`) — a Prisma `where`
+fragment ORing the card cycle with the calendar-month range by `paymentMethod` —
+and applied by the transactions list, the uncategorized counts, and the
+category-spend **summary** (via `getMonthTransactionWhereForHousehold`). The
+month picker still anchors its default selection to the card cycle.
+
+Two related views intentionally keep their own month definition: the **savings**
+routes stay on the billing cycle for the whole Savings category (savings rows are
+created with the default `credit_card` method and stamped at the cycle start, so
+they line up with the summary), and the **analysis** trends bucket by pure
+calendar month. These can differ from the summary only for edge-case rows (e.g. a
+non-`credit_card` transaction recategorized into Savings near the cycle
+boundary).
+
 ## Spend by Category view
 
 ## Category set up (budget per category)

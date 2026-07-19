@@ -93,14 +93,22 @@ jest.mock('@/lib/utils/billing-cycle-server', () => ({
     const [y, m] = month.split('-').map(Number);
     return Promise.resolve({ from: new Date(y, m - 1, 1), to: new Date(y, m, 1) });
   },
+  getMonthTransactionWhereForHousehold: jest.fn((_id: string, month: string) => {
+    const [y, m] = month.split('-').map(Number);
+    return Promise.resolve({
+      transactionDate: { gte: new Date(y, m - 1, 1), lt: new Date(y, m, 1) },
+    });
+  }),
 }));
 
 import { prisma } from '@/lib/db';
 import { getCurrentContext } from '@/lib/auth-utils';
+import { getMonthTransactionWhereForHousehold } from '@/lib/utils/billing-cycle-server';
 import { GET, POST } from '../route';
 import { GET as GET_BY_ID, PUT, DELETE } from '../[id]/route';
 
 const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
+const mockMonthWhere = getMonthTransactionWhereForHousehold as jest.Mock;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 
 describe('Transactions API', () => {
@@ -130,6 +138,15 @@ describe('Transactions API', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    // resetAllMocks wipes jest.fn implementations, so restore the default
+    // month-filter fragment (flat calendar range) that most tests rely on.
+    // Individual tests can still override it per-call with mockResolvedValueOnce.
+    mockMonthWhere.mockImplementation((_id: string, month: string) => {
+      const [y, m] = month.split('-').map(Number);
+      return Promise.resolve({
+        transactionDate: { gte: new Date(y, m - 1, 1), lt: new Date(y, m, 1) },
+      });
+    });
   });
 
   describe('GET /api/budget/transactions', () => {
@@ -193,10 +210,14 @@ describe('Transactions API', () => {
         expect.objectContaining({
           where: expect.objectContaining({
             isDeleted: false,
-            transactionDate: {
-              gte: expect.any(Date),
-              lt: expect.any(Date),
-            },
+            AND: [
+              {
+                transactionDate: {
+                  gte: expect.any(Date),
+                  lt: expect.any(Date),
+                },
+              },
+            ],
           }),
         })
       );
@@ -301,10 +322,14 @@ describe('Transactions API', () => {
             categoryId: null,
             type: 'expense',
             tags: { none: {} },
-            transactionDate: {
-              gte: expect.any(Date),
-              lt: expect.any(Date),
-            },
+            AND: [
+              {
+                transactionDate: {
+                  gte: expect.any(Date),
+                  lt: expect.any(Date),
+                },
+              },
+            ],
           }),
         })
       );
@@ -382,10 +407,42 @@ describe('Transactions API', () => {
 
       const callArgs = (mockPrisma.budgetTransaction.findMany as jest.Mock).mock.calls[0][0];
       expect(callArgs.where.paymentIdentifier).toBe('9999');
-      expect(callArgs.where.transactionDate).toEqual({
-        gte: expect.any(Date),
-        lt: expect.any(Date),
+      // The month filter is applied as a payment-method-aware AND fragment.
+      expect(callArgs.where.AND).toEqual([
+        { transactionDate: { gte: expect.any(Date), lt: expect.any(Date) } },
+      ]);
+    });
+
+    it('composes the two-branch month split with the payee-blacklist OR', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTransaction.count as jest.Mock).mockResolvedValueOnce(0);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+      // Return the real payment-method-aware fragment (credit-card cycle OR
+      // calendar month) for this call, to verify it reaches Prisma alongside —
+      // not clobbering — the top-level payee-blacklist OR.
+      const cc = { gte: new Date(Date.UTC(2024, 5, 10)), lt: new Date(Date.UTC(2024, 6, 10)) };
+      const cal = { gte: new Date(Date.UTC(2024, 5, 1)), lt: new Date(Date.UTC(2024, 6, 1)) };
+      mockMonthWhere.mockResolvedValueOnce({
+        OR: [
+          { paymentMethod: 'credit_card', transactionDate: cc },
+          { paymentMethod: { not: 'credit_card' }, transactionDate: cal },
+        ],
       });
+
+      await GET(new NextRequest('http://localhost:3000/api/budget/transactions?month=2024-06'));
+
+      const where = (mockPrisma.budgetTransaction.findMany as jest.Mock).mock.calls[0][0].where;
+      // Payee-blacklist OR is preserved at the top level…
+      expect(where.OR).toEqual([{ payeeId: null }, { payee: { isBlacklisted: false } }]);
+      // …and the month split rides inside AND as its own OR (separate scope).
+      expect(where.AND).toEqual([
+        {
+          OR: [
+            { paymentMethod: 'credit_card', transactionDate: cc },
+            { paymentMethod: { not: 'credit_card' }, transactionDate: cal },
+          ],
+        },
+      ]);
     });
 
     it('should combine accountNumber filter with type filter', async () => {

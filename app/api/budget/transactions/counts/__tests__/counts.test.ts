@@ -20,6 +20,12 @@ jest.mock('@/lib/utils/billing-cycle-server', () => ({
     const [y, m] = month.split('-').map(Number);
     return Promise.resolve({ from: new Date(y, m - 1, 1), to: new Date(y, m, 1) });
   },
+  getMonthTransactionWhereForHousehold: (_id: string, month: string) => {
+    const [y, m] = month.split('-').map(Number);
+    return Promise.resolve({
+      transactionDate: { gte: new Date(y, m - 1, 1), lt: new Date(y, m, 1) },
+    });
+  },
 }));
 
 // Mock auth utilities
@@ -171,10 +177,14 @@ describe('Transaction Counts API', () => {
           tags: { none: {} },
           isDeleted: false,
           OR: [{ payeeId: null }, { payee: { isBlacklisted: false } }],
-          transactionDate: {
-            gte: new Date(2026, 2, 1),
-            lt: new Date(2026, 3, 1),
-          },
+          AND: [
+            {
+              transactionDate: {
+                gte: new Date(2026, 2, 1),
+                lt: new Date(2026, 3, 1),
+              },
+            },
+          ],
         },
       });
     });
@@ -196,10 +206,14 @@ describe('Transaction Counts API', () => {
           tags: { none: {} },
           isDeleted: false,
           OR: [{ payeeId: null }, { payee: { isBlacklisted: false } }],
-          transactionDate: {
-            gte: new Date(2025, 11, 1),
-            lt: new Date(2026, 0, 1),
-          },
+          AND: [
+            {
+              transactionDate: {
+                gte: new Date(2025, 11, 1),
+                lt: new Date(2026, 0, 1),
+              },
+            },
+          ],
         },
       });
     });
@@ -221,10 +235,14 @@ describe('Transaction Counts API', () => {
           tags: { none: {} },
           isDeleted: false,
           OR: [{ payeeId: null }, { payee: { isBlacklisted: false } }],
-          transactionDate: {
-            gte: new Date(2026, 0, 1),
-            lt: new Date(2026, 1, 1),
-          },
+          AND: [
+            {
+              transactionDate: {
+                gte: new Date(2026, 0, 1),
+                lt: new Date(2026, 1, 1),
+              },
+            },
+          ],
         },
       });
     });

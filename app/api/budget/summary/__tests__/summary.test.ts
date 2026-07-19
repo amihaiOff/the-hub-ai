@@ -33,6 +33,12 @@ jest.mock('@/lib/utils/billing-cycle-server', () => ({
     const [y, m] = month.split('-').map(Number);
     return Promise.resolve({ from: new Date(y, m - 1, 1), to: new Date(y, m, 1) });
   },
+  getMonthTransactionWhereForHousehold: (_id: string, month: string) => {
+    const [y, m] = month.split('-').map(Number);
+    return Promise.resolve({
+      transactionDate: { gte: new Date(y, m - 1, 1), lt: new Date(y, m, 1) },
+    });
+  },
 }));
 
 // Mock auth utilities

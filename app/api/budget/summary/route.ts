@@ -3,7 +3,7 @@ import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { summaryQuerySchema } from '@/lib/validations/budget';
 import { getFirstZodError } from '@/lib/validations/common';
-import { getCycleRangeForHousehold } from '@/lib/utils/billing-cycle-server';
+import { getMonthTransactionWhereForHousehold } from '@/lib/utils/billing-cycle-server';
 
 /**
  * GET /api/budget/summary
@@ -32,9 +32,10 @@ export async function GET(request: NextRequest) {
 
     const { month } = validation.data;
 
-    // The month string identifies the cycle whose start day falls in that
-    // calendar month — actual date range depends on Household.billingCycleStartDay.
-    const { from, to } = await getCycleRangeForHousehold(householdId, month);
+    // The month window is payment-method-aware: credit cards use the household
+    // billing cycle, bank/other use the calendar month. Merged via AND below so
+    // it composes with the payee-blacklist OR (the fragment carries its own OR).
+    const monthWhere = await getMonthTransactionWhereForHousehold(householdId, month);
 
     // Fetch category groups and transactions in parallel (no dependency between them)
     const [categoryGroups, transactions] = await Promise.all([
@@ -50,10 +51,10 @@ export async function GET(request: NextRequest) {
       prisma.budgetTransaction.findMany({
         where: {
           householdId,
-          transactionDate: {
-            gte: from,
-            lt: to,
-          },
+          // Payment-method-aware month window (credit cards = billing cycle,
+          // bank/other = calendar month). AND-wrapped so its OR coexists with
+          // the payee-blacklist OR below.
+          AND: [monthWhere],
           // Exclude split parent transactions (only count children)
           isSplit: false,
           // Exclude transactions marked as excluded from budget flow

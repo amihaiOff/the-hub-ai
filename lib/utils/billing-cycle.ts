@@ -9,6 +9,8 @@
  * "the cycle that starts on June 10".
  */
 
+import type { Prisma } from '@prisma/client';
+
 export const VALID_BILLING_CYCLE_DAYS = [1, 2, 10] as const;
 export type BillingCycleStartDay = (typeof VALID_BILLING_CYCLE_DAYS)[number];
 
@@ -68,4 +70,34 @@ function clampStartDay(startDay: number): number {
   // Keep within a safe range — 1..28 are valid for every month. We only
   // expose 1/2/10 in the UI, but tolerate anything in [1, 28] defensively.
   return Math.min(28, Math.max(1, Math.floor(startDay)));
+}
+
+/**
+ * Prisma `where` fragment selecting the transactions that belong to `month`,
+ * with the window depending on payment method:
+ *   - `credit_card` → the billing cycle `[startDay .. next startDay)` (matches
+ *     the card's statement cycle), and
+ *   - everything else (bank transfer / cash / check / other) → the whole
+ *     calendar month `[1st .. 1st of next month)`.
+ *
+ * When `startDay <= 1` both windows coincide, so we return a single plain
+ * `transactionDate` range (no payment-method split) to keep the query simple.
+ * The caller merges this into its own `where` via `AND` (it carries its own
+ * `OR`, so it must not be spread onto an object that already has an `OR`).
+ */
+export function monthTransactionWhere(
+  month: string,
+  startDay: number
+): Prisma.BudgetTransactionWhereInput {
+  const cal = monthToCycleRange(month, 1);
+  if (clampStartDay(startDay) <= 1) {
+    return { transactionDate: { gte: cal.from, lt: cal.to } };
+  }
+  const cc = monthToCycleRange(month, startDay);
+  return {
+    OR: [
+      { paymentMethod: 'credit_card', transactionDate: { gte: cc.from, lt: cc.to } },
+      { paymentMethod: { not: 'credit_card' }, transactionDate: { gte: cal.from, lt: cal.to } },
+    ],
+  };
 }

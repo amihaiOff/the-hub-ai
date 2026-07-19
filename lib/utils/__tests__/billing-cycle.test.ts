@@ -1,4 +1,4 @@
-import { getCurrentCycleMonth, monthToCycleRange } from '../billing-cycle';
+import { getCurrentCycleMonth, monthToCycleRange, monthTransactionWhere } from '../billing-cycle';
 
 describe('monthToCycleRange', () => {
   it('with startDay=1 returns the calendar month [first, next-first)', () => {
@@ -71,5 +71,55 @@ describe('getCurrentCycleMonth', () => {
 
   it('rolls year back when today is in January before the start day', () => {
     expect(getCurrentCycleMonth(new Date(2026, 0, 5), 10)).toBe('2025-12');
+  });
+});
+
+describe('monthTransactionWhere', () => {
+  const iso = (d: unknown) => (d as Date).toISOString();
+
+  it('with startDay=1 returns a single calendar-month range (no payment-method split)', () => {
+    const where = monthTransactionWhere('2026-06', 1);
+    expect(where.OR).toBeUndefined();
+    const range = where.transactionDate as { gte: Date; lt: Date };
+    expect(iso(range.gte)).toBe('2026-06-01T00:00:00.000Z');
+    expect(iso(range.lt)).toBe('2026-07-01T00:00:00.000Z');
+  });
+
+  it('with startDay=10 splits credit cards (cycle) from everything else (calendar)', () => {
+    const where = monthTransactionWhere('2026-06', 10);
+    const branches = where.OR as Array<{
+      paymentMethod: unknown;
+      transactionDate: { gte: Date; lt: Date };
+    }>;
+    expect(branches).toHaveLength(2);
+
+    const card = branches[0];
+    expect(card.paymentMethod).toBe('credit_card');
+    // Card cycle: Jun 10 → Jul 10.
+    expect(iso(card.transactionDate.gte)).toBe('2026-06-10T00:00:00.000Z');
+    expect(iso(card.transactionDate.lt)).toBe('2026-07-10T00:00:00.000Z');
+
+    const other = branches[1];
+    expect(other.paymentMethod).toEqual({ not: 'credit_card' });
+    // Everyone else: whole calendar June.
+    expect(iso(other.transactionDate.gte)).toBe('2026-06-01T00:00:00.000Z');
+    expect(iso(other.transactionDate.lt)).toBe('2026-07-01T00:00:00.000Z');
+  });
+
+  it('classifies boundary dates per method (Jun 9 vs Jun 10 for cards; the 5th for banks)', () => {
+    const where = monthTransactionWhere('2026-06', 10);
+    const [card, other] = where.OR as Array<{
+      transactionDate: { gte: Date; lt: Date };
+    }>;
+    const inRange = (r: { gte: Date; lt: Date }, d: string) => {
+      const t = new Date(d).getTime();
+      return t >= r.gte.getTime() && t < r.lt.getTime();
+    };
+    // A credit-card charge on Jun 9 belongs to the PREVIOUS cycle, Jun 10 to this one.
+    expect(inRange(card.transactionDate, '2026-06-09T00:00:00.000Z')).toBe(false);
+    expect(inRange(card.transactionDate, '2026-06-10T00:00:00.000Z')).toBe(true);
+    // A bank movement on the 5th belongs to calendar June.
+    expect(inRange(other.transactionDate, '2026-06-05T00:00:00.000Z')).toBe(true);
+    expect(inRange(other.transactionDate, '2026-07-01T00:00:00.000Z')).toBe(false);
   });
 });
