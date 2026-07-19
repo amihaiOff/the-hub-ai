@@ -1,3 +1,5 @@
+import { fetchWithRetry } from '@/lib/api/fetch-utils';
+
 const MONEYTOR_BASE_URL = 'https://app.moneytor.co.il/api/v1';
 const DEFAULT_LIMIT = 2000;
 
@@ -267,9 +269,16 @@ async function moneytorGet<
     );
   }
 
+  // Wrap Moneytor calls with a 10s timeout and 3-attempt exponential
+  // backoff (1/2/4s). fetchWithRetry only retries on network errors
+  // and 5xx — 4xx responses (auth failures, bad requests) come back
+  // immediately and are handled by the status checks below.
   let response: Response;
   try {
-    response = await fetch(url.toString(), {
+    response = await fetchWithRetry(url.toString(), {
+      timeoutMs: 10_000,
+      attempts: 3,
+      baseDelayMs: 1_000,
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: 'application/json',

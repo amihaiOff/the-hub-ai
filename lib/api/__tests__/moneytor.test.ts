@@ -8,6 +8,22 @@
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
+// The Moneytor client now uses `fetchWithRetry` with 1s / 2s / 4s
+// backoff. Left alone that would add up to 3+ seconds per retrying
+// test. Patch setTimeout so retry sleeps resolve immediately —
+// preserves the retry BEHAVIOUR (number of attempts, ordering) while
+// eliminating the wall-clock delay.
+const realSetTimeout = global.setTimeout;
+beforeAll(() => {
+  global.setTimeout = ((fn: () => void) => {
+    Promise.resolve().then(fn);
+    return 0;
+  }) as unknown as typeof setTimeout;
+});
+afterAll(() => {
+  global.setTimeout = realSetTimeout;
+});
+
 import {
   fetchMoneytorTransactions,
   fetchMoneytorAssets,
@@ -214,7 +230,9 @@ describe('fetchMoneytorTransactions', () => {
     });
 
     it('throws code "network_error" when fetch rejects', async () => {
-      mockFetch.mockRejectedValueOnce(new Error('ECONNRESET'));
+      // Persistent reject: fetchWithRetry attempts 3 times, each getting
+      // ECONNRESET, then rethrows the last error to the caller.
+      mockFetch.mockRejectedValue(new Error('ECONNRESET'));
 
       const err = await fetchMoneytorTransactions().catch((e: unknown) => e);
 
@@ -237,7 +255,10 @@ describe('fetchMoneytorTransactions', () => {
     });
 
     it('maps other non-ok statuses to unknown', async () => {
-      mockFetch.mockResolvedValueOnce({
+      // Persistent 502: fetchWithRetry retries 3× then returns the 5xx
+      // response for status mapping. Using mockResolvedValue (not -Once)
+      // so every attempt sees the same shape.
+      mockFetch.mockResolvedValue({
         ok: false,
         status: 502,
         json: async () => ({ ok: false, error: 'bad gateway' }),
@@ -258,7 +279,9 @@ describe('fetchMoneytorTransactions', () => {
     });
 
     it('surfaces text/plain 5xx bodies when JSON parsing fails', async () => {
-      mockFetch.mockResolvedValueOnce({
+      // Persistent 500 across retries — fetchWithRetry retries 3× then
+      // returns the 5xx for our body-parsing path.
+      mockFetch.mockResolvedValue({
         ok: false,
         status: 500,
         json: async () => {

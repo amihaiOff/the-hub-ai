@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db';
+import { fetchWithTimeout } from '@/lib/api/fetch-utils';
 
 // Cache duration: 6 hours in milliseconds
 const CACHE_DURATION_MS = 6 * 60 * 60 * 1000;
@@ -136,7 +137,11 @@ async function fetchFromYahooFinance(symbol: string): Promise<YahooFetchResult |
   try {
     const url = `${YAHOO_FINANCE_BASE_URL}/${encodeURIComponent(symbol.toUpperCase())}?interval=1d&range=1d`;
 
-    const response = await fetch(url, {
+    // 10s timeout so a slow Yahoo can't stall the whole dashboard
+    // request. `fetchWithTimeout` throws on abort → outer catch returns
+    // null → caller falls back to Alpha Vantage / cached price.
+    const response = await fetchWithTimeout(url, {
+      timeoutMs: 10_000,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
@@ -189,7 +194,8 @@ async function fetchFromAlphaVantage(symbol: string): Promise<number | null> {
     url.searchParams.set('symbol', symbol.toUpperCase());
     url.searchParams.set('apikey', apiKey);
 
-    const response = await fetch(url.toString(), {
+    const response = await fetchWithTimeout(url.toString(), {
+      timeoutMs: 10_000,
       headers: {
         'User-Agent': 'TheHubAI/1.0',
       },
