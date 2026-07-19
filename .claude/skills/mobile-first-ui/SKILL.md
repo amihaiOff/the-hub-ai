@@ -119,41 +119,71 @@ kicks in immediately on the first touch.
 <div className="touch-manipulation">…tappable card…</div>
 ```
 
-### React synthetic pointer handlers are non-passive — iOS holds the first touch
+### React attaches DOCUMENT-scope non-passive pointer delegates — one JSX handler poisons the whole page
 
 Symptom: same "first tap doesn't scroll" — but persists even after
-switching the card to `touch-manipulation`.
+switching the target to `touch-manipulation` AND making the target's
+own listener passive.
 
-Cause: React's synthetic `onPointerDown`/`onPointerMove` attach as
-**non-passive** listeners. iOS Safari treats non-passive handlers as
-"might call `preventDefault()`", so on the first touch it holds the
-scroll gesture briefly to see if the JS wants to cancel it. Subsequent
-touches feel fine because the browser has "learned" the gesture pattern.
-`touch-manipulation` doesn't fix this — it only disables double-tap
-detection, not the passive-listener check.
+Cause (the important part): React 18/19's synthetic event system
+attaches `pointerdown`/`pointermove` delegates directly on
+`document` as **non-passive**. It does this as soon as ANY component
+in the mounted tree renders a synthetic `onPointerDown` or
+`onPointerMove` in JSX — including totally unrelated components like
+a FAB, a checkbox wrapper, or a done-toggle. iOS Safari's scroll-start
+heuristic walks the propagation chain up to `document`, sees a
+non-passive listener there, and holds the first touch waiting to see
+whether JS will `preventDefault()`. Subsequent touches feel fine
+because WebKit's sticky-passive cache lets it skip the wait on the
+same target.
 
-Fix: attach the pointer handlers via native `addEventListener` with
-`{ passive: true }` inside a `useEffect`, using a ref-callback to grab
-the node. The browser then knows scroll can start immediately.
+Making the target element's own listener passive **cannot** fix this
+— the document-scope delegate fires first and stalls the gesture.
 
-`useLongPress` in `lib/hooks/use-long-press.ts` exposes `bindRef` for
-exactly this case:
+Fix: eliminate every synthetic `onPointerDown` / `onPointerMove` /
+`onPointerUp` / `onPointerCancel` from JSX rendered on the affected
+page. Convert each to either:
+
+1. **A ref + native `addEventListener('pointerdown', ..., { passive: true })`.**
+   The `useLongPress` hook in `lib/hooks/use-long-press.ts` exposes
+   `bindRef` for this — spread `ref={bindRef}` on the element instead
+   of `{...handlers}`.
+2. **Just `onClick`.** If the synthetic pointer handler was only doing
+   `e.stopPropagation()` to keep the parent's long-press from firing,
+   it's now dead code — the parent uses native listeners, and React
+   synthetic stopPropagation doesn't cross into native. Delete the
+   handler entirely.
 
 ```tsx
-const { bindRef, consumedClick } = useLongPress(onEnterSelection);
-return (
-  <div ref={bindRef} onClick={activate}>
-    …card…
-  </div>
-);
-// vs the non-passive React synthetic path:
-//   <div {...handlers}>
+// BAD — this ONE synthetic handler causes react-dom to install
+// document-scope non-passive pointerdown/pointermove; every card on
+// every page in this tree loses first-touch scroll on iOS.
+<button onPointerDown={(e) => e.stopPropagation()} onClick={handleTap}>
+
+// GOOD — no synthetic pointer handler in JSX at all.
+<button onClick={handleTap}>
+
+// GOOD — long-press attached via ref + native passive listeners.
+const { bindRef, consumedClick } = useLongPress(onLongPress);
+<div ref={bindRef} onClick={activate}>
 ```
 
-Rule of thumb: on any element that IS a primary scroll target (list
-cards, feed rows, wide scrollable panels), reach for the `bindRef` /
-native-passive path. Non-scroll targets (buttons, small controls) can
-keep the synthetic handlers.
+Diagnosis pattern: to confirm this is what's happening, patch
+`EventTarget.prototype.addEventListener` at page load and log any
+listener installed on `document` for `pointerdown`/`pointermove`
+with `passive === undefined`. If you see anything from `react-dom`'s
+`hydrateRoot` / `listenToNativeEvent`, you have the bug. Removing
+JSX pointer handlers should make those log lines disappear.
+
+The `handlers` object returned from `useLongPress` is marked
+`@deprecated` for this exact reason — don't spread it into JSX; use
+`bindRef` on the target instead. Grep for `{...handlers}` and
+`onPointerDown=` before shipping mobile-facing features.
+
+Rule of thumb: **one synthetic pointer handler anywhere in the
+mounted tree ruins first-touch scroll for every element on that
+page.** Treat synthetic pointer JSX props like a poison ivy — even a
+tiny one on a hidden component costs you the whole page's touch UX.
 
 ### `@dnd-kit` sets `touch-action: none` on draggables
 

@@ -250,6 +250,44 @@ Cause: Missing deduplication
 Fix: Check for existing unread notification before creating
 ```
 
+## First-touch doesn't scroll on iOS — check for synthetic onPointerDown anywhere in the tree
+
+Symptom: mobile user reports "I have to touch twice — first touch does
+nothing, second touch scrolls." Persists after `touch-manipulation` and
+after making the target's own listener passive.
+
+Cause: react-dom installs document-level non-passive
+`pointerdown`/`pointermove` delegates whenever ANY component in the
+mounted tree has a JSX synthetic `onPointerDown`/`onPointerMove` — even
+on totally unrelated elements (a FAB, a checkbox wrapper doing nothing
+but `stopPropagation`). iOS Safari walks up to `document` on scroll
+start, sees the non-passive delegate, and stalls the first touch.
+
+Diagnose:
+
+```js
+// paste into the browser console on the affected page
+const orig = EventTarget.prototype.addEventListener;
+EventTarget.prototype.addEventListener = function (type, fn, opts) {
+  if ((type === 'pointerdown' || type === 'pointermove') && this === document) {
+    const passive = opts && typeof opts === 'object' ? opts.passive : opts;
+    console.log(`[doc listener] ${type} passive=${passive}`, new Error().stack);
+  }
+  return orig.call(this, type, fn, opts);
+};
+```
+
+If you see any `passive=undefined` entries with a react-dom stack
+(`hydrateRoot` / `listenToNativeEvent`), that's the bug. Fix by removing
+every JSX `onPointerDown` / `onPointerMove` on the page and converting
+long-press to `useLongPress`'s `bindRef` (native passive). See
+`mobile-first-ui` skill for full pattern.
+
+Prior attempts that don't work: adding `touch-action: pan-y` /
+`touch-manipulation` to the target, making the target's own listener
+passive, or trying to override the delegate's passivity per-target.
+None help — the document-scope delegate fires first.
+
 ## Tiptap NodeView + Radix Dialog: focus-outside closes the dialog
 
 Symptom: a Radix `Sheet` / `Dialog` rendered inside a Tiptap NodeView
