@@ -4,76 +4,8 @@ import { prisma } from '@/lib/db';
 import { createTransactionSchema, transactionFiltersSchema } from '@/lib/validations/budget';
 import { getFirstZodError } from '@/lib/validations/common';
 import { getMonthTransactionWhereForHousehold } from '@/lib/utils/billing-cycle-server';
+import { transformTransaction } from '@/lib/api/transformers/budget';
 import { Prisma } from '@prisma/client';
-
-/**
- * Transform a transaction from database format to API response format
- */
-function transformTransaction(tx: {
-  id: string;
-  type: string;
-  transactionDate: Date;
-  paymentDate: Date | null;
-  amountIls: Prisma.Decimal;
-  currency: string;
-  amountOriginal: Prisma.Decimal;
-  categoryId: string | null;
-  suggestedCategoryId: string | null;
-  suggestionConfidence: number | null;
-  payeeId: string | null;
-  paymentMethod: string;
-  paymentNumber: number | null;
-  totalPayments: number | null;
-  notes: string | null;
-  source: string;
-  isRecurring: boolean;
-  isSplit: boolean;
-  originalTransactionId: string | null;
-  paymentIdentifier: string | null;
-  excludedFromFlow: boolean;
-  profileId: string | null;
-  householdId: string;
-  createdAt: Date;
-  updatedAt: Date;
-  tags?: { tag: { id: string } }[];
-  category?: { id: string; name: string } | null;
-  suggestedCategory?: { id: string; name: string } | null;
-  payee?: { id: string; name: string } | null;
-  profile?: { id: string; name: string } | null;
-}) {
-  return {
-    id: tx.id,
-    type: tx.type,
-    transactionDate: tx.transactionDate.toISOString().split('T')[0],
-    paymentDate: tx.paymentDate?.toISOString().split('T')[0] ?? null,
-    amountIls: Number(tx.amountIls),
-    currency: tx.currency,
-    amountOriginal: Number(tx.amountOriginal),
-    categoryId: tx.categoryId,
-    categoryName: tx.category?.name ?? null,
-    suggestedCategoryId: tx.suggestedCategoryId,
-    suggestedCategoryName: tx.suggestedCategory?.name ?? null,
-    suggestionConfidence: tx.suggestionConfidence,
-    payeeId: tx.payeeId,
-    payeeName: tx.payee?.name ?? null,
-    paymentMethod: tx.paymentMethod,
-    paymentNumber: tx.paymentNumber,
-    totalPayments: tx.totalPayments,
-    notes: tx.notes,
-    source: tx.source,
-    isRecurring: tx.isRecurring,
-    isSplit: tx.isSplit,
-    originalTransactionId: tx.originalTransactionId,
-    paymentIdentifier: tx.paymentIdentifier,
-    excludedFromFlow: tx.excludedFromFlow,
-    profileId: tx.profileId,
-    profileName: tx.profile?.name ?? null,
-    householdId: tx.householdId,
-    tagIds: tx.tags?.map((t) => t.tag.id) ?? [],
-    createdAt: tx.createdAt.toISOString(),
-    updatedAt: tx.updatedAt.toISOString(),
-  };
-}
 
 /**
  * GET /api/budget/transactions
