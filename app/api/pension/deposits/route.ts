@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
+import { householdVisibleWhere } from '@/lib/utils/household-scope';
 import { createDepositSchema } from '@/lib/validations/pension';
 import { getFirstZodError } from '@/lib/validations/common';
 
 /**
  * POST /api/pension/deposits
- * Add a new deposit to a pension account
+ * Add a new deposit to a pension account. The account must be visible to
+ * the caller's household (H1 of the codebase review).
  */
 export async function POST(request: NextRequest) {
   try {
-    // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -28,29 +29,19 @@ export async function POST(request: NextRequest) {
 
     const { accountId, depositDate, salaryMonth, amount, employer } = validation.data;
 
-    // Verify account exists and belongs to the authenticated user
-    const account = await prisma.pensionAccount.findUnique({
-      where: { id: accountId },
+    // Verify the parent account is household-visible. Collapsing
+    // not-found and forbidden to a single 404 (indistinguishable from the
+    // caller's POV under household scoping).
+    const account = await prisma.pensionAccount.findFirst({
+      where: { id: accountId, ...householdVisibleWhere(context.activeHousehold.id) },
+      select: { id: true },
     });
-
     if (!account) {
       return NextResponse.json({ success: false, error: 'Account not found' }, { status: 404 });
     }
 
-    // Authorization check - verify user owns this account
-    if (account.userId !== user.id) {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-    }
-
-    // Create the deposit
     const deposit = await prisma.pensionDeposit.create({
-      data: {
-        accountId,
-        depositDate,
-        salaryMonth,
-        amount,
-        employer,
-      },
+      data: { accountId, depositDate, salaryMonth, amount, employer },
     });
 
     return NextResponse.json({

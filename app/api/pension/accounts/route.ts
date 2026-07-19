@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
+import { householdVisibleWhere } from '@/lib/utils/household-scope';
 import { z } from 'zod';
 
 const createPensionAccountSchema = z.object({
@@ -19,11 +20,16 @@ const createPensionAccountSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
-    // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    // Household-scoped create. Legacy `userId` still stamped so old-model
+    // consumers keep working through the migration; the owner Profile is
+    // wired up so household visibility works from day one via
+    // `householdVisibleWhere`.
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
+    const user = context.user;
+    const creatorProfileId = context.profile.id;
 
     const body = await request.json();
     const validation = createPensionAccountSchema.safeParse(body);
@@ -45,7 +51,6 @@ export async function POST(request: NextRequest) {
       feeFromTotal,
     } = validation.data;
 
-    // Create the account (avoid include for Neon serverless compatibility)
     const account = await prisma.pensionAccount.create({
       data: {
         type,
@@ -56,6 +61,7 @@ export async function POST(request: NextRequest) {
         feeFromDeposit,
         feeFromTotal,
         userId: user.id,
+        owners: { create: { profileId: creatorProfileId } },
       },
     });
 
@@ -90,14 +96,14 @@ export async function POST(request: NextRequest) {
  */
 export async function GET() {
   try {
-    // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
+    const householdId = context.activeHousehold.id;
 
     const accounts = await prisma.pensionAccount.findMany({
-      where: { userId: user.id },
+      where: householdVisibleWhere(householdId),
       include: {
         _count: {
           select: { deposits: true },

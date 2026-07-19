@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
 import { parseMeitavPdf, getPdfRawText } from '@/lib/pdf/meitav-parser';
 import { parseHarelPdf } from '@/lib/pdf/harel-parser';
 
@@ -12,9 +12,8 @@ export const maxDuration = 30;
  */
 export async function POST(request: NextRequest) {
   try {
-    // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 

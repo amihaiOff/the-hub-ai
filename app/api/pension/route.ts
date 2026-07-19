@@ -1,22 +1,24 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
+import { householdVisibleWhere } from '@/lib/utils/household-scope';
 
 /**
  * GET /api/pension
- * Get user's pension summary with all accounts and deposits
+ * Get the active household's pension summary — every account visible to
+ * any member, per H1 of the codebase review (pension is a household asset).
  */
 export async function GET() {
   try {
-    // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
+    const householdId = context.activeHousehold.id;
 
-    // Fetch all pension accounts with deposits and owners for the user
+    // Fetch all pension accounts visible to this household.
     const accounts = await prisma.pensionAccount.findMany({
-      where: { userId: user.id },
+      where: householdVisibleWhere(householdId),
       include: {
         deposits: {
           orderBy: { salaryMonth: 'desc' },
@@ -101,7 +103,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       data: {
-        userId: user.id,
+        householdId,
         totalValue: fromCents(totalValueCents),
         totalDeposits: fromCents(totalDepositsCents),
         thisMonthDeposits: fromCents(thisMonthDepositsCents),

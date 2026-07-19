@@ -12,6 +12,7 @@ jest.mock('@/lib/db', () => ({
       create: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       findUniqueOrThrow: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
@@ -19,18 +20,43 @@ jest.mock('@/lib/db', () => ({
   },
 }));
 
-// Mock auth utilities
+// Routes migrated to household+profile scoping (H1). Mock getCurrentContext
+// only; a helper below synthesizes a full context from the legacy mockUser
+// shape used throughout the file.
 jest.mock('@/lib/auth-utils', () => ({
-  getCurrentUser: jest.fn(),
+  getCurrentContext: jest.fn(),
 }));
 
 import { prisma } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
 import { POST, GET } from '../route';
 import { GET as GET_BY_ID, PUT, DELETE } from '../[id]/route';
 
-const mockGetCurrentUser = getCurrentUser as jest.MockedFunction<typeof getCurrentUser>;
+const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
+
+function makeContext(user: { id: string; email?: string | null; name?: string | null }) {
+  const profile = {
+    id: `profile-${user.id}`,
+    name: user.name ?? 'Test User',
+    image: null,
+    color: null,
+    userId: user.id,
+  };
+  const household = {
+    id: 'household-1',
+    name: 'Household',
+    description: null,
+    role: 'owner' as const,
+  };
+  return {
+    user: { id: user.id, email: user.email ?? 'test@example.com', name: user.name ?? 'Test User' },
+    profile,
+    households: [household],
+    activeHousehold: household,
+    householdProfiles: [{ ...profile, role: 'owner' as const, hasUser: true }],
+  };
+}
 
 describe('Pension Accounts API', () => {
   beforeEach(() => {
@@ -54,7 +80,7 @@ describe('Pension Accounts API', () => {
         deposits: [],
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       (mockPrisma.pensionAccount.create as jest.Mock).mockResolvedValueOnce(mockAccount);
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts', {
@@ -96,7 +122,7 @@ describe('Pension Accounts API', () => {
         deposits: [],
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       (mockPrisma.pensionAccount.create as jest.Mock).mockResolvedValueOnce(mockAccount);
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts', {
@@ -120,7 +146,7 @@ describe('Pension Accounts API', () => {
     });
 
     it('should return 401 when not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts', {
         method: 'POST',
@@ -144,7 +170,7 @@ describe('Pension Accounts API', () => {
 
     it('should return 400 for invalid type', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts', {
         method: 'POST',
@@ -169,7 +195,7 @@ describe('Pension Accounts API', () => {
 
     it('should return 400 for missing provider name', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts', {
         method: 'POST',
@@ -193,7 +219,7 @@ describe('Pension Accounts API', () => {
 
     it('should return 400 for negative current value', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts', {
         method: 'POST',
@@ -217,7 +243,7 @@ describe('Pension Accounts API', () => {
 
     it('should return 400 for fee > 100%', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts', {
         method: 'POST',
@@ -268,7 +294,7 @@ describe('Pension Accounts API', () => {
         },
       ];
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       (mockPrisma.pensionAccount.findMany as jest.Mock).mockResolvedValueOnce(mockAccounts);
 
       const response = await GET();
@@ -283,7 +309,7 @@ describe('Pension Accounts API', () => {
     });
 
     it('should return 401 when not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(null);
 
       const response = await GET();
       const data = await response.json();
@@ -294,7 +320,7 @@ describe('Pension Accounts API', () => {
 
     it('should return empty array when no accounts', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       (mockPrisma.pensionAccount.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const response = await GET();
@@ -335,8 +361,8 @@ describe('Pension Accounts API', () => {
         ],
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(mockAccount);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.pensionAccount.findFirst as jest.Mock).mockResolvedValueOnce(mockAccount);
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1');
       const response = await GET_BY_ID(request, { params: Promise.resolve({ id: 'acc-1' }) });
@@ -351,8 +377,8 @@ describe('Pension Accounts API', () => {
 
     it('should return 404 for non-existent account', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.pensionAccount.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/invalid');
       const response = await GET_BY_ID(request, { params: Promise.resolve({ id: 'invalid' }) });
@@ -362,23 +388,18 @@ describe('Pension Accounts API', () => {
       expect(data.error).toBe('Account not found');
     });
 
-    it('should return 403 when accessing another user account', async () => {
+    it('should return 404 when account is not visible to household', async () => {
+      // Household scoping (H1) — not-found and not-your-household collapse to 404.
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      const mockAccount = {
-        id: 'acc-1',
-        userId: 'user-2', // Different user
-        deposits: [],
-      };
-
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(mockAccount);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.pensionAccount.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1');
       const response = await GET_BY_ID(request, { params: Promise.resolve({ id: 'acc-1' }) });
       const data = await response.json();
 
-      expect(response.status).toBe(403);
-      expect(data.error).toBe('Forbidden');
+      expect(response.status).toBe(404);
+      expect(data.error).toBe('Account not found');
     });
   });
 
@@ -401,8 +422,8 @@ describe('Pension Accounts API', () => {
         deposits: [],
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(existingAccount);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.pensionAccount.findFirst as jest.Mock).mockResolvedValueOnce(existingAccount);
       (mockPrisma.pensionAccount.update as jest.Mock).mockResolvedValueOnce({});
       (mockPrisma.pensionAccount.findUniqueOrThrow as jest.Mock).mockResolvedValueOnce(
         updatedAccount
@@ -428,7 +449,7 @@ describe('Pension Accounts API', () => {
 
     it('should return 400 for empty provider name', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
         method: 'PUT',
@@ -446,8 +467,8 @@ describe('Pension Accounts API', () => {
 
     it('should return 404 for non-existent account', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.pensionAccount.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/invalid', {
         method: 'PUT',
@@ -460,26 +481,21 @@ describe('Pension Accounts API', () => {
       expect(response.status).toBe(404);
     });
 
-    it('should return 403 when updating another user account', async () => {
+    it('should return 404 when updating an account not visible to the household', async () => {
+      // Household scoping (H1) — not-found and not-your-household collapse to 404.
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      const existingAccount = {
-        id: 'acc-1',
-        userId: 'user-2', // Different user
-      };
-
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(existingAccount);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.pensionAccount.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
         method: 'PUT',
-        body: JSON.stringify({ currentValue: 999999 }),
+        body: JSON.stringify({ accountName: 'Updated' }),
       });
-
       const response = await PUT(request, { params: Promise.resolve({ id: 'acc-1' }) });
       const data = await response.json();
 
-      expect(response.status).toBe(403);
-      expect(data.error).toBe('Forbidden');
+      expect(response.status).toBe(404);
+      expect(data.error).toBe('Account not found');
     });
   });
 
@@ -491,8 +507,8 @@ describe('Pension Accounts API', () => {
         userId: 'user-1',
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(existingAccount);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.pensionAccount.findFirst as jest.Mock).mockResolvedValueOnce(existingAccount);
       (mockPrisma.pensionAccount.delete as jest.Mock).mockResolvedValueOnce(existingAccount);
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
@@ -509,8 +525,8 @@ describe('Pension Accounts API', () => {
 
     it('should return 404 for non-existent account', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.pensionAccount.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/invalid', {
         method: 'DELETE',
@@ -522,32 +538,27 @@ describe('Pension Accounts API', () => {
       expect(response.status).toBe(404);
     });
 
-    it('should return 403 when deleting another user account', async () => {
+    it('should return 404 when deleting an account not visible to the household', async () => {
+      // Household scoping (H1) — not-found and not-your-household collapse to 404.
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      const existingAccount = {
-        id: 'acc-1',
-        userId: 'user-2', // Different user
-      };
-
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(existingAccount);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.pensionAccount.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
         method: 'DELETE',
       });
-
       const response = await DELETE(request, { params: Promise.resolve({ id: 'acc-1' }) });
       const data = await response.json();
 
-      expect(response.status).toBe(403);
-      expect(data.error).toBe('Forbidden');
+      expect(response.status).toBe(404);
+      expect(data.error).toBe('Account not found');
     });
   });
 
   describe('Database Error Handling', () => {
     it('should return 500 when database connection fails on GET', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       (mockPrisma.pensionAccount.findMany as jest.Mock).mockRejectedValueOnce(
         new Error('Database connection failed')
       );
@@ -562,7 +573,7 @@ describe('Pension Accounts API', () => {
 
     it('should return 500 when database fails on POST', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       (mockPrisma.pensionAccount.create as jest.Mock).mockRejectedValueOnce(
         new Error('Database write failed')
       );
@@ -590,8 +601,8 @@ describe('Pension Accounts API', () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
       const existingAccount = { id: 'acc-1', userId: 'user-1' };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(existingAccount);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.pensionAccount.findFirst as jest.Mock).mockResolvedValueOnce(existingAccount);
       (mockPrisma.pensionAccount.update as jest.Mock).mockRejectedValueOnce(
         new Error('Database update failed')
       );
@@ -612,8 +623,8 @@ describe('Pension Accounts API', () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
       const existingAccount = { id: 'acc-1', userId: 'user-1' };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(existingAccount);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.pensionAccount.findFirst as jest.Mock).mockResolvedValueOnce(existingAccount);
       (mockPrisma.pensionAccount.delete as jest.Mock).mockRejectedValueOnce(
         new Error('Database delete failed')
       );
@@ -631,8 +642,8 @@ describe('Pension Accounts API', () => {
 
     it('should return 500 when findUnique fails on GET single account', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.pensionAccount.findUnique as jest.Mock).mockRejectedValueOnce(
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.pensionAccount.findFirst as jest.Mock).mockRejectedValueOnce(
         new Error('Database query failed')
       );
 
@@ -648,7 +659,7 @@ describe('Pension Accounts API', () => {
   describe('Additional PUT Validations', () => {
     it('should return 400 for empty account name', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
         method: 'PUT',
@@ -664,7 +675,7 @@ describe('Pension Accounts API', () => {
 
     it('should return 400 when accountName is not a string', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
         method: 'PUT',
@@ -680,7 +691,7 @@ describe('Pension Accounts API', () => {
 
     it('should return 400 when providerName is not a string', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
         method: 'PUT',
@@ -696,7 +707,7 @@ describe('Pension Accounts API', () => {
 
     it('should return 400 when currentValue is not a number', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
         method: 'PUT',
@@ -712,7 +723,7 @@ describe('Pension Accounts API', () => {
 
     it('should return 400 when currentValue is negative', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
         method: 'PUT',
@@ -728,7 +739,7 @@ describe('Pension Accounts API', () => {
 
     it('should return 400 when feeFromDeposit is not a number', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
         method: 'PUT',
@@ -744,7 +755,7 @@ describe('Pension Accounts API', () => {
 
     it('should return 400 when feeFromDeposit is negative', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
         method: 'PUT',
@@ -760,7 +771,7 @@ describe('Pension Accounts API', () => {
 
     it('should return 400 when feeFromDeposit is over 100', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
         method: 'PUT',
@@ -776,7 +787,7 @@ describe('Pension Accounts API', () => {
 
     it('should return 400 when feeFromTotal is not a number', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
         method: 'PUT',
@@ -792,7 +803,7 @@ describe('Pension Accounts API', () => {
 
     it('should return 400 when feeFromTotal is negative', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
         method: 'PUT',
@@ -808,7 +819,7 @@ describe('Pension Accounts API', () => {
 
     it('should return 400 when feeFromTotal is over 100', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
         method: 'PUT',
@@ -825,7 +836,7 @@ describe('Pension Accounts API', () => {
 
   describe('Additional Auth Tests', () => {
     it('should return 401 when not authenticated on GET single account', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1');
       const response = await GET_BY_ID(request, { params: Promise.resolve({ id: 'acc-1' }) });
@@ -836,7 +847,7 @@ describe('Pension Accounts API', () => {
     });
 
     it('should return 401 when not authenticated on PUT', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
         method: 'PUT',
@@ -851,7 +862,7 @@ describe('Pension Accounts API', () => {
     });
 
     it('should return 401 when not authenticated on DELETE', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/pension/accounts/acc-1', {
         method: 'DELETE',

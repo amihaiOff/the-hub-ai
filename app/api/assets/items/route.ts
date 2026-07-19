@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
+import { householdVisibleWhere } from '@/lib/utils/household-scope';
 import { createAssetSchema } from '@/lib/validations/assets';
 import { getFirstZodError } from '@/lib/validations/common';
 
@@ -10,11 +11,15 @@ import { getFirstZodError } from '@/lib/validations/common';
  */
 export async function POST(request: NextRequest) {
   try {
-    // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    // Household-scoped create. Legacy `userId` still stamped for the
+    // creator; owner Profile added so the row is visible to the rest of
+    // the household via `householdVisibleWhere`.
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
+    const user = context.user;
+    const creatorProfileId = context.profile.id;
 
     const body = await request.json();
     const validation = createAssetSchema.safeParse(body);
@@ -78,6 +83,7 @@ export async function POST(request: NextRequest) {
           monthlyDeposit: type === 'child_savings' && monthlyDeposit ? monthlyDeposit : null,
           maturityDate,
           userId: user.id,
+          owners: { create: { profileId: creatorProfileId } },
         },
       });
 
@@ -146,14 +152,14 @@ export async function POST(request: NextRequest) {
  */
 export async function GET() {
   try {
-    // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
+    const householdId = context.activeHousehold.id;
 
     const assets = await prisma.miscAsset.findMany({
-      where: { userId: user.id },
+      where: householdVisibleWhere(householdId),
       orderBy: { createdAt: 'asc' },
       include: {
         mortgageTracks: { orderBy: { sortOrder: 'asc' } },

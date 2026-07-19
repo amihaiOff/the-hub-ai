@@ -20,6 +20,7 @@ jest.mock('@/lib/db', () => ({
       create: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
     },
@@ -31,19 +32,44 @@ jest.mock('@/lib/db', () => ({
   },
 }));
 
-// Mock auth utilities
+// Routes migrated to household+profile scoping (H1). Mock only the new
+// getCurrentContext surface; a helper below turns a fake user into a
+// synthetic context so existing test setups keep working.
 jest.mock('@/lib/auth-utils', () => ({
-  getCurrentUser: jest.fn(),
+  getCurrentContext: jest.fn(),
 }));
 
 import { prisma } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
 import { GET as GET_SUMMARY } from '../route';
 import { POST, GET as GET_LIST } from '../items/route';
 import { GET as GET_BY_ID, PUT, DELETE } from '../items/[id]/route';
 
-const mockGetCurrentUser = getCurrentUser as jest.MockedFunction<typeof getCurrentUser>;
+const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
+
+function makeContext(user: { id: string; email?: string | null; name?: string | null }) {
+  const profile = {
+    id: `profile-${user.id}`,
+    name: user.name ?? 'Test User',
+    image: null,
+    color: null,
+    userId: user.id,
+  };
+  const household = {
+    id: 'household-1',
+    name: 'Household',
+    description: null,
+    role: 'owner' as const,
+  };
+  return {
+    user: { id: user.id, email: user.email ?? 'test@example.com', name: user.name ?? 'Test User' },
+    profile,
+    households: [household],
+    activeHousehold: household,
+    householdProfiles: [{ ...profile, role: 'owner' as const, hasUser: true }],
+  };
+}
 
 describe('Assets API', () => {
   beforeEach(() => {
@@ -95,7 +121,7 @@ describe('Assets API', () => {
         },
       ];
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       (mockPrisma.miscAsset.findMany as jest.Mock).mockResolvedValueOnce(mockAssets);
 
       const response = await GET_SUMMARY();
@@ -103,7 +129,7 @@ describe('Assets API', () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(data.data.userId).toBe('user-1');
+      expect(data.data.householdId).toBe('household-1');
       expect(data.data.totalAssets).toBe(10000);
       expect(data.data.totalLiabilities).toBe(15000);
       expect(data.data.netValue).toBe(-5000);
@@ -112,7 +138,7 @@ describe('Assets API', () => {
     });
 
     it('should return 401 when not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(null);
 
       const response = await GET_SUMMARY();
       const data = await response.json();
@@ -124,7 +150,7 @@ describe('Assets API', () => {
 
     it('should handle empty assets list', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       (mockPrisma.miscAsset.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const response = await GET_SUMMARY();
@@ -156,7 +182,7 @@ describe('Assets API', () => {
         mortgageTracks: [],
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       // Mock the transaction to handle the create and findUnique calls
       mockTransaction.mockImplementationOnce(async (callback) => {
         const tx = {
@@ -194,7 +220,7 @@ describe('Assets API', () => {
 
     it('should create loan with negative value', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       let capturedCreateData: unknown = null;
       mockTransaction.mockImplementationOnce(async (callback) => {
@@ -251,7 +277,7 @@ describe('Assets API', () => {
 
     it('should create child savings with monthly deposit', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       mockTransaction.mockImplementationOnce(async (callback) => {
         const tx = {
@@ -298,7 +324,7 @@ describe('Assets API', () => {
     });
 
     it('should return 401 when not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/assets/items', {
         method: 'POST',
@@ -318,11 +344,13 @@ describe('Assets API', () => {
     });
 
     it('should return 400 for invalid type', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
 
       const request = new NextRequest('http://localhost:3000/api/assets/items', {
         method: 'POST',
@@ -342,11 +370,13 @@ describe('Assets API', () => {
     });
 
     it('should return 400 when name is missing', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
 
       const request = new NextRequest('http://localhost:3000/api/assets/items', {
         method: 'POST',
@@ -365,11 +395,13 @@ describe('Assets API', () => {
     });
 
     it('should return 400 when currentValue is missing', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
 
       const request = new NextRequest('http://localhost:3000/api/assets/items', {
         method: 'POST',
@@ -388,11 +420,13 @@ describe('Assets API', () => {
     });
 
     it('should return 400 for invalid interest rate', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
 
       const request = new NextRequest('http://localhost:3000/api/assets/items', {
         method: 'POST',
@@ -412,11 +446,13 @@ describe('Assets API', () => {
     });
 
     it('should return 400 when monthly payment missing for loan', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
 
       const request = new NextRequest('http://localhost:3000/api/assets/items', {
         method: 'POST',
@@ -436,11 +472,13 @@ describe('Assets API', () => {
     });
 
     it('should return 400 for invalid maturity date format', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
 
       const request = new NextRequest('http://localhost:3000/api/assets/items', {
         method: 'POST',
@@ -480,7 +518,7 @@ describe('Assets API', () => {
         },
       ];
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       (mockPrisma.miscAsset.findMany as jest.Mock).mockResolvedValueOnce(mockAssets);
 
       const response = await GET_LIST();
@@ -493,7 +531,7 @@ describe('Assets API', () => {
     });
 
     it('should return 401 when not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(null);
 
       const response = await GET_LIST();
       const data = await response.json();
@@ -521,8 +559,8 @@ describe('Assets API', () => {
         mortgageTracks: [],
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(mockAsset);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce(mockAsset);
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1');
       const response = await GET_BY_ID(request, { params: Promise.resolve({ id: 'asset-1' }) });
@@ -534,12 +572,14 @@ describe('Assets API', () => {
     });
 
     it('should return 404 when asset not found', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
-      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
+      (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/invalid');
       const response = await GET_BY_ID(request, { params: Promise.resolve({ id: 'invalid' }) });
@@ -549,23 +589,22 @@ describe('Assets API', () => {
       expect(data.error).toBe('Asset not found');
     });
 
-    it('should return 403 when user does not own asset', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
-      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce({
-        id: 'asset-1',
-        userId: 'other-user',
-      });
+    it('should return 404 when asset is not visible to household', async () => {
+      // Under H1 (household scoping) "not found" and "not-your-household"
+      // are indistinguishable at the API surface — the route returns 404
+      // for both. Simulate that by making the household-scoped findFirst
+      // return null.
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({ id: 'user-1', email: 'test@example.com', name: 'Test User' })
+      );
+      (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1');
       const response = await GET_BY_ID(request, { params: Promise.resolve({ id: 'asset-1' }) });
       const data = await response.json();
 
-      expect(response.status).toBe(403);
-      expect(data.error).toBe('Forbidden');
+      expect(response.status).toBe(404);
+      expect(data.error).toBe('Asset not found');
     });
   });
 
@@ -593,8 +632,8 @@ describe('Assets API', () => {
         mortgageTracks: [],
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(mockExisting);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
       mockTransaction.mockImplementationOnce(async (callback) => {
         const tx = {
           miscAsset: {
@@ -628,8 +667,8 @@ describe('Assets API', () => {
 
     it('should normalize loan value to negative', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce({
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce({
         id: 'asset-1',
         type: 'loan',
         userId: 'user-1',
@@ -681,11 +720,13 @@ describe('Assets API', () => {
     });
 
     it('should return 400 for empty name', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
         method: 'PUT',
@@ -700,12 +741,14 @@ describe('Assets API', () => {
     });
 
     it('should return 404 when asset not found', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
-      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
+      (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/invalid', {
         method: 'PUT',
@@ -719,16 +762,12 @@ describe('Assets API', () => {
       expect(data.error).toBe('Asset not found');
     });
 
-    it('should return 403 when user does not own asset', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
-      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce({
-        id: 'asset-1',
-        userId: 'other-user',
-      });
+    it('should return 404 when asset is not visible to household', async () => {
+      // Household scoping: not-found and not-your-household collapse to 404.
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({ id: 'user-1', email: 'test@example.com', name: 'Test User' })
+      );
+      (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
         method: 'PUT',
@@ -738,16 +777,16 @@ describe('Assets API', () => {
       const response = await PUT(request, { params: Promise.resolve({ id: 'asset-1' }) });
       const data = await response.json();
 
-      expect(response.status).toBe(403);
-      expect(data.error).toBe('Forbidden');
+      expect(response.status).toBe(404);
+      expect(data.error).toBe('Asset not found');
     });
   });
 
   describe('DELETE /api/assets/items/[id]', () => {
     it('should delete asset successfully', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce({
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce({
         id: 'asset-1',
         userId: 'user-1',
       });
@@ -770,12 +809,14 @@ describe('Assets API', () => {
     });
 
     it('should return 404 when asset not found', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
-      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
+      (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/invalid', {
         method: 'DELETE',
@@ -788,16 +829,12 @@ describe('Assets API', () => {
       expect(data.error).toBe('Asset not found');
     });
 
-    it('should return 403 when user does not own asset', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
-      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce({
-        id: 'asset-1',
-        userId: 'other-user',
-      });
+    it('should return 404 when asset is not visible to household', async () => {
+      // Household scoping: not-found and not-your-household collapse to 404.
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({ id: 'user-1', email: 'test@example.com', name: 'Test User' })
+      );
+      (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
         method: 'DELETE',
@@ -806,12 +843,12 @@ describe('Assets API', () => {
       const response = await DELETE(request, { params: Promise.resolve({ id: 'asset-1' }) });
       const data = await response.json();
 
-      expect(response.status).toBe(403);
-      expect(data.error).toBe('Forbidden');
+      expect(response.status).toBe(404);
+      expect(data.error).toBe('Asset not found');
     });
 
     it('should return 401 when not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
         method: 'DELETE',
@@ -827,11 +864,13 @@ describe('Assets API', () => {
 
   describe('PUT /api/assets/items/[id] - Additional validations', () => {
     it('should return 400 when name is defined but not a string', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
         method: 'PUT',
@@ -846,11 +885,13 @@ describe('Assets API', () => {
     });
 
     it('should return 400 when name exceeds max length', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
 
       const longName = 'a'.repeat(300);
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
@@ -866,11 +907,13 @@ describe('Assets API', () => {
     });
 
     it('should return 400 when currentValue is not a number', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
         method: 'PUT',
@@ -885,11 +928,13 @@ describe('Assets API', () => {
     });
 
     it('should return 400 when interestRate is not a number', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
         method: 'PUT',
@@ -904,11 +949,13 @@ describe('Assets API', () => {
     });
 
     it('should return 400 when interestRate is negative', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
         method: 'PUT',
@@ -923,11 +970,13 @@ describe('Assets API', () => {
     });
 
     it('should return 400 when interestRate is over 100', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
         method: 'PUT',
@@ -942,11 +991,13 @@ describe('Assets API', () => {
     });
 
     it('should return 400 when monthlyPayment is not a number', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
         method: 'PUT',
@@ -961,11 +1012,13 @@ describe('Assets API', () => {
     });
 
     it('should return 400 when monthlyPayment is negative', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
         method: 'PUT',
@@ -980,11 +1033,13 @@ describe('Assets API', () => {
     });
 
     it('should return 400 when monthlyDeposit is not a number', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
         method: 'PUT',
@@ -999,11 +1054,13 @@ describe('Assets API', () => {
     });
 
     it('should return 400 when monthlyDeposit is negative', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
         method: 'PUT',
@@ -1019,8 +1076,8 @@ describe('Assets API', () => {
 
     it('should accept null maturityDate to clear the date', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce({
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce({
         id: 'asset-1',
         type: 'bank_deposit',
         userId: 'user-1',
@@ -1071,12 +1128,14 @@ describe('Assets API', () => {
     });
 
     it('should return 400 for invalid maturity date format in update', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce({
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
-      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce({
+      mockGetCurrentContext.mockResolvedValueOnce(
+        makeContext({
+          id: 'user-1',
+          email: 'test@example.com',
+          name: 'Test User',
+        })
+      );
+      (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce({
         id: 'asset-1',
         type: 'bank_deposit',
         userId: 'user-1',
@@ -1096,8 +1155,8 @@ describe('Assets API', () => {
 
     it('should normalize mortgage value to negative', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce({
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce({
         id: 'asset-1',
         type: 'mortgage',
         userId: 'user-1',
@@ -1146,8 +1205,8 @@ describe('Assets API', () => {
 
     it('should allow null monthlyPayment', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce({
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce({
         id: 'asset-1',
         type: 'bank_deposit',
         userId: 'user-1',
@@ -1192,8 +1251,8 @@ describe('Assets API', () => {
 
     it('should allow null monthlyDeposit', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce({
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce({
         id: 'asset-1',
         type: 'bank_deposit',
         userId: 'user-1',
@@ -1237,7 +1296,7 @@ describe('Assets API', () => {
     });
 
     it('should return 401 when not authenticated on PUT', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1', {
         method: 'PUT',
@@ -1254,7 +1313,7 @@ describe('Assets API', () => {
 
   describe('GET /api/assets/items/[id] - Additional tests', () => {
     it('should return 401 when not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/assets/items/asset-1');
       const response = await GET_BY_ID(request, { params: Promise.resolve({ id: 'asset-1' }) });
@@ -1268,8 +1327,8 @@ describe('Assets API', () => {
   describe('Error Handling', () => {
     it('should return 500 when database fails on GET single asset', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.miscAsset.findUnique as jest.Mock).mockRejectedValueOnce(
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.miscAsset.findFirst as jest.Mock).mockRejectedValueOnce(
         new Error('Database error')
       );
 
@@ -1284,8 +1343,8 @@ describe('Assets API', () => {
 
     it('should return 500 when database fails on PUT', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce({
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce({
         id: 'asset-1',
         type: 'bank_deposit',
         userId: 'user-1',
@@ -1307,8 +1366,8 @@ describe('Assets API', () => {
 
     it('should return 500 when database fails on DELETE', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce({
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce({
         id: 'asset-1',
         userId: 'user-1',
       });
@@ -1378,7 +1437,7 @@ describe('Assets API', () => {
           ],
         };
 
-        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
         mockTransaction.mockImplementationOnce(async (callback) => {
           const tx = {
             miscAsset: {
@@ -1442,7 +1501,7 @@ describe('Assets API', () => {
       it('should calculate aggregate values from tracks', async () => {
         const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
 
-        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
         mockTransaction.mockImplementationOnce(async (callback) => {
           const tx = {
             miscAsset: {
@@ -1494,7 +1553,7 @@ describe('Assets API', () => {
 
       it('should allow mortgage without tracks (requires monthlyPayment)', async () => {
         const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
         mockTransaction.mockImplementationOnce(async (callback) => {
           const tx = {
             miscAsset: {
@@ -1541,7 +1600,7 @@ describe('Assets API', () => {
 
       it('should return 400 when mortgage has no tracks and no monthlyPayment', async () => {
         const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
         const request = new NextRequest('http://localhost:3000/api/assets/items', {
           method: 'POST',
@@ -1563,7 +1622,7 @@ describe('Assets API', () => {
 
       it('should return 400 when tracks are added to non-mortgage type', async () => {
         const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
         const request = new NextRequest('http://localhost:3000/api/assets/items', {
           method: 'POST',
@@ -1588,7 +1647,7 @@ describe('Assets API', () => {
     describe('Track Validation', () => {
       it('should return 400 when track name is missing', async () => {
         const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
         const request = new NextRequest('http://localhost:3000/api/assets/items', {
           method: 'POST',
@@ -1612,7 +1671,7 @@ describe('Assets API', () => {
 
       it('should return 400 when track amount is missing', async () => {
         const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
         const request = new NextRequest('http://localhost:3000/api/assets/items', {
           method: 'POST',
@@ -1636,7 +1695,7 @@ describe('Assets API', () => {
 
       it('should return 400 when track interest rate is missing', async () => {
         const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
         const request = new NextRequest('http://localhost:3000/api/assets/items', {
           method: 'POST',
@@ -1660,7 +1719,7 @@ describe('Assets API', () => {
 
       it('should return 400 when track interest rate is negative', async () => {
         const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
         const request = new NextRequest('http://localhost:3000/api/assets/items', {
           method: 'POST',
@@ -1682,7 +1741,7 @@ describe('Assets API', () => {
 
       it('should return 400 when track interest rate exceeds 100', async () => {
         const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
         const request = new NextRequest('http://localhost:3000/api/assets/items', {
           method: 'POST',
@@ -1704,7 +1763,7 @@ describe('Assets API', () => {
 
       it('should return 400 when track amount is negative', async () => {
         const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
-        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
         const request = new NextRequest('http://localhost:3000/api/assets/items', {
           method: 'POST',
@@ -1735,9 +1794,9 @@ describe('Assets API', () => {
           mortgageTracks: [{ id: 'old-track-1', name: 'Old Track', amount: createDecimal(100000) }],
         };
 
-        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
         // First findUnique call is outside transaction (to verify ownership)
-        (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(mockExisting);
+        (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
 
         mockTransaction.mockImplementationOnce(async (callback) => {
           const tx = {
@@ -1812,8 +1871,8 @@ describe('Assets API', () => {
           mortgageTracks: [{ id: 'track-1', name: 'Track 1' }],
         };
 
-        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-        (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(mockExisting);
+        mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+        (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
         mockTransaction.mockImplementationOnce(async (callback) => {
           const tx = {
             miscAsset: {
@@ -1874,8 +1933,8 @@ describe('Assets API', () => {
           ],
         };
 
-        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-        (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(mockExisting);
+        mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+        (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
         mockTransaction.mockImplementationOnce(async (callback) => {
           const tx = {
             miscAsset: {
@@ -1954,7 +2013,7 @@ describe('Assets API', () => {
           },
         ];
 
-        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
         (mockPrisma.miscAsset.findMany as jest.Mock).mockResolvedValueOnce(mockAssets);
 
         const response = await GET_LIST();
@@ -1984,7 +2043,7 @@ describe('Assets API', () => {
           },
         ];
 
-        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+        mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
         (mockPrisma.miscAsset.findMany as jest.Mock).mockResolvedValueOnce(mockAssets);
 
         const response = await GET_LIST();
@@ -2023,8 +2082,8 @@ describe('Assets API', () => {
           ],
         };
 
-        mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-        (mockPrisma.miscAsset.findUnique as jest.Mock).mockResolvedValueOnce(mockAsset);
+        mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+        (mockPrisma.miscAsset.findFirst as jest.Mock).mockResolvedValueOnce(mockAsset);
 
         const request = new NextRequest('http://localhost:3000/api/assets/items/mortgage-1');
         const response = await GET_BY_ID(request, {
