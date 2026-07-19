@@ -138,6 +138,27 @@ export interface TransactionFilters {
   accountNumber?: string;
 }
 
+/**
+ * Invalidate the query keys that a transaction-mutating action can affect.
+ * Every transaction mutation in this file used to repeat this same list of
+ * five invalidate calls — new mutations kept forgetting one and getting a
+ * stale-cache bug. Centralising the list makes the invariant explicit:
+ * "if you changed a transaction, you changed these caches."
+ *
+ * Not exported because it's tied to this file's mutation set — external
+ * callers should use the specific mutation hooks instead.
+ */
+type MinimalQueryClient = {
+  invalidateQueries: (opts: { queryKey: readonly unknown[] }) => unknown;
+};
+function invalidateBudgetTransactionCaches(client: MinimalQueryClient) {
+  client.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
+  client.invalidateQueries({ queryKey: budgetKeys.allMonthSummaries() });
+  client.invalidateQueries({ queryKey: budgetKeys.allUncategorizedCounts() });
+  client.invalidateQueries({ queryKey: budgetKeys.analysis() });
+  client.invalidateQueries({ queryKey: budgetKeys.savings() });
+}
+
 // API helper function
 async function fetchApi<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -419,11 +440,7 @@ export function useCreateTransaction() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allMonthSummaries() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allUncategorizedCounts() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.analysis() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
+      invalidateBudgetTransactionCaches(queryClient);
     },
   });
 }
@@ -464,11 +481,7 @@ export function useSyncMoneytor() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allMonthSummaries() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allUncategorizedCounts() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.analysis() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
+      invalidateBudgetTransactionCaches(queryClient);
     },
   });
 }
@@ -485,11 +498,7 @@ export function useUpdateTransaction() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allMonthSummaries() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allUncategorizedCounts() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.analysis() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
+      invalidateBudgetTransactionCaches(queryClient);
     },
   });
 }
@@ -504,11 +513,7 @@ export function useDeleteTransaction() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allMonthSummaries() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allUncategorizedCounts() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.analysis() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
+      invalidateBudgetTransactionCaches(queryClient);
     },
   });
 }
@@ -560,11 +565,7 @@ export function useSuggestionAction() {
         body: JSON.stringify({ action }),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allMonthSummaries() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allUncategorizedCounts() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.analysis() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
+      invalidateBudgetTransactionCaches(queryClient);
     },
   });
 }
@@ -625,11 +626,7 @@ export function useBulkDeleteTransactions() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allMonthSummaries() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allUncategorizedCounts() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.analysis() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
+      invalidateBudgetTransactionCaches(queryClient);
     },
   });
 }
@@ -651,11 +648,7 @@ export function useBulkCategorizeTransactions() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allTransactions() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allMonthSummaries() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.allUncategorizedCounts() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.analysis() });
-      queryClient.invalidateQueries({ queryKey: budgetKeys.savings() });
+      invalidateBudgetTransactionCaches(queryClient);
     },
   });
 }

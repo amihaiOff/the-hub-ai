@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
+import { householdVisibleWhere } from '@/lib/utils/household-scope';
 import { bulkDepositSchema, validateBulkDeposit } from '@/lib/validations/pension';
 import { getFirstZodError } from '@/lib/validations/common';
 
@@ -13,9 +14,8 @@ export const maxDuration = 30;
  */
 export async function POST(request: NextRequest) {
   try {
-    // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -39,18 +39,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Verify account exists and belongs to the authenticated user
-    const account = await prisma.pensionAccount.findUnique({
-      where: { id: accountId },
+    // Verify the parent account is visible to the caller's household.
+    const account = await prisma.pensionAccount.findFirst({
+      where: { id: accountId, ...householdVisibleWhere(context.activeHousehold.id) },
+      select: { id: true },
     });
-
     if (!account) {
       return NextResponse.json({ success: false, error: 'Account not found' }, { status: 404 });
-    }
-
-    // Authorization check - verify user owns this account
-    if (account.userId !== user.id) {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     // Create deposits sequentially without transaction (Neon serverless compatibility)

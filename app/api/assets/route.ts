@@ -1,22 +1,24 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
+import { householdVisibleWhere } from '@/lib/utils/household-scope';
 
 /**
  * GET /api/assets
- * Get user's assets summary with all items and totals
+ * Get the active household's misc-assets summary — every item visible to
+ * any member, per H1 of the codebase review. Also uses integer-cents
+ * accumulation on totals.
  */
 export async function GET() {
   try {
-    // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
+    const householdId = context.activeHousehold.id;
 
-    // Fetch all misc assets with owners and mortgage tracks for the user
     const assets = await prisma.miscAsset.findMany({
-      where: { userId: user.id },
+      where: householdVisibleWhere(householdId),
       include: {
         owners: {
           include: {
@@ -37,16 +39,19 @@ export async function GET() {
       orderBy: { createdAt: 'asc' },
     });
 
-    // Calculate totals
-    let totalAssets = 0;
-    let totalLiabilities = 0;
+    // Cent-accumulate to avoid float drift when summing many Decimals.
+    const toCents = (v: unknown) => Math.round(Number(v) * 100);
+    const fromCents = (c: number) => c / 100;
+    let totalAssetsCents = 0;
+    let totalLiabilitiesCents = 0;
 
     const items = assets.map((asset: (typeof assets)[0]) => {
       const value = Number(asset.currentValue);
-      if (value >= 0) {
-        totalAssets += value;
+      const cents = toCents(asset.currentValue);
+      if (cents >= 0) {
+        totalAssetsCents += cents;
       } else {
-        totalLiabilities += Math.abs(value);
+        totalLiabilitiesCents += Math.abs(cents);
       }
 
       return {
@@ -81,10 +86,10 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       data: {
-        userId: user.id,
-        totalAssets,
-        totalLiabilities,
-        netValue: totalAssets - totalLiabilities,
+        householdId,
+        totalAssets: fromCents(totalAssetsCents),
+        totalLiabilities: fromCents(totalLiabilitiesCents),
+        netValue: fromCents(totalAssetsCents - totalLiabilitiesCents),
         itemsCount: assets.length,
         items,
       },

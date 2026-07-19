@@ -72,12 +72,19 @@ export async function GET() {
       };
     });
 
-    const bankTotal = accounts
-      .filter((a) => a.form === 'bank')
-      .reduce((s, a) => s + a.balanceInBase, 0);
-    const debtTotal = accounts
-      .filter((a) => a.form === 'debt')
-      .reduce((s, a) => s + a.balanceInBase, 0);
+    // Accumulate in integer cents to keep totals bit-stable across many
+    // Decimal balances. Mirrors app/api/budget/analysis/route.ts.
+    const toCents = (v: unknown) => Math.round(Number(v) * 100);
+    const fromCents = (c: number) => c / 100;
+    let bankTotalCents = 0;
+    let debtTotalCents = 0;
+    for (const r of rows) {
+      const cents = toCents(r.balanceInBase);
+      if (r.form === 'bank') bankTotalCents += cents;
+      else if (r.form === 'debt') debtTotalCents += cents;
+    }
+    const bankTotal = fromCents(bankTotalCents);
+    const debtTotal = fromCents(debtTotalCents);
 
     const asOf =
       rows.length > 0
@@ -91,7 +98,7 @@ export async function GET() {
       totals: {
         bank: bankTotal,
         debt: debtTotal,
-        netInScope: bankTotal + debtTotal,
+        netInScope: fromCents(bankTotalCents + debtTotalCents),
       },
     });
   } catch (err) {

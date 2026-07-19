@@ -5,9 +5,10 @@
 
 import { NextRequest } from 'next/server';
 
-// Mock auth utilities
+// Route migrated to household+profile scoping (H1) — only needs auth
+// (no ownership check), so we mock getCurrentContext.
 jest.mock('@/lib/auth-utils', () => ({
-  getCurrentUser: jest.fn(),
+  getCurrentContext: jest.fn(),
 }));
 
 // Mock the PDF parsers
@@ -20,12 +21,35 @@ jest.mock('@/lib/pdf/harel-parser', () => ({
   parseHarelPdf: jest.fn(),
 }));
 
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
 import { parseMeitavPdf, getPdfRawText } from '@/lib/pdf/meitav-parser';
 import { parseHarelPdf } from '@/lib/pdf/harel-parser';
 import { POST } from '../route';
 
-const mockGetCurrentUser = getCurrentUser as jest.MockedFunction<typeof getCurrentUser>;
+const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
+
+function makeContext(user: { id: string; email?: string | null; name?: string | null }) {
+  const profile = {
+    id: `profile-${user.id}`,
+    name: user.name ?? 'Test User',
+    image: null,
+    color: null,
+    userId: user.id,
+  };
+  const household = {
+    id: 'household-1',
+    name: 'Household',
+    description: null,
+    role: 'owner' as const,
+  };
+  return {
+    user: { id: user.id, email: user.email ?? 'test@example.com', name: user.name ?? 'Test User' },
+    profile,
+    households: [household],
+    activeHousehold: household,
+    householdProfiles: [{ ...profile, role: 'owner' as const, hasUser: true }],
+  };
+}
 const mockParseMeitavPdf = parseMeitavPdf as jest.MockedFunction<typeof parseMeitavPdf>;
 const mockGetPdfRawText = getPdfRawText as jest.MockedFunction<typeof getPdfRawText>;
 const mockParseHarelPdf = parseHarelPdf as jest.MockedFunction<typeof parseHarelPdf>;
@@ -80,7 +104,7 @@ describe('Parse PDF API', () => {
         employerName: null,
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockGetPdfRawText.mockResolvedValueOnce('מיטב דש גמל ופנסיה');
       mockParseMeitavPdf.mockReturnValueOnce(mockResult);
 
@@ -123,7 +147,7 @@ describe('Parse PDF API', () => {
         employerName: null,
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockGetPdfRawText.mockResolvedValueOnce('מיטב דש גמל ופנסיה');
       mockParseMeitavPdf.mockReturnValueOnce(mockResult);
 
@@ -146,7 +170,7 @@ describe('Parse PDF API', () => {
     });
 
     it('should return 401 when not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(null);
 
       const formData = new FormData();
       formData.append('file', createMockPdfFile('pension.pdf', 'pdf'));
@@ -165,7 +189,7 @@ describe('Parse PDF API', () => {
     });
 
     it('should return 400 when no file provided', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const formData = new FormData();
       // No file appended
@@ -184,7 +208,7 @@ describe('Parse PDF API', () => {
     });
 
     it('should return 400 when file is not a PDF', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const formData = new FormData();
       formData.append('file', createMockNonPdfFile('document.txt', 'text content'));
@@ -219,7 +243,7 @@ describe('Parse PDF API', () => {
         employerName: null,
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockGetPdfRawText.mockResolvedValueOnce('מיטב דש');
       mockParseMeitavPdf.mockReturnValueOnce(mockResult);
 
@@ -253,7 +277,7 @@ describe('Parse PDF API', () => {
         employerName: null,
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockGetPdfRawText.mockResolvedValueOnce('מיטב דש');
       mockParseMeitavPdf.mockReturnValueOnce(mockResult);
 
@@ -274,7 +298,7 @@ describe('Parse PDF API', () => {
     });
 
     it('should handle PDF parsing exceptions gracefully', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockGetPdfRawText.mockResolvedValueOnce('מיטב דש');
       mockParseMeitavPdf.mockImplementationOnce(() => {
         throw new Error('PDF is encrypted');
@@ -317,7 +341,7 @@ describe('Parse PDF API', () => {
         employerName: null,
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockGetPdfRawText.mockResolvedValueOnce('מיטב דש');
       mockParseMeitavPdf.mockReturnValueOnce(mockResult);
 
@@ -358,7 +382,7 @@ describe('Parse PDF API', () => {
         employerName: null,
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockGetPdfRawText.mockResolvedValueOnce('מיטב דש');
       mockParseMeitavPdf.mockReturnValueOnce(mockResult);
 
@@ -398,7 +422,7 @@ describe('Parse PDF API', () => {
         employerName: null,
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockGetPdfRawText.mockResolvedValueOnce('מיטב דש');
       mockParseMeitavPdf.mockReturnValueOnce(mockResult);
 
@@ -423,7 +447,7 @@ describe('Parse PDF API', () => {
     // because File.size is readonly. The validation (> 5MB) is tested manually.
 
     it('should handle form data with wrong field name', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const formData = new FormData();
       formData.append('document', createMockPdfFile('pension.pdf', 'pdf')); // Wrong field name
@@ -469,7 +493,7 @@ describe('Parse PDF API', () => {
         },
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockGetPdfRawText.mockResolvedValueOnce('הראל פנסיה וגמל');
       mockParseHarelPdf.mockReturnValueOnce(mockResult);
 
@@ -493,7 +517,7 @@ describe('Parse PDF API', () => {
     });
 
     it('should return 400 for unsupported PDF format', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockGetPdfRawText.mockResolvedValueOnce('Some unknown pension provider document');
 
       const formData = new FormData();
@@ -542,7 +566,7 @@ describe('Parse PDF API', () => {
         },
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockGetPdfRawText.mockResolvedValueOnce('הראל פנסיה וגמל');
       mockParseHarelPdf.mockReturnValueOnce(mockResult);
 
@@ -582,7 +606,7 @@ describe('Parse PDF API', () => {
         employerName: null,
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockGetPdfRawText.mockResolvedValueOnce('מיטב דש');
       mockParseMeitavPdf.mockReturnValueOnce(mockResult);
 
@@ -622,7 +646,7 @@ describe('Parse PDF API', () => {
         employerName: null,
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockGetPdfRawText.mockResolvedValueOnce('מיטב דש');
       mockParseMeitavPdf.mockReturnValueOnce(mockResult);
 
@@ -665,7 +689,7 @@ describe('Parse PDF API', () => {
         employerName: null,
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
       mockGetPdfRawText.mockResolvedValueOnce('מיטב דש');
       mockParseMeitavPdf.mockReturnValueOnce(mockResult);
 

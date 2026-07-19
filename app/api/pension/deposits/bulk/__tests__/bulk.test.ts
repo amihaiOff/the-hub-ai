@@ -5,11 +5,13 @@
 
 import { NextRequest } from 'next/server';
 
-// Mock Prisma client
+// Mock Prisma client. Route uses findFirst for the household-scoped
+// parent-account load (H1).
 jest.mock('@/lib/db', () => ({
   prisma: {
     pensionAccount: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
     },
     pensionDeposit: {
       create: jest.fn(),
@@ -18,25 +20,49 @@ jest.mock('@/lib/db', () => ({
   },
 }));
 
-// Mock auth utilities
+// Route migrated to household+profile scoping (H1). Mock getCurrentContext.
 jest.mock('@/lib/auth-utils', () => ({
-  getCurrentUser: jest.fn(),
+  getCurrentContext: jest.fn(),
 }));
 
 import { prisma } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
 import { POST } from '../route';
 
-const mockGetCurrentUser = getCurrentUser as jest.MockedFunction<typeof getCurrentUser>;
+const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
 const mockPrisma = prisma as unknown as {
   pensionAccount: {
     findUnique: jest.Mock;
+    findFirst: jest.Mock;
   };
   pensionDeposit: {
     create: jest.Mock;
     deleteMany: jest.Mock;
   };
 };
+
+function makeContext(user: { id: string; email?: string | null; name?: string | null }) {
+  const profile = {
+    id: `profile-${user.id}`,
+    name: user.name ?? 'Test User',
+    image: null,
+    color: null,
+    userId: user.id,
+  };
+  const household = {
+    id: 'household-1',
+    name: 'Household',
+    description: null,
+    role: 'owner' as const,
+  };
+  return {
+    user: { id: user.id, email: user.email ?? 'test@example.com', name: user.name ?? 'Test User' },
+    profile,
+    households: [household],
+    activeHousehold: household,
+    householdProfiles: [{ ...profile, role: 'owner' as const, hasUser: true }],
+  };
+}
 
 describe('Bulk Deposits API', () => {
   const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
@@ -78,8 +104,8 @@ describe('Bulk Deposits API', () => {
         employer: d.employer,
       }));
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(mockAccount);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.pensionAccount.findFirst as jest.Mock).mockResolvedValueOnce(mockAccount);
       // Mock sequential create calls
       createdDeposits.forEach((deposit) => {
         (mockPrisma.pensionDeposit.create as jest.Mock).mockResolvedValueOnce(deposit);
@@ -103,7 +129,7 @@ describe('Bulk Deposits API', () => {
     });
 
     it('should return 401 when not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -129,7 +155,7 @@ describe('Bulk Deposits API', () => {
     });
 
     it('should return 400 when accountId is missing', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -154,7 +180,7 @@ describe('Bulk Deposits API', () => {
     });
 
     it('should return 400 when deposits array is empty', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -173,7 +199,7 @@ describe('Bulk Deposits API', () => {
     });
 
     it('should return 400 when deposits is not an array', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -192,7 +218,7 @@ describe('Bulk Deposits API', () => {
     });
 
     it('should return 400 when deposits exceed maximum limit of 100', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       // Create 101 deposits to exceed the limit
       const deposits = Array.from({ length: 101 }, (_, i) => ({
@@ -219,7 +245,7 @@ describe('Bulk Deposits API', () => {
     });
 
     it('should return 400 when deposit date is missing', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -245,7 +271,7 @@ describe('Bulk Deposits API', () => {
     });
 
     it('should return 400 for invalid deposit date format', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -271,7 +297,7 @@ describe('Bulk Deposits API', () => {
     });
 
     it('should return 400 when salary month is missing', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -296,7 +322,7 @@ describe('Bulk Deposits API', () => {
     });
 
     it('should return 400 for invalid salary month format', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -322,7 +348,7 @@ describe('Bulk Deposits API', () => {
     });
 
     it('should return 400 when amount is missing', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -347,7 +373,7 @@ describe('Bulk Deposits API', () => {
     });
 
     it('should return 400 when amount is zero', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -373,10 +399,10 @@ describe('Bulk Deposits API', () => {
     });
 
     it('should allow negative amounts for refunds/corrections', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       // Mock the account lookup
-      mockPrisma.pensionAccount.findUnique.mockResolvedValueOnce({
+      mockPrisma.pensionAccount.findFirst.mockResolvedValueOnce({
         id: 'acc-1',
         userId: mockUser.id,
         providerName: 'Meitav',
@@ -425,7 +451,7 @@ describe('Bulk Deposits API', () => {
     });
 
     it('should return 400 when employer is missing', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -450,7 +476,7 @@ describe('Bulk Deposits API', () => {
     });
 
     it('should return 400 when employer is empty string', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -476,8 +502,8 @@ describe('Bulk Deposits API', () => {
     });
 
     it('should return 404 when account not found', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(null);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.pensionAccount.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -502,15 +528,10 @@ describe('Bulk Deposits API', () => {
       expect(data.error).toBe('Account not found');
     });
 
-    it('should return 403 when account belongs to different user', async () => {
-      const otherUserAccount = {
-        id: 'acc-1',
-        userId: 'user-2', // Different user
-        type: 'pension',
-      };
-
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(otherUserAccount);
+    it('should return 404 when account is not visible to the household', async () => {
+      // Household scoping (H1) — not-found and not-your-household collapse to 404.
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.pensionAccount.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -530,13 +551,13 @@ describe('Bulk Deposits API', () => {
       const response = await POST(request);
       const data = await response.json();
 
-      expect(response.status).toBe(403);
+      expect(response.status).toBe(404);
       expect(data.success).toBe(false);
-      expect(data.error).toBe('Forbidden');
+      expect(data.error).toBe('Account not found');
     });
 
     it('should validate all deposits before creating any', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -569,7 +590,7 @@ describe('Bulk Deposits API', () => {
     });
 
     it('should indicate which deposit has validation error', async () => {
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
 
       const request = new NextRequest('http://localhost:3000/api/pension/deposits/bulk', {
         method: 'POST',
@@ -612,8 +633,8 @@ describe('Bulk Deposits API', () => {
         type: 'pension',
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(mockAccount);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.pensionAccount.findFirst as jest.Mock).mockResolvedValueOnce(mockAccount);
       (mockPrisma.pensionDeposit.create as jest.Mock).mockResolvedValueOnce({
         id: 'dep-1',
         accountId: 'acc-1',
@@ -656,8 +677,8 @@ describe('Bulk Deposits API', () => {
         type: 'pension',
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(mockAccount);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.pensionAccount.findFirst as jest.Mock).mockResolvedValueOnce(mockAccount);
       // First create succeeds, second fails
       (mockPrisma.pensionDeposit.create as jest.Mock)
         .mockResolvedValueOnce({
@@ -711,8 +732,8 @@ describe('Bulk Deposits API', () => {
         type: 'pension',
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(mockAccount);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.pensionAccount.findFirst as jest.Mock).mockResolvedValueOnce(mockAccount);
       (mockPrisma.pensionDeposit.create as jest.Mock).mockResolvedValueOnce({
         id: 'dep-1',
         accountId: 'acc-1',
@@ -753,8 +774,8 @@ describe('Bulk Deposits API', () => {
         type: 'pension',
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(mockAccount);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.pensionAccount.findFirst as jest.Mock).mockResolvedValueOnce(mockAccount);
       (mockPrisma.pensionDeposit.create as jest.Mock).mockResolvedValueOnce({
         id: 'dep-1',
         accountId: 'acc-1',
@@ -793,8 +814,8 @@ describe('Bulk Deposits API', () => {
         type: 'pension',
       };
 
-      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
-      (mockPrisma.pensionAccount.findUnique as jest.Mock).mockResolvedValueOnce(mockAccount);
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.pensionAccount.findFirst as jest.Mock).mockResolvedValueOnce(mockAccount);
       (mockPrisma.pensionDeposit.create as jest.Mock).mockResolvedValueOnce({
         id: 'dep-1',
         accountId: 'acc-1',

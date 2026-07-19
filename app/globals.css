@@ -382,9 +382,18 @@
     border-collapse: separate;
     border-spacing: 0;
     width: 100%;
-    /* No outer border / background — the grid reads as content embedded in
-       the page (light row dividers only), not a boxed spreadsheet. */
+    /* Subtle outer border + rounded corners, Notion-style. The `overflow`
+       lives on the wrapper below so the border-radius clips the header
+       band and last-row cells cleanly. */
     background: transparent;
+  }
+  .database-block > .overflow-x-auto {
+    border: 1px solid color-mix(in oklab, var(--border) 50%, transparent);
+    border-radius: 0.75rem;
+    /* overflow-x: auto stays for horizontal scroll on narrow viewports;
+       overflow-y: hidden clips the header/last-row corners against the
+       rounded border. */
+    overflow-y: hidden;
   }
   .database-block th,
   .database-block td {

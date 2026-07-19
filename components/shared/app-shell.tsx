@@ -62,6 +62,17 @@ export function AppShell({ children }: AppShellProps) {
       {/* Desktop Sidebar */}
       <Sidebar />
 
+      {/* Skip-to-content link. Sits at the very top of the tab order, is
+          visually hidden until a keyboard user focuses it, and jumps
+          straight to the main content — spares them the entire nav
+          every page load. */}
+      <a
+        href="#main-content"
+        className="bg-primary text-primary-foreground sr-only rounded-md px-3 py-2 text-sm font-medium focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200]"
+      >
+        Skip to content
+      </a>
+
       {/* Mobile Header */}
       <MobileHeader onMenuClick={() => setMenuOpen(true)} />
 
@@ -69,7 +80,7 @@ export function AppShell({ children }: AppShellProps) {
       <MobileMenu open={menuOpen} onOpenChange={setMenuOpen} />
 
       {/* Main Content */}
-      <main className="safe-px safe-pb lg:ml-64">
+      <main id="main-content" tabIndex={-1} className="safe-px safe-pb lg:ml-64">
         <div className="mx-auto max-w-7xl p-4 lg:p-8">{children}</div>
       </main>
     </div>

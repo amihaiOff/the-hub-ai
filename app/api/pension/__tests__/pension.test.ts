@@ -3,12 +3,38 @@
  * Tests pension summary fetching
  */
 
-// Mock the auth-utils module
-const mockGetCurrentUser = jest.fn();
+// Mock the auth-utils module. Route migrated to household+profile scoping
+// (H1) so we mock getCurrentContext and synthesize a context from the
+// legacy `mockUser` fixture for backward compatibility.
+const mockGetCurrentContext = jest.fn();
 
 jest.mock('@/lib/auth-utils', () => ({
-  getCurrentUser: () => mockGetCurrentUser(),
+  getCurrentContext: () => mockGetCurrentContext(),
 }));
+
+function makeContext(user: { id: string; email?: string | null; name?: string | null } | null) {
+  if (!user) return null;
+  const profile = {
+    id: `profile-${user.id}`,
+    name: user.name ?? 'Test User',
+    image: null,
+    color: null,
+    userId: user.id,
+  };
+  const household = {
+    id: 'household-1',
+    name: 'Household',
+    description: null,
+    role: 'owner' as const,
+  };
+  return {
+    user: { id: user.id, email: user.email ?? 'test@example.com', name: user.name ?? 'Test User' },
+    profile,
+    households: [household],
+    activeHousehold: household,
+    householdProfiles: [{ ...profile, role: 'owner' as const, hasUser: true }],
+  };
+}
 
 // Mock Prisma client
 const mockPrisma = {
@@ -35,7 +61,7 @@ describe('Pension API', () => {
 
   describe('GET /api/pension', () => {
     it('returns 401 when user is not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValue(null);
+      mockGetCurrentContext.mockResolvedValue(null);
 
       const response = await GET();
       const data = await response.json();
@@ -46,7 +72,7 @@ describe('Pension API', () => {
     });
 
     it('returns empty data when no accounts exist', async () => {
-      mockGetCurrentUser.mockResolvedValue(mockUser);
+      mockGetCurrentContext.mockResolvedValue(makeContext(mockUser));
       mockPrisma.pensionAccount.findMany.mockResolvedValue([]);
 
       const response = await GET();
@@ -54,7 +80,7 @@ describe('Pension API', () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(data.data.userId).toBe('user-123');
+      expect(data.data.householdId).toBe('household-1');
       expect(data.data.totalValue).toBe(0);
       expect(data.data.totalDeposits).toBe(0);
       expect(data.data.thisMonthDeposits).toBe(0);
@@ -63,7 +89,7 @@ describe('Pension API', () => {
     });
 
     it('returns pension summary with accounts', async () => {
-      mockGetCurrentUser.mockResolvedValue(mockUser);
+      mockGetCurrentContext.mockResolvedValue(makeContext(mockUser));
 
       const now = new Date();
       const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -112,7 +138,7 @@ describe('Pension API', () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(data.data.userId).toBe('user-123');
+      expect(data.data.householdId).toBe('household-1');
       expect(data.data.totalValue).toBe(100000);
       expect(data.data.totalDeposits).toBe(9500);
       expect(data.data.thisMonthDeposits).toBe(5000);
@@ -123,7 +149,7 @@ describe('Pension API', () => {
     });
 
     it('calculates totals across multiple accounts', async () => {
-      mockGetCurrentUser.mockResolvedValue(mockUser);
+      mockGetCurrentContext.mockResolvedValue(makeContext(mockUser));
 
       const now = new Date();
       const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -179,7 +205,7 @@ describe('Pension API', () => {
     });
 
     it('handles database error', async () => {
-      mockGetCurrentUser.mockResolvedValue(mockUser);
+      mockGetCurrentContext.mockResolvedValue(makeContext(mockUser));
       mockPrisma.pensionAccount.findMany.mockRejectedValue(new Error('Database error'));
 
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();

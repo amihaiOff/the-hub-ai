@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
+import { householdVisibleWhere } from '@/lib/utils/household-scope';
 import { updateDepositSchema } from '@/lib/validations/pension';
 import { getFirstZodError } from '@/lib/validations/common';
 
@@ -9,33 +10,35 @@ interface RouteParams {
 }
 
 /**
+ * Load a deposit by id, but only if its parent account is visible to the
+ * given household. Returns null when the deposit doesn't exist OR its
+ * account is out of scope — collapsed to a single 404 at the callsite.
+ */
+async function loadOwnedDeposit(id: string, householdId: string) {
+  return prisma.pensionDeposit.findFirst({
+    where: {
+      id,
+      account: householdVisibleWhere(householdId),
+    },
+    include: { account: true },
+  });
+}
+
+/**
  * GET /api/pension/deposits/[id]
- * Get a single deposit
+ * Get a single deposit (household-scoped).
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-
     const { id } = await params;
 
-    const deposit = await prisma.pensionDeposit.findUnique({
-      where: { id },
-      include: {
-        account: true,
-      },
-    });
-
+    const deposit = await loadOwnedDeposit(id, context.activeHousehold.id);
     if (!deposit) {
       return NextResponse.json({ success: false, error: 'Deposit not found' }, { status: 404 });
-    }
-
-    // Authorization check - verify user owns the account containing this deposit
-    if (deposit.account.userId !== user.id) {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     return NextResponse.json({
@@ -57,16 +60,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 /**
  * PUT /api/pension/deposits/[id]
- * Update a deposit
+ * Update a deposit (household-scoped write).
  */
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-
     const { id } = await params;
     const body = await request.json();
     const validation = updateDepositSchema.safeParse(body);
@@ -80,22 +81,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const { depositDate, salaryMonth, amount, employer } = validation.data;
 
-    // Check if deposit exists and include account for authorization
-    const existing = await prisma.pensionDeposit.findUnique({
-      where: { id },
-      include: { account: true },
-    });
-
+    const existing = await loadOwnedDeposit(id, context.activeHousehold.id);
     if (!existing) {
       return NextResponse.json({ success: false, error: 'Deposit not found' }, { status: 404 });
     }
 
-    // Authorization check - verify user owns the account containing this deposit
-    if (existing.account.userId !== user.id) {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-    }
-
-    // Update the deposit
     const deposit = await prisma.pensionDeposit.update({
       where: { id },
       data: {
@@ -128,37 +118,22 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
 /**
  * DELETE /api/pension/deposits/[id]
- * Delete a deposit
+ * Delete a deposit (household-scoped).
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-
     const { id } = await params;
 
-    // Check if deposit exists and include account for authorization
-    const existing = await prisma.pensionDeposit.findUnique({
-      where: { id },
-      include: { account: true },
-    });
-
+    const existing = await loadOwnedDeposit(id, context.activeHousehold.id);
     if (!existing) {
       return NextResponse.json({ success: false, error: 'Deposit not found' }, { status: 404 });
     }
 
-    // Authorization check - verify user owns the account containing this deposit
-    if (existing.account.userId !== user.id) {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-    }
-
-    // Delete the deposit
-    await prisma.pensionDeposit.delete({
-      where: { id },
-    });
+    await prisma.pensionDeposit.delete({ where: { id } });
 
     return NextResponse.json({
       success: true,

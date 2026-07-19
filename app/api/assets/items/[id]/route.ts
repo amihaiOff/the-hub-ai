@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
+import { householdVisibleWhere } from '@/lib/utils/household-scope';
 import { updateAssetSchema } from '@/lib/validations/assets';
 import { getFirstZodError } from '@/lib/validations/common';
 
@@ -9,33 +10,36 @@ interface RouteParams {
 }
 
 /**
+ * Load a misc-asset by id, but only if it's visible to the given household.
+ * Always includes `mortgageTracks` so callers don't need a second query
+ * (the extra join is cheap on a single-row lookup). Returns null when the
+ * asset doesn't exist OR is out of scope — collapsed to a single 404 at
+ * the callsite.
+ */
+async function loadOwnedAsset(id: string, householdId: string) {
+  return prisma.miscAsset.findFirst({
+    where: { id, ...householdVisibleWhere(householdId) },
+    include: {
+      mortgageTracks: { orderBy: { sortOrder: 'asc' } },
+    },
+  });
+}
+
+/**
  * GET /api/assets/items/[id]
  * Get a single misc asset
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
-
-    const asset = await prisma.miscAsset.findUnique({
-      where: { id },
-      include: {
-        mortgageTracks: { orderBy: { sortOrder: 'asc' } },
-      },
-    });
-
+    const asset = await loadOwnedAsset(id, context.activeHousehold.id);
     if (!asset) {
       return NextResponse.json({ success: false, error: 'Asset not found' }, { status: 404 });
-    }
-
-    // Authorization check - verify user owns this asset
-    if (asset.userId !== user.id) {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     return NextResponse.json({
@@ -74,9 +78,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  */
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -101,19 +104,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       tracks,
     } = validation.data;
 
-    // Check if asset exists
-    const existing = await prisma.miscAsset.findUnique({
-      where: { id },
-      include: { mortgageTracks: true },
-    });
-
+    const existing = await loadOwnedAsset(id, context.activeHousehold.id);
     if (!existing) {
       return NextResponse.json({ success: false, error: 'Asset not found' }, { status: 404 });
-    }
-
-    // Authorization check - verify user owns this asset
-    if (existing.userId !== user.id) {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     // For liabilities, ensure value is negative
@@ -240,26 +233,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
-
-    // Check if asset exists
-    const existing = await prisma.miscAsset.findUnique({
-      where: { id },
-    });
-
+    const existing = await loadOwnedAsset(id, context.activeHousehold.id);
     if (!existing) {
       return NextResponse.json({ success: false, error: 'Asset not found' }, { status: 404 });
-    }
-
-    // Authorization check - verify user owns this asset
-    if (existing.userId !== user.id) {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     // Delete the asset

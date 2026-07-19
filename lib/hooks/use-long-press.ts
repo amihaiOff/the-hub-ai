@@ -44,6 +44,11 @@ export function useLongPress(
   // and detach/reattach listeners on every render — leaving a brief gap
   // where iOS's first touchstart lands on nothing.
   const onLongPressRef = useRef(onLongPress);
+  // Intentionally no dependency array: we want this effect to run after
+  // EVERY render so the ref always points at the latest callback closure.
+  // Adding `[onLongPress]` would work but re-runs are already gated by
+  // React's own render cycle, and skipping the deps array makes it obvious
+  // the effect is a mailbox update, not a subscription.
   useEffect(() => {
     onLongPressRef.current = onLongPress;
   });
