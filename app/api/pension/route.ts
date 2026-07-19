@@ -37,18 +37,27 @@ export async function GET() {
       orderBy: { createdAt: 'asc' },
     });
 
-    // Calculate totals
-    let totalValue = 0;
-    let totalDeposits = 0;
-    let thisMonthDeposits = 0;
+    // Accumulate in integer cents to avoid floating-point drift when
+    // summing many Decimal values. Mirrors app/api/budget/analysis/route.ts.
+    // Prisma Decimal → number happens once via `toCents`; sums stay integer
+    // until output.
+    const toCents = (v: unknown) => Math.round(Number(v) * 100);
+    const fromCents = (c: number) => c / 100;
+
+    let totalValueCents = 0;
+    let totalDepositsCents = 0;
+    let thisMonthDepositsCents = 0;
 
     const now = new Date();
     const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const accountSummaries = accounts.map((account) => {
-      const accountTotalDeposits = account.deposits.reduce((sum, d) => sum + Number(d.amount), 0);
+      const accountTotalDepositsCents = account.deposits.reduce(
+        (sum, d) => sum + toCents(d.amount),
+        0
+      );
 
-      const accountThisMonth = account.deposits
+      const accountThisMonthCents = account.deposits
         .filter((d) => {
           const depositMonth = new Date(d.salaryMonth);
           return (
@@ -56,11 +65,11 @@ export async function GET() {
             depositMonth.getMonth() === currentMonth.getMonth()
           );
         })
-        .reduce((sum, d) => sum + Number(d.amount), 0);
+        .reduce((sum, d) => sum + toCents(d.amount), 0);
 
-      totalValue += Number(account.currentValue);
-      totalDeposits += accountTotalDeposits;
-      thisMonthDeposits += accountThisMonth;
+      totalValueCents += toCents(account.currentValue);
+      totalDepositsCents += accountTotalDepositsCents;
+      thisMonthDepositsCents += accountThisMonthCents;
 
       return {
         id: account.id,
@@ -71,7 +80,7 @@ export async function GET() {
         currentValue: Number(account.currentValue),
         feeFromDeposit: Number(account.feeFromDeposit),
         feeFromTotal: Number(account.feeFromTotal),
-        totalDeposits: accountTotalDeposits,
+        totalDeposits: fromCents(accountTotalDepositsCents),
         depositsCount: account.deposits.length,
         deposits: account.deposits.map((d) => ({
           id: d.id,
@@ -93,9 +102,9 @@ export async function GET() {
       success: true,
       data: {
         userId: user.id,
-        totalValue,
-        totalDeposits,
-        thisMonthDeposits,
+        totalValue: fromCents(totalValueCents),
+        totalDeposits: fromCents(totalDepositsCents),
+        thisMonthDeposits: fromCents(thisMonthDepositsCents),
         accountsCount: accounts.length,
         accounts: accountSummaries,
       },
