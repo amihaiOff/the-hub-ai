@@ -333,9 +333,12 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
               const row = tableRow.original;
               return (
                 <tr key={row.id} className="group/row" data-row-id={row.id}>
-                  {tableRow.getVisibleCells().map((cell) => {
+                  {tableRow.getVisibleCells().map((cell, cellIdx) => {
                     const col = columns.find((c) => c.id === cell.column.id);
                     if (!col) return null;
+                    // First column reads as the row's primary label — bold it
+                    // (Notion-style) so scanning a long table is easy.
+                    const isPrimary = cellIdx === 0;
                     return (
                       <td key={cell.id} className="p-0 align-top">
                         <CellEditor
@@ -343,6 +346,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                           value={row.cells[col.id]}
                           onChange={(v) => updateCell(row.id, col.id, v)}
                           editable={editable}
+                          isPrimary={isPrimary}
                         />
                       </td>
                     );
@@ -363,8 +367,8 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                 </td>
               </tr>
             )}
-            {/* Narrow add-row row — a full-width plus at the bottom of the
-                table adds a new row (replaces the old floating edge tab). */}
+            {/* "+ New row" footer — a left-aligned text button spans the
+                full table width, matching the Notion inline-database style. */}
             {editable && (
               <tr data-add-row="">
                 <td colSpan={columns.length + 1} className="p-0">
@@ -373,9 +377,9 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                     onClick={addRow}
                     aria-label="Add row"
                     title="Add row"
-                    className="text-muted-foreground/60 hover:text-primary hover:bg-primary/10 flex w-full items-center justify-center gap-1 py-0.5 text-xs transition-colors"
+                    className="text-muted-foreground/70 hover:text-foreground hover:bg-muted/30 flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors"
                   >
-                    <Plus className="h-3 w-3" />
+                    <Plus className="h-4 w-4" /> New row
                   </button>
                 </td>
               </tr>
@@ -627,7 +631,7 @@ function ColumnHeader({
             : undefined
         }
         title={sort ? `Sorted ${sort}` : 'Click to sort'}
-        className="text-muted-foreground flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left text-[0.7rem] font-semibold tracking-[0.08em] uppercase select-none"
+        className="text-muted-foreground flex min-w-0 flex-1 items-center gap-2 px-3 py-3 text-left text-[0.7rem] font-semibold tracking-[0.08em] uppercase select-none"
       >
         <TypeIcon className={cn('h-3.5 w-3.5 shrink-0', typeMeta.color)} />
         {editable && editing ? (
@@ -1200,12 +1204,20 @@ function TextCell({
   value,
   onChange,
   disabled,
+  isPrimary,
 }: {
   value: string;
   onChange: (v: DatabaseCellValue) => void;
   disabled: boolean;
+  isPrimary?: boolean;
 }) {
-  const typography = 'px-3 py-2 text-sm leading-snug break-words whitespace-pre-wrap';
+  // Primary column reads as the row title — bold + full-strength text.
+  // Non-primary cells stay in the softer body weight so the "name" column
+  // clearly leads the eye, matching Notion.
+  const typography = cn(
+    'px-3 py-3.5 text-sm leading-snug break-words whitespace-pre-wrap',
+    isPrimary && 'font-semibold text-foreground'
+  );
   return (
     <div className="grid min-w-0">
       <textarea
@@ -1233,16 +1245,26 @@ function CellEditor({
   value,
   onChange,
   editable,
+  isPrimary,
 }: {
   column: DatabaseColumn;
   value: DatabaseCellValue;
   onChange: (v: DatabaseCellValue) => void;
   editable: boolean;
+  /** True for the first-column cell — used only by TextCell for bolding. */
+  isPrimary?: boolean;
 }) {
   const disabled = !editable;
   switch (column.type) {
     case 'text':
-      return <TextCell value={(value as string) ?? ''} onChange={onChange} disabled={disabled} />;
+      return (
+        <TextCell
+          value={(value as string) ?? ''}
+          onChange={onChange}
+          disabled={disabled}
+          isPrimary={isPrimary}
+        />
+      );
     case 'number':
       return (
         <input
@@ -1253,19 +1275,11 @@ function CellEditor({
             onChange(Number.isFinite(v as number) || v === null ? v : null);
           }}
           disabled={disabled}
-          className="w-full bg-transparent px-3 py-2 text-right text-sm tabular-nums outline-none"
+          className="w-full bg-transparent px-3 py-3.5 text-right text-sm tabular-nums outline-none"
         />
       );
     case 'date':
-      return (
-        <input
-          type="date"
-          value={typeof value === 'string' ? value : ''}
-          onChange={(e) => onChange(e.target.value || null)}
-          disabled={disabled}
-          className="text-muted-foreground w-full bg-transparent px-3 py-2 text-sm outline-none"
-        />
-      );
+      return <DateCell value={value} onChange={onChange} disabled={disabled} />;
     case 'checkbox':
       return (
         <div className="flex h-full items-center justify-center py-2">
@@ -1281,6 +1295,53 @@ function CellEditor({
     case 'select':
       return <SelectCell column={column} value={value} onChange={onChange} disabled={disabled} />;
   }
+}
+
+/**
+ * Date cell — replaces the native <input type="date">, which showed an
+ * ugly `dd/mm/yyyy` placeholder for empty values. Formatted date when
+ * set, em-dash when empty. Click reveals a hidden native input for
+ * editing (native picker still opens on click).
+ */
+function DateCell({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: DatabaseCellValue;
+  onChange: (v: DatabaseCellValue) => void;
+  disabled: boolean;
+}) {
+  const dateStr = typeof value === 'string' ? value : '';
+  const display = dateStr ? formatDateForDisplay(dateStr) : '—';
+  return (
+    <label className="relative flex h-full w-full items-center px-3 py-3.5 text-sm">
+      <input
+        type="date"
+        value={dateStr}
+        onChange={(e) => onChange(e.target.value || null)}
+        disabled={disabled}
+        // Native input is transparent + absolutely sized to cover the cell
+        // so the click target matches the visible pill without showing the
+        // "dd/mm/yyyy" placeholder text.
+        className={cn(
+          'absolute inset-0 h-full w-full cursor-pointer bg-transparent px-3 py-3.5 opacity-0',
+          disabled && 'cursor-not-allowed'
+        )}
+      />
+      <span className={cn(dateStr ? 'text-foreground/90' : 'text-muted-foreground/50')}>
+        {display}
+      </span>
+    </label>
+  );
+}
+
+function formatDateForDisplay(iso: string): string {
+  // ISO date → dd/mm/yyyy for display. Preserves the raw ISO on the
+  // wire; only the visible label changes.
+  const [y, m, d] = iso.split('-');
+  if (!y || !m || !d) return iso;
+  return `${d}/${m}/${y}`;
 }
 
 /**
@@ -1355,14 +1416,23 @@ function SelectCell({
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
         aria-label={`${column.name}: ${selected?.label ?? 'empty'}`}
-        className="flex h-full w-full items-center px-3 py-2 text-left text-sm"
+        className="flex h-full w-full items-center px-3 py-3.5 text-left text-sm"
       >
         {selected && selColor ? (
-          <span className={cn('rounded-md px-2 py-0.5 text-xs ring-1', selColor.pill)}>
+          // Pill: rounded-full with a leading colored dot, Notion-style.
+          // The dot is the same color family as the pill so a quick glance
+          // groups by category without reading the label.
+          <span
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium',
+              selColor.pill
+            )}
+          >
+            <span className={cn('h-1.5 w-1.5 rounded-full', selColor.swatch)} aria-hidden />
             {selected.label}
           </span>
         ) : (
-          <span className="text-muted-foreground/60 text-xs">Empty</span>
+          <span className="text-muted-foreground/40 text-xs">—</span>
         )}
       </button>
       {open &&
