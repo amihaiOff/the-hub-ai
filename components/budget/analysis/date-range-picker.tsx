@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { format } from 'date-fns';
+import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 import type { DateRange } from 'react-day-picker';
 
@@ -29,6 +29,12 @@ export function DateRangePicker({
   const selected: DateRange | undefined =
     startDate || endDate ? { from: startDate, to: endDate } : undefined;
 
+  // Track the left-hand visible month so the "select this whole month"
+  // buttons in the footer know which two months are on screen.
+  const [visibleMonth, setVisibleMonth] = React.useState<Date>(() =>
+    startOfMonth(endDate ?? startDate ?? new Date())
+  );
+
   function handleSelect(range: DateRange | undefined) {
     onStartDateChange(range?.from);
     onEndDateChange(range?.to);
@@ -39,6 +45,17 @@ export function DateRangePicker({
     onEndDateChange(undefined);
     setOpen(false);
   }
+
+  function selectWholeMonth(monthAnchor: Date) {
+    const start = startOfMonth(monthAnchor);
+    const end = endOfMonth(monthAnchor);
+    onStartDateChange(start);
+    onEndDateChange(end);
+    setOpen(false);
+  }
+
+  const now = new Date();
+  const rightMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1);
 
   const label = isAllTime
     ? 'All Time'
@@ -72,9 +89,55 @@ export function DateRangePicker({
             captionLayout="dropdown"
             fromYear={2000}
             toYear={2100}
-            defaultMonth={endDate ?? new Date()}
+            month={visibleMonth}
+            onMonthChange={setVisibleMonth}
+            // Hide previous/next month overflow cells in the two-month range
+            // view — combined with the range-modifier gating in
+            // components/ui/calendar.tsx, this eliminates the phantom
+            // endpoint highlights that used to appear on outside days.
+            showOutsideDays={false}
             initialFocus
           />
+          {/* Whole-month quick picks. The two big buttons follow the
+              currently-visible months (they auto-update as the user
+              navigates with the calendar's < / > arrows); the smaller
+              chips cover the always-useful "this / last month". */}
+          <div className="grid grid-cols-2 gap-2 border-t p-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => selectWholeMonth(visibleMonth)}
+              className="justify-center"
+            >
+              {format(visibleMonth, 'MMM yyyy')}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => selectWholeMonth(rightMonth)}
+              className="justify-center"
+            >
+              {format(rightMonth, 'MMM yyyy')}
+            </Button>
+          </div>
+          <div className="flex gap-2 px-2 pb-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex-1"
+              onClick={() => selectWholeMonth(now)}
+            >
+              This month
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex-1"
+              onClick={() => selectWholeMonth(subMonths(now, 1))}
+            >
+              Last month
+            </Button>
+          </div>
           <div className="border-t p-2">
             <Button variant="ghost" size="sm" className="w-full" onClick={handleAllTime}>
               All Time

@@ -34,8 +34,10 @@ export async function GET(request: NextRequest) {
     const start = new Date(startDate);
     const end = new Date(endDate);
 
-    // Fetch transactions and category groups in parallel
-    const [transactions, categoryGroups] = await Promise.all([
+    // Fetch transactions, category groups, and friendly account names in parallel.
+    // The account-name map turns raw payment_identifier values into recognizable
+    // labels (e.g. "Max card 2717") for the institution breakdown panel.
+    const [transactions, categoryGroups, accountNames] = await Promise.all([
       prisma.budgetTransaction.findMany({
         where: {
           householdId,
@@ -51,6 +53,8 @@ export async function GET(request: NextRequest) {
           transactionDate: true,
           amountIls: true,
           categoryId: true,
+          paymentMethod: true,
+          paymentIdentifier: true,
           tags: {
             select: {
               tag: {
@@ -69,7 +73,12 @@ export async function GET(request: NextRequest) {
         },
         orderBy: { sortOrder: 'asc' },
       }),
+      prisma.budgetAccountName.findMany({
+        where: { householdId },
+        select: { accountNumber: true, name: true },
+      }),
     ]);
+    const accountNameMap = new Map(accountNames.map((a) => [a.accountNumber, a.name]));
 
     // Build month keys from actual transaction dates (avoids empty months for large "all time" ranges)
     const months: string[] = [];
@@ -121,6 +130,19 @@ export async function GET(request: NextRequest) {
       }
     >();
 
+    // Aggregate by institution (payment identifier + method). Falls back to
+    // `unmapped:<method>` when payment_identifier is missing so we still
+    // report a coarse Credit-cards / Bank-transfer split.
+    const institutionData = new Map<
+      string,
+      {
+        name: string;
+        paymentMethod: 'credit_card' | 'bank_transfer';
+        totalSpent: number;
+        count: number;
+      }
+    >();
+
     for (const tx of transactions) {
       const txDate = tx.transactionDate;
       const monthKey = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
@@ -143,6 +165,33 @@ export async function GET(request: NextRequest) {
         }
         const catMonthly = categoryMonthlySpent.get(tx.categoryId)!;
         catMonthly.set(monthKey, (catMonthly.get(monthKey) ?? 0) + amountCents);
+      }
+
+      // Institution aggregation (expenses only). Use the raw
+      // payment_identifier as the grouping key so multiple charges on the
+      // same card collapse into one row; look up the friendly name via
+      // BudgetAccountName. Transactions without an identifier fall into
+      // the coarse `unmapped:<method>` bucket.
+      if (tx.type === 'expense') {
+        const method = tx.paymentMethod as 'credit_card' | 'bank_transfer';
+        const id = tx.paymentIdentifier ?? `unmapped:${method}`;
+        const friendly = tx.paymentIdentifier
+          ? (accountNameMap.get(tx.paymentIdentifier) ?? `Card ${tx.paymentIdentifier}`)
+          : method === 'credit_card'
+            ? 'Credit card (unmapped)'
+            : 'Bank (unmapped)';
+        const entry = institutionData.get(id);
+        if (entry) {
+          entry.totalSpent += amountCents;
+          entry.count += 1;
+        } else {
+          institutionData.set(id, {
+            name: friendly,
+            paymentMethod: method,
+            totalSpent: amountCents,
+            count: 1,
+          });
+        }
       }
 
       // Tag aggregation (expenses only)
@@ -239,9 +288,19 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a, b) => b.totalSpent - a.totalSpent);
 
+    const institutions = Array.from(institutionData.entries())
+      .map(([id, d]) => ({
+        id,
+        name: d.name,
+        paymentMethod: d.paymentMethod,
+        totalSpent: fromCents(d.totalSpent),
+        transactionCount: d.count,
+      }))
+      .sort((a, b) => b.totalSpent - a.totalSpent);
+
     return NextResponse.json({
       success: true,
-      data: { monthlyTotals, groups, tags },
+      data: { monthlyTotals, groups, tags, institutions },
     });
   } catch (error) {
     console.error('Error fetching budget analysis:', error);

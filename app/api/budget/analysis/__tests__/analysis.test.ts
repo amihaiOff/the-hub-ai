@@ -26,6 +26,12 @@ jest.mock('@/lib/db', () => ({
     budgetCategoryGroup: {
       findMany: jest.fn(),
     },
+    budgetAccountName: {
+      // Used by the analysis route to resolve payment_identifier → friendly
+      // name for the institution breakdown panel. Default empty; individual
+      // tests override with mockResolvedValueOnce when they care.
+      findMany: jest.fn().mockResolvedValue([]),
+    },
   },
 }));
 
@@ -74,6 +80,10 @@ describe('Budget Analysis API', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    // resetAllMocks clears the default `mockResolvedValue([])` we set in the
+    // jest.mock() factory, so re-establish it here. Tests that care about
+    // account-name mapping override with mockResolvedValueOnce.
+    (mockPrisma.budgetAccountName.findMany as jest.Mock).mockResolvedValue([]);
   });
 
   // ========================================

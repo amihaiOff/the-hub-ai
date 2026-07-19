@@ -66,10 +66,25 @@ export interface AnalysisTagData {
   monthlySpent: { month: string; spent: number }[];
 }
 
+export interface AnalysisInstitutionData {
+  /**
+   * Stable id for the institution row. Payment identifiers are used verbatim
+   * so grouping matches the source-of-truth column on BudgetTransaction; the
+   * unmapped `credit_card` / `bank_transfer` buckets fall back to synthetic
+   * `unmapped:<method>` ids.
+   */
+  id: string;
+  name: string;
+  paymentMethod: 'credit_card' | 'bank_transfer';
+  totalSpent: number;
+  transactionCount: number;
+}
+
 export interface AnalysisData {
   monthlyTotals: AnalysisMonthlyTotal[];
   groups: AnalysisGroupData[];
   tags: AnalysisTagData[];
+  institutions: AnalysisInstitutionData[];
 }
 
 // Query keys

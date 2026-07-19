@@ -2,6 +2,7 @@
 
 import { useAnalysisContext } from './layout';
 import { AnalysisSummaryCards } from '@/components/budget/analysis/analysis-summary-cards';
+import { InstitutionBreakdown } from '@/components/budget/analysis/institution-breakdown';
 import { IncomeSpendingChart } from '@/components/budget/analysis/income-spending-chart';
 import { CategoryTrendChart } from '@/components/budget/analysis/category-trend-chart';
 import { GroupTrendChart } from '@/components/budget/analysis/group-trend-chart';
@@ -13,6 +14,8 @@ export default function AnalysisOverallPage() {
   if (isLoading) {
     return (
       <div className="space-y-4 pt-4">
+        {/* Institution breakdown placeholder — first panel. */}
+        <div className="bg-muted h-56 animate-pulse rounded-lg" />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="bg-muted h-16 animate-pulse rounded-lg" />
@@ -36,6 +39,7 @@ export default function AnalysisOverallPage() {
 
   return (
     <div className="space-y-4 pt-4">
+      <InstitutionBreakdown data={data} />
       <AnalysisSummaryCards data={data} />
       <IncomeSpendingChart data={data} />
       <CategoryTrendChart data={data} />
