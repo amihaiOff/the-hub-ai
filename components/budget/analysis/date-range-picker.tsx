@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { endOfMonth, format, startOfMonth, subMonths } from 'date-fns';
+import { endOfMonth, format, startOfMonth } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 import type { DateRange } from 'react-day-picker';
 
@@ -54,7 +54,6 @@ export function DateRangePicker({
     setOpen(false);
   }
 
-  const now = new Date();
   const rightMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1);
 
   const label = isAllTime
@@ -98,10 +97,9 @@ export function DateRangePicker({
             showOutsideDays={false}
             initialFocus
           />
-          {/* Whole-month quick picks. The two big buttons follow the
-              currently-visible months (they auto-update as the user
-              navigates with the calendar's < / > arrows); the smaller
-              chips cover the always-useful "this / last month". */}
+          {/* Whole-month quick picks — one button per currently-visible
+              month. Auto-update as the user navigates via < / > arrows,
+              so users can page to any month and one-tap select it. */}
           <div className="grid grid-cols-2 gap-2 border-t p-2">
             <Button
               variant="secondary"
@@ -118,24 +116,6 @@ export function DateRangePicker({
               className="justify-center"
             >
               {format(rightMonth, 'MMM yyyy')}
-            </Button>
-          </div>
-          <div className="flex gap-2 px-2 pb-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="flex-1"
-              onClick={() => selectWholeMonth(now)}
-            >
-              This month
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="flex-1"
-              onClick={() => selectWholeMonth(subMonths(now, 1))}
-            >
-              Last month
             </Button>
           </div>
           <div className="border-t p-2">
