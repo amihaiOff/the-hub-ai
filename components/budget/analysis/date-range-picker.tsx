@@ -26,6 +26,20 @@ export function DateRangePicker({
   const [open, setOpen] = React.useState(false);
   const isAllTime = !startDate && !endDate;
 
+  // One month on mobile (portrait), two side-by-side on larger screens.
+  // md: 768px matches the rest of the app's mobile/desktop split; the
+  // popover is compact enough that two months side-by-side don't fit
+  // under it below that width.
+  const [showTwoMonths, setShowTwoMonths] = React.useState(true);
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(min-width: 768px)');
+    const apply = () => setShowTwoMonths(mq.matches);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, []);
+
   const selected: DateRange | undefined =
     startDate || endDate ? { from: startDate, to: endDate } : undefined;
 
@@ -84,7 +98,7 @@ export function DateRangePicker({
             mode="range"
             selected={selected}
             onSelect={handleSelect}
-            numberOfMonths={2}
+            numberOfMonths={showTwoMonths ? 2 : 1}
             captionLayout="dropdown"
             fromYear={2000}
             toYear={2100}
@@ -99,8 +113,11 @@ export function DateRangePicker({
           />
           {/* Whole-month quick picks — one button per currently-visible
               month. Auto-update as the user navigates via < / > arrows,
-              so users can page to any month and one-tap select it. */}
-          <div className="grid grid-cols-2 gap-2 border-t p-2">
+              so users can page to any month and one-tap select it. On
+              mobile we only render one month, so only one button here. */}
+          <div
+            className={cn('grid gap-2 border-t p-2', showTwoMonths ? 'grid-cols-2' : 'grid-cols-1')}
+          >
             <Button
               variant="secondary"
               size="sm"
@@ -109,14 +126,16 @@ export function DateRangePicker({
             >
               {format(visibleMonth, 'MMM yyyy')}
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => selectWholeMonth(rightMonth)}
-              className="justify-center"
-            >
-              {format(rightMonth, 'MMM yyyy')}
-            </Button>
+            {showTwoMonths && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => selectWholeMonth(rightMonth)}
+                className="justify-center"
+              >
+                {format(rightMonth, 'MMM yyyy')}
+              </Button>
+            )}
           </div>
           <div className="border-t p-2">
             <Button variant="ghost" size="sm" className="w-full" onClick={handleAllTime}>
