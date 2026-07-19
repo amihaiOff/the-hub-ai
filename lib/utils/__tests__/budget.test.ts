@@ -26,11 +26,13 @@ import {
   getCategoryName,
   getCategoryWithGroup,
   TAG_COLORS,
+} from '../budget';
+import {
   MOCK_CATEGORY_GROUPS,
   MOCK_PAYEES,
   MOCK_TAGS,
   MOCK_TRANSACTIONS,
-} from '../budget';
+} from './fixtures/budget-fixtures';
 
 describe('Budget Utility Functions', () => {
   describe('getBudgetStatus', () => {
