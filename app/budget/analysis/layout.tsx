@@ -4,7 +4,7 @@ import { createContext, useContext, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
   useBudgetAnalysis,
-  useBillingCycleStartDay,
+  useBillingCycleSettings,
   type AnalysisData,
 } from '@/lib/hooks/use-budget';
 import { getCurrentCycleMonth } from '@/lib/utils/billing-cycle';
@@ -34,7 +34,7 @@ function formatDate(d: Date): string {
 }
 
 export default function AnalysisLayout({ children }: { children: React.ReactNode }) {
-  const startDay = useBillingCycleStartDay();
+  const { startDay, isLoading: settingsLoading } = useBillingCycleSettings();
   // Default to the current billing month (same anchor as the rest of the
   // budget). `null` means "use the default"; once the user picks, that wins.
   const [override, setOverride] = useState<AnalysisSelection | null>(null);
@@ -50,11 +50,18 @@ export default function AnalysisLayout({ children }: { children: React.ReactNode
   const apiStartDate = selection.type === 'range' ? formatDate(selection.start) : ALL_TIME_START;
   const apiEndDate = selection.type === 'range' ? formatDate(selection.end) : today;
 
-  const { data, isLoading, error } = useBudgetAnalysis(apiStartDate, apiEndDate, apiMonth);
+  // Hold the fetch until the billing-cycle start day is known, but only for the
+  // derived default month — otherwise the placeholder start day (1) would fetch
+  // the wrong month first and refetch once the real value arrives. An explicit
+  // user selection doesn't depend on the start day, so it fetches immediately.
+  const deferring = override === null && settingsLoading;
+  const { data, isLoading, error } = useBudgetAnalysis(apiStartDate, apiEndDate, apiMonth, {
+    enabled: !deferring,
+  });
 
   const contextValue = useMemo(
-    () => ({ data, isLoading, error: error as Error | null }),
-    [data, isLoading, error]
+    () => ({ data, isLoading: deferring || isLoading, error: error as Error | null }),
+    [data, isLoading, deferring, error]
   );
 
   return (

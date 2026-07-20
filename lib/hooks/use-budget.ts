@@ -182,12 +182,13 @@ async function fetchApi<T>(url: string, options?: RequestInit): Promise<T> {
 // Hooks
 
 /**
- * Fetches the household's billing-cycle start day (1, 2, or 10). Defaults
- * to 1 while the query is loading so callers get a sane synchronous value
- * for their first render. The query itself is cached for the session, so
- * the value stabilizes quickly and stays fresh across navigations.
+ * Fetches the household's billing-cycle start day (1, 2, or 10) along with the
+ * query's loading state. `startDay` defaults to 1 while loading so callers get
+ * a sane synchronous value; callers that must avoid acting on the placeholder
+ * (e.g. deriving a default month before the real start day is known) can gate
+ * on `isLoading`. Cached for the session, so it stabilizes quickly.
  */
-export function useBillingCycleStartDay(): number {
+export function useBillingCycleSettings(): { startDay: number; isLoading: boolean } {
   const query = useQuery({
     queryKey: ['settings', 'billing-cycle'],
     queryFn: async () => {
@@ -198,7 +199,12 @@ export function useBillingCycleStartDay(): number {
     },
     staleTime: 5 * 60 * 1000,
   });
-  return query.data?.startDay ?? 1;
+  return { startDay: query.data?.startDay ?? 1, isLoading: query.isLoading };
+}
+
+/** Convenience wrapper returning just the start day (1/2/10). */
+export function useBillingCycleStartDay(): number {
+  return useBillingCycleSettings().startDay;
 }
 
 /**
@@ -332,7 +338,12 @@ export function useTags() {
  * on the calendar month); otherwise it fetches the calendar `startDate`/
  * `endDate` range (the multi-month trend).
  */
-export function useBudgetAnalysis(startDate: string, endDate: string, month?: string) {
+export function useBudgetAnalysis(
+  startDate: string,
+  endDate: string,
+  month?: string,
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: month
       ? budgetKeys.analysisMonth(month)
@@ -344,6 +355,7 @@ export function useBudgetAnalysis(startDate: string, endDate: string, month?: st
           : `/api/budget/analysis?startDate=${startDate}&endDate=${endDate}`
       );
     },
+    enabled: options?.enabled ?? true,
     staleTime: 5 * 60 * 1000, // 5 min - analysis data is expensive to compute
   });
 }
