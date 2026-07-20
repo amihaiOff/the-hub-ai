@@ -2,8 +2,16 @@
 
 import { createContext, useContext, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { useBudgetAnalysis, type AnalysisData } from '@/lib/hooks/use-budget';
-import { DateRangePicker } from '@/components/budget/analysis/date-range-picker';
+import {
+  useBudgetAnalysis,
+  useBillingCycleStartDay,
+  type AnalysisData,
+} from '@/lib/hooks/use-budget';
+import { getCurrentCycleMonth } from '@/lib/utils/billing-cycle';
+import {
+  AnalysisPeriodPicker,
+  type AnalysisSelection,
+} from '@/components/budget/analysis/analysis-period-picker';
 
 interface AnalysisContextValue {
   data: AnalysisData | undefined;
@@ -26,14 +34,23 @@ function formatDate(d: Date): string {
 }
 
 export default function AnalysisLayout({ children }: { children: React.ReactNode }) {
-  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
-  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+  const startDay = useBillingCycleStartDay();
+  // Default to the current billing month (same anchor as the rest of the
+  // budget). `null` means "use the default"; once the user picks, that wins.
+  const [override, setOverride] = useState<AnalysisSelection | null>(null);
+  const selection: AnalysisSelection = override ?? {
+    type: 'month',
+    month: getCurrentCycleMonth(new Date(), startDay),
+  };
 
   const today = useMemo(() => formatDate(new Date()), []);
-  const apiStartDate = startDate ? formatDate(startDate) : ALL_TIME_START;
-  const apiEndDate = endDate ? formatDate(endDate) : today;
+  // Month mode → payment-method-aware single month; range → calendar span;
+  // all → everything. The hook ignores start/end when a month is passed.
+  const apiMonth = selection.type === 'month' ? selection.month : undefined;
+  const apiStartDate = selection.type === 'range' ? formatDate(selection.start) : ALL_TIME_START;
+  const apiEndDate = selection.type === 'range' ? formatDate(selection.end) : today;
 
-  const { data, isLoading, error } = useBudgetAnalysis(apiStartDate, apiEndDate);
+  const { data, isLoading, error } = useBudgetAnalysis(apiStartDate, apiEndDate, apiMonth);
 
   const contextValue = useMemo(
     () => ({ data, isLoading, error: error as Error | null }),
@@ -45,12 +62,7 @@ export default function AnalysisLayout({ children }: { children: React.ReactNode
       <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Budget Analysis</h1>
-          <DateRangePicker
-            startDate={startDate}
-            endDate={endDate}
-            onStartDateChange={setStartDate}
-            onEndDateChange={setEndDate}
-          />
+          <AnalysisPeriodPicker value={selection} onChange={setOverride} />
         </div>
         {children}
       </div>

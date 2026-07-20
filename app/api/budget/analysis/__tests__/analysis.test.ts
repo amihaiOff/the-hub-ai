@@ -40,6 +40,18 @@ jest.mock('@/lib/auth-utils', () => ({
   getCurrentContext: jest.fn(),
 }));
 
+// Month mode uses the payment-method-aware fragment; mock it to a plain
+// calendar range so the route's month bucketing is what's under test here.
+jest.mock('@/lib/utils/billing-cycle-server', () => ({
+  __esModule: true,
+  getMonthTransactionWhereForHousehold: (_id: string, month: string) => {
+    const [y, m] = month.split('-').map(Number);
+    return Promise.resolve({
+      transactionDate: { gte: new Date(Date.UTC(y, m - 1, 1)), lt: new Date(Date.UTC(y, m, 1)) },
+    });
+  },
+}));
+
 import { prisma } from '@/lib/db';
 import { getCurrentContext } from '@/lib/auth-utils';
 import { GET } from '../route';
@@ -1321,6 +1333,83 @@ describe('Budget Analysis API', () => {
           }),
         })
       );
+    });
+  });
+
+  describe('month mode (payment-method-aware single month)', () => {
+    it('uses the payment-method-aware AND fragment, not a plain date range', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetCategoryGroup.findMany as jest.Mock).mockResolvedValueOnce([]);
+
+      await GET(new NextRequest('http://localhost:3000/api/budget/analysis?month=2024-06'));
+
+      expect(mockPrisma.budgetTransaction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            householdId: 'household-1',
+            isSplit: false,
+            AND: [
+              {
+                transactionDate: {
+                  gte: new Date(Date.UTC(2024, 5, 1)),
+                  lt: new Date(Date.UTC(2024, 6, 1)),
+                },
+              },
+            ],
+          }),
+        })
+      );
+      // Not a top-level date range in month mode.
+      const where = (mockPrisma.budgetTransaction.findMany as jest.Mock).mock.calls[0][0].where;
+      expect(where.transactionDate).toBeUndefined();
+    });
+
+    it('buckets every matched transaction into the one selected month', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      // A bank charge in calendar June and a credit-card charge dated in early
+      // July (part of the June cycle) both belong to the selected month.
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 't1',
+          type: 'expense',
+          transactionDate: new Date('2024-06-15'),
+          amountIls: createDecimal(100),
+          categoryId: null,
+          paymentMethod: 'bank_transfer',
+          paymentIdentifier: null,
+          tags: [],
+        },
+        {
+          id: 't2',
+          type: 'expense',
+          transactionDate: new Date('2024-07-05'),
+          amountIls: createDecimal(50),
+          categoryId: null,
+          paymentMethod: 'credit_card',
+          paymentIdentifier: null,
+          tags: [],
+        },
+      ]);
+      (mockPrisma.budgetCategoryGroup.findMany as jest.Mock).mockResolvedValueOnce([]);
+
+      const response = await GET(
+        new NextRequest('http://localhost:3000/api/budget/analysis?month=2024-06')
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.data.monthlyTotals).toHaveLength(1);
+      expect(body.data.monthlyTotals[0].month).toBe('2024-06');
+      expect(body.data.monthlyTotals[0].totalExpenses).toBe(150);
+    });
+
+    it('rejects a malformed month', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      const response = await GET(
+        new NextRequest('http://localhost:3000/api/budget/analysis?month=2024-6')
+      );
+      expect(response.status).toBe(400);
     });
   });
 });

@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { analysisQuerySchema } from '@/lib/validations/budget';
 import { getFirstZodError } from '@/lib/validations/common';
+import { getMonthTransactionWhereForHousehold } from '@/lib/utils/billing-cycle-server';
 
 /**
  * GET /api/budget/analysis
@@ -18,21 +20,42 @@ export async function GET(request: NextRequest) {
     const householdId = context.activeHousehold.id;
     const { searchParams } = new URL(request.url);
 
-    const validation = analysisQuerySchema.safeParse({
-      startDate: searchParams.get('startDate'),
-      endDate: searchParams.get('endDate'),
-    });
-
-    if (!validation.success) {
-      return NextResponse.json(
-        { success: false, error: getFirstZodError(validation.error) },
-        { status: 400 }
-      );
+    // Two modes:
+    //  - month=YYYY-MM: a single budget month, payment-method-aware (credit
+    //    cards use the billing cycle, everything else the calendar month).
+    //    Every matched transaction is bucketed into that one month.
+    //  - startDate/endDate: an arbitrary calendar range, bucketed by calendar
+    //    month (the trend view). No cycle split.
+    const monthParam = searchParams.get('month');
+    let txDateWhere: Prisma.BudgetTransactionWhereInput;
+    if (monthParam !== null) {
+      if (!/^\d{4}-\d{2}$/.test(monthParam)) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid month format (YYYY-MM)' },
+          { status: 400 }
+        );
+      }
+      // AND-wrapped so its inner OR (cc-window vs calendar-window) composes with
+      // the payee-blacklist OR below.
+      txDateWhere = { AND: [await getMonthTransactionWhereForHousehold(householdId, monthParam)] };
+    } else {
+      const validation = analysisQuerySchema.safeParse({
+        startDate: searchParams.get('startDate'),
+        endDate: searchParams.get('endDate'),
+      });
+      if (!validation.success) {
+        return NextResponse.json(
+          { success: false, error: getFirstZodError(validation.error) },
+          { status: 400 }
+        );
+      }
+      txDateWhere = {
+        transactionDate: {
+          gte: new Date(validation.data.startDate),
+          lte: new Date(validation.data.endDate),
+        },
+      };
     }
-
-    const { startDate, endDate } = validation.data;
-    const start = new Date(startDate);
-    const end = new Date(endDate);
 
     // Fetch transactions, category groups, and friendly account names in parallel.
     // The account-name map turns raw payment_identifier values into recognizable
@@ -41,7 +64,7 @@ export async function GET(request: NextRequest) {
       prisma.budgetTransaction.findMany({
         where: {
           householdId,
-          transactionDate: { gte: start, lte: end },
+          ...txDateWhere,
           isSplit: false,
           excludedFromFlow: false,
           isDeleted: false,
@@ -80,9 +103,20 @@ export async function GET(request: NextRequest) {
     ]);
     const accountNameMap = new Map(accountNames.map((a) => [a.accountNumber, a.name]));
 
-    // Build month keys from actual transaction dates (avoids empty months for large "all time" ranges)
+    // In month mode every matched transaction belongs to the one selected
+    // month (a credit-card charge dated in the next calendar month still counts
+    // under the selected cycle). Its calendar date is otherwise irrelevant.
+    const calendarKey = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const monthKeyOf = (d: Date) => monthParam ?? calendarKey(d);
+
+    // Build month keys. In month mode it's the single selected month; in range
+    // mode, derive from actual transaction dates (avoids empty months for large
+    // "all time" ranges).
     const months: string[] = [];
-    if (transactions.length > 0) {
+    if (monthParam !== null) {
+      months.push(monthParam);
+    } else if (transactions.length > 0) {
       let minDate = transactions[0].transactionDate;
       let maxDate = transactions[0].transactionDate;
       for (const tx of transactions) {
@@ -144,8 +178,7 @@ export async function GET(request: NextRequest) {
     >();
 
     for (const tx of transactions) {
-      const txDate = tx.transactionDate;
-      const monthKey = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
+      const monthKey = monthKeyOf(tx.transactionDate);
       const amountCents = toCents(tx.amountIls);
 
       // Monthly totals

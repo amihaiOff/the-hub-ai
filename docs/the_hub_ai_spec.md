@@ -49,9 +49,18 @@ A `YYYY-MM` budget month is **payment-method-aware**:
 When the start day is 1 the two windows coincide. The split is computed by
 `monthTransactionWhere` (`lib/utils/billing-cycle.ts`) — a Prisma `where`
 fragment ORing the card cycle with the calendar-month range by `paymentMethod` —
-and applied by the transactions list, the uncategorized counts, and the
-category-spend **summary** (via `getMonthTransactionWhereForHousehold`). The
-month picker still anchors its default selection to the card cycle.
+and applied by the transactions list, the uncategorized counts, the
+category-spend **summary**, and the **analysis** tab's month mode (via
+`getMonthTransactionWhereForHousehold`). The month picker still anchors its
+default selection to the card cycle.
+
+**Analysis tab.** Defaults to the **current month** (the card cycle's current
+month) rather than all-time. Selecting a whole month — the default, or any
+month via the period picker's quick-picks — uses the payment-method-aware window
+(`?month=YYYY-MM`), and every matched transaction is bucketed into that one
+month (so a credit-card charge dated in the next calendar month still counts
+under its cycle month). Custom multi-month **date ranges** and **All Time** stay
+on plain calendar dates and bucket by calendar month (the trend view).
 
 Two related views intentionally keep their own month definition: the **savings**
 routes stay on the billing cycle for the whole Savings category (savings rows are

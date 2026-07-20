@@ -102,6 +102,7 @@ export const budgetKeys = {
   analysis: () => [...budgetKeys.all, 'analysis'] as const,
   analysisRange: (startDate: string, endDate: string) =>
     [...budgetKeys.all, 'analysis', startDate, endDate] as const,
+  analysisMonth: (month: string) => [...budgetKeys.all, 'analysis', 'month', month] as const,
   allUncategorizedCounts: () => [...budgetKeys.all, 'uncategorizedCount'] as const,
   uncategorizedCount: (month: string) => [...budgetKeys.all, 'uncategorizedCount', month] as const,
   savings: () => [...budgetKeys.all, 'savings'] as const,
@@ -326,14 +327,21 @@ export function useTags() {
 }
 
 /**
- * Hook to fetch budget analysis data for a date range
+ * Hook to fetch budget analysis data. Pass a `month` (YYYY-MM) for a single,
+ * payment-method-aware budget month (credit cards on the billing cycle, others
+ * on the calendar month); otherwise it fetches the calendar `startDate`/
+ * `endDate` range (the multi-month trend).
  */
-export function useBudgetAnalysis(startDate: string, endDate: string) {
+export function useBudgetAnalysis(startDate: string, endDate: string, month?: string) {
   return useQuery({
-    queryKey: budgetKeys.analysisRange(startDate, endDate),
+    queryKey: month
+      ? budgetKeys.analysisMonth(month)
+      : budgetKeys.analysisRange(startDate, endDate),
     queryFn: async (): Promise<AnalysisData> => {
       return fetchApi<AnalysisData>(
-        `/api/budget/analysis?startDate=${startDate}&endDate=${endDate}`
+        month
+          ? `/api/budget/analysis?month=${month}`
+          : `/api/budget/analysis?startDate=${startDate}&endDate=${endDate}`
       );
     },
     staleTime: 5 * 60 * 1000, // 5 min - analysis data is expensive to compute
