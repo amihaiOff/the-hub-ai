@@ -1225,6 +1225,7 @@ function TextCell({
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         rows={1}
+        dir="auto"
         className={cn(
           typography,
           'col-start-1 row-start-1 w-full resize-none overflow-hidden bg-transparent outline-none'
@@ -1233,7 +1234,7 @@ function TextCell({
       {/* Invisible size-driver: same text + metrics as the textarea. The
           trailing space makes a trailing newline (and an empty value) reserve
           a line so the box never collapses below the visible text. */}
-      <div aria-hidden className={cn(typography, 'invisible col-start-1 row-start-1')}>
+      <div aria-hidden dir="auto" className={cn(typography, 'invisible col-start-1 row-start-1')}>
         {value + ' '}
       </div>
     </div>

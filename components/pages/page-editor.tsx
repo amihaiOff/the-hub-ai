@@ -161,6 +161,7 @@ export function PageEditor({ pageId }: { pageId: string }) {
             if (e.key === 'Enter') e.preventDefault();
           }}
           rows={1}
+          dir="auto"
           placeholder="Untitled"
           className="placeholder:text-muted-foreground/50 font-heading [field-sizing:content] w-full resize-none overflow-hidden border-none bg-transparent px-0 text-4xl leading-tight font-bold tracking-tight break-words outline-none"
         />

@@ -211,6 +211,9 @@
     line-height: 1.65;
     /* Room for the drag handle + heading chevron on the left. */
     padding-left: 1.75rem;
+    /* Blocks carry dir="auto" (see AutoTextDirection); `start` then resolves to
+       right for RTL blocks and left for LTR, per block. */
+    text-align: start;
   }
   .page-body:focus {
     outline: none;
@@ -239,12 +242,13 @@
   }
   .page-body ul {
     list-style: disc;
-    padding-left: 1.4rem;
+    /* Logical inline-start so RTL blocks indent from the right (dir=auto). */
+    padding-inline-start: 1.4rem;
     margin: 0.35rem 0;
   }
   .page-body ol {
     list-style: decimal;
-    padding-left: 1.4rem;
+    padding-inline-start: 1.4rem;
     margin: 0.35rem 0;
   }
   /* Nested lists indent further and switch marker style, like a doc editor. */
@@ -263,8 +267,8 @@
     list-style: lower-roman;
   }
   .page-body blockquote {
-    border-left: 3px solid var(--border);
-    padding-left: 0.85rem;
+    border-inline-start: 3px solid var(--border);
+    padding-inline-start: 0.85rem;
     margin: 0.6rem 0;
     color: var(--muted-foreground);
   }
@@ -352,7 +356,7 @@
     font-size: 0.72rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    text-align: left;
+    text-align: start;
   }
   .page-body tbody tr:hover {
     background: color-mix(in oklab, var(--muted) 25%, transparent);

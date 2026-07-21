@@ -75,8 +75,12 @@ function HeadingNodeView({ node, updateAttributes, editor }: NodeViewProps) {
       >
         <ChevronRight className={cn('h-4 w-4 transition-transform', !collapsed && 'rotate-90')} />
       </button>
+      {/* `dir` comes from the AutoTextDirection global attribute. A React
+          NodeView doesn't forward node attrs to the DOM automatically, so we
+          apply it here — otherwise a Hebrew heading would inherit the doc's
+          LTR base direction and render left-aligned. */}
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      <NodeViewContent as={Tag as any} />
+      <NodeViewContent as={Tag as any} dir={String(node.attrs.dir ?? 'auto')} />
     </NodeViewWrapper>
   );
 }
