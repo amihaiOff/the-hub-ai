@@ -138,19 +138,19 @@ export function getGroupBarFillClass(
 // Hex colors for chart libraries (recharts) — mirrors the keyword rules above
 // so the donut/bar chart matches the row icon tint.
 const CHART_COLOR_RULES: Array<[string, string]> = [
-  ['essential', '#3b82f6'], // blue-500
+  ['essential', '#8fb4f5'], // blue-500
   ['lifestyle', '#ec4899'], // pink-500
-  ['savings & investments', '#10b981'], // emerald-500
-  ['savings', '#10b981'],
-  ['investment', '#10b981'],
-  ['groceries', '#f59e0b'], // amber-500
-  ['food', '#f59e0b'],
-  ['coffee', '#f59e0b'],
-  ['cafe', '#f59e0b'],
-  ['restaurant', '#f59e0b'],
-  ['dining', '#f59e0b'],
-  ['health', '#ef4444'], // red-500
-  ['medical', '#ef4444'],
+  ['savings & investments', '#8fd9b6'], // emerald-500
+  ['savings', '#8fd9b6'],
+  ['investment', '#8fd9b6'],
+  ['groceries', '#f5cd85'], // amber-500
+  ['food', '#f5cd85'],
+  ['coffee', '#f5cd85'],
+  ['cafe', '#f5cd85'],
+  ['restaurant', '#f5cd85'],
+  ['dining', '#f5cd85'],
+  ['health', '#f5a5a5'], // red-500
+  ['medical', '#f5a5a5'],
   ['transport', '#06b6d4'], // cyan-500
   ['transit', '#06b6d4'],
   ['car', '#06b6d4'],
@@ -165,7 +165,7 @@ const CHART_COLOR_FALLBACKS = [
   '#facc15', // yellow-400
   '#4ade80', // green-400
   '#22d3ee', // cyan-400
-  '#a78bfa', // violet-400
+  '#c9b8f7', // violet-400
   '#f472b6', // pink-400
 ];
 

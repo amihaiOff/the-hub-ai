@@ -17,10 +17,10 @@ interface FamilyMember {
 }
 
 const PROFILE_COLORS = [
-  '#3b82f6', // blue
-  '#10b981', // green
-  '#f59e0b', // amber
-  '#ef4444', // red
+  '#8fb4f5', // blue
+  '#8fd9b6', // green
+  '#f5cd85', // amber
+  '#f5a5a5', // red
   '#8b5cf6', // purple
   '#ec4899', // pink
   '#06b6d4', // cyan

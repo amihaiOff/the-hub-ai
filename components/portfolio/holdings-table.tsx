@@ -47,7 +47,7 @@ function SymbolAvatar({ symbol }: { symbol: string }) {
       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-700/80 ring-1 ring-slate-600/50"
       aria-hidden="true"
     >
-      <span className="text-sm font-bold text-[#6ab2ff]">{symbol.charAt(0)}</span>
+      <span className="text-sm font-bold text-[#a8caff]">{symbol.charAt(0)}</span>
     </div>
   );
 }

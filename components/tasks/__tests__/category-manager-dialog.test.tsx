@@ -128,10 +128,10 @@ describe('CategoryManagerDialog', () => {
     setup();
 
     fireEvent.click(screen.getByRole('button', { name: 'Icon and color for Finance' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Color #22c55e' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Color #8fddb0' }));
 
     expect(updateMutate).toHaveBeenCalledWith(
-      { id: 'cat-finance', patch: { color: '#22c55e' } },
+      { id: 'cat-finance', patch: { color: '#8fddb0' } },
       expect.anything()
     );
   });

@@ -77,9 +77,9 @@ function useGroupOrder(groupIds: string[]) {
 }
 
 function availableColor(isSavings: boolean, status: ReturnType<typeof getBudgetStatus>): string {
-  if (isSavings) return 'text-[#6ab2ff]';
-  if (status === 'overspent') return 'text-[#ef4444]';
-  if (status === 'funded' || status === 'underfunded') return 'text-[#6ab2ff]';
+  if (isSavings) return 'text-[#a8caff]';
+  if (status === 'overspent') return 'text-[#f5a5a5]';
+  if (status === 'funded' || status === 'underfunded') return 'text-[#a8caff]';
   return 'text-muted-foreground';
 }
 
@@ -111,7 +111,7 @@ function MobileCategoryRow({
 
   return (
     <div className={cn(!isLast && 'border-border/40 border-b')}>
-      <div className="cursor-pointer px-4 py-3 active:bg-[#6ab2ff]/5" onClick={onToggleExpand}>
+      <div className="cursor-pointer px-4 py-3 active:bg-[#a8caff]/5" onClick={onToggleExpand}>
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-1.5">
             <span className="text-muted-foreground/50 shrink-0 text-xs">└</span>
@@ -278,7 +278,7 @@ function CategoryTableRow({
   return (
     <>
       <tr
-        className="cursor-pointer border-b transition-colors duration-200 hover:bg-[#6ab2ff]/5"
+        className="cursor-pointer border-b transition-colors duration-200 hover:bg-[#a8caff]/5"
         onClick={onToggleExpand}
       >
         <td className="py-2.5 pr-2 pl-8 sm:w-44">

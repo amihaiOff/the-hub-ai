@@ -135,8 +135,8 @@ export function PortfolioGainsChart({
   );
 
   const isPositive = totalGainLoss >= 0;
-  const strokeColor = isPositive ? '#22c55e' : '#ef4444';
-  const fillColor = isPositive ? '#22c55e' : '#ef4444';
+  const strokeColor = isPositive ? '#8fddb0' : '#f5a5a5';
+  const fillColor = isPositive ? '#8fddb0' : '#f5a5a5';
   const dataKey = viewMode === 'percentage' ? 'percentageGain' : 'value';
   const displayKey = viewMode === 'percentage' ? 'displayPercent' : 'displayValue';
 

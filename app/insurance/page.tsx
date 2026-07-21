@@ -109,7 +109,7 @@ export default function InsurancePage() {
                       <div className="flex items-center gap-2">
                         <span
                           className="h-3 w-3 rounded-full"
-                          style={{ backgroundColor: profile.color ?? '#6ab2ff' }}
+                          style={{ backgroundColor: profile.color ?? '#a8caff' }}
                         />
                         <h2 className="text-lg font-semibold">{profile.name}</h2>
                       </div>

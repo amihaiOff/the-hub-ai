@@ -426,12 +426,12 @@ export default function MortgageSimulatorPage() {
   const cardClass = 'bg-card border border-border rounded-lg p-5';
   const labelClass = 'text-muted-foreground text-xs uppercase tracking-wider mb-1 block';
   const inputClass =
-    'w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground text-right font-mono focus:outline-none focus:border-[#6ab2ff] transition-colors';
-  const cardHeaderClass = 'text-[#6ab2ff] text-xs uppercase tracking-widest font-medium mb-4';
+    'w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground text-right font-mono focus:outline-none focus:border-[#a8caff] transition-colors';
+  const cardHeaderClass = 'text-[#a8caff] text-xs uppercase tracking-widest font-medium mb-4';
   const tabClass = (active: boolean) =>
     `px-4 py-2 text-sm font-medium transition-all cursor-pointer ${
       active
-        ? 'text-[#6ab2ff] border-b-2 border-[#6ab2ff]'
+        ? 'text-[#a8caff] border-b-2 border-[#a8caff]'
         : 'text-muted-foreground hover:text-foreground'
     }`;
 
@@ -467,7 +467,7 @@ export default function MortgageSimulatorPage() {
 
             <div className="space-y-4 text-sm">
               <section>
-                <h3 className="mb-1 font-semibold text-[#6ab2ff]">The Two Scenarios</h3>
+                <h3 className="mb-1 font-semibold text-[#a8caff]">The Two Scenarios</h3>
                 <ul className="text-muted-foreground space-y-2">
                   <li>
                     <span className="font-medium text-[#fbbf24]">Scenario A — Invest:</span> You
@@ -476,7 +476,7 @@ export default function MortgageSimulatorPage() {
                     term.
                   </li>
                   <li>
-                    <span className="font-medium text-[#a78bfa]">Scenario B — Pay down:</span> You
+                    <span className="font-medium text-[#c9b8f7]">Scenario B — Pay down:</span> You
                     use the lump sum to reduce one mortgage track, then invest the monthly payment
                     savings (freed-up rent) into the market every month. Over time the freed-up
                     cashflow compounds.
@@ -488,7 +488,7 @@ export default function MortgageSimulatorPage() {
               </section>
 
               <section>
-                <h3 className="mb-1 font-semibold text-[#6ab2ff]">After-Payment Modes</h3>
+                <h3 className="mb-1 font-semibold text-[#a8caff]">After-Payment Modes</h3>
                 <ul className="text-muted-foreground space-y-2">
                   <li>
                     <span className="text-foreground font-medium">Shorten Term:</span> Keep the same
@@ -504,7 +504,7 @@ export default function MortgageSimulatorPage() {
               </section>
 
               <section>
-                <h3 className="mb-1 font-semibold text-[#6ab2ff]">Calculation Details</h3>
+                <h3 className="mb-1 font-semibold text-[#a8caff]">Calculation Details</h3>
                 <ul className="text-muted-foreground space-y-1.5">
                   <li>
                     <span className="text-foreground font-medium">Shpitzer (שפיצר):</span> Standard
@@ -531,7 +531,7 @@ export default function MortgageSimulatorPage() {
               </section>
 
               <section>
-                <h3 className="mb-1 font-semibold text-[#6ab2ff]">Assumptions</h3>
+                <h3 className="mb-1 font-semibold text-[#a8caff]">Assumptions</h3>
                 <ul className="text-muted-foreground space-y-1 text-xs">
                   <li>
                     • Interest rates are constant for 30 years (prime rate and 2-year variable
@@ -552,7 +552,7 @@ export default function MortgageSimulatorPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">
-            Mortgage <span className="text-[#6ab2ff]">Simulator</span>
+            Mortgage <span className="text-[#a8caff]">Simulator</span>
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
             ₪{fmt(850000)} · 30 years · FIBI Proposed Basket · Petach Tikva
@@ -560,7 +560,7 @@ export default function MortgageSimulatorPage() {
         </div>
         <button
           onClick={() => setShowHelp(true)}
-          className="text-muted-foreground mt-1 transition-colors hover:text-[#6ab2ff]"
+          className="text-muted-foreground mt-1 transition-colors hover:text-[#a8caff]"
           aria-label="How this works"
         >
           <HelpCircle className="h-6 w-6" />
@@ -590,7 +590,7 @@ export default function MortgageSimulatorPage() {
                   step={10000}
                   value={lumpSum}
                   onChange={(e) => setLumpSum(+e.target.value)}
-                  className="mt-2 w-full accent-[#6ab2ff]"
+                  className="mt-2 w-full accent-[#a8caff]"
                 />
               </div>
 
@@ -615,7 +615,7 @@ export default function MortgageSimulatorPage() {
                       key={t.id}
                       className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 transition-colors ${
                         targetTrack === t.id
-                          ? 'border-[#6ab2ff]/50 bg-[#6ab2ff]/5'
+                          ? 'border-[#a8caff]/50 bg-[#a8caff]/5'
                           : 'hover:bg-secondary border-transparent'
                       }`}
                     >
@@ -624,7 +624,7 @@ export default function MortgageSimulatorPage() {
                         name="track"
                         checked={targetTrack === t.id}
                         onChange={() => setTargetTrack(t.id)}
-                        className="accent-[#6ab2ff]"
+                        className="accent-[#a8caff]"
                       />
                       <div>
                         <div className="text-foreground text-xs">{t.name}</div>
@@ -644,7 +644,7 @@ export default function MortgageSimulatorPage() {
                     onClick={() => setMode('shorten')}
                     className={`flex-1 cursor-pointer rounded-lg border px-3 py-2 text-xs transition-all ${
                       mode === 'shorten'
-                        ? 'border-[#6ab2ff] bg-[#6ab2ff]/10 text-[#6ab2ff]'
+                        ? 'border-[#a8caff] bg-[#a8caff]/10 text-[#a8caff]'
                         : 'border-border text-muted-foreground hover:border-foreground/30'
                     }`}
                   >
@@ -654,7 +654,7 @@ export default function MortgageSimulatorPage() {
                     onClick={() => setMode('reduce')}
                     className={`flex-1 cursor-pointer rounded-lg border px-3 py-2 text-xs transition-all ${
                       mode === 'reduce'
-                        ? 'border-[#6ab2ff] bg-[#6ab2ff]/10 text-[#6ab2ff]'
+                        ? 'border-[#a8caff] bg-[#a8caff]/10 text-[#a8caff]'
                         : 'border-border text-muted-foreground hover:border-foreground/30'
                     }`}
                   >
@@ -713,13 +713,13 @@ export default function MortgageSimulatorPage() {
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <div className={cardClass}>
               <div className={labelClass}>Interest Saved</div>
-              <div className="font-mono text-xl text-[#22c55e]">₪{fmt(results.interestSaved)}</div>
+              <div className="font-mono text-xl text-[#8fddb0]">₪{fmt(results.interestSaved)}</div>
             </div>
             <div className={cardClass}>
               <div className={labelClass}>
                 {mode === 'shorten' ? 'Months Saved' : 'Payment Reduction'}
               </div>
-              <div className="font-mono text-xl text-[#6ab2ff]">
+              <div className="font-mono text-xl text-[#a8caff]">
                 {mode === 'shorten'
                   ? `${results.monthsSaved} mo (${(results.monthsSaved / 12).toFixed(1)} yr)`
                   : `₪${fmt(results.paymentReduction)}/mo`}
@@ -728,14 +728,14 @@ export default function MortgageSimulatorPage() {
             <div className={cardClass}>
               <div className={labelClass}>Penalty (עמלת פירעון)</div>
               <div
-                className={`font-mono text-xl ${results.penalty > 0 ? 'text-[#ef4444]' : 'text-muted-foreground'}`}
+                className={`font-mono text-xl ${results.penalty > 0 ? 'text-[#f5a5a5]' : 'text-muted-foreground'}`}
               >
                 ₪{fmt(results.penalty)}
               </div>
             </div>
             <div className={cardClass}>
               <div className={labelClass}>Reinvested Rent Savings</div>
-              <div className="font-mono text-xl text-[#a78bfa]">
+              <div className="font-mono text-xl text-[#c9b8f7]">
                 ₪{fmt(results.cumulativeReinvestedSavings)}
               </div>
               <div className="text-muted-foreground text-xs">freed-up rent compounded</div>
@@ -745,18 +745,18 @@ export default function MortgageSimulatorPage() {
           {/* Verdict */}
           <div
             className={`${cardClass} border-l-4 ${
-              results.payDownWins ? 'border-l-[#22c55e]' : 'border-l-[#6ab2ff]'
+              results.payDownWins ? 'border-l-[#8fddb0]' : 'border-l-[#a8caff]'
             }`}
           >
             <div className="mb-2 flex items-center gap-2 text-sm font-medium">
               {results.payDownWins ? (
                 <>
-                  <Home className="h-4 w-4 text-[#22c55e]" />
+                  <Home className="h-4 w-4 text-[#8fddb0]" />
                   <span>Paying down the mortgage wins</span>
                 </>
               ) : (
                 <>
-                  <TrendingUp className="h-4 w-4 text-[#6ab2ff]" />
+                  <TrendingUp className="h-4 w-4 text-[#a8caff]" />
                   <span>Investing the money wins</span>
                 </>
               )}
@@ -766,13 +766,13 @@ export default function MortgageSimulatorPage() {
                 className={`rounded-lg p-3 ${
                   results.payDownWins
                     ? 'bg-secondary'
-                    : 'border border-[#6ab2ff]/30 bg-[#6ab2ff]/10'
+                    : 'border border-[#a8caff]/30 bg-[#a8caff]/10'
                 }`}
               >
                 <div className="text-muted-foreground mb-1">
                   Scenario A: Invest the ₪{fmt(results.totalLumpCost)}
                 </div>
-                <div className="font-mono text-lg text-[#6ab2ff]">
+                <div className="font-mono text-lg text-[#a8caff]">
                   ₪{fmt(results.scenarioA_endValue)}
                 </div>
                 <div className="text-muted-foreground mt-1">
@@ -784,11 +784,11 @@ export default function MortgageSimulatorPage() {
                 className={`rounded-lg p-3 ${
                   !results.payDownWins
                     ? 'bg-secondary'
-                    : 'border border-[#22c55e]/30 bg-[#22c55e]/10'
+                    : 'border border-[#8fddb0]/30 bg-[#8fddb0]/10'
                 }`}
               >
                 <div className="text-muted-foreground mb-1">Scenario B: Pay down mortgage</div>
-                <div className="font-mono text-lg text-[#22c55e]">
+                <div className="font-mono text-lg text-[#8fddb0]">
                   ₪{fmt(results.scenarioB_endValue)}
                 </div>
                 <div className="text-muted-foreground mt-1">
@@ -861,7 +861,7 @@ export default function MortgageSimulatorPage() {
                     type="stepAfter"
                     dataKey="newPayment"
                     name="After Lump Sum"
-                    stroke="#6ab2ff"
+                    stroke="#a8caff"
                     strokeWidth={2}
                     dot={false}
                   />
@@ -894,8 +894,8 @@ export default function MortgageSimulatorPage() {
                     type="monotone"
                     dataKey={(d: YearlyDataEntry) => d.basePayment - d.newPayment}
                     name="Monthly Savings"
-                    fill="#22c55e33"
-                    stroke="#22c55e"
+                    fill="#8fddb033"
+                    stroke="#8fddb0"
                     strokeWidth={2}
                   />
                 </AreaChart>
@@ -928,8 +928,8 @@ export default function MortgageSimulatorPage() {
                     type="monotone"
                     dataKey="newCumInterest"
                     name="After Lump Sum"
-                    fill="#6ab2ff33"
-                    stroke="#6ab2ff"
+                    fill="#a8caff33"
+                    stroke="#a8caff"
                     strokeWidth={2}
                   />
                 </AreaChart>
@@ -965,7 +965,7 @@ export default function MortgageSimulatorPage() {
                     type="monotone"
                     dataKey="investmentValue"
                     name="A: Lump Sum Invested"
-                    stroke="#6ab2ff"
+                    stroke="#a8caff"
                     strokeWidth={2.5}
                     dot={false}
                   />
@@ -973,17 +973,17 @@ export default function MortgageSimulatorPage() {
                     type="monotone"
                     dataKey="reinvestedSavings"
                     name="B: Reinvested Rent Savings"
-                    stroke="#a78bfa"
+                    stroke="#c9b8f7"
                     strokeWidth={2.5}
                     dot={false}
                   />
                   <ReferenceLine
                     y={results.totalLumpCost}
-                    stroke="#ef444466"
+                    stroke="#f5a5a566"
                     strokeDasharray="5 5"
                     label={{
                       value: `Lump ₪${fmtK(results.totalLumpCost)}`,
-                      fill: '#ef4444',
+                      fill: '#f5a5a5',
                       fontSize: 10,
                     }}
                   />
@@ -1012,7 +1012,7 @@ export default function MortgageSimulatorPage() {
                   <div
                     key={t.id}
                     className={`rounded-lg border p-4 ${
-                      targetTrack === t.id ? 'border-[#6ab2ff]/50 bg-[#6ab2ff]/5' : 'border-border'
+                      targetTrack === t.id ? 'border-[#a8caff]/50 bg-[#a8caff]/5' : 'border-border'
                     }`}
                   >
                     <div className="mb-3 flex items-center gap-2">
@@ -1037,11 +1037,11 @@ export default function MortgageSimulatorPage() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Total Interest</span>
-                        <span className="font-mono text-[#ef4444]">₪{fmt(totalInterest)}</span>
+                        <span className="font-mono text-[#f5a5a5]">₪{fmt(totalInterest)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Penalty Risk</span>
-                        <span className={t.hasPenalty ? 'text-[#ef4444]' : 'text-[#22c55e]'}>
+                        <span className={t.hasPenalty ? 'text-[#f5a5a5]' : 'text-[#8fddb0]'}>
                           {t.hasPenalty ? 'Yes' : 'No'}
                         </span>
                       </div>
@@ -1052,7 +1052,7 @@ export default function MortgageSimulatorPage() {
             </div>
             <div className="border-border mt-3 flex justify-between border-t pt-3 text-sm">
               <span className="text-muted-foreground">Total Monthly Payment</span>
-              <span className="font-mono text-[#6ab2ff]">₪{fmt(results.baseMonthly)}</span>
+              <span className="font-mono text-[#a8caff]">₪{fmt(results.baseMonthly)}</span>
             </div>
           </div>
         </div>

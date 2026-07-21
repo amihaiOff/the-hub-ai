@@ -21,7 +21,7 @@ interface TaskListViewProps extends SelectionProps {
  * selected state keeps its own primary ring instead. Shared with the kanban cards.
  */
 export const PRIORITY_BORDER: Record<TaskRow['priority'], string> = {
-  URGENT: '#ef4444',
+  URGENT: '#f5a5a5',
   HIGH: '#f97316',
   MEDIUM: '#eab308',
   LOW: '#94a3b8',

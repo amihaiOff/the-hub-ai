@@ -65,10 +65,10 @@ type TimeRange = '6M' | '1Y' | '3Y' | '5Y' | 'ALL';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const HOLDING_COLORS = [
-  '#6ab2ff', // electric blue
+  '#a8caff', // electric blue
   '#34d399', // emerald
-  '#f59e0b', // amber
-  '#a78bfa', // violet
+  '#f5cd85', // amber
+  '#c9b8f7', // violet
   '#f87171', // rose
   '#22d3ee', // cyan
   '#fb923c', // orange
@@ -179,7 +179,7 @@ function ChartSkeleton() {
 
 function TableSkeleton() {
   return (
-    <div className="divide-y divide-[#6ab2ff33]">
+    <div className="divide-y divide-[#a8caff33]">
       {Array.from({ length: 5 }).map((_, i) => (
         <div key={i} className="flex items-center gap-4 px-4 py-4">
           <div className="h-8 w-8 animate-pulse rounded-full bg-[#242629]" />
@@ -239,7 +239,7 @@ function AllocationBar({ accounts }: AllocationBarProps) {
         {segments.map((seg) => (
           <div
             key={seg.symbol}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#6ab2ff33] bg-[#1a1b1e]/90 px-3 py-1 text-xs font-medium backdrop-blur-sm transition-opacity duration-150"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#a8caff33] bg-[#1a1b1e]/90 px-3 py-1 text-xs font-medium backdrop-blur-sm transition-opacity duration-150"
             style={{
               color: seg.color,
               opacity: hovered === seg.symbol ? 1 : 0,
@@ -258,10 +258,10 @@ function AllocationBar({ accounts }: AllocationBarProps) {
         {segments.map((seg) => (
           <div
             key={seg.symbol}
-            className="flex cursor-default items-center gap-1.5 rounded-full border border-[#6ab2ff33] bg-[#1a1b1e] px-2.5 py-1 text-xs transition-all duration-200"
+            className="flex cursor-default items-center gap-1.5 rounded-full border border-[#a8caff33] bg-[#1a1b1e] px-2.5 py-1 text-xs transition-all duration-200"
             style={{
               color: hovered === seg.symbol ? seg.color : 'rgba(253,251,254,0.6)',
-              borderColor: hovered === seg.symbol ? seg.color + '80' : '#6ab2ff33',
+              borderColor: hovered === seg.symbol ? seg.color + '80' : '#a8caff33',
             }}
             onMouseEnter={() => setHovered(seg.symbol)}
             onMouseLeave={() => setHovered(null)}
@@ -305,7 +305,7 @@ function PerformanceChart({
   );
 
   const isPositive = totalGainLoss >= 0;
-  const strokeColor = '#6ab2ff';
+  const strokeColor = '#a8caff';
 
   return (
     <div className="space-y-4">
@@ -321,7 +321,7 @@ function PerformanceChart({
               'min-h-[36px] min-w-[44px] rounded-full px-3 py-1 text-xs font-medium transition-all duration-200',
               'active:scale-[0.97]',
               timeRange === value
-                ? 'bg-[#6ab2ff] text-[#0d0e10]'
+                ? 'bg-[#a8caff] text-[#0d0e10]'
                 : 'text-[rgba(253,251,254,0.6)] hover:text-[#fdfbfe]',
             ].join(' ')}
           >
@@ -370,7 +370,7 @@ function PerformanceChart({
                   if (!active || !payload?.length) return null;
                   const point = payload[0].payload as { month: string; value: number };
                   return (
-                    <div className="rounded-xl border border-[#6ab2ff33] bg-[#1a1b1e]/95 px-3 py-2 text-xs shadow-xl backdrop-blur-sm">
+                    <div className="rounded-xl border border-[#a8caff33] bg-[#1a1b1e]/95 px-3 py-2 text-xs shadow-xl backdrop-blur-sm">
                       <p className="text-[rgba(253,251,254,0.5)]">{point.month}</p>
                       <p className="mt-0.5 font-semibold text-[#fdfbfe] tabular-nums">
                         {fmtILS(point.value)}
@@ -379,7 +379,7 @@ function PerformanceChart({
                   );
                 }}
                 cursor={{
-                  stroke: '#6ab2ff',
+                  stroke: '#a8caff',
                   strokeWidth: 1,
                   strokeDasharray: '4 4',
                   strokeOpacity: 0.5,
@@ -431,7 +431,7 @@ function SortHeader({
       className={[
         'px-4 py-3 text-[10px] font-semibold tracking-widest uppercase',
         align === 'right' ? 'text-right' : 'text-left',
-        active ? 'text-[#6ab2ff]' : 'text-[rgba(253,251,254,0.4)]',
+        active ? 'text-[#a8caff]' : 'text-[rgba(253,251,254,0.4)]',
         sortable ? 'cursor-pointer select-none hover:text-[#fdfbfe]' : '',
       ].join(' ')}
       onClick={sortable ? () => onSort(sortable) : undefined}
@@ -579,7 +579,7 @@ function HoldingsTable({
       {/* Desktop table */}
       <table className="hidden w-full lg:table" aria-label="Holdings">
         <thead>
-          <tr className="border-b border-[#6ab2ff33]">
+          <tr className="border-b border-[#a8caff33]">
             <th className="w-1 p-0" aria-hidden="true" />
             <SortHeader label="Asset" sortable="symbol" align="left" {...sh} />
             <SortHeader label="Qty" sortable="quantity" align="right" {...sh} />
@@ -590,9 +590,9 @@ function HoldingsTable({
             {canEdit && <th className="hidden w-8 lg:table-cell" aria-hidden="true" />}
           </tr>
         </thead>
-        <tbody className="divide-y divide-[#6ab2ff1a]">
+        <tbody className="divide-y divide-[#a8caff1a]">
           {sorted.map((h) => {
-            const color = colorMap[h.symbol] ?? '#6ab2ff';
+            const color = colorMap[h.symbol] ?? '#a8caff';
             const isGain = h.gainLoss >= 0;
             const gainColor = isGain ? '#34d399' : '#f87171';
             const gainIntensity = Math.min(Math.abs(h.gainLossPercent) / 50, 1);
@@ -707,7 +707,7 @@ function HoldingsTable({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
                           align="end"
-                          className="border-[#6ab2ff33] bg-[#1a1b1e] text-[#fdfbfe]"
+                          className="border-[#a8caff33] bg-[#1a1b1e] text-[#fdfbfe]"
                         >
                           <DropdownMenuItem
                             onClick={() => setEditHolding(h)}
@@ -735,9 +735,9 @@ function HoldingsTable({
       </table>
 
       {/* Mobile list — tap to expand */}
-      <div className="divide-y divide-[#6ab2ff1a] lg:hidden">
+      <div className="divide-y divide-[#a8caff1a] lg:hidden">
         {sorted.map((h) => {
-          const color = colorMap[h.symbol] ?? '#6ab2ff';
+          const color = colorMap[h.symbol] ?? '#a8caff';
           const isGain = h.gainLoss >= 0;
           const gainColor = isGain ? '#34d399' : '#f87171';
           const isExpanded = expandedRow === h.id;
@@ -794,7 +794,7 @@ function HoldingsTable({
 
               {/* Expanded details */}
               {isExpanded && (
-                <div className="border-t border-[#6ab2ff1a] bg-[#1a1b1e]/50 px-4 py-3">
+                <div className="border-t border-[#a8caff1a] bg-[#1a1b1e]/50 px-4 py-3">
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     {[
                       { label: 'Avg Cost', value: h.avgCostBasis.toFixed(2) },
@@ -818,11 +818,11 @@ function HoldingsTable({
                     ))}
                   </div>
                   {canEdit && (
-                    <div className="mt-3 flex gap-2 border-t border-[#6ab2ff1a] pt-3">
+                    <div className="mt-3 flex gap-2 border-t border-[#a8caff1a] pt-3">
                       <button
                         aria-label={`Edit ${h.symbol}`}
                         onClick={() => setEditHolding(h)}
-                        className="flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#6ab2ff33] bg-[#242629] px-3 text-xs font-medium text-[rgba(253,251,254,0.7)] transition-colors hover:bg-[#2e3035] active:scale-[0.98]"
+                        className="flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#a8caff33] bg-[#242629] px-3 text-xs font-medium text-[rgba(253,251,254,0.7)] transition-colors hover:bg-[#2e3035] active:scale-[0.98]"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                         Edit
@@ -928,7 +928,7 @@ function AccountSection({
       {/* Account header row — 3-column grid: left (name) | middle (sparkline) | right (value + actions).
           Sparkline is centered in the title bar at ~25% width. */}
       <div
-        className="grid w-full items-center gap-4 border-t border-[#6ab2ff33] px-4 py-4 lg:px-8"
+        className="grid w-full items-center gap-4 border-t border-[#a8caff33] px-4 py-4 lg:px-8"
         style={{ gridTemplateColumns: '1fr 25% 1fr' }}
       >
         {/* Left: collapse button + name + owner badges */}
@@ -947,7 +947,7 @@ function AccountSection({
             <div className="flex items-center gap-2">
               <p className="text-sm font-semibold text-[#fdfbfe]">{account.name}</p>
               {account.source === 'moneytor' && (
-                <span className="rounded-full border border-[#6ab2ff33] bg-[#6ab2ff0d] px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-[#6ab2ff] uppercase">
+                <span className="rounded-full border border-[#a8caff33] bg-[#a8caff0d] px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-[#a8caff] uppercase">
                   Moneytor
                 </span>
               )}
@@ -1004,7 +1004,7 @@ function AccountSection({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="border-[#6ab2ff33] bg-[#1a1b1e] text-[#fdfbfe]"
+              className="border-[#a8caff33] bg-[#1a1b1e] text-[#fdfbfe]"
             >
               <DropdownMenuLabel className="text-[10px] font-bold tracking-wider text-[rgba(253,251,254,0.4)] uppercase">
                 Display currency
@@ -1026,7 +1026,7 @@ function AccountSection({
                   {altSym} {alternateCurrency}
                 </DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
-              <DropdownMenuSeparator className="bg-[#6ab2ff33]" />
+              <DropdownMenuSeparator className="bg-[#a8caff33]" />
               <DropdownMenuItem
                 onClick={() => setConfirmDeleteAccount(true)}
                 className="cursor-pointer gap-2 text-sm text-[#f87171] hover:bg-[#f8717115] focus:bg-[#f8717115]"
@@ -1076,13 +1076,13 @@ function AccountSection({
 
         {/* Cash balances section */}
         {account.cashBalances && account.cashBalances.length > 0 && (
-          <div className="mx-4 mt-2 mb-4 rounded-xl border border-[#6ab2ff1a] bg-[#1a1b1e]/50 lg:mx-8">
+          <div className="mx-4 mt-2 mb-4 rounded-xl border border-[#a8caff1a] bg-[#1a1b1e]/50 lg:mx-8">
             <div className="px-4 pt-3 pb-1">
               <p className="text-[10px] font-bold tracking-[0.15em] text-[rgba(253,251,254,0.3)] uppercase">
                 Cash
               </p>
             </div>
-            <div className="divide-y divide-[#6ab2ff1a]">
+            <div className="divide-y divide-[#a8caff1a]">
               {account.cashBalances.map((cb) => {
                 const flag = CURRENCY_FLAGS[cb.currency] ?? '';
                 const sym = getCurrencySymbol(cb.currency);
@@ -1217,8 +1217,8 @@ function PortfolioV2Content() {
           >
             {/* Eyebrow row */}
             <div className="flex items-center gap-2">
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-[#6ab2ff33] bg-[#6ab2ff0d] px-2.5 py-0.5">
-                <span className="text-[10px] font-bold tracking-[0.15em] text-[#6ab2ff] uppercase">
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-[#a8caff33] bg-[#a8caff0d] px-2.5 py-0.5">
+                <span className="text-[10px] font-bold tracking-[0.15em] text-[#a8caff] uppercase">
                   Portfolio
                 </span>
               </div>

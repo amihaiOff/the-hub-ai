@@ -164,7 +164,7 @@ export function MoneytorPensionSection() {
                     type="monotone"
                     dataKey="pension"
                     name="Pension"
-                    stroke="#3b82f6"
+                    stroke="#8fb4f5"
                     strokeWidth={2}
                     dot={false}
                   />
@@ -172,7 +172,7 @@ export function MoneytorPensionSection() {
                     type="monotone"
                     dataKey="hishtalmut"
                     name="Hishtalmut"
-                    stroke="#10b981"
+                    stroke="#8fd9b6"
                     strokeWidth={2}
                     dot={false}
                   />
@@ -180,7 +180,7 @@ export function MoneytorPensionSection() {
                     type="monotone"
                     dataKey="total"
                     name="Total"
-                    stroke="#a78bfa"
+                    stroke="#c9b8f7"
                     strokeWidth={2}
                     strokeDasharray="4 2"
                     dot={false}

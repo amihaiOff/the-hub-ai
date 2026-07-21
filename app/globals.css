@@ -63,15 +63,15 @@
   --muted-foreground: oklch(0.556 0 0);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
+  --destructive: oklch(0.78 0.11 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  --chart-1: oklch(0.82 0.1 41);
+  --chart-2: oklch(0.82 0.06 184);
+  --chart-3: oklch(0.78 0.05 227);
+  --chart-4: oklch(0.88 0.09 84);
+  --chart-5: oklch(0.85 0.09 70);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -95,8 +95,8 @@
   --popover: #1a1b1e;
   --popover-foreground: #fdfbfe;
 
-  /* Primary — Electric Blue */
-  --primary: #6ab2ff;
+  /* Primary — Pastel Blue */
+  --primary: #a8caff;
   --primary-foreground: #0d0e10;
 
   /* Secondary — Surface Level 2 */
@@ -111,30 +111,30 @@
   --accent: #242629;
   --accent-foreground: #fdfbfe;
 
-  /* Destructive — Alert Red */
-  --destructive: #ef4444;
+  /* Destructive — Pastel Red */
+  --destructive: #f5a5a5;
 
-  /* Borders — Subtle Blue at 20% opacity */
-  --border: #6ab2ff33;
+  /* Borders — Pastel Blue at 20% opacity */
+  --border: #a8caff33;
   --input: #1a1b1e;
-  --ring: #6ab2ff;
+  --ring: #a8caff;
 
-  /* Chart colors — vibrant for data viz */
-  --chart-1: #6ab2ff;
-  --chart-2: #22c55e;
-  --chart-3: #f59e0b;
-  --chart-4: #a78bfa;
-  --chart-5: #ef4444;
+  /* Chart colors — pastel palette */
+  --chart-1: #a8caff;
+  --chart-2: #8fddb0;
+  --chart-3: #f5cd85;
+  --chart-4: #c9b8f7;
+  --chart-5: #f5a5a5;
 
   /* Sidebar — slightly darker than base */
   --sidebar: #0a0b0d;
   --sidebar-foreground: #fdfbfe;
-  --sidebar-primary: #6ab2ff;
+  --sidebar-primary: #a8caff;
   --sidebar-primary-foreground: #0d0e10;
   --sidebar-accent: #1a1b1e;
   --sidebar-accent-foreground: #fdfbfe;
-  --sidebar-border: #6ab2ff33;
-  --sidebar-ring: #6ab2ff;
+  --sidebar-border: #a8caff33;
+  --sidebar-ring: #a8caff;
 }
 
 @layer base {
@@ -481,7 +481,7 @@
     box-shadow:
       0 0 0 1px oklch(1 0 0 / 0.03),
       0 4px 16px oklch(0 0 0 / 0.2),
-      0 0 20px #6ab2ff15;
+      0 0 20px #a8caff15;
   }
 
   /* Notes editor (Tiptap) — scoped prose-ish styles since we don't
