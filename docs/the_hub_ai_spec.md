@@ -538,15 +538,19 @@ household's pages (emoji + title) with a **New page** button at the bottom.
   **two-column layout** (columns sit side by side on wide screens, stack on
   mobile), and a typed **database block**.
 
-**RTL / bidirectional text:** each text block carries `dir="auto"`
-(the `AutoTextDirection` editor extension adds it to paragraphs, headings,
-list items, blockquotes, and code blocks), and the page title + database text
-cells do the same. The browser picks LTR/RTL per block from its first strong
-character, so Hebrew blocks render right-to-left and right-aligned while English
-blocks stay left-to-right — mixed documents work line by line with no manual
-toggle. Page-body list indentation and the blockquote bar use logical
-properties (`padding-inline-start` / `border-inline-start`) so they flip for
-RTL blocks.
+**RTL / bidirectional text:** text blocks pick their own direction from their
+first strong character, so Hebrew blocks render right-to-left and right-aligned
+while English blocks stay left-to-right — mixed documents work line by line with
+no manual toggle. The `AutoTextDirection` editor extension sets `dir="auto"` on
+headings, list items, blockquotes, and code blocks; the page title and database
+text cells do the same. Paragraphs deliberately get their direction from CSS
+`unicode-bidi: plaintext` instead of a `dir` attribute: a `dir` on an inner
+`<p>` would make its parent `<li dir="auto">` skip that text when detecting
+direction (per the HTML spec), leaving the bullet on the wrong side. Keeping the
+paragraph attribute-free lets the `<li>` detect direction and place its marker on
+the item's own start side (right for Hebrew, left for English), even in mixed and
+nested lists. List gutters use symmetric `padding-inline` and the blockquote bar
+uses `border-inline-start` so both sit correctly regardless of block direction.
 
 **Lists:** indent/outdent via Tab / Shift-Tab or the floating list controls.
 Outdenting stops at the top level — a top-level list item can't be lifted out of

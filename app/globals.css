@@ -251,13 +251,16 @@
     list-style: disc;
     /* Each <li> carries dir="auto" (see auto-text-direction.ts), so its marker
        sits on the item's own start side — right for a Hebrew item, left for an
-       English one — even within a mixed list. */
-    padding-inline-start: 1.4rem;
+       English one — even within a mixed list. The container itself has no dir,
+       so the indent gutter is symmetric (padding-inline, not -start): otherwise
+       a pure-RTL list would keep the gutter on the left while its bullets sat
+       flush against the right edge. */
+    padding-inline: 1.4rem;
     margin: 0.35rem 0;
   }
   .page-body ol {
     list-style: decimal;
-    padding-inline-start: 1.4rem;
+    padding-inline: 1.4rem;
     margin: 0.35rem 0;
   }
   /* Nested lists indent further and switch marker style, like a doc editor. */
