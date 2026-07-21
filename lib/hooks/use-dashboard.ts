@@ -1,6 +1,10 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+// Re-export the single source-of-truth breakdown type so components can import
+// it from the hook alongside DashboardData without the type drifting.
+export type { NetWorthBreakdown } from '@/lib/utils/net-worth-breakdown';
+import type { NetWorthBreakdown } from '@/lib/utils/net-worth-breakdown';
 
 // API Response types
 interface ApiResponse<T> {
@@ -27,6 +31,9 @@ export interface DashboardData {
     netValue: number;
     itemsCount: number;
   };
+  /** Itemized total-worth categories. Optional for backward compatibility with
+   *  responses cached before this field existed; the server always sends it. */
+  breakdown?: NetWorthBreakdown;
 }
 
 async function fetchDashboard(): Promise<DashboardData> {

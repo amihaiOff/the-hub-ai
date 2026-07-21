@@ -27,6 +27,24 @@
    - Total Debt (if any)
    - Each card clickable to navigate to detail view
 
+4. **Total Worth breakdown** (`components/dashboard/total-worth-card.tsx`)
+   - Itemizes net worth into categories that reconcile exactly to the total:
+     **Portfolio** (stocks + cash/savings), **Pension** (retirement only),
+     **Hishtalmut** (study funds), **Real estate**, **Other assets** (catch-all),
+     minus **Debts**.
+   - Cash/savings (bank & deposit balances) fold into the Portfolio bucket
+     rather than showing as their own line.
+   - Pension vs Hishtalmut split: manual accounts by `PensionAccount.type`;
+     Moneytor funds by `sugKupa` (3 = hishtalmut) with a Hebrew-`productType`
+     fallback.
+   - Rendered as a stacked share-of-assets bar plus a legend (label, % of gross
+     assets, amount); Debts shown separately in red. Respects the ILS/USD
+     display-currency selector.
+   - Computed server-side by the pure `computeNetWorthBreakdown`
+     (`lib/utils/net-worth-breakdown.ts`) and returned as `data.breakdown` from
+     `GET /api/dashboard`. Reconciliation (`Σ parts − debts === netWorth`) is
+     unit-tested.
+
 ### User Flow
 
 1. User signs in with Google → lands on main dashboard

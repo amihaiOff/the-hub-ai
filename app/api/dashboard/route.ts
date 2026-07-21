@@ -9,6 +9,7 @@ import {
 } from '@/lib/utils/portfolio';
 import { fetchExchangeRates, convertPrice } from '@/lib/api/exchange-rates';
 import { getMoneytorNetWorthTotals } from '@/lib/utils/moneytor-net-worth';
+import { computeNetWorthBreakdown } from '@/lib/utils/net-worth-breakdown';
 
 /**
  * GET /api/dashboard
@@ -115,6 +116,25 @@ export async function GET() {
 
     const netWorth = portfolioTotalValue + pensionTotal + assetsNetValue;
 
+    // Itemized breakdown of total worth (all ILS). Reconciles to `netWorth` by
+    // construction (see computeNetWorthBreakdown). Savings/cash fold into the
+    // portfolio bucket per product decision.
+    const breakdown = computeNetWorthBreakdown({
+      portfolioValue: portfolioTotalValue,
+      manualPension: pensionAccounts.map((p) => ({
+        type: p.type,
+        currentValue: Number(p.currentValue),
+      })),
+      manualMisc: miscAssets.map((m) => ({ type: m.type, currentValue: Number(m.currentValue) })),
+      moneytor: {
+        pension: moneytor.pension,
+        hishtalmut: moneytor.hishtalmut,
+        bank: moneytor.bank,
+        debts: moneytor.assetsNegative,
+        realEstate: moneytor.realEstate,
+      },
+    });
+
     return NextResponse.json({
       success: true,
       data: {
@@ -135,6 +155,7 @@ export async function GET() {
           netValue: assetsNetValue,
           itemsCount: miscAssets.length + moneytor.accountsCount,
         },
+        breakdown,
       },
     });
   } catch (error) {
