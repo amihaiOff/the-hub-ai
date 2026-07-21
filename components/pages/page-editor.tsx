@@ -94,7 +94,9 @@ export function PageEditor({ pageId }: { pageId: string }) {
     del.mutate(pageId, {
       onSuccess: () => {
         setConfirmOpen(false);
-        router.push('/dashboard');
+        // Land on the dashboard (the app home). Direct target — `/dashboard`
+        // now just redirects to `/`.
+        router.push('/');
       },
     });
   };
