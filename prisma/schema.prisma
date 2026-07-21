@@ -38,7 +38,7 @@ model User {
   netWorthSnapshots NetWorthSnapshot[]
 
   // Tasks module
-  ownedTasks Task[]        @relation("TaskOwner")
+  ownedTasks Task[]      @relation("TaskOwner")
   taskShares TaskShare[]
 
   // Pages (Notion-like documents) authored by this user
@@ -53,7 +53,7 @@ model Profile {
   id        String   @id @default(cuid())
   name      String
   image     String?
-  color     String?  @default("#3b82f6") // UI accent color for identification
+  color     String?  @default("#8fb4f5") // UI accent color for identification
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -83,9 +83,9 @@ model Profile {
 
 // Household - groups profiles together (family/unit)
 model Household {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
+  id                   String   @id @default(cuid())
+  name                 String
+  description          String?
   // First day of the budget cycle. When set to e.g. 10, asking the app for
   // "June" means transactions from June 10 (inclusive) to July 10 (exclusive).
   // Defaults to 1 (calendar month) for back-compat.
@@ -113,17 +113,17 @@ model Household {
   shoppingDeliveries ShoppingDelivery[]
 
   // Moneytor module
-  moneytorTransactions     MoneytorTransaction[]
-  moneytorStockHoldings    MoneytorStockHolding[]
-  moneytorStockSnapshots   MoneytorStockSnapshot[]
-  moneytorAccounts         MoneytorAccount[]
-  moneytorAccountSnapshots MoneytorAccountSnapshot[]
-  moneytorPensionFunds     MoneytorPensionFund[]
-  moneytorPensionSnapshots MoneytorPensionSnapshot[]
-  moneytorRealEstate         MoneytorRealEstate[]
+  moneytorTransactions        MoneytorTransaction[]
+  moneytorStockHoldings       MoneytorStockHolding[]
+  moneytorStockSnapshots      MoneytorStockSnapshot[]
+  moneytorAccounts            MoneytorAccount[]
+  moneytorAccountSnapshots    MoneytorAccountSnapshot[]
+  moneytorPensionFunds        MoneytorPensionFund[]
+  moneytorPensionSnapshots    MoneytorPensionSnapshot[]
+  moneytorRealEstate          MoneytorRealEstate[]
   moneytorRealEstateSnapshots MoneytorRealEstateSnapshot[]
-  moneytorDropLogs         MoneytorDropLog[]
-  moneytorSyncLogs         MoneytorSyncLog[]
+  moneytorDropLogs            MoneytorDropLog[]
+  moneytorSyncLogs            MoneytorSyncLog[]
 
   // Budget settings
   ccGenericPayeeNames CcGenericPayeeName[]
@@ -264,8 +264,8 @@ model MiscAssetOwner {
 // Stock Portfolio Models
 model StockAccount {
   id        String   @id @default(cuid())
-  name      String   // e.g., "Fidelity Brokerage", "Robinhood"
-  broker    String?  // e.g., "Fidelity", "Robinhood", "Interactive Brokers"
+  name      String // e.g., "Fidelity Brokerage", "Robinhood"
+  broker    String? // e.g., "Fidelity", "Robinhood", "Interactive Brokers"
   currency  String   @default("USD") // Account currency (USD, ILS, EUR, etc.)
   userId    String?  @map("user_id") // Legacy - nullable during migration
   createdAt DateTime @default(now()) @map("created_at")
@@ -286,7 +286,7 @@ model StockAccount {
 model StockAccountCash {
   id        String   @id @default(cuid())
   accountId String   @map("account_id")
-  currency  String   // e.g., "USD", "ILS", "EUR"
+  currency  String // e.g., "USD", "ILS", "EUR"
   amount    Decimal  @db.Decimal(18, 2) // Cash balance in this currency
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -299,8 +299,8 @@ model StockAccountCash {
 
 model StockHolding {
   id           String   @id @default(cuid())
-  symbol       String   // Stock ticker symbol (e.g., "AAPL", "GOOGL")
-  name         String?  // Full stock name (e.g., "Apple Inc.")
+  symbol       String // Stock ticker symbol (e.g., "AAPL", "GOOGL")
+  name         String? // Full stock name (e.g., "Apple Inc.")
   taseSymbol   String?  @map("tase_symbol") // TASE equivalent symbol for dual-listed stocks
   quantity     Decimal  @db.Decimal(18, 8) // Number of shares (supports fractional)
   avgCostBasis Decimal  @map("avg_cost_basis") @db.Decimal(18, 4) // Average cost per share
@@ -317,7 +317,7 @@ model StockHolding {
 
 model StockPriceHistory {
   id        String   @id @default(cuid())
-  symbol    String   // Stock ticker symbol
+  symbol    String // Stock ticker symbol
   price     Decimal  @db.Decimal(18, 4) // Current/cached price
   timestamp DateTime @default(now()) // When this price was fetched
 
@@ -336,7 +336,7 @@ model PensionAccount {
   id             String             @id @default(cuid())
   type           PensionAccountType
   providerName   String             @map("provider_name") // e.g., "Meitav", "Altshuler Shaham"
-  accountName    String             @map("account_name")  // User-defined name
+  accountName    String             @map("account_name") // User-defined name
   accountNumber  String?            @map("account_number") // Institution account number (from PDF)
   currentValue   Decimal            @map("current_value") @db.Decimal(18, 2) // Current total value
   feeFromDeposit Decimal            @map("fee_from_deposit") @db.Decimal(5, 4) // Fee % from each deposit
@@ -360,7 +360,7 @@ model PensionDeposit {
   depositDate DateTime @map("deposit_date") @db.Date // When money was deposited
   salaryMonth DateTime @map("salary_month") @db.Date // Which month's salary (first of month)
   amount      Decimal  @db.Decimal(18, 2) // Deposit amount
-  employer    String   // Company name
+  employer    String // Company name
   accountId   String   @map("account_id")
   createdAt   DateTime @default(now()) @map("created_at")
 
@@ -383,12 +383,12 @@ enum MiscAssetType {
 model MiscAsset {
   id             String        @id @default(cuid())
   type           MiscAssetType
-  name           String                                                   // User-defined name
-  currentValue   Decimal       @map("current_value") @db.Decimal(18, 2)   // Positive for assets, negative for debts
-  interestRate   Decimal       @map("interest_rate") @db.Decimal(5, 4)    // Annual % (0.05 = 5%)
+  name           String // User-defined name
+  currentValue   Decimal       @map("current_value") @db.Decimal(18, 2) // Positive for assets, negative for debts
+  interestRate   Decimal       @map("interest_rate") @db.Decimal(5, 4) // Annual % (0.05 = 5%)
   monthlyPayment Decimal?      @map("monthly_payment") @db.Decimal(18, 2) // For loans/mortgages
   monthlyDeposit Decimal?      @map("monthly_deposit") @db.Decimal(18, 2) // For savings plans
-  maturityDate   DateTime?     @map("maturity_date") @db.Date             // When deposit matures or loan ends
+  maturityDate   DateTime?     @map("maturity_date") @db.Date // When deposit matures or loan ends
   userId         String?       @map("user_id") // Legacy - nullable during migration
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
@@ -410,12 +410,12 @@ model MiscAsset {
 model MortgageTrack {
   id             String    @id @default(cuid())
   mortgageId     String    @map("mortgage_id")
-  name           String                                               // Track name (e.g., "Fixed Rate", "Prime + 1%")
-  amount         Decimal   @db.Decimal(18, 2)                         // Outstanding balance for this track
-  interestRate   Decimal   @map("interest_rate") @db.Decimal(5, 4)    // Annual % for this track
+  name           String // Track name (e.g., "Fixed Rate", "Prime + 1%")
+  amount         Decimal   @db.Decimal(18, 2) // Outstanding balance for this track
+  interestRate   Decimal   @map("interest_rate") @db.Decimal(5, 4) // Annual % for this track
   monthlyPayment Decimal?  @map("monthly_payment") @db.Decimal(18, 2) // Monthly payment for this track
-  maturityDate   DateTime? @map("maturity_date") @db.Date             // When this track ends
-  sortOrder      Int       @default(0) @map("sort_order")             // For ordering tracks
+  maturityDate   DateTime? @map("maturity_date") @db.Date // When this track ends
+  sortOrder      Int       @default(0) @map("sort_order") // For ordering tracks
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
@@ -473,13 +473,13 @@ enum PaymentMethod {
 // Riseup Categories - known categories from Riseup CSV imports
 // Each can be mapped to a budget category; deleted ones won't be re-added on import
 model RiseupCategory {
-  id               String          @id @default(cuid())
+  id               String   @id @default(cuid())
   name             String // Hebrew category name from Riseup
-  isDeleted        Boolean         @default(false) @map("is_deleted")
-  budgetCategoryId String?         @map("budget_category_id")
-  householdId      String          @map("household_id")
-  createdAt        DateTime        @default(now()) @map("created_at")
-  updatedAt        DateTime        @updatedAt @map("updated_at")
+  isDeleted        Boolean  @default(false) @map("is_deleted")
+  budgetCategoryId String?  @map("budget_category_id")
+  householdId      String   @map("household_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   // Relations
   budgetCategory BudgetCategory? @relation(fields: [budgetCategoryId], references: [id], onDelete: SetNull)
@@ -522,12 +522,12 @@ model BudgetCategory {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  group              BudgetCategoryGroup  @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  transactions       BudgetTransaction[]  @relation("TransactionCategory")
+  group                 BudgetCategoryGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  transactions          BudgetTransaction[] @relation("TransactionCategory")
   suggestedTransactions BudgetTransaction[] @relation("SuggestedCategory") // Transactions with this as an AI-suggested (not yet applied) category
-  payees             BudgetPayee[]        // Payees with this as default category
-  riseupCategories   RiseupCategory[]     // Riseup categories mapped to this category
-  payeeCategoryRules PayeeCategoryRule[]  // Rules that auto-assign this category
+  payees                BudgetPayee[] // Payees with this as default category
+  riseupCategories      RiseupCategory[] // Riseup categories mapped to this category
+  payeeCategoryRules    PayeeCategoryRule[] // Rules that auto-assign this category
 
   @@unique([groupId, name]) // Unique category names per group
   @@index([householdId])
@@ -561,7 +561,7 @@ model BudgetPayee {
 model BudgetTag {
   id          String   @id @default(cuid())
   name        String
-  color       String   @default("#3B82F6") // Hex color code
+  color       String   @default("#8fb4f5") // Hex color code
   householdId String   @map("household_id")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -576,55 +576,55 @@ model BudgetTag {
 
 // Budget Transactions - income and expense records
 model BudgetTransaction {
-  id                    String            @id @default(cuid())
-  type                  TransactionType
-  transactionDate       DateTime          @map("transaction_date") @db.Date
-  paymentDate           DateTime?         @map("payment_date") @db.Date // For credit cards
-  amountIls             Decimal           @map("amount_ils") @db.Decimal(18, 2)
-  currency              String            @default("ILS") // Original currency
-  amountOriginal        Decimal           @map("amount_original") @db.Decimal(18, 2) // Amount in original currency
-  categoryId            String?           @map("category_id")
+  id                        String            @id @default(cuid())
+  type                      TransactionType
+  transactionDate           DateTime          @map("transaction_date") @db.Date
+  paymentDate               DateTime?         @map("payment_date") @db.Date // For credit cards
+  amountIls                 Decimal           @map("amount_ils") @db.Decimal(18, 2)
+  currency                  String            @default("ILS") // Original currency
+  amountOriginal            Decimal           @map("amount_original") @db.Decimal(18, 2) // Amount in original currency
+  categoryId                String?           @map("category_id")
   // AI category suggestion — the transaction stays uncategorized (categoryId
   // null) until the user approves; suggestedCategoryId only marks the guess.
-  suggestedCategoryId   String?           @map("suggested_category_id")
-  suggestionConfidence  Float?            @map("suggestion_confidence")
-  suggestedAt           DateTime?         @map("suggested_at")
+  suggestedCategoryId       String?           @map("suggested_category_id")
+  suggestionConfidence      Float?            @map("suggestion_confidence")
+  suggestedAt               DateTime?         @map("suggested_at")
   // Set once the AI has resolved this transaction (suggested / low-confidence /
   // no-match, or given up after repeated errors). Lets the automatic ingestion
   // pass attempt each transaction once instead of re-querying on every drain.
-  categorizationAttemptedAt DateTime?     @map("categorization_attempted_at")
+  categorizationAttemptedAt DateTime?         @map("categorization_attempted_at")
   // Count of failed AI attempts (network / rate-limit / API errors). Transient
   // failures are retried on later drains; once this hits the cap the row is
   // marked attempted so a persistent failure (e.g. a bad key) can't re-bill the
   // same transaction forever.
-  categorizationErrorCount Int            @default(0) @map("categorization_error_count")
-  payeeId               String?           @map("payee_id")
-  paymentMethod         PaymentMethod     @default(credit_card) @map("payment_method")
-  paymentNumber         Int?              @map("payment_number") // For installments (e.g., 2 of 6)
-  totalPayments         Int?              @map("total_payments") // Total installments
-  notes                 String?
-  source                TransactionSource @default(manual)
-  isRecurring           Boolean           @default(false) @map("is_recurring")
-  isSplit               Boolean           @default(false) @map("is_split") // Is this a parent split transaction?
-  originalTransactionId String?           @map("original_transaction_id") // Reference to parent if this is a split child
-  paymentIdentifier     String?           @map("payment_identifier") // External payment identifier (e.g., credit card last 4 digits)
-  excludedFromFlow      Boolean           @default(false) @map("excluded_from_flow") // Excluded from cashflow analysis
-  isDeleted             Boolean           @default(false) @map("is_deleted") // Soft delete - kept for duplicate detection on import
-  profileId             String?           @map("profile_id") // Which household member made the transaction
-  householdId           String            @map("household_id")
-  moneytorId            String?           @unique @map("moneytor_id") // Set when promoted from moneytor_transactions; natural dedup key for sync
-  createdAt             DateTime          @default(now()) @map("created_at")
-  updatedAt             DateTime          @updatedAt @map("updated_at")
+  categorizationErrorCount  Int               @default(0) @map("categorization_error_count")
+  payeeId                   String?           @map("payee_id")
+  paymentMethod             PaymentMethod     @default(credit_card) @map("payment_method")
+  paymentNumber             Int?              @map("payment_number") // For installments (e.g., 2 of 6)
+  totalPayments             Int?              @map("total_payments") // Total installments
+  notes                     String?
+  source                    TransactionSource @default(manual)
+  isRecurring               Boolean           @default(false) @map("is_recurring")
+  isSplit                   Boolean           @default(false) @map("is_split") // Is this a parent split transaction?
+  originalTransactionId     String?           @map("original_transaction_id") // Reference to parent if this is a split child
+  paymentIdentifier         String?           @map("payment_identifier") // External payment identifier (e.g., credit card last 4 digits)
+  excludedFromFlow          Boolean           @default(false) @map("excluded_from_flow") // Excluded from cashflow analysis
+  isDeleted                 Boolean           @default(false) @map("is_deleted") // Soft delete - kept for duplicate detection on import
+  profileId                 String?           @map("profile_id") // Which household member made the transaction
+  householdId               String            @map("household_id")
+  moneytorId                String?           @unique @map("moneytor_id") // Set when promoted from moneytor_transactions; natural dedup key for sync
+  createdAt                 DateTime          @default(now()) @map("created_at")
+  updatedAt                 DateTime          @updatedAt @map("updated_at")
 
   // Relations
-  category        BudgetCategory?        @relation("TransactionCategory", fields: [categoryId], references: [id], onDelete: SetNull)
-  suggestedCategory BudgetCategory?      @relation("SuggestedCategory", fields: [suggestedCategoryId], references: [id], onDelete: SetNull)
-  payee           BudgetPayee?           @relation(fields: [payeeId], references: [id], onDelete: SetNull)
-  profile         Profile?               @relation(fields: [profileId], references: [id], onDelete: SetNull)
-  tags            BudgetTransactionTag[]
+  category            BudgetCategory?        @relation("TransactionCategory", fields: [categoryId], references: [id], onDelete: SetNull)
+  suggestedCategory   BudgetCategory?        @relation("SuggestedCategory", fields: [suggestedCategoryId], references: [id], onDelete: SetNull)
+  payee               BudgetPayee?           @relation(fields: [payeeId], references: [id], onDelete: SetNull)
+  profile             Profile?               @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  tags                BudgetTransactionTag[]
   // Self-relation for split transactions
-  originalTransaction BudgetTransaction?   @relation("SplitTransactions", fields: [originalTransactionId], references: [id], onDelete: Cascade)
-  splitChildren       BudgetTransaction[]  @relation("SplitTransactions")
+  originalTransaction BudgetTransaction?     @relation("SplitTransactions", fields: [originalTransactionId], references: [id], onDelete: Cascade)
+  splitChildren       BudgetTransaction[]    @relation("SplitTransactions")
 
   @@index([householdId])
   @@index([householdId, isDeleted])
@@ -667,27 +667,27 @@ model PayeeCategoryRule {
 // Log of AI auto-categorization queries — one row per transaction the model
 // was asked about, recording what it decided and how confident it was.
 model BudgetCategorizationLog {
-  id                 String   @id @default(cuid())
-  householdId        String   @map("household_id")
-  transactionId      String?  @map("transaction_id") // Plain reference (no FK) — kept even if the transaction is later deleted
-  transactionName    String   @map("transaction_name") // Payee/description snapshot at query time
+  id                  String   @id @default(cuid())
+  householdId         String   @map("household_id")
+  transactionId       String?  @map("transaction_id") // Plain reference (no FK) — kept even if the transaction is later deleted
+  transactionName     String   @map("transaction_name") // Payee/description snapshot at query time
   // Outcome: "suggested" (attached as a suggestion), "low_confidence" (below
   // threshold — not applied), "no_match" (model found no fitting category),
   // or "error" (query failed).
-  status             String
-  resultCategoryId   String?  @map("result_category_id") // The category the model leaned toward (may be null)
-  resultCategoryName String?  @map("result_category_name")
-  confidence         Float? // 0..1, null on error/no_match
-  reasoning          String? // Short model rationale
+  status              String
+  resultCategoryId    String?  @map("result_category_id") // The category the model leaned toward (may be null)
+  resultCategoryName  String?  @map("result_category_name")
+  confidence          Float? // 0..1, null on error/no_match
+  reasoning           String? // Short model rationale
   // Billable usage for this categorization, summed across every model step.
   // Null on rows written before usage tracking existed or when a call failed
   // before returning usage. Cost is derived from these via lib/ai/pricing.ts.
-  inputTokens         Int? @map("input_tokens")
-  outputTokens        Int? @map("output_tokens")
-  cacheCreationTokens Int? @map("cache_creation_tokens")
-  cacheReadTokens     Int? @map("cache_read_tokens")
-  webSearches         Int? @map("web_searches")
-  createdAt          DateTime @default(now()) @map("created_at")
+  inputTokens         Int?     @map("input_tokens")
+  outputTokens        Int?     @map("output_tokens")
+  cacheCreationTokens Int?     @map("cache_creation_tokens")
+  cacheReadTokens     Int?     @map("cache_read_tokens")
+  webSearches         Int?     @map("web_searches")
+  createdAt           DateTime @default(now()) @map("created_at")
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
@@ -772,8 +772,8 @@ model ShoppingItem {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  category  ShoppingCategory  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  household Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category  ShoppingCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  household Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   cartItems ShoppingCartItem[]
 
   @@unique([householdId, name])
@@ -815,28 +815,28 @@ model ShoppingCartItem {
 
 // Moneytor Transactions - read-only mirror of transactions pulled from Moneytor API
 model MoneytorTransaction {
-  id              String   @id // Moneytor's ULID; natural PK for upsert
-  transactionDate DateTime @map("transaction_date") @db.Date
-  amount          Decimal  @db.Decimal(18, 2) // Signed: negative = expense, positive = income
-  currency        String   @default("ILS")
-  description     String
+  id                 String   @id // Moneytor's ULID; natural PK for upsert
+  transactionDate    DateTime @map("transaction_date") @db.Date
+  amount             Decimal  @db.Decimal(18, 2) // Signed: negative = expense, positive = income
+  currency           String   @default("ILS")
+  description        String
   // Freeform metadata Moneytor returns alongside the description. Populated
   // by the provider on ~23% of rows — customer notes on outgoing transfers,
   // sender/receiver context on Bit P2P (BIT_PAYBOX), claim references on
   // insurance credits, etc. Nullable because Moneytor omits it when empty.
-  extraInfo       String?  @map("extra_info")
-  category        String // Raw Moneytor category string (e.g. BANK_TRANSFER)
-  accountId       String   @map("account_id")
-  type            String // Moneytor account type (e.g. CHECKING)
+  extraInfo          String?  @map("extra_info")
+  category           String // Raw Moneytor category string (e.g. BANK_TRANSFER)
+  accountId          String   @map("account_id")
+  type               String // Moneytor account type (e.g. CHECKING)
   // Set by force-resync when a fresh row is a fuzzy match for a previously-
   // stored Moneytor id (Moneytor may issue new ids when they fix data).
   // Audit-only: by the time this is set, the referenced old row is already
   // deleted. Lets you spot which transactions were carried across a resync.
-  replacesMoneytorId String? @map("replaces_moneytor_id")
-  householdId     String   @map("household_id")
-  syncedAt        DateTime @default(now()) @map("synced_at")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  replacesMoneytorId String?  @map("replaces_moneytor_id")
+  householdId        String   @map("household_id")
+  syncedAt           DateTime @default(now()) @map("synced_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
@@ -849,22 +849,22 @@ model MoneytorTransaction {
 // Moneytor Stock Holdings - mirror of share-form assets returned by Moneytor /assets.
 // One row per holding inside an account's stocksData[].
 model MoneytorStockHolding {
-  id                String    @id @default(cuid())
-  productId         String    @map("product_id") // Moneytor product id (parent account)
-  accountName       String    @map("account_name")
-  broker            String?
-  stockName         String    @map("stock_name") // ticker / symbol
-  amount            Decimal   @db.Decimal(20, 8) // units held
-  purchasePrice     Decimal?  @map("purchase_price") @db.Decimal(20, 4)
-  purchaseDate      DateTime? @map("purchase_date") @db.Date
-  stockPrice        Decimal   @map("stock_price") @db.Decimal(20, 4)
-  currency          String
-  totalWorthInBase  Decimal   @map("total_worth_in_base") @db.Decimal(18, 2)
-  accountCash       Decimal?  @map("account_cash") @db.Decimal(18, 2) // cash on the parent account
-  householdId       String    @map("household_id")
-  syncedAt          DateTime  @default(now()) @map("synced_at")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
+  id               String    @id @default(cuid())
+  productId        String    @map("product_id") // Moneytor product id (parent account)
+  accountName      String    @map("account_name")
+  broker           String?
+  stockName        String    @map("stock_name") // ticker / symbol
+  amount           Decimal   @db.Decimal(20, 8) // units held
+  purchasePrice    Decimal?  @map("purchase_price") @db.Decimal(20, 4)
+  purchaseDate     DateTime? @map("purchase_date") @db.Date
+  stockPrice       Decimal   @map("stock_price") @db.Decimal(20, 4)
+  currency         String
+  totalWorthInBase Decimal   @map("total_worth_in_base") @db.Decimal(18, 2)
+  accountCash      Decimal?  @map("account_cash") @db.Decimal(18, 2) // cash on the parent account
+  householdId      String    @map("household_id")
+  syncedAt         DateTime  @default(now()) @map("synced_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
@@ -901,15 +901,15 @@ model MoneytorStockSnapshot {
 // Persistent log of cron invocations — one row per run. Survives Vercel's short
 // runtime-log retention window and lets us query "did sync fail last Tuesday?"
 model CronRunLog {
-  id            String   @id @default(cuid())
-  cronPath      String   @map("cron_path") // e.g. "/api/cron/daily-tasks"
-  startedAt     DateTime @map("started_at")
-  completedAt   DateTime @map("completed_at")
-  durationMs    Int      @map("duration_ms")
-  success       Boolean
-  errorMessage  String?  @map("error_message")
-  results       Json?    // raw response body (per-task counts, failures, etc.)
-  createdAt     DateTime @default(now()) @map("created_at")
+  id           String   @id @default(cuid())
+  cronPath     String   @map("cron_path") // e.g. "/api/cron/daily-tasks"
+  startedAt    DateTime @map("started_at")
+  completedAt  DateTime @map("completed_at")
+  durationMs   Int      @map("duration_ms")
+  success      Boolean
+  errorMessage String?  @map("error_message")
+  results      Json? // raw response body (per-task counts, failures, etc.)
+  createdAt    DateTime @default(now()) @map("created_at")
 
   @@index([cronPath, startedAt(sort: Desc)])
   @@index([startedAt(sort: Desc)])
@@ -919,36 +919,36 @@ model CronRunLog {
 // Moneytor accounts — banks, debts, and (extensible) other non-share product forms.
 // One row per Moneytor product. Updated on every sync.
 model MoneytorAccount {
-  id             String    @id @default(cuid())
-  productId      String    @map("product_id")
-  form           String // 'bank' | 'debt' | future forms
-  name           String
-  institution    String?
-  subtype        String? // bank: 'balance'|'saving'; debt: 'loan'|'mortgage'|'credit_card'
-  accountNumber  String?   @map("account_number")
-  currency       String
-  balanceInBase  Decimal   @map("balance_in_base") @db.Decimal(18, 2) // signed: positive=asset, negative=debt
-  interestRate   Decimal?  @map("interest_rate") @db.Decimal(8, 4)
-  maturityDate   DateTime? @map("maturity_date") @db.Date
-  monthlyPayment Decimal?  @map("monthly_payment") @db.Decimal(18, 2)
-  customSubtitle String?   @map("custom_subtitle") // user-editable label shown under the account name
+  id              String    @id @default(cuid())
+  productId       String    @map("product_id")
+  form            String // 'bank' | 'debt' | future forms
+  name            String
+  institution     String?
+  subtype         String? // bank: 'balance'|'saving'; debt: 'loan'|'mortgage'|'credit_card'
+  accountNumber   String?   @map("account_number")
+  currency        String
+  balanceInBase   Decimal   @map("balance_in_base") @db.Decimal(18, 2) // signed: positive=asset, negative=debt
+  interestRate    Decimal?  @map("interest_rate") @db.Decimal(8, 4)
+  maturityDate    DateTime? @map("maturity_date") @db.Date
+  monthlyPayment  Decimal?  @map("monthly_payment") @db.Decimal(18, 2)
+  customSubtitle  String?   @map("custom_subtitle") // user-editable label shown under the account name
   // Provider-issued identity (openfinanceAssetId for banks/CCs) — much more
   // stable across Moneytor productId reissues. Populated when the payload
   // exposes it; otherwise null and the reconciler falls back to productId.
-  stableKey        String?   @map("stable_key")
+  stableKey       String?   @map("stable_key")
   // Optional user override. When set, takes precedence over stableKey +
   // productId at match time so the user can pin identity for entities
   // where Moneytor doesn't emit a stable identifier (mortgage, brokerage).
-  userCanonicalId  String?   @map("user_canonical_id")
+  userCanonicalId String?   @map("user_canonical_id")
   // First sync at which this row wasn't seen in the Moneytor response.
   // NULL when the row is currently seen. Rows with a missingSince older
   // than the grace period get hard-deleted.
-  missingSince     DateTime? @map("missing_since")
-  rawData        Json?     @map("raw_data")
-  householdId    String    @map("household_id")
-  syncedAt       DateTime  @default(now()) @map("synced_at")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  missingSince    DateTime? @map("missing_since")
+  rawData         Json?     @map("raw_data")
+  householdId     String    @map("household_id")
+  syncedAt        DateTime  @default(now()) @map("synced_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
@@ -1086,62 +1086,62 @@ model MoneytorPensionSnapshot {
 // linked mortgage) — we promote the load-bearing fields to columns and keep
 // the rest in `raw_data` for the details view.
 model MoneytorRealEstate {
-  id          String   @id @default(cuid())
-  productId   String   @map("product_id")
-  name        String
+  id                     String    @id @default(cuid())
+  productId              String    @map("product_id")
+  name                   String
   // Current market value (positive). `balance_in_base` mirrors the same value
   // in the household's base currency so net-worth aggregation stays uniform
   // across account types.
-  currentValue  Decimal  @map("current_value") @db.Decimal(18, 2)
-  balanceInBase Decimal  @map("balance_in_base") @db.Decimal(18, 2)
-  currency      String   @default("ILS")
+  currentValue           Decimal   @map("current_value") @db.Decimal(18, 2)
+  balanceInBase          Decimal   @map("balance_in_base") @db.Decimal(18, 2)
+  currency               String    @default("ILS")
   // Ownership percentage (0-100). Used to scale balance contributions for
   // households that own a fraction of a property.
-  ownership     Decimal? @db.Decimal(5, 2)
+  ownership              Decimal?  @db.Decimal(5, 2)
   // Purchase
-  purchasePrice    Decimal?  @map("purchase_price") @db.Decimal(18, 2)
-  purchaseDate     DateTime? @map("purchase_date") @db.Date
-  purchaseExpenses Decimal?  @map("purchase_expenses") @db.Decimal(18, 2)
+  purchasePrice          Decimal?  @map("purchase_price") @db.Decimal(18, 2)
+  purchaseDate           DateTime? @map("purchase_date") @db.Date
+  purchaseExpenses       Decimal?  @map("purchase_expenses") @db.Decimal(18, 2)
   // Address / geo
-  country     String?
-  city        String?
-  street      String?
-  houseNumber String? @map("house_number")
-  address     String?
-  latitude    Decimal? @db.Decimal(9, 6)
-  longitude   Decimal? @db.Decimal(9, 6)
+  country                String?
+  city                   String?
+  street                 String?
+  houseNumber            String?   @map("house_number")
+  address                String?
+  latitude               Decimal?  @db.Decimal(9, 6)
+  longitude              Decimal?  @db.Decimal(9, 6)
   // Property characteristics
-  propertyType      String? @map("property_type")
-  propertyCondition String? @map("property_condition")
-  measurementUnit   String? @map("measurement_unit") // 'squareMeter' | 'squareFoot'
-  builtArea         Decimal? @map("built_area") @db.Decimal(10, 2)
-  gardenBalconySize Decimal? @map("garden_balcony_size") @db.Decimal(10, 2)
-  bedrooms          Int?
-  floor             Int?
-  apartmentFloors   String? @map("apartment_floors") // API returns as string
+  propertyType           String?   @map("property_type")
+  propertyCondition      String?   @map("property_condition")
+  measurementUnit        String?   @map("measurement_unit") // 'squareMeter' | 'squareFoot'
+  builtArea              Decimal?  @map("built_area") @db.Decimal(10, 2)
+  gardenBalconySize      Decimal?  @map("garden_balcony_size") @db.Decimal(10, 2)
+  bedrooms               Int?
+  floor                  Int?
+  apartmentFloors        String?   @map("apartment_floors") // API returns as string
   // Income
-  rent           Decimal? @db.Decimal(18, 2)
-  rentSuggestion Decimal? @map("rent_suggestion") @db.Decimal(18, 2)
-  rentType       String?  @map("rent_type") // 'longTerm' | 'shortTerm' | etc.
-  incomeFrequency String?  @map("income_frequency") // 'monthly' | 'yearly'
+  rent                   Decimal?  @db.Decimal(18, 2)
+  rentSuggestion         Decimal?  @map("rent_suggestion") @db.Decimal(18, 2)
+  rentType               String?   @map("rent_type") // 'longTerm' | 'shortTerm' | etc.
+  incomeFrequency        String?   @map("income_frequency") // 'monthly' | 'yearly'
   // Sale costs (used when projecting net proceeds on sale)
-  saleCommission         Decimal? @map("sale_commission") @db.Decimal(8, 4) // percent
-  profitTax              Decimal? @map("profit_tax") @db.Decimal(18, 2)
-  generalSellingExpenses Decimal? @map("general_selling_expenses") @db.Decimal(18, 2)
-  legalExpenses          Decimal? @map("legal_expenses") @db.Decimal(18, 2)
+  saleCommission         Decimal?  @map("sale_commission") @db.Decimal(8, 4) // percent
+  profitTax              Decimal?  @map("profit_tax") @db.Decimal(18, 2)
+  generalSellingExpenses Decimal?  @map("general_selling_expenses") @db.Decimal(18, 2)
+  legalExpenses          Decimal?  @map("legal_expenses") @db.Decimal(18, 2)
   // Mortgage link — the API returns an object; we keep the stringified value
   // so we can later resolve it to a MoneytorAccount (debt form) if needed.
-  linkedMortgageRef String? @map("linked_mortgage_ref")
-  customSubtitle    String? @map("custom_subtitle") // user-editable label
-  rawData           Json?   @map("raw_data")
+  linkedMortgageRef      String?   @map("linked_mortgage_ref")
+  customSubtitle         String?   @map("custom_subtitle") // user-editable label
+  rawData                Json?     @map("raw_data")
   // Stable identity: normalized address. See lib/moneytor/stable-key.ts.
-  stableKey         String? @map("stable_key")
-  userCanonicalId   String? @map("user_canonical_id")
-  missingSince      DateTime? @map("missing_since")
-  householdId       String  @map("household_id")
-  syncedAt          DateTime @default(now()) @map("synced_at")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  stableKey              String?   @map("stable_key")
+  userCanonicalId        String?   @map("user_canonical_id")
+  missingSince           DateTime? @map("missing_since")
+  householdId            String    @map("household_id")
+  syncedAt               DateTime  @default(now()) @map("synced_at")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
@@ -1179,20 +1179,20 @@ model MoneytorRealEstateSnapshot {
 // the local data to track Moneytor exactly), but we surface the entries in
 // the Labs tab so the user can spot mistaken removals.
 model MoneytorDropLog {
-  id                 String   @id @default(cuid())
-  householdId        String   @map("household_id")
+  id                  String   @id @default(cuid())
+  householdId         String   @map("household_id")
   /// The moneytor_id that the dropped budget_transaction was linked to.
-  originalMoneytorId String?  @map("original_moneytor_id")
+  originalMoneytorId  String?  @map("original_moneytor_id")
   /// Copy of the dropped budget_transaction id (now deleted) for cross-reference.
-  budgetTransactionId String? @map("budget_transaction_id")
-  transactionDate    DateTime @map("transaction_date") @db.Date
-  amountIls          Decimal  @map("amount_ils") @db.Decimal(18, 2)
-  payeeName          String?  @map("payee_name")
-  description        String? // raw Moneytor description if payee not resolvable
+  budgetTransactionId String?  @map("budget_transaction_id")
+  transactionDate     DateTime @map("transaction_date") @db.Date
+  amountIls           Decimal  @map("amount_ils") @db.Decimal(18, 2)
+  payeeName           String?  @map("payee_name")
+  description         String? // raw Moneytor description if payee not resolvable
   /// Free-form reason so we can extend with new drop sources later
   /// (e.g. 'no_successor_in_moneytor', 'pending_auth_superseded').
-  reason             String
-  droppedAt          DateTime @default(now()) @map("dropped_at")
+  reason              String
+  droppedAt           DateTime @default(now()) @map("dropped_at")
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
@@ -1295,7 +1295,7 @@ model Page {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   owner     User      @relation("PageOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  household Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
   @@index([householdId])
   @@index([householdId, sortOrder])
@@ -1360,18 +1360,18 @@ model TaskShare {
 // bank account between syncs, we soft-deleted a stale row). Surfaced in
 // Labs → Activity with a mark-as-read affordance.
 model GeneralLog {
-  id          String   @id @default(cuid())
-  householdId String   @map("household_id")
+  id          String    @id @default(cuid())
+  householdId String    @map("household_id")
   // e.g. 'account_renamed' | 'account_soft_deleted' | 'account_reappeared'
   type        String
   // What the event is about — an entity type + id so the UI can deep-link.
-  subjectType String?  @map("subject_type") // 'moneytor_account' | 'moneytor_pension_fund' | 'moneytor_real_estate'
-  subjectId   String?  @map("subject_id")
-  oldValue    String?  @map("old_value")    // e.g. previous name
-  newValue    String?  @map("new_value")    // e.g. new name
+  subjectType String?   @map("subject_type") // 'moneytor_account' | 'moneytor_pension_fund' | 'moneytor_real_estate'
+  subjectId   String?   @map("subject_id")
+  oldValue    String?   @map("old_value") // e.g. previous name
+  newValue    String?   @map("new_value") // e.g. new name
   description String?
-  readAt      DateTime? @map("read_at")     // null = unread, drives the badge dot
-  createdAt   DateTime @default(now()) @map("created_at")
+  readAt      DateTime? @map("read_at") // null = unread, drives the badge dot
+  createdAt   DateTime  @default(now()) @map("created_at")
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 

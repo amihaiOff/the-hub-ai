@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { pastelizeColor } from '@/lib/utils/pastelize-color';
 
 interface ProfileAvatarProps {
   name: string;
@@ -53,6 +54,7 @@ export function ProfileAvatar({
   className,
 }: ProfileAvatarProps) {
   const [imageError, setImageError] = useState(false);
+  const resolvedColor = pastelizeColor(color) ?? '#8fb4f5';
 
   const initials = name
     .split(' ')
@@ -69,7 +71,7 @@ export function ProfileAvatar({
         sizeClasses[size],
         className
       )}
-      style={{ backgroundColor: color || '#8fb4f5' }}
+      style={{ backgroundColor: resolvedColor }}
       title={name}
     >
       {initials}
