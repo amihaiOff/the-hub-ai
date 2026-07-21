@@ -224,6 +224,13 @@
   }
   .page-body p {
     margin: 0.35rem 0;
+    /* Paragraphs deliberately carry no dir attribute (it would starve a
+       parent <li dir="auto"> and mis-place the bullet — see
+       auto-text-direction.ts). `unicode-bidi: plaintext` gives each paragraph
+       its own content-derived direction anyway, so `text-align: start`
+       resolves to right for Hebrew and left for English, per block. */
+    unicode-bidi: plaintext;
+    text-align: start;
   }
   .page-body h1 {
     font-size: 1.6rem;
@@ -242,7 +249,9 @@
   }
   .page-body ul {
     list-style: disc;
-    /* Logical inline-start so RTL blocks indent from the right (dir=auto). */
+    /* Each <li> carries dir="auto" (see auto-text-direction.ts), so its marker
+       sits on the item's own start side — right for a Hebrew item, left for an
+       English one — even within a mixed list. */
     padding-inline-start: 1.4rem;
     margin: 0.35rem 0;
   }

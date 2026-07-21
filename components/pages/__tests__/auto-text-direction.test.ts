@@ -32,29 +32,41 @@ describe('AutoTextDirection', () => {
     // Every node that gained the attribute defaults to "auto".
     expect(dirs.length).toBeGreaterThan(0);
     for (const n of dirs) expect(n.dir).toBe('auto');
-    // The key block types are covered.
+    // The text-carrying block types are covered.
     const types = new Set(dirs.map((d) => d.type));
-    for (const t of ['paragraph', 'heading', 'listItem', 'bulletList', 'blockquote']) {
+    for (const t of ['heading', 'listItem', 'blockquote']) {
       expect(types.has(t)).toBe(true);
     }
     editor.destroy();
   });
 
-  it('renders dir onto the DOM element', () => {
-    const editor = makeEditor('<p>hello</p>');
+  it('does NOT attach dir to paragraphs or list containers', () => {
+    // A dir on the inner <p> starves the parent <li dir="auto"> auto-detection
+    // (bullet ends up on the wrong side), and the <ul>/<ol> containers are left
+    // undirected so each item flips on its own. See auto-text-direction.ts.
+    const editor = makeEditor('<ul><li><p>one</p></li></ul>');
+    const types = new Set(nodesWithDir(editor).map((d) => d.type));
+    expect(types.has('paragraph')).toBe(false);
+    expect(types.has('bulletList')).toBe(false);
+    expect(types.has('orderedList')).toBe(false);
+    editor.destroy();
+  });
+
+  it('renders dir onto the DOM element for a listed block type', () => {
+    const editor = makeEditor('<h1>hello</h1>');
     expect(editor.getHTML()).toContain('dir="auto"');
     editor.destroy();
   });
 
   it('preserves an explicit dir from parsed HTML', () => {
-    const editor = makeEditor('<p dir="rtl">שלום</p>');
-    const para = nodesWithDir(editor).find((n) => n.type === 'paragraph');
-    expect(para?.dir).toBe('rtl');
+    const editor = makeEditor('<h1 dir="rtl">שלום</h1>');
+    const heading = nodesWithDir(editor).find((n) => n.type === 'heading');
+    expect(heading?.dir).toBe('rtl');
     editor.destroy();
   });
 
-  it('does not attach dir to nodes outside the listed types (e.g. text/doc)', () => {
-    const editor = makeEditor('<p>hello</p>');
+  it('does not attach dir to nodes outside the listed types (e.g. paragraph/text/doc)', () => {
+    const editor = makeEditor('<h1>hi</h1><p>hello</p>');
     const dirs = nodesWithDir(editor);
     for (const n of dirs)
       expect(DIR_BLOCK_TYPES).toContain(n.type as (typeof DIR_BLOCK_TYPES)[number]);
