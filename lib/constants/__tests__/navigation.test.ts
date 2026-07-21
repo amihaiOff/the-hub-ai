@@ -50,7 +50,7 @@ describe('Navigation Constants', () => {
 
   describe('navItems content and order', () => {
     const expectedItems = [
-      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { label: 'Dashboard', href: '/', icon: LayoutDashboard },
       { label: 'Tasks', href: '/tasks', icon: ListChecks },
       { label: 'Shopping', href: '/shopping', icon: ShoppingCart },
       { label: 'Portfolio', href: '/portfolio', icon: TrendingUp },

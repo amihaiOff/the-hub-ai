@@ -50,7 +50,7 @@ export function isNavHeader(entry: NavEntry): entry is NavHeader {
 }
 
 export const navItems: NavEntry[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/tasks', label: 'Tasks', icon: ListChecks },
   {
     href: '/shopping',
