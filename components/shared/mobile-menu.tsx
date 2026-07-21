@@ -155,9 +155,9 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
               <Image
                 src="/icons/icon-192.png"
                 alt=""
-                width={32}
-                height={32}
-                className="h-8 w-8 rounded-lg"
+                width={44}
+                height={44}
+                className="h-11 w-11"
               />
               <SheetTitle className="text-lg font-semibold">The Hub</SheetTitle>
             </Link>

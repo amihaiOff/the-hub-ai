@@ -7,10 +7,10 @@ export function Logo() {
       <Image
         src="/icons/icon-192.png"
         alt=""
-        width={32}
-        height={32}
+        width={44}
+        height={44}
         priority
-        className="h-8 w-8 rounded-md"
+        className="h-11 w-11"
       />
       <span className="text-lg font-bold tracking-tight">The Hub</span>
     </Link>
