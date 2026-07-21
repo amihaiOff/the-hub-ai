@@ -86,6 +86,10 @@ export function TransactionActionsPanel({
           if (!newCategoryId || !transaction.payeeId) return;
           const payee = payees.find((p) => p.id === transaction.payeeId);
           if (!payee) return;
+          // Respect a "never default" payee (e.g. matched by a markNeverDefault
+          // rule) — don't prompt to set/change its default category. Mirrors the
+          // inline row path in transaction-row.tsx.
+          if (payee.neverDefault) return;
           if (payee.categoryId === newCategoryId) return;
           const newGroupInfo = getCategoryWithGroup(newCategoryId, categoryGroups);
           const oldGroupInfo = getCategoryWithGroup(payee.categoryId, categoryGroups);
