@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'The Hub AI - Financial Management',
-    short_name: 'The Hub AI',
+    name: 'The Hub - Financial Management',
+    short_name: 'The Hub',
     description: 'Personal household financial management application',
     id: '/',
     start_url: '/',

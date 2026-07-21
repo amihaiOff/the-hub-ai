@@ -48,11 +48,10 @@ describe('MobileHeader', () => {
       expect(svg).toBeInTheDocument();
     });
 
-    it('should render "The Hub" and "AI" text', () => {
+    it('should render "The Hub" text', () => {
       const mockOnMenuClick = jest.fn();
       render(<MobileHeader onMenuClick={mockOnMenuClick} />);
 
-      expect(screen.getByText('AI')).toBeInTheDocument();
       expect(screen.getByText(/The Hub/)).toBeInTheDocument();
     });
 

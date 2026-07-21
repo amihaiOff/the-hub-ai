@@ -11,8 +11,8 @@ describe('PWA manifest', () => {
 
   describe('core fields', () => {
     it('should expose the app name and short name', () => {
-      expect(result.name).toBe('The Hub AI - Financial Management');
-      expect(result.short_name).toBe('The Hub AI');
+      expect(result.name).toBe('The Hub - Financial Management');
+      expect(result.short_name).toBe('The Hub');
     });
 
     it('should be installable as a standalone app rooted at "/"', () => {

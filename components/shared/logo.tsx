@@ -52,9 +52,7 @@ export function Logo() {
   return (
     <Link href="/" className="flex items-center gap-2.5">
       <LogoIcon />
-      <span className="text-lg font-bold tracking-tight">
-        The Hub <span className="text-[#6ab2ff]">AI</span>
-      </span>
+      <span className="text-lg font-bold tracking-tight">The Hub</span>
     </Link>
   );
 }
