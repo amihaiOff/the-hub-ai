@@ -48,7 +48,7 @@ function isOptimizedDomain(url: string): boolean {
 export function ProfileAvatar({
   name,
   image,
-  color = '#3b82f6',
+  color = '#8fb4f5',
   size = 'md',
   className,
 }: ProfileAvatarProps) {
@@ -69,7 +69,7 @@ export function ProfileAvatar({
         sizeClasses[size],
         className
       )}
-      style={{ backgroundColor: color || '#3b82f6' }}
+      style={{ backgroundColor: color || '#8fb4f5' }}
       title={name}
     >
       {initials}

@@ -153,16 +153,16 @@ export function NetWorthChart({ displayCurrency = 'ILS', rates }: NetWorthChartP
           >
             <defs>
               <linearGradient id="netWorthGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.3} />
-                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                <stop offset="0%" stopColor="#8fb4f5" stopOpacity={0.3} />
+                <stop offset="100%" stopColor="#8fb4f5" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="portfolioGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#22c55e" stopOpacity={0.2} />
-                <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
+                <stop offset="0%" stopColor="#8fddb0" stopOpacity={0.2} />
+                <stop offset="100%" stopColor="#8fddb0" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="pensionGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.2} />
-                <stop offset="100%" stopColor="#f59e0b" stopOpacity={0} />
+                <stop offset="0%" stopColor="#f5cd85" stopOpacity={0.2} />
+                <stop offset="100%" stopColor="#f5cd85" stopOpacity={0} />
               </linearGradient>
             </defs>
             <XAxis
@@ -213,31 +213,31 @@ export function NetWorthChart({ displayCurrency = 'ILS', rates }: NetWorthChartP
               type="monotone"
               dataKey="netWorth"
               name="Net Worth"
-              stroke="#3b82f6"
+              stroke="#8fb4f5"
               strokeWidth={2}
               fill="url(#netWorthGradient)"
               dot={false}
-              activeDot={{ r: 4, fill: '#3b82f6', strokeWidth: 0 }}
+              activeDot={{ r: 4, fill: '#8fb4f5', strokeWidth: 0 }}
             />
             <Area
               type="monotone"
               dataKey="portfolio"
               name="Stocks"
-              stroke="#22c55e"
+              stroke="#8fddb0"
               strokeWidth={1.5}
               fill="url(#portfolioGradient)"
               dot={false}
-              activeDot={{ r: 3, fill: '#22c55e', strokeWidth: 0 }}
+              activeDot={{ r: 3, fill: '#8fddb0', strokeWidth: 0 }}
             />
             <Area
               type="monotone"
               dataKey="pension"
               name="Pension"
-              stroke="#f59e0b"
+              stroke="#f5cd85"
               strokeWidth={1.5}
               fill="url(#pensionGradient)"
               dot={false}
-              activeDot={{ r: 3, fill: '#f59e0b', strokeWidth: 0 }}
+              activeDot={{ r: 3, fill: '#f5cd85', strokeWidth: 0 }}
             />
           </AreaChart>
         </ResponsiveContainer>

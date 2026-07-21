@@ -96,9 +96,9 @@ describe('getGroupChartColor', () => {
   });
 
   it('maps keywords to hex colors', () => {
-    expect(getGroupChartColor('Essential expenses')).toBe('#3b82f6');
-    expect(getGroupChartColor('Groceries')).toBe('#f59e0b');
-    expect(getGroupChartColor('Health')).toBe('#ef4444');
+    expect(getGroupChartColor('Essential expenses')).toBe('#8fb4f5');
+    expect(getGroupChartColor('Groceries')).toBe('#f5cd85');
+    expect(getGroupChartColor('Health')).toBe('#f5a5a5');
   });
 
   it('falls back to the palette (wrapping around) for unknown names', () => {

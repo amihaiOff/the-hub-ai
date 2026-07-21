@@ -40,15 +40,15 @@ import {
 
 /** Preset category colors (readable on the dark theme); null = default. */
 const CATEGORY_COLORS = [
-  '#ef4444',
+  '#f5a5a5',
   '#f97316',
-  '#f59e0b',
+  '#f5cd85',
   '#eab308',
-  '#22c55e',
-  '#10b981',
+  '#8fddb0',
+  '#8fd9b6',
   '#06b6d4',
-  '#3b82f6',
-  '#6ab2ff',
+  '#8fb4f5',
+  '#a8caff',
   '#8b5cf6',
   '#ec4899',
   '#a1a1aa',

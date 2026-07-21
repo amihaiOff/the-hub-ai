@@ -22,10 +22,10 @@ import { useIsHouseholdAdmin } from '@/lib/contexts/household-context';
 import { useCreateProfile, useUpdateProfile, useDeleteProfile } from '@/lib/hooks/use-profiles';
 
 const PROFILE_COLORS = [
-  { hex: '#3b82f6', name: 'Blue' },
-  { hex: '#10b981', name: 'Green' },
-  { hex: '#f59e0b', name: 'Amber' },
-  { hex: '#ef4444', name: 'Red' },
+  { hex: '#8fb4f5', name: 'Blue' },
+  { hex: '#8fd9b6', name: 'Green' },
+  { hex: '#f5cd85', name: 'Amber' },
+  { hex: '#f5a5a5', name: 'Red' },
   { hex: '#8b5cf6', name: 'Purple' },
   { hex: '#ec4899', name: 'Pink' },
   { hex: '#06b6d4', name: 'Cyan' },

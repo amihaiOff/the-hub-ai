@@ -65,11 +65,11 @@ export function CategoryProgressBar({
   const getBarColor = () => {
     switch (status) {
       case 'overspent':
-        return 'bg-[#ef4444]';
+        return 'bg-[#f5a5a5]';
       case 'funded':
-        return 'bg-[#6ab2ff]';
+        return 'bg-[#a8caff]';
       case 'underfunded':
-        return 'bg-[#6ab2ff]';
+        return 'bg-[#a8caff]';
       default:
         return 'bg-muted-foreground';
     }
@@ -150,9 +150,9 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
   const statusConfig = {
-    funded: { label: 'Funded', className: 'bg-[#6ab2ff]/10 text-[#6ab2ff]' },
-    underfunded: { label: 'Underfunded', className: 'bg-[#6ab2ff]/10 text-[#6ab2ff]' },
-    overspent: { label: 'Overspent', className: 'bg-[#ef4444]/10 text-[#ef4444]' },
+    funded: { label: 'Funded', className: 'bg-[#a8caff]/10 text-[#a8caff]' },
+    underfunded: { label: 'Underfunded', className: 'bg-[#a8caff]/10 text-[#a8caff]' },
+    overspent: { label: 'Overspent', className: 'bg-[#f5a5a5]/10 text-[#f5a5a5]' },
     zero: { label: 'No Budget', className: 'bg-muted text-muted-foreground' },
   };
 

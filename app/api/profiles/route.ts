@@ -16,7 +16,7 @@ const createProfileSchema = z.object({
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/)
     .optional()
-    .default('#3b82f6'),
+    .default('#8fb4f5'),
 });
 
 /**
