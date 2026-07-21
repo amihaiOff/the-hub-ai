@@ -24,6 +24,15 @@ jest.mock('next/link', () => {
   };
 });
 
+// Mock next/image
+jest.mock('next/image', () => ({
+  __esModule: true,
+  default: function MockImage(props: Record<string, unknown>) {
+    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
+    return <img {...(props as React.ImgHTMLAttributes<HTMLImageElement>)} />;
+  },
+}));
+
 // Mock lucide-react Menu icon
 jest.mock('lucide-react', () => ({
   Menu: function MockMenu({ className }: { className?: string }) {
@@ -40,12 +49,12 @@ describe('MobileHeader', () => {
   });
 
   describe('Logo rendering', () => {
-    it('should render the logo SVG icon', () => {
+    it('should render the logo image', () => {
       const mockOnMenuClick = jest.fn();
       render(<MobileHeader onMenuClick={mockOnMenuClick} />);
 
-      const svg = document.querySelector('svg[viewBox="0 0 40 40"]');
-      expect(svg).toBeInTheDocument();
+      const img = document.querySelector('img[src*="/icons/icon-192.png"]');
+      expect(img).toBeInTheDocument();
     });
 
     it('should render "The Hub" text', () => {

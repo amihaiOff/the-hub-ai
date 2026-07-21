@@ -152,9 +152,13 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
           {/* Header with Logo */}
           <SheetHeader className="border-border/30 border-b p-4">
             <Link href="/" className="flex items-center gap-2" onClick={handleNavClick}>
-              <div className="bg-primary flex h-8 w-8 items-center justify-center rounded-lg">
-                <span className="text-primary-foreground text-sm font-bold">H</span>
-              </div>
+              <Image
+                src="/icons/icon-192.png"
+                alt=""
+                width={32}
+                height={32}
+                className="h-8 w-8 rounded-lg"
+              />
               <SheetTitle className="text-lg font-semibold">The Hub</SheetTitle>
             </Link>
             <SheetDescription className="sr-only">Main navigation menu</SheetDescription>

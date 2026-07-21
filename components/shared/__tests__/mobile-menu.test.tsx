@@ -262,7 +262,8 @@ describe('MobileMenu', () => {
     it('should render The Hub title and logo in menu header', () => {
       render(<MobileMenu open={true} onOpenChange={jest.fn()} />);
       expect(screen.getByTestId('sheet-title')).toHaveTextContent('The Hub');
-      expect(screen.getByText('H')).toBeInTheDocument();
+      const logo = document.querySelector('img[src*="/icons/icon-192.png"]');
+      expect(logo).toBeInTheDocument();
     });
   });
 
