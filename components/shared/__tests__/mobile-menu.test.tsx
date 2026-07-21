@@ -259,9 +259,9 @@ describe('MobileMenu', () => {
   });
 
   describe('Logo and header', () => {
-    it('should render The Hub AI title and logo in menu header', () => {
+    it('should render The Hub title and logo in menu header', () => {
       render(<MobileMenu open={true} onOpenChange={jest.fn()} />);
-      expect(screen.getByTestId('sheet-title')).toHaveTextContent('The Hub AI');
+      expect(screen.getByTestId('sheet-title')).toHaveTextContent('The Hub');
       expect(screen.getByText('H')).toBeInTheDocument();
     });
   });

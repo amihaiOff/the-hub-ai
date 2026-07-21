@@ -155,7 +155,7 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
               <div className="bg-primary flex h-8 w-8 items-center justify-center rounded-lg">
                 <span className="text-primary-foreground text-sm font-bold">H</span>
               </div>
-              <SheetTitle className="text-lg font-semibold">The Hub AI</SheetTitle>
+              <SheetTitle className="text-lg font-semibold">The Hub</SheetTitle>
             </Link>
             <SheetDescription className="sr-only">Main navigation menu</SheetDescription>
           </SheetHeader>

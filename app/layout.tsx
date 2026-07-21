@@ -18,14 +18,14 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: 'The Hub AI - Financial Management',
+  title: 'The Hub - Financial Management',
   description: 'Personal household financial management application',
-  applicationName: 'The Hub AI',
+  applicationName: 'The Hub',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'The Hub AI',
+    title: 'The Hub',
   },
   icons: {
     icon: [
