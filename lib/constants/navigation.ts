@@ -62,15 +62,7 @@ export const navItems: NavEntry[] = [
     ],
   },
   { header: 'Finances' },
-  {
-    href: '/portfolio',
-    label: 'Portfolio',
-    icon: TrendingUp,
-    subItems: [
-      { href: '/portfolio', label: 'Original Design', icon: LayoutDashboard },
-      { href: '/portfolio/v2', label: 'New Design', icon: Sparkles },
-    ],
-  },
+  { href: '/portfolio', label: 'Portfolio', icon: TrendingUp },
   { href: '/pension', label: 'Pension', icon: Building2 },
   {
     href: '/assets',

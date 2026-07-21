@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 
 /**
  * GET /api/moneytor/portfolio
- * Returns Moneytor stock holdings in the PortfolioSummary shape consumed by /portfolio/v2.
+ * Returns Moneytor stock holdings in the PortfolioSummary shape consumed by /portfolio.
  * All account totals are reported in ILS (Moneytor's base currency). Per-holding
  * stockPrice and avgCostBasis are in the stock's native currency (rendered as bare numbers
  * by the page), while currentValue / gainLoss roll up in ILS.
