@@ -34,6 +34,7 @@ import { SlashMenuExtension } from './slash-menu';
 import { CollapsibleHeading } from './collapsible-heading';
 import { TableFloatingControls } from './table-floating-controls';
 import { DatabaseBlock } from './database-extension';
+import { UndoRedoBar } from './undo-redo-bar';
 
 /**
  * Keeps Shift-Tab (outdent) from lifting a top-level list item out of the
@@ -197,6 +198,9 @@ export function PageBodyEditor({ initialContent, onChange }: PageBodyEditorProps
       {/* Touch/mobile block reordering — the desktop DragHandle above uses the
           HTML5 drag API, which doesn't work on touch. */}
       <MobileBlockDragHandle editor={editor} />
+      {/* Floating undo/redo arrows for touch users. Ctrl/Cmd-Z still works
+          on desktop via Tiptap's built-in history keymap. */}
+      <UndoRedoBar editor={editor} />
     </div>
   );
 }

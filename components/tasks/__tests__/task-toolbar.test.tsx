@@ -67,18 +67,17 @@ describe('TaskToolbar', () => {
     expect(onSearchChange).toHaveBeenCalledWith('invoice');
   });
 
-  it('selects a view and collapses the View control', () => {
+  it('renders all view options as always-visible tabs and fires onViewChange', () => {
     const { onViewChange } = setup();
 
-    const viewButton = screen.getByRole('button', { name: 'View' });
-    fireEvent.click(viewButton);
-    expect(viewButton).toHaveAttribute('aria-expanded', 'true');
+    // Every view is a tab — the picker is a segmented control, not a
+    // collapsible menu.
+    const kanbanTab = screen.getByRole('tab', { name: 'Kanban' });
+    expect(screen.getByRole('tab', { name: 'List' })).toHaveAttribute('aria-selected', 'true');
+    expect(kanbanTab).toHaveAttribute('aria-selected', 'false');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Kanban' }));
-
+    fireEvent.click(kanbanTab);
     expect(onViewChange).toHaveBeenCalledWith('kanban');
-    // Choosing an option collapses the control again.
-    expect(viewButton).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('hides the Group by control unless the Kanban view is active', () => {
@@ -136,35 +135,29 @@ describe('TaskToolbar', () => {
     expect(onCalendarViewChange).toHaveBeenCalledWith('week');
   });
 
-  it('only keeps one control open at a time (mutual exclusivity)', () => {
+  it('only keeps Search or Group by open at a time, not both', () => {
     setup({ view: 'kanban' });
 
     const searchButton = screen.getByRole('button', { name: 'Search' });
-    const viewButton = screen.getByRole('button', { name: 'View' });
     const groupButton = screen.getByRole('button', { name: 'Group by' });
 
     fireEvent.click(searchButton);
     expect(searchButton).toHaveAttribute('aria-expanded', 'true');
 
-    // Opening View collapses Search.
-    fireEvent.click(viewButton);
-    expect(searchButton).toHaveAttribute('aria-expanded', 'false');
-    expect(viewButton).toHaveAttribute('aria-expanded', 'true');
-
-    // Opening Group by collapses View.
+    // Opening Group by collapses Search.
     fireEvent.click(groupButton);
-    expect(viewButton).toHaveAttribute('aria-expanded', 'false');
+    expect(searchButton).toHaveAttribute('aria-expanded', 'false');
     expect(groupButton).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('toggles a control closed when its own button is tapped twice', () => {
-    setup();
+  it('toggles the Group by control closed when tapped twice', () => {
+    setup({ view: 'kanban' });
 
-    const viewButton = screen.getByRole('button', { name: 'View' });
-    fireEvent.click(viewButton);
-    expect(viewButton).toHaveAttribute('aria-expanded', 'true');
+    const groupButton = screen.getByRole('button', { name: 'Group by' });
+    fireEvent.click(groupButton);
+    expect(groupButton).toHaveAttribute('aria-expanded', 'true');
 
-    fireEvent.click(viewButton);
-    expect(viewButton).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(groupButton);
+    expect(groupButton).toHaveAttribute('aria-expanded', 'false');
   });
 });

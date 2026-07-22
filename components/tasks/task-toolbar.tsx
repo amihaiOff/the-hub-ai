@@ -38,13 +38,12 @@ const CALENDAR_OPTIONS: { id: CalendarMode; label: string }[] = [
   { id: 'month', label: 'Month' },
 ];
 
-type ActiveControl = 'search' | 'view' | 'group' | 'calendar' | null;
+type ActiveControl = 'search' | 'group' | 'calendar' | null;
 
 /**
- * A single-line, accordion-style toolbar. Each control (Search, View,
- * Group by) is normally a compact icon button; tapping one expands it to
- * the side and collapses whichever control was open before. Choosing an
- * option (a view or a grouping) collapses the control again.
+ * Toolbar layout: search + view-picker segmented control aligned left,
+ * view-specific controls (kanban group, calendar mode) + manage-categories
+ * aligned right. Wraps to a second row on narrow viewports.
  */
 export function TaskToolbar({
   search,
@@ -61,7 +60,6 @@ export function TaskToolbar({
   const [active, setActive] = useState<ActiveControl>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Focus the search field the moment it expands.
   useEffect(() => {
     if (active === 'search') searchRef.current?.focus();
   }, [active]);
@@ -69,15 +67,11 @@ export function TaskToolbar({
   const toggle = (control: Exclude<ActiveControl, null>) =>
     setActive((current) => (current === control ? null : control));
 
-  const ActiveViewIcon = viewOptions.find((o) => o.id === view)?.icon ?? viewOptions[0].icon;
   const hasSearchTerm = search.trim().length > 0;
 
   return (
-    <div className="flex items-center gap-2 overflow-x-auto py-0.5">
-      {/* Search — expands to fill the remaining space on the line. Icon and
-          input are grouped so the collapsed input doesn't add a second gap.
-          Stays highlighted while a term is active even after it collapses, so
-          a filtered list always has a visible cause. */}
+    <div className="flex flex-wrap items-center gap-2 py-0.5">
+      {/* ── Left: search + always-visible view picker ──────────────────── */}
       <div className={cn('flex items-center', active === 'search' ? 'flex-1' : 'flex-none')}>
         <IconButton
           active={active === 'search' || hasSearchTerm}
@@ -116,93 +110,98 @@ export function TaskToolbar({
         </div>
       </div>
 
-      {/* View type */}
-      <ExpandingControl
-        active={active === 'view'}
-        onToggle={() => toggle('view')}
-        label="View"
-        icon={<ActiveViewIcon className="h-4 w-4" />}
+      {/* Segmented view picker — all four views always visible */}
+      <div
+        className="border-border/60 flex items-center gap-0.5 rounded-2xl border p-1"
+        role="tablist"
+        aria-label="View"
       >
         {viewOptions.map((opt) => {
           const Icon = opt.icon;
+          const isActive = view === opt.id;
           return (
-            <OptionButton
+            <button
               key={opt.id}
-              active={view === opt.id}
-              label={opt.label}
-              onClick={() => {
-                onViewChange(opt.id);
-                setActive(null);
-              }}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              aria-label={opt.label}
+              title={opt.label}
+              onClick={() => onViewChange(opt.id)}
+              className={cn(
+                'flex h-9 w-9 items-center justify-center rounded-xl transition-colors',
+                isActive
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+              )}
             >
               <Icon className="h-4 w-4" />
-            </OptionButton>
+            </button>
           );
         })}
-      </ExpandingControl>
+      </div>
 
-      {/* Manage categories — sits alongside the other icon buttons so
-          all task controls line up on the left side of the toolbar. */}
-      {onManageCategories && (
-        <IconButton
-          active={false}
-          expanded={false}
-          label="Manage categories"
-          onClick={onManageCategories}
-        >
-          <FolderTree className="h-4 w-4" />
-        </IconButton>
-      )}
+      {/* ── Right: view-specific controls + manage categories ──────────── */}
+      <div className="ml-auto flex items-center gap-2">
+        {view === 'kanban' && (
+          <ExpandingControl
+            active={active === 'group'}
+            onToggle={() => toggle('group')}
+            label="Group by"
+            icon={<LayoutGrid className="h-4 w-4" />}
+          >
+            {GROUP_OPTIONS.map((opt) => (
+              <OptionButton
+                key={opt.id}
+                active={groupBy === opt.id}
+                label={opt.label}
+                wide
+                onClick={() => {
+                  onGroupByChange(opt.id);
+                  setActive(null);
+                }}
+              >
+                {opt.label}
+              </OptionButton>
+            ))}
+          </ExpandingControl>
+        )}
 
-      {/* Group by — only affects the Kanban view, so hide it elsewhere */}
-      {view === 'kanban' && (
-        <ExpandingControl
-          active={active === 'group'}
-          onToggle={() => toggle('group')}
-          label="Group by"
-          icon={<LayoutGrid className="h-4 w-4" />}
-        >
-          {GROUP_OPTIONS.map((opt) => (
-            <OptionButton
-              key={opt.id}
-              active={groupBy === opt.id}
-              label={opt.label}
-              wide
-              onClick={() => {
-                onGroupByChange(opt.id);
-                setActive(null);
-              }}
-            >
-              {opt.label}
-            </OptionButton>
-          ))}
-        </ExpandingControl>
-      )}
+        {view === 'calendar' && onCalendarViewChange && (
+          <ExpandingControl
+            active={active === 'calendar'}
+            onToggle={() => toggle('calendar')}
+            label="Calendar view"
+            icon={<CalendarRange className="h-4 w-4" />}
+          >
+            {CALENDAR_OPTIONS.map((opt) => (
+              <OptionButton
+                key={opt.id}
+                active={calendarView === opt.id}
+                label={opt.label}
+                wide
+                onClick={() => {
+                  onCalendarViewChange(opt.id);
+                  setActive(null);
+                }}
+              >
+                {opt.label}
+              </OptionButton>
+            ))}
+          </ExpandingControl>
+        )}
 
-      {/* Calendar view (week / month) — only shown for the Calendar view */}
-      {view === 'calendar' && onCalendarViewChange && (
-        <ExpandingControl
-          active={active === 'calendar'}
-          onToggle={() => toggle('calendar')}
-          label="Calendar view"
-          icon={<CalendarRange className="h-4 w-4" />}
-        >
-          {CALENDAR_OPTIONS.map((opt) => (
-            <OptionButton
-              key={opt.id}
-              active={calendarView === opt.id}
-              label={opt.label}
-              wide
-              onClick={() => {
-                onCalendarViewChange(opt.id);
-                setActive(null);
-              }}
-            >
-              {opt.label}
-            </OptionButton>
-          ))}
-        </ExpandingControl>
-      )}
+        {onManageCategories && (
+          <IconButton
+            active={false}
+            expanded={false}
+            label="Manage categories"
+            onClick={onManageCategories}
+          >
+            <FolderTree className="h-4 w-4" />
+          </IconButton>
+        )}
+      </div>
     </div>
   );
 }
