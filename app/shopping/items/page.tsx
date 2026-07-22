@@ -65,7 +65,9 @@ export default function ItemsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <Package className="text-muted-foreground h-6 w-6" />
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Items Library</h1>
+          <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">
+            Items Library
+          </h1>
           {items.length > 0 && (
             <Badge variant="secondary" className="tabular-nums">
               {items.length}
@@ -141,7 +143,7 @@ export default function ItemsPage() {
             </h3>
             <div className="space-y-1">
               {group.items.map((item) => (
-                <div key={item.id} className="bg-card flex items-center gap-3 rounded-md px-4 py-3">
+                <div key={item.id} className="flex items-center gap-3 rounded-md px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-foreground truncate text-sm font-medium">

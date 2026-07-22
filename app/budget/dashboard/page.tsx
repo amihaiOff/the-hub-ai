@@ -482,7 +482,7 @@ export default function BudgetDashboardPage() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Monthly Budget</h1>
+        <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">Monthly Budget</h1>
         <MonthSelector selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
       </div>
 

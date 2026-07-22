@@ -186,7 +186,7 @@ export default function SettingsPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold">Settings</h1>
+        <h1 className="page-title text-2xl font-bold">Settings</h1>
         <div className="animate-pulse space-y-4">
           {[1, 2].map((i) => (
             <div key={i} className="bg-muted h-24 rounded-lg" />
@@ -199,7 +199,7 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Settings</h1>
+        <h1 className="page-title text-2xl font-bold">Settings</h1>
         {activeHousehold && <p className="text-muted-foreground">{activeHousehold.name}</p>}
       </div>
 

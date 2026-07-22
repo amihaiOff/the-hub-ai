@@ -22,18 +22,6 @@ import {
 import { formatCurrencyILS } from '@/lib/utils/budget';
 import { cn } from '@/lib/utils';
 
-function formatRelativeTime(iso: string | null): string {
-  if (!iso) return 'never';
-  const date = new Date(iso);
-  const diffMs = Date.now() - date.getTime();
-  const diffMin = Math.round(diffMs / 60000);
-  if (diffMin < 1) return 'just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.round(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  return date.toLocaleString();
-}
-
 function formatMonth(iso: string): string {
   const d = new Date(iso);
   const months = [
@@ -94,16 +82,6 @@ export function MoneytorPensionSection() {
 
   return (
     <section className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold">Synced from Moneytor</h2>
-          <p className="text-muted-foreground text-xs">
-            From Moneytor / Masleka — last synced{' '}
-            {formatRelativeTime(pensionQuery.data?.asOf ?? null)}
-          </p>
-        </div>
-      </div>
-
       {(pensionQuery.error || historyQuery.error) && (
         <Card className="border-destructive/40">
           <CardContent className="flex items-start gap-2 p-4">
@@ -116,7 +94,7 @@ export function MoneytorPensionSection() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-3 gap-3">
         <TotalCard label="Pension" value={totals?.pension ?? 0} accent="primary" />
         <TotalCard label="Hishtalmut" value={totals?.hishtalmut ?? 0} accent="secondary" />
         <TotalCard label="Total" value={totals?.total ?? 0} accent="strong" />

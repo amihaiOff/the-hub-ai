@@ -68,7 +68,9 @@ export default function AnalysisLayout({ children }: { children: React.ReactNode
     <AnalysisContext.Provider value={contextValue}>
       <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Budget Analysis</h1>
+          <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">
+            Budget Analysis
+          </h1>
           <AnalysisPeriodPicker value={selection} onChange={setOverride} />
         </div>
         {children}

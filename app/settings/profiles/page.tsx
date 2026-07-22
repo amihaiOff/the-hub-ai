@@ -107,7 +107,7 @@ export default function ProfilesSettingsPage() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-bold">Profiles</h1>
+          <h1 className="page-title text-2xl font-bold">Profiles</h1>
         </div>
         <div className="animate-pulse space-y-4">
           <div className="bg-muted h-64 rounded-lg" />
@@ -125,7 +125,7 @@ export default function ProfilesSettingsPage() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-bold">Profiles</h1>
+          <h1 className="page-title text-2xl font-bold">Profiles</h1>
         </div>
         {isAdmin && (
           <Button onClick={() => setShowAddDialog(true)}>

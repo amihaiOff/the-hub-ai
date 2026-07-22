@@ -25,6 +25,7 @@ import {
   useCreateShoppingItem,
   useCreateShoppingCategory,
 } from '@/lib/hooks/use-shopping';
+import { useVisualViewportTop } from '@/lib/hooks/use-visual-viewport-top';
 
 interface CreateItemDialogProps {
   open: boolean;
@@ -45,6 +46,7 @@ export function CreateItemDialog({ open, onOpenChange, defaultName = '' }: Creat
   const { data: categories = [] } = useShoppingCategories();
   const createItem = useCreateShoppingItem();
   const createCategory = useCreateShoppingCategory();
+  const viewportTop = useVisualViewportTop();
 
   const resetForm = () => {
     setName('');
@@ -93,7 +95,10 @@ export function CreateItemDialog({ open, onOpenChange, defaultName = '' }: Creat
         onOpenChange(value);
       }}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        className="sm:max-w-md"
+        style={viewportTop != null ? { top: `${viewportTop}px` } : undefined}
+      >
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Create New Item</DialogTitle>

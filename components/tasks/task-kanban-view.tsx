@@ -119,7 +119,7 @@ export function TaskKanbanView({
   return (
     <div className="space-y-3">
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-        <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-6">
           {columns.map((col) => (
             <Column
               key={col.key}
@@ -316,10 +316,11 @@ function Column({
           </button>
         </QuickAddPopover>
       </div>
-      {/* Two columns of cards under each group, filling the screen width.
-          min-height keeps an empty group a valid drop target. */}
+      {/* One column of cards per group; groups themselves sit in a 2-column
+          grid at the parent level. min-height keeps an empty group a valid
+          drop target. */}
       {!collapsed && (
-        <div className="grid min-h-20 grid-cols-2 items-start gap-3">
+        <div className="grid min-h-20 grid-cols-1 items-start gap-3">
           {tasks.map((task) => (
             <DraggableKanbanCard
               key={task.id}
@@ -333,7 +334,7 @@ function Column({
             />
           ))}
           {tasks.length === 0 && (
-            <div className="border-border/50 text-muted-foreground col-span-2 rounded-2xl border border-dashed px-3 py-6 text-center text-xs">
+            <div className="border-border/50 text-muted-foreground rounded-2xl border border-dashed px-3 py-6 text-center text-xs">
               No tasks
             </div>
           )}

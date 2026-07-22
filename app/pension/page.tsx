@@ -15,8 +15,10 @@ export default function PensionPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Pension & Hishtalmut</h1>
+      <div className="flex flex-row items-center justify-between gap-4">
+        <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">
+          Pension & Hishtalmut
+        </h1>
         <UploadDepositsDialog accounts={data?.accounts ?? []} />
       </div>
 

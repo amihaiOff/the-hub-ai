@@ -1074,12 +1074,7 @@ function AccountSection({
 
         {/* Cash balances section */}
         {account.cashBalances && account.cashBalances.length > 0 && (
-          <div className="mx-4 mt-2 mb-4 rounded-xl border border-[#424a59] bg-[#373e4c]/50 lg:mx-8">
-            <div className="px-4 pt-3 pb-1">
-              <p className="text-[10px] font-bold tracking-[0.15em] text-[#a0aec0] uppercase">
-                Cash
-              </p>
-            </div>
+          <div className="mx-4 mt-2 mb-4 lg:mx-8">
             <div className="divide-y divide-[#424a59]">
               {account.cashBalances.map((cb) => {
                 const flag = CURRENCY_FLAGS[cb.currency] ?? '';

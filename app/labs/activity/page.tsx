@@ -70,7 +70,7 @@ export default function ActivityPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Activity</h1>
+        <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">Activity</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           Notable events from syncs and other automated jobs — renames, removals, and other changes
           worth surfacing.
