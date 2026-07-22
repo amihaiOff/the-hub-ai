@@ -244,38 +244,37 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
           {/* Footer - User Section */}
           <div className="border-border/30 border-t p-4">
             {user ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
+              // Profile badge + name on the left, Sign out across from it on
+              // the right. Email dropped to keep the row compact.
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   {user.profileImageUrl ? (
                     <Image
                       src={user.profileImageUrl}
                       alt={user.displayName || 'User'}
                       width={40}
                       height={40}
-                      className="rounded-full"
+                      className="h-10 w-10 shrink-0 rounded-full"
                     />
                   ) : (
-                    <div className="bg-primary text-primary-foreground flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium">
+                    <div className="bg-primary text-primary-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-medium">
                       {user.displayName?.[0] || user.primaryEmail?.[0] || '?'}
                     </div>
                   )}
-                  <div className="flex-1 truncate">
-                    <p className="truncate text-sm font-medium">{user.displayName}</p>
-                    <p className="text-muted-foreground truncate text-xs">{user.primaryEmail}</p>
-                  </div>
+                  <p className="truncate text-sm font-medium">{user.displayName}</p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full justify-start"
+                <button
+                  type="button"
                   onClick={() => {
                     onOpenChange(false);
                     user.signOut();
                   }}
+                  aria-label="Sign out"
+                  title="Sign out"
+                  className="text-muted-foreground hover:bg-accent/50 hover:text-foreground flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-all"
                 >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign out
-                </Button>
+                  <LogOut className="h-5 w-5" />
+                </button>
               </div>
             ) : (
               <Button asChild variant="default" size="sm" className="w-full">
