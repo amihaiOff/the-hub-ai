@@ -20,6 +20,15 @@ if (!connectionString) {
   process.exit(0);
 }
 
+// Refuse to run against the production Neon branch. The prod endpoint hostname
+// is stable (`ep-sweet-cherry-...`); if it ever changes, update the guard.
+const PROD_ENDPOINT_MARKER = 'ep-sweet-cherry';
+if (connectionString.includes(PROD_ENDPOINT_MARKER) || process.env.NODE_ENV === 'production') {
+  console.error('❌ Refusing to seed: DATABASE_URL points at the production database.');
+  console.error('   Seeding is only allowed against local or preview environments.');
+  process.exit(1);
+}
+
 function createPrismaClient(connString: string): PrismaClient {
   const isNeon = connString.includes('neon.tech');
 
