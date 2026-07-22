@@ -60,7 +60,7 @@ export default function SavingsPage() {
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Savings</h1>
+        <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">Savings</h1>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button

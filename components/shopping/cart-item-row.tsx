@@ -86,7 +86,7 @@ export function CartItemRow({
 
       {/* Foreground row */}
       <div
-        className="bg-card relative flex items-center gap-3 px-4 py-3"
+        className="relative flex items-center gap-3 px-4 py-3"
         style={{
           transform: `translateX(${translateX}px)`,
           touchAction: 'pan-y',

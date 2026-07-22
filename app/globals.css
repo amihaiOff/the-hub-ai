@@ -409,11 +409,23 @@
        rounded border. */
     overflow-y: hidden;
   }
+  /* Page-title font — matches the "The Hub" wordmark so every page header
+     reads consistently with the app title. */
+  .page-title {
+    font-family: var(--font-playfair), Georgia, serif;
+  }
+
   .database-block th,
   .database-block td {
     border-bottom: 1px solid color-mix(in oklab, var(--border) 45%, transparent);
   }
   .database-block tr:last-child > td {
+    border-bottom: none;
+  }
+  /* When an add-row footer follows a data row, drop the data row's bottom
+     border — otherwise you see a divider stacked directly above the
+     footer's implicit line, reading as a doubled bottom border. */
+  .database-block tr:has(+ tr[data-add-row]) > td {
     border-bottom: none;
   }
   /* On mobile, break out of the page-body's left padding and the shell's
