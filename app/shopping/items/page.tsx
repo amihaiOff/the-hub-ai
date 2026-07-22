@@ -143,7 +143,10 @@ export default function ItemsPage() {
             </h3>
             <div className="space-y-1">
               {group.items.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 rounded-md px-4 py-3">
+                <div
+                  key={item.id}
+                  className="bg-background flex items-center gap-3 rounded-md px-4 py-3"
+                >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-foreground truncate text-sm font-medium">

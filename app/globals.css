@@ -411,10 +411,6 @@
   }
   /* Page-title font — matches the "The Hub" wordmark so every page header
      reads consistently with the app title. */
-  .page-title {
-    font-family: var(--font-playfair), Georgia, serif;
-  }
-
   .database-block th,
   .database-block td {
     border-bottom: 1px solid color-mix(in oklab, var(--border) 45%, transparent);
