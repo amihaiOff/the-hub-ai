@@ -191,27 +191,9 @@ export function Sidebar() {
           })}
         </nav>
 
-        {/* Sync data — manual Moneytor pull. Lives just above Settings so
-            it's a global action, not a per-page button. Spins while pending. */}
-        <div className="px-4 pt-0 pb-1">
-          <button
-            type="button"
-            onClick={() => syncMoneytor.mutate()}
-            disabled={syncMoneytor.isPending}
-            aria-label="Sync data with Moneytor"
-            className={cn(
-              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
-              'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground',
-              'disabled:opacity-60'
-            )}
-          >
-            <RefreshCw className={cn('h-5 w-5', syncMoneytor.isPending && 'animate-spin')} />
-            {syncMoneytor.isPending ? 'Syncing…' : 'Sync data'}
-          </button>
-        </div>
-
-        {/* Settings - Bottom of navigation */}
-        <div className="p-4 pt-0">
+        {/* Bottom action row: Settings (left) + Sync (right), icon-only.
+            Sync is a global manual Moneytor pull; it spins while pending. */}
+        <div className="flex items-center justify-between p-4 pt-0">
           {(() => {
             const isActive = pathname === settingsItem.href;
             const Icon = settingsItem.icon;
@@ -219,18 +201,33 @@ export function Sidebar() {
               <Link
                 href={settingsItem.href}
                 aria-current={isActive ? 'page' : undefined}
+                aria-label={settingsItem.label}
+                title={settingsItem.label}
                 className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
+                  'flex h-10 w-10 items-center justify-center rounded-lg transition-all',
                   isActive
                     ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                     : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
                 )}
               >
                 <Icon className="h-5 w-5" />
-                {settingsItem.label}
               </Link>
             );
           })()}
+          <button
+            type="button"
+            onClick={() => syncMoneytor.mutate()}
+            disabled={syncMoneytor.isPending}
+            aria-label={syncMoneytor.isPending ? 'Syncing…' : 'Sync data with Moneytor'}
+            title="Sync data"
+            className={cn(
+              'flex h-10 w-10 items-center justify-center rounded-lg transition-all',
+              'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground',
+              'disabled:opacity-60'
+            )}
+          >
+            <RefreshCw className={cn('h-5 w-5', syncMoneytor.isPending && 'animate-spin')} />
+          </button>
         </div>
 
         {/* Footer - User Section */}

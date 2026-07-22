@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Lexend } from 'next/font/google';
+import { Lexend, Playfair_Display } from 'next/font/google';
 import { Suspense } from 'react';
 import './globals.css';
 import { AppShell, ServiceWorkerRegister } from '@/components/shared';
@@ -9,6 +9,12 @@ import { HouseholdProvider } from '@/lib/contexts/household-context';
 
 const lexend = Lexend({
   variable: '--font-lexend',
+  subsets: ['latin'],
+});
+
+// Elegant serif used only for the "The Hub" wordmark.
+const playfair = Playfair_Display({
+  variable: '--font-playfair',
   subsets: ['latin'],
 });
 
@@ -54,7 +60,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${lexend.variable} font-sans antialiased`}>
+      <body className={`${lexend.variable} ${playfair.variable} font-sans antialiased`}>
         <ServiceWorkerRegister />
         <SessionProvider>
           <QueryProvider>

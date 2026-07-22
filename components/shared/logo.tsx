@@ -12,7 +12,12 @@ export function Logo() {
         priority
         className="h-11 w-11"
       />
-      <span className="text-lg font-bold tracking-tight">The Hub</span>
+      <span
+        className="text-2xl font-bold tracking-tight"
+        style={{ fontFamily: 'var(--font-playfair), Georgia, serif' }}
+      >
+        The Hub
+      </span>
     </Link>
   );
 }
