@@ -56,7 +56,7 @@ export default function CategorizationLogPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">
+        <h1 className="page-title text-5xl font-bold tracking-tight lg:text-6xl">
           AI Categorization Log
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">

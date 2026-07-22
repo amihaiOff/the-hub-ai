@@ -211,6 +211,19 @@ export function formatCurrencyILSPrecise(value: number): string {
   }).format(value);
 }
 
+/**
+ * Compact ILS for tight spaces (summary/header cards): thousands as `K`,
+ * millions as `M` (e.g. ₪729K, ₪4.2M). Values under 1,000 render in full.
+ */
+export function formatCurrencyILSCompact(value: number): string {
+  const abs = Math.abs(value);
+  const sign = value < 0 ? '-' : '';
+  if (abs >= 1_000_000) return `${sign}₪${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 10_000) return `${sign}₪${Math.round(abs / 1_000)}K`;
+  if (abs >= 1_000) return `${sign}₪${(abs / 1_000).toFixed(1)}K`;
+  return `${sign}₪${Math.round(abs)}`;
+}
+
 export function formatDate(dateString: string): string {
   const date = new Date(dateString);
   return new Intl.DateTimeFormat('en-GB', {

@@ -551,7 +551,7 @@ export default function MortgageSimulatorPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">
+          <h1 className="page-title text-5xl font-bold tracking-tight lg:text-6xl">
             Mortgage <span className="text-[#a8caff]">Simulator</span>
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">

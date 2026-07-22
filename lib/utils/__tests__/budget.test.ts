@@ -16,6 +16,7 @@ import {
   getBudgetStatus,
   formatCurrencyILS,
   formatCurrencyILSPrecise,
+  formatCurrencyILSCompact,
   formatDate,
   formatMonth,
   getCurrentMonth,
@@ -68,6 +69,25 @@ describe('Budget Utility Functions', () => {
     it('should handle decimal values', () => {
       expect(getBudgetStatus(100.5, 50.25)).toBe('funded');
       expect(getBudgetStatus(100.5, 150.75)).toBe('overspent');
+    });
+  });
+
+  describe('formatCurrencyILSCompact', () => {
+    it('renders thousands with a K suffix', () => {
+      expect(formatCurrencyILSCompact(729461)).toBe('₪729K');
+      expect(formatCurrencyILSCompact(167232)).toBe('₪167K');
+      expect(formatCurrencyILSCompact(896693)).toBe('₪897K');
+    });
+
+    it('keeps one decimal for small thousands and millions', () => {
+      expect(formatCurrencyILSCompact(5300)).toBe('₪5.3K');
+      expect(formatCurrencyILSCompact(4192178)).toBe('₪4.2M');
+    });
+
+    it('renders values under 1000 in full and handles sign/zero', () => {
+      expect(formatCurrencyILSCompact(950)).toBe('₪950');
+      expect(formatCurrencyILSCompact(0)).toBe('₪0');
+      expect(formatCurrencyILSCompact(-729461)).toBe('-₪729K');
     });
   });
 

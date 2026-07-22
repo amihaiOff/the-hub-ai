@@ -27,7 +27,7 @@ export default function AssetsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">
+      <h1 className="page-title text-5xl font-bold tracking-tight lg:text-6xl">
         Assets & Liabilities
       </h1>
 

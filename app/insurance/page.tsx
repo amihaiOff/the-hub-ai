@@ -44,7 +44,7 @@ export default function InsurancePage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Shield className="text-primary h-7 w-7" />
-          <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">Insurance</h1>
+          <h1 className="page-title text-5xl font-bold tracking-tight lg:text-6xl">Insurance</h1>
         </div>
         {firstProfileId && (
           <ImportExcelDialog

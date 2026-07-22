@@ -45,7 +45,7 @@ export default function TagsPage() {
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">Tags</h1>
+        <h1 className="page-title text-5xl font-bold tracking-tight lg:text-6xl">Tags</h1>
         <div className="flex gap-2">
           {selectedTagIds.length >= 2 && (
             <Button variant="outline" onClick={() => setShowMerge(true)}>

@@ -19,7 +19,7 @@ import {
   useMoneytorPensionHistory,
   type MoneytorPensionFundRow,
 } from '@/lib/hooks/use-moneytor';
-import { formatCurrencyILS } from '@/lib/utils/budget';
+import { formatCurrencyILS, formatCurrencyILSCompact } from '@/lib/utils/budget';
 import { cn } from '@/lib/utils';
 
 function formatMonth(iso: string): string {
@@ -213,13 +213,14 @@ function TotalCard({
         </div>
         <div
           className={cn(
-            'mt-1 text-2xl font-bold tabular-nums',
+            'mt-1 truncate text-2xl font-bold tabular-nums',
             accent === 'primary' && 'text-blue-500',
             accent === 'secondary' && 'text-emerald-500',
             accent === 'strong' && 'text-foreground'
           )}
+          title={formatCurrencyILS(value)}
         >
-          <span dir="ltr">{formatCurrencyILS(value)}</span>
+          <span dir="ltr">{formatCurrencyILSCompact(value)}</span>
         </div>
       </CardContent>
     </Card>
