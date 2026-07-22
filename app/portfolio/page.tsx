@@ -1206,19 +1206,13 @@ function PortfolioV2Content() {
               animation: 'fadeUp 0.5s cubic-bezier(0.32,0.72,0,1) both',
             }}
           >
-            {/* Eyebrow row */}
-            <div className="flex items-center gap-2">
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-[#424a59] bg-[#a8caff0d] px-2.5 py-0.5">
-                <span className="text-[10px] font-bold tracking-[0.15em] text-[#a8caff] uppercase">
-                  Portfolio
-                </span>
-              </div>
-            </div>
+            {/* Page title — consistent with every other page */}
+            <h1 className="page-title text-4xl font-bold tracking-tight text-[#ffffff]">Portfolio</h1>
 
             {/* Value */}
-            <h1 className="text-5xl leading-none font-black tracking-tight text-[#ffffff] tabular-nums lg:text-7xl">
+            <div className="text-5xl leading-none font-black tracking-tight text-[#ffffff] tabular-nums lg:text-7xl">
               {fmtILS(totalValue)}
-            </h1>
+            </div>
 
             {/* Gain row */}
             <div className="flex flex-wrap items-center gap-2 pt-1">

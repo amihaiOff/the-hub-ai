@@ -242,7 +242,7 @@ export function TasksClient() {
 
   return (
     <div className="space-y-5">
-      <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">Tasks</h1>
+      <h1 className="page-title text-4xl font-bold tracking-tight">Tasks</h1>
       {/* Selection bar replaces the toolbar while picking multiple tasks. */}
       {selectionMode ? (
         <div className="space-y-2">
