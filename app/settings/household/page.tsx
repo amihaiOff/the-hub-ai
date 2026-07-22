@@ -103,7 +103,7 @@ export default function HouseholdSettingsPage() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
-          <h1 className="page-title text-5xl font-bold">Household Settings</h1>
+          <h1 className="page-title text-4xl font-bold tracking-tight">Household Settings</h1>
         </div>
         <div className="animate-pulse space-y-4">
           <div className="bg-muted h-32 rounded-lg" />
@@ -121,7 +121,7 @@ export default function HouseholdSettingsPage() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
-        <h1 className="page-title text-5xl font-bold">Household Settings</h1>
+        <h1 className="page-title text-4xl font-bold tracking-tight">Household Settings</h1>
       </div>
 
       {/* Household Name */}

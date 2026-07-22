@@ -89,7 +89,7 @@ export default function AiUsagePage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="page-title text-5xl font-bold tracking-tight lg:text-6xl">AI Spend</h1>
+        <h1 className="page-title text-4xl font-bold tracking-tight">AI Spend</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           Estimated cost of AI auto-categorization for this household, from recorded token and
           web-search usage. Figures are derived from Anthropic&apos;s Haiku 4.5 rates — treat as a

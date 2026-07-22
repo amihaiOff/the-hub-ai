@@ -70,7 +70,7 @@ export default function MoneytorTrnxPage() {
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="page-title text-5xl font-bold tracking-tight lg:text-6xl">Moneytor Trnx</h1>
+        <h1 className="page-title text-4xl font-bold tracking-tight">Moneytor Trnx</h1>
         <MonthSelector selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
       </div>
 

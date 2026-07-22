@@ -202,7 +202,7 @@ export default function SyncLogPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="page-title text-5xl font-bold tracking-tight lg:text-6xl">Sync Log</h1>
+        <h1 className="page-title text-4xl font-bold tracking-tight">Sync Log</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           Every Moneytor sync attempt for this household. Each entry expands to show per-section
           counts (transactions, portfolio, accounts, pension, real estate).

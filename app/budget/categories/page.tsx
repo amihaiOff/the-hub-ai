@@ -114,7 +114,7 @@ export default function CategoriesPage() {
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="page-title text-5xl font-bold tracking-tight lg:text-6xl">Categories</h1>
+        <h1 className="page-title text-4xl font-bold tracking-tight">Categories</h1>
         {activeTab === 'categories' && (
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setShowAddGroup(true)}>

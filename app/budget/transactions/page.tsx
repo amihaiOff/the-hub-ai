@@ -79,7 +79,7 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <h1 className="page-title text-5xl font-bold tracking-tight lg:text-6xl">Transactions</h1>
+      <h1 className="page-title text-4xl font-bold tracking-tight">Transactions</h1>
       {/* Header — just the (chromeless) month picker, centered */}
       <div className="flex w-full items-center justify-center">
         <MonthSelector selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />

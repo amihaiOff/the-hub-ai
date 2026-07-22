@@ -40,7 +40,7 @@ export default function DroppedTransactionsPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="page-title text-5xl font-bold tracking-tight lg:text-6xl">
+        <h1 className="page-title text-4xl font-bold tracking-tight">
           Dropped Transactions
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">

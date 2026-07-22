@@ -65,7 +65,7 @@ export default function ItemsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <Package className="text-muted-foreground h-6 w-6" />
-          <h1 className="page-title text-5xl font-bold tracking-tight lg:text-6xl">
+          <h1 className="page-title text-4xl font-bold tracking-tight">
             Items Library
           </h1>
           {items.length > 0 && (

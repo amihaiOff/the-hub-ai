@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/assets';
+import { formatCurrencyILSCompact } from '@/lib/utils/budget';
 
 interface AssetsSummaryProps {
   totalAssets: number;
@@ -19,7 +20,7 @@ export function AssetsSummary({
 }: AssetsSummaryProps) {
   return (
     <div className="grid grid-cols-3 gap-4">
-      <Card>
+      <Card className="min-w-0">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Assets</CardTitle>
           <TrendingUp className="h-4 w-4 text-emerald-500" />
@@ -29,8 +30,11 @@ export function AssetsSummary({
             <div className="bg-muted h-8 w-32 animate-pulse rounded" />
           ) : (
             <>
-              <div className="text-2xl font-bold text-emerald-600 tabular-nums dark:text-emerald-400">
-                {formatCurrency(totalAssets)}
+              <div
+                className="truncate text-2xl font-bold text-emerald-600 tabular-nums dark:text-emerald-400"
+                title={formatCurrency(totalAssets)}
+              >
+                {formatCurrencyILSCompact(totalAssets)}
               </div>
               <p className="text-muted-foreground text-xs">Deposits & Savings</p>
             </>
@@ -38,7 +42,7 @@ export function AssetsSummary({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="min-w-0">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Liabilities</CardTitle>
           <TrendingDown className="h-4 w-4 text-red-500" />
@@ -48,8 +52,11 @@ export function AssetsSummary({
             <div className="bg-muted h-8 w-32 animate-pulse rounded" />
           ) : (
             <>
-              <div className="text-2xl font-bold text-red-600 tabular-nums dark:text-red-400">
-                {formatCurrency(totalLiabilities)}
+              <div
+                className="truncate text-2xl font-bold text-red-600 tabular-nums dark:text-red-400"
+                title={formatCurrency(totalLiabilities)}
+              >
+                {formatCurrencyILSCompact(totalLiabilities)}
               </div>
               <p className="text-muted-foreground text-xs">Loans & Mortgages</p>
             </>
@@ -57,7 +64,7 @@ export function AssetsSummary({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="min-w-0">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Net Value</CardTitle>
           <Wallet className="text-muted-foreground h-4 w-4" />
@@ -68,14 +75,15 @@ export function AssetsSummary({
           ) : (
             <>
               <div
-                className={`text-2xl font-bold tabular-nums ${
+                className={`truncate text-2xl font-bold tabular-nums ${
                   netValue >= 0
                     ? 'text-emerald-600 dark:text-emerald-400'
                     : 'text-red-600 dark:text-red-400'
                 }`}
+                title={`${netValue >= 0 ? '+' : ''}${formatCurrency(netValue)}`}
               >
                 {netValue >= 0 ? '+' : ''}
-                {formatCurrency(netValue)}
+                {formatCurrencyILSCompact(netValue)}
               </div>
               <p className="text-muted-foreground text-xs">Assets minus liabilities</p>
             </>

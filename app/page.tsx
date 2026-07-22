@@ -35,7 +35,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="page-title text-5xl font-bold tracking-tight lg:text-6xl">Dashboard</h1>
+        <h1 className="page-title text-4xl font-bold tracking-tight">Dashboard</h1>
         <CurrencySelector
           currency={displayCurrency}
           onCurrencyChange={setDisplayCurrency}

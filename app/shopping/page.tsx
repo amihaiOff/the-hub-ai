@@ -105,7 +105,7 @@ export default function ShoppingPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <h1 className="page-title text-5xl font-bold tracking-tight lg:text-6xl">
+          <h1 className="page-title text-4xl font-bold tracking-tight">
             Shopping List
           </h1>
           {cartItems.length > 0 && (
