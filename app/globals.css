@@ -83,40 +83,42 @@
 }
 
 .dark {
-  /* Warm charcoal base — deep, near-black with a hint of warmth. */
-  --background: #121417;
+  /* Cool slate base — mid-dark (not near-black) so the soft card shadows read. */
+  --background: #2a2f3a;
   --foreground: #ffffff;
 
-  /* Surface Level 1 — cards, containers (the layer that makes cards pop). */
-  --card: #1e2125;
+  /* Surface Level 1 — cards; clearly lighter than the base so they lift off it
+     (paired with .shadow-glow on the Card component). */
+  --card: #373e4c;
   --card-foreground: #ffffff;
 
   /* Popover — matches the card surface. */
-  --popover: #1e2125;
+  --popover: #373e4c;
   --popover-foreground: #ffffff;
 
   /* Primary — Pastel Blue */
   --primary: #a8caff;
-  --primary-foreground: #121417;
+  --primary-foreground: #2a2f3a;
 
-  /* Secondary — Surface Level 2 */
-  --secondary: #2d3748;
+  /* Secondary — Surface Level 2 (chips, filled buttons, hover). */
+  --secondary: #424a59;
   --secondary-foreground: #ffffff;
 
   /* Muted — dimmed backgrounds; secondary text is cool grey. */
-  --muted: #2d3748;
+  --muted: #424a59;
   --muted-foreground: #a0aec0;
 
   /* Accent — hover / elevated */
-  --accent: #2d3748;
+  --accent: #424a59;
   --accent-foreground: #ffffff;
 
   /* Destructive — Pastel Red */
   --destructive: #f5a5a5;
 
-  /* Borders / dividers — low-contrast cool grey. */
-  --border: #2d3748;
-  --input: #1e2125;
+  /* Borders / dividers — a soft rim slightly lighter than the surfaces so it
+     reads as an edge (and stays visible on muted fills). */
+  --border: #4a5162;
+  --input: #373e4c;
   --ring: #a8caff;
 
   /* Chart colors — pastel palette */
@@ -127,13 +129,13 @@
   --chart-5: #f5a5a5;
 
   /* Sidebar — slightly darker than base */
-  --sidebar: #0e1013;
+  --sidebar: #232732;
   --sidebar-foreground: #ffffff;
   --sidebar-primary: #a8caff;
-  --sidebar-primary-foreground: #121417;
-  --sidebar-accent: #1e2125;
+  --sidebar-primary-foreground: #2a2f3a;
+  --sidebar-accent: #373e4c;
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #2d3748;
+  --sidebar-border: #4a5162;
   --sidebar-ring: #a8caff;
 }
 
@@ -170,19 +172,19 @@
     @apply bg-card/50 border-border/20 backdrop-blur-lg;
   }
 
-  /* Soft, natural drop shadows — black at ~15-20% opacity, 0px X / 8px Y /
-     24px blur on the base, scaled for the sm/lg variants. Pairs with the
-     rounded card corners. */
+  /* Soft, natural drop shadows that lift cards off the slate background. Larger
+     spread + higher opacity than a light-theme shadow so they actually read on
+     a dark UI. Pairs with the rounded card corners. */
   .shadow-glow {
-    box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.18);
+    box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.45);
   }
 
   .shadow-glow-sm {
-    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0px 4px 14px rgba(0, 0, 0, 0.35);
   }
 
   .shadow-glow-lg {
-    box-shadow: 0px 12px 32px rgba(0, 0, 0, 0.2);
+    box-shadow: 0px 20px 48px rgba(0, 0, 0, 0.5);
   }
 
   /* Depleting countdown bar for the tasks Undo button — shrinks from full

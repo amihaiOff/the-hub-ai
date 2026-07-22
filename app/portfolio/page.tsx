@@ -166,29 +166,29 @@ function fmtQty(value: number): string {
 function HeroSkeleton() {
   return (
     <div className="space-y-3 pt-2 pb-8">
-      <div className="h-3 w-16 animate-pulse rounded bg-[#2d3748]" />
-      <div className="h-12 w-72 animate-pulse rounded bg-[#2d3748]" />
-      <div className="h-5 w-40 animate-pulse rounded bg-[#2d3748]" />
+      <div className="h-3 w-16 animate-pulse rounded bg-[#424a59]" />
+      <div className="h-12 w-72 animate-pulse rounded bg-[#424a59]" />
+      <div className="h-5 w-40 animate-pulse rounded bg-[#424a59]" />
     </div>
   );
 }
 
 function ChartSkeleton() {
-  return <div className="h-64 w-full animate-pulse rounded-lg bg-[#2d3748] lg:h-80" />;
+  return <div className="h-64 w-full animate-pulse rounded-lg bg-[#424a59] lg:h-80" />;
 }
 
 function TableSkeleton() {
   return (
-    <div className="divide-y divide-[#2d3748]">
+    <div className="divide-y divide-[#424a59]">
       {Array.from({ length: 5 }).map((_, i) => (
         <div key={i} className="flex items-center gap-4 px-4 py-4">
-          <div className="h-8 w-8 animate-pulse rounded-full bg-[#2d3748]" />
+          <div className="h-8 w-8 animate-pulse rounded-full bg-[#424a59]" />
           <div className="flex-1 space-y-2">
-            <div className="h-4 w-24 animate-pulse rounded bg-[#2d3748]" />
-            <div className="h-3 w-16 animate-pulse rounded bg-[#2d3748]" />
+            <div className="h-4 w-24 animate-pulse rounded bg-[#424a59]" />
+            <div className="h-3 w-16 animate-pulse rounded bg-[#424a59]" />
           </div>
-          <div className="h-4 w-20 animate-pulse rounded bg-[#2d3748]" />
-          <div className="h-4 w-16 animate-pulse rounded bg-[#2d3748]" />
+          <div className="h-4 w-20 animate-pulse rounded bg-[#424a59]" />
+          <div className="h-4 w-16 animate-pulse rounded bg-[#424a59]" />
         </div>
       ))}
     </div>
@@ -239,7 +239,7 @@ function AllocationBar({ accounts }: AllocationBarProps) {
         {segments.map((seg) => (
           <div
             key={seg.symbol}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#2d3748] bg-[#1e2125]/90 px-3 py-1 text-xs font-medium backdrop-blur-sm transition-opacity duration-150"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#424a59] bg-[#373e4c]/90 px-3 py-1 text-xs font-medium backdrop-blur-sm transition-opacity duration-150"
             style={{
               color: seg.color,
               opacity: hovered === seg.symbol ? 1 : 0,
@@ -258,10 +258,10 @@ function AllocationBar({ accounts }: AllocationBarProps) {
         {segments.map((seg) => (
           <div
             key={seg.symbol}
-            className="flex cursor-default items-center gap-1.5 rounded-full border border-[#2d3748] bg-[#1e2125] px-2.5 py-1 text-xs transition-all duration-200"
+            className="flex cursor-default items-center gap-1.5 rounded-full border border-[#424a59] bg-[#373e4c] px-2.5 py-1 text-xs transition-all duration-200"
             style={{
               color: hovered === seg.symbol ? seg.color : '#a0aec0',
-              borderColor: hovered === seg.symbol ? seg.color + '80' : '#2d3748',
+              borderColor: hovered === seg.symbol ? seg.color + '80' : '#424a59',
             }}
             onMouseEnter={() => setHovered(seg.symbol)}
             onMouseLeave={() => setHovered(null)}
@@ -321,7 +321,7 @@ function PerformanceChart({
               'min-h-[36px] min-w-[44px] rounded-full px-3 py-1 text-xs font-medium transition-all duration-200',
               'active:scale-[0.97]',
               timeRange === value
-                ? 'bg-[#a8caff] text-[#121417]'
+                ? 'bg-[#a8caff] text-[#2a2f3a]'
                 : 'text-[#a0aec0] hover:text-[#ffffff]',
             ].join(' ')}
           >
@@ -370,7 +370,7 @@ function PerformanceChart({
                   if (!active || !payload?.length) return null;
                   const point = payload[0].payload as { month: string; value: number };
                   return (
-                    <div className="rounded-xl border border-[#2d3748] bg-[#1e2125]/95 px-3 py-2 text-xs shadow-xl backdrop-blur-sm">
+                    <div className="rounded-xl border border-[#424a59] bg-[#373e4c]/95 px-3 py-2 text-xs shadow-xl backdrop-blur-sm">
                       <p className="text-[#a0aec0]">{point.month}</p>
                       <p className="mt-0.5 font-semibold text-[#ffffff] tabular-nums">
                         {fmtILS(point.value)}
@@ -395,7 +395,7 @@ function PerformanceChart({
                 activeDot={{
                   r: 4,
                   fill: strokeColor,
-                  stroke: '#121417',
+                  stroke: '#2a2f3a',
                   strokeWidth: 2,
                 }}
                 isAnimationActive={false}
@@ -579,7 +579,7 @@ function HoldingsTable({
       {/* Desktop table */}
       <table className="hidden w-full lg:table" aria-label="Holdings">
         <thead>
-          <tr className="border-b border-[#2d3748]">
+          <tr className="border-b border-[#424a59]">
             <th className="w-1 p-0" aria-hidden="true" />
             <SortHeader label="Asset" sortable="symbol" align="left" {...sh} />
             <SortHeader label="Qty" sortable="quantity" align="right" {...sh} />
@@ -590,7 +590,7 @@ function HoldingsTable({
             {canEdit && <th className="hidden w-8 lg:table-cell" aria-hidden="true" />}
           </tr>
         </thead>
-        <tbody className="divide-y divide-[#2d3748]">
+        <tbody className="divide-y divide-[#424a59]">
           {sorted.map((h) => {
             const color = colorMap[h.symbol] ?? '#a8caff';
             const isGain = h.gainLoss >= 0;
@@ -604,7 +604,7 @@ function HoldingsTable({
             return (
               <tr
                 key={h.id}
-                className="group relative transition-colors duration-150 hover:bg-[#2d3748]/50"
+                className="group relative transition-colors duration-150 hover:bg-[#424a59]/50"
               >
                 {/* Left accent bar */}
                 <td className="w-1 p-0" aria-hidden="true">
@@ -665,7 +665,7 @@ function HoldingsTable({
                       {fmtVal(h.currentValue)}
                     </div>
                     {/* Mini value bar — % of account total */}
-                    <div className="h-[3px] rounded-full bg-[#2d3748]" style={{ width: '80px' }}>
+                    <div className="h-[3px] rounded-full bg-[#424a59]" style={{ width: '80px' }}>
                       <div
                         className="h-full rounded-full"
                         style={{
@@ -700,18 +700,18 @@ function HoldingsTable({
                         <DropdownMenuTrigger asChild>
                           <button
                             aria-label={`Actions for ${h.symbol}`}
-                            className="flex h-7 w-7 items-center justify-center rounded-md text-[#a0aec0] transition-colors hover:bg-[#2d3748] hover:text-[#ffffff] active:scale-[0.95]"
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-[#a0aec0] transition-colors hover:bg-[#424a59] hover:text-[#ffffff] active:scale-[0.95]"
                           >
                             <MoreHorizontal className="h-4 w-4" />
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
                           align="end"
-                          className="border-[#2d3748] bg-[#1e2125] text-[#ffffff]"
+                          className="border-[#424a59] bg-[#373e4c] text-[#ffffff]"
                         >
                           <DropdownMenuItem
                             onClick={() => setEditHolding(h)}
-                            className="cursor-pointer gap-2 text-sm hover:bg-[#2d3748] focus:bg-[#2d3748]"
+                            className="cursor-pointer gap-2 text-sm hover:bg-[#424a59] focus:bg-[#424a59]"
                           >
                             <Pencil className="h-3.5 w-3.5 text-[#a0aec0]" />
                             Edit
@@ -735,7 +735,7 @@ function HoldingsTable({
       </table>
 
       {/* Mobile list — tap to expand */}
-      <div className="divide-y divide-[#2d3748] lg:hidden">
+      <div className="divide-y divide-[#424a59] lg:hidden">
         {sorted.map((h) => {
           const color = colorMap[h.symbol] ?? '#a8caff';
           const isGain = h.gainLoss >= 0;
@@ -745,7 +745,7 @@ function HoldingsTable({
           return (
             <div key={h.id}>
               <button
-                className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors duration-150 active:scale-[0.99] active:bg-[#2d3748]/60"
+                className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors duration-150 active:scale-[0.99] active:bg-[#424a59]/60"
                 onClick={() => setExpandedRow(isExpanded ? null : h.id)}
                 aria-expanded={isExpanded}
                 aria-label={`${h.symbol} holding details`}
@@ -794,7 +794,7 @@ function HoldingsTable({
 
               {/* Expanded details */}
               {isExpanded && (
-                <div className="border-t border-[#2d3748] bg-[#1e2125]/50 px-4 py-3">
+                <div className="border-t border-[#424a59] bg-[#373e4c]/50 px-4 py-3">
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     {[
                       { label: 'Avg Cost', value: h.avgCostBasis.toFixed(2) },
@@ -818,11 +818,11 @@ function HoldingsTable({
                     ))}
                   </div>
                   {canEdit && (
-                    <div className="mt-3 flex gap-2 border-t border-[#2d3748] pt-3">
+                    <div className="mt-3 flex gap-2 border-t border-[#424a59] pt-3">
                       <button
                         aria-label={`Edit ${h.symbol}`}
                         onClick={() => setEditHolding(h)}
-                        className="flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#3d4a5c] bg-[#2d3748] px-3 text-xs font-medium text-[#a0aec0] transition-colors hover:bg-[#374151] active:scale-[0.98]"
+                        className="flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#4a5162] bg-[#424a59] px-3 text-xs font-medium text-[#a0aec0] transition-colors hover:bg-[#4a5364] active:scale-[0.98]"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                         Edit
@@ -928,7 +928,7 @@ function AccountSection({
       {/* Account header row — 3-column grid: left (name) | middle (sparkline) | right (value + actions).
           Sparkline is centered in the title bar at ~25% width. */}
       <div
-        className="grid w-full items-center gap-4 border-t border-[#2d3748] px-4 py-4 lg:px-8"
+        className="grid w-full items-center gap-4 border-t border-[#424a59] px-4 py-4 lg:px-8"
         style={{ gridTemplateColumns: '1fr 25% 1fr' }}
       >
         {/* Left: collapse button + name + owner badges */}
@@ -947,7 +947,7 @@ function AccountSection({
             <div className="flex items-center gap-2">
               <p className="text-sm font-semibold text-[#ffffff]">{account.name}</p>
               {account.source === 'moneytor' && (
-                <span className="rounded-full border border-[#2d3748] bg-[#a8caff0d] px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-[#a8caff] uppercase">
+                <span className="rounded-full border border-[#424a59] bg-[#a8caff0d] px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-[#a8caff] uppercase">
                   Moneytor
                 </span>
               )}
@@ -995,14 +995,14 @@ function AccountSection({
             <DropdownMenuTrigger asChild>
               <button
                 aria-label={`Actions for ${account.name}`}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#a0aec0] transition-colors hover:bg-[#2d3748] hover:text-[#ffffff] active:scale-[0.95]"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#a0aec0] transition-colors hover:bg-[#424a59] hover:text-[#ffffff] active:scale-[0.95]"
               >
                 <MoreVertical className="h-4 w-4" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="border-[#2d3748] bg-[#1e2125] text-[#ffffff]"
+              className="border-[#424a59] bg-[#373e4c] text-[#ffffff]"
             >
               <DropdownMenuLabel className="text-[10px] font-bold tracking-wider text-[#a0aec0] uppercase">
                 Display currency
@@ -1013,18 +1013,18 @@ function AccountSection({
               >
                 <DropdownMenuRadioItem
                   value={nativeCurrency}
-                  className="cursor-pointer text-sm hover:bg-[#2d3748] focus:bg-[#2d3748]"
+                  className="cursor-pointer text-sm hover:bg-[#424a59] focus:bg-[#424a59]"
                 >
                   {nativeSym} {nativeCurrency}
                 </DropdownMenuRadioItem>
                 <DropdownMenuRadioItem
                   value={alternateCurrency}
-                  className="cursor-pointer text-sm hover:bg-[#2d3748] focus:bg-[#2d3748]"
+                  className="cursor-pointer text-sm hover:bg-[#424a59] focus:bg-[#424a59]"
                 >
                   {altSym} {alternateCurrency}
                 </DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
-              <DropdownMenuSeparator className="bg-[#2d3748]" />
+              <DropdownMenuSeparator className="bg-[#424a59]" />
               <DropdownMenuItem
                 onClick={() => setConfirmDeleteAccount(true)}
                 className="cursor-pointer gap-2 text-sm text-[#f87171] hover:bg-[#f8717115] focus:bg-[#f8717115]"
@@ -1074,13 +1074,13 @@ function AccountSection({
 
         {/* Cash balances section */}
         {account.cashBalances && account.cashBalances.length > 0 && (
-          <div className="mx-4 mt-2 mb-4 rounded-xl border border-[#2d3748] bg-[#1e2125]/50 lg:mx-8">
+          <div className="mx-4 mt-2 mb-4 rounded-xl border border-[#424a59] bg-[#373e4c]/50 lg:mx-8">
             <div className="px-4 pt-3 pb-1">
               <p className="text-[10px] font-bold tracking-[0.15em] text-[#a0aec0] uppercase">
                 Cash
               </p>
             </div>
-            <div className="divide-y divide-[#2d3748]">
+            <div className="divide-y divide-[#424a59]">
               {account.cashBalances.map((cb) => {
                 const flag = CURRENCY_FLAGS[cb.currency] ?? '';
                 const sym = getCurrencySymbol(cb.currency);
@@ -1197,7 +1197,7 @@ function PortfolioV2Content() {
 
   return (
     <div
-      className="min-h-screen bg-[#121417] pb-24"
+      className="min-h-screen bg-[#2a2f3a] pb-24"
       style={{ fontFamily: 'var(--font-lexend, system-ui, sans-serif)' }}
     >
       {/* ── HERO ──────────────────────────────────────────────────────────── */}
@@ -1213,7 +1213,7 @@ function PortfolioV2Content() {
           >
             {/* Eyebrow row */}
             <div className="flex items-center gap-2">
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-[#2d3748] bg-[#a8caff0d] px-2.5 py-0.5">
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-[#424a59] bg-[#a8caff0d] px-2.5 py-0.5">
                 <span className="text-[10px] font-bold tracking-[0.15em] text-[#a8caff] uppercase">
                   Portfolio
                 </span>

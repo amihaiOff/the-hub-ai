@@ -1070,15 +1070,18 @@ Configured in `vercel.json`:
 
 ### Dark Mode (Primary)
 
-- **Deep Base Background:** Warm charcoal `#121417` (near-black with a hint of warmth)
-- **Surface / Card Background:** `#1E2125` (the lighter layer that makes cards pop)
+- **Base Background:** Cool slate `#2A2F3A` (mid-dark, so soft card shadows read)
+- **Surface / Card Background:** `#373E4C` (clearly lighter than the base, lifts cards off it)
+- **Surface Level 2:** `#424A59` (chips, filled buttons, hover)
 - **Text Primary:** Pure White `#FFFFFF`
 - **Text Secondary:** Cool Grey `#A0AEC0` (labels, smaller details)
-- **Dividers:** Low-contrast `#2D3748`
+- **Border / Dividers:** Soft rim `#4A5162` (slightly lighter than the surfaces)
 - **Accent Primary:** Pastel Blue `#A8CAFF`
 - **Success:** Pastel Green `#8FDDB0`
 - **Danger:** Pastel Red `#F5A5A5`
-- **Shadows:** Black at ~15-20% opacity, `0px 8px 24px` (soft, natural drop shadow)
+- **Shadows:** Soft drop shadows that lift cards off the dark base — `0px 10px 30px`
+  black at ~45% (`.shadow-glow`, applied by the `Card` component); cards use a 24px
+  (`rounded-3xl`) radius.
 - Tokens live in `app/globals.css` (`.dark`); most UI is token-driven (`bg-background`,
   `bg-card`, `text-foreground`, `text-muted-foreground`, `border-border`).
 
@@ -1170,7 +1173,7 @@ phone home screen or desktop and launched as a standalone, full-screen app
   metadata routes).
 - `display: 'standalone'` — launches full screen without browser UI.
 - `start_url` / `scope`: `/`.
-- `background_color` / `theme_color`: `#121417` (matches the dark theme base).
+- `background_color` / `theme_color`: `#2a2f3a` (matches the dark theme base).
 - Icons: `192x192` and `512x512` (purpose `any`) plus maskable variants
   (`192x192`, `512x512`), stored in `public/icons/`.
 
@@ -1180,7 +1183,7 @@ phone home screen or desktop and launched as a standalone, full-screen app
   iOS standalone mode with a black-translucent status bar and app title.
 - `metadata.icons` declares favicon, PNG icons, and the Apple touch icon
   (`public/icons/apple-touch-icon.png`, 180x180).
-- `viewport` exports `themeColor: '#121417'` and `viewportFit: 'cover'`.
+- `viewport` exports `themeColor: '#2a2f3a'` and `viewportFit: 'cover'`.
 
 ## Safe-Area Handling
 
