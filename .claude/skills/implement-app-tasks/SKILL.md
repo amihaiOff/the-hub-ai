@@ -52,6 +52,23 @@ The response is `{ success, data: { tasks, count } }` where each task is:
 
 If `count` is 0, tell the user the backlog is empty and stop.
 
+## Step 1.5 — Filter out tasks already marked as done
+
+Before analysis, drop any task whose `fields` show it is already completed.
+Consider a task done if **any** of the following holds:
+
+- A field named `Done`, `Completed`, `Complete`, `Finished`, or `Shipped`
+  (case-insensitive) is truthy — i.e. equals `true`, `"true"`, `"yes"`, `"y"`,
+  `"done"`, `"✓"`, `"✔"`, or a checked-checkbox value.
+- A field named `Status` or `State` (case-insensitive) has a value that
+  case-insensitively matches `done`, `completed`, `complete`, `shipped`,
+  `closed`, or `resolved`.
+
+Skipped-as-done tasks are **not** analysed, implemented, or reported in the
+end-of-run questions. Just count them and include a one-line "Skipped N tasks
+already marked done" note in the final summary so the user can spot any
+false-positives.
+
 ## Step 2 — Whole-backlog analysis FIRST (before writing any code)
 
 Read **every** task together — title, `fields`, and `pageContext` — and classify:
