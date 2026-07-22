@@ -1070,18 +1070,21 @@ Configured in `vercel.json`:
 
 ### Dark Mode (Primary)
 
-- **Background:** Dark Gray (#0F172A) and Darker Gray (#1E293B)
-- **Text Primary:** Off-White (#F1F5F9)
-- **Text Secondary:** Light Gray (#CBD5E1)
-- **Accent Primary:** Blue (#60A5FA)
-- **Accent Secondary:** Indigo (#818CF8)
-- **Success:** Green (#34D399)
-- **Danger:** Red (#F87171)
-- **Warning:** Amber (#FBBF24)
+- **Deep Base Background:** Warm charcoal `#121417` (near-black with a hint of warmth)
+- **Surface / Card Background:** `#1E2125` (the lighter layer that makes cards pop)
+- **Text Primary:** Pure White `#FFFFFF`
+- **Text Secondary:** Cool Grey `#A0AEC0` (labels, smaller details)
+- **Dividers:** Low-contrast `#2D3748`
+- **Accent Primary:** Pastel Blue `#A8CAFF`
+- **Success:** Pastel Green `#8FDDB0`
+- **Danger:** Pastel Red `#F5A5A5`
+- **Shadows:** Black at ~15-20% opacity, `0px 8px 24px` (soft, natural drop shadow)
+- Tokens live in `app/globals.css` (`.dark`); most UI is token-driven (`bg-background`,
+  `bg-card`, `text-foreground`, `text-muted-foreground`, `border-border`).
 
 ## Typography
 
-- **Font Family:** Inter (sans-serif) - modern, readable, excellent for numbers
+- **Font Family:** Lexend (sans-serif) - modern, highly readable, used for both body and headings
 - **Headings:**
   - H1: 2.5rem (40px), bold, for main dashboard title
   - H2: 2rem (32px), semibold, for section titles
@@ -1167,7 +1170,7 @@ phone home screen or desktop and launched as a standalone, full-screen app
   metadata routes).
 - `display: 'standalone'` — launches full screen without browser UI.
 - `start_url` / `scope`: `/`.
-- `background_color` / `theme_color`: `#0d0e10` (matches the dark theme).
+- `background_color` / `theme_color`: `#121417` (matches the dark theme base).
 - Icons: `192x192` and `512x512` (purpose `any`) plus maskable variants
   (`192x192`, `512x512`), stored in `public/icons/`.
 
@@ -1177,7 +1180,7 @@ phone home screen or desktop and launched as a standalone, full-screen app
   iOS standalone mode with a black-translucent status bar and app title.
 - `metadata.icons` declares favicon, PNG icons, and the Apple touch icon
   (`public/icons/apple-touch-icon.png`, 180x180).
-- `viewport` exports `themeColor: '#0d0e10'` and `viewportFit: 'cover'`.
+- `viewport` exports `themeColor: '#121417'` and `viewportFit: 'cover'`.
 
 ## Safe-Area Handling
 

@@ -257,7 +257,7 @@ Rules to keep server + client state cleanly separated:
 - **Mobile-first responsive design**
 - **Dark mode is primary** (light mode secondary)
 - **Color scheme:** Blue accents, green for gains, red for losses
-- **Typography:** Inter font, tabular figures for numbers
+- **Typography:** Lexend font, tabular figures for numbers
 - **Components:** shadcn/ui for consistency
 - **Layouts:** Single column mobile, sidebar + grid on desktop
 

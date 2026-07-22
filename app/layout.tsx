@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Manrope } from 'next/font/google';
+import { Lexend } from 'next/font/google';
 import { Suspense } from 'react';
 import './globals.css';
 import { AppShell, ServiceWorkerRegister } from '@/components/shared';
@@ -7,13 +7,8 @@ import { QueryProvider } from '@/lib/providers/query-provider';
 import { SessionProvider } from '@/lib/providers/session-provider';
 import { HouseholdProvider } from '@/lib/contexts/household-context';
 
-const inter = Inter({
-  variable: '--font-inter',
-  subsets: ['latin'],
-});
-
-const manrope = Manrope({
-  variable: '--font-manrope',
+const lexend = Lexend({
+  variable: '--font-lexend',
   subsets: ['latin'],
 });
 
@@ -38,7 +33,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0d0e10',
+  themeColor: '#121417',
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
@@ -59,7 +54,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.variable} ${manrope.variable} font-sans antialiased`}>
+      <body className={`${lexend.variable} font-sans antialiased`}>
         <ServiceWorkerRegister />
         <SessionProvider>
           <QueryProvider>

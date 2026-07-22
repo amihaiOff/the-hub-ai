@@ -22,8 +22,8 @@ describe('PWA manifest', () => {
     });
 
     it('should use the dark theme and background colors', () => {
-      expect(result.theme_color).toBe('#0d0e10');
-      expect(result.background_color).toBe('#0d0e10');
+      expect(result.theme_color).toBe('#121417');
+      expect(result.background_color).toBe('#121417');
     });
   });
 
