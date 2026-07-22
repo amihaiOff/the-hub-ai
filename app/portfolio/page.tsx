@@ -1206,8 +1206,14 @@ function PortfolioV2Content() {
               animation: 'fadeUp 0.5s cubic-bezier(0.32,0.72,0,1) both',
             }}
           >
-            {/* Page title — consistent with every other page */}
-            <h1 className="page-title text-4xl font-bold tracking-tight text-[#ffffff]">Portfolio</h1>
+            {/* Page title — consistent with every other page. Kept tight to
+                the value below (this is a hero), so cancel the page-title gap. */}
+            <h1
+              className="page-title text-4xl font-bold tracking-tight text-[#ffffff]"
+              style={{ marginBottom: 0 }}
+            >
+              Portfolio
+            </h1>
 
             {/* Value */}
             <div className="text-5xl leading-none font-black tracking-tight text-[#ffffff] tabular-nums lg:text-7xl">

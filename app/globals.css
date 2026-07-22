@@ -409,8 +409,16 @@
        rounded border. */
     overflow-y: hidden;
   }
-  /* Page-title font — matches the "The Hub" wordmark so every page header
-     reads consistently with the app title. */
+  /* Breathing room between a page title and the content below it. */
+  .page-title {
+    margin-bottom: 2.5rem;
+  }
+  /* When the title shares a header row with an action (title on the left,
+     button/selector on the right), the gap goes on the row instead (mb-10 in
+     markup) so the row's items stay aligned — never on the title itself. */
+  .flex > .page-title {
+    margin-bottom: 0;
+  }
   .database-block th,
   .database-block td {
     border-bottom: 1px solid color-mix(in oklab, var(--border) 45%, transparent);

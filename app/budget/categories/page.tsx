@@ -113,7 +113,7 @@ export default function CategoriesPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="page-title text-4xl font-bold tracking-tight">Categories</h1>
         {activeTab === 'categories' && (
           <div className="flex gap-2">

@@ -15,7 +15,7 @@ export default function PensionPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-row items-center justify-between gap-4">
+      <div className="mb-10 flex flex-row items-center justify-between gap-4">
         <h1 className="page-title text-4xl font-bold tracking-tight">
           Pension & Hishtalmut
         </h1>
