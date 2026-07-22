@@ -307,8 +307,10 @@ describe('MobileMenu', () => {
         const mockOnOpenChange = jest.fn();
         render(<MobileMenu open={true} onOpenChange={mockOnOpenChange} />);
 
-        const link = screen.getByText(label).closest('a');
-        fireEvent.click(link!);
+        // Settings is icon-only (accessible via aria-label); the rest are
+        // text links. getByRole('link', { name }) resolves both.
+        const link = screen.getByRole('link', { name: label });
+        fireEvent.click(link);
 
         expect(mockOnOpenChange).toHaveBeenCalledWith(false);
       }
@@ -341,10 +343,10 @@ describe('MobileMenu', () => {
         mockPathname.mockReturnValue(pathname);
         render(<MobileMenu open={true} onOpenChange={jest.fn()} />);
 
-        const activeLink = screen.getByText(activeLabel).closest('a');
+        const activeLink = screen.getByRole('link', { name: activeLabel });
         expect(activeLink).toHaveAttribute('aria-current', 'page');
-        expect(activeLink?.className).toContain('bg-accent');
-        expect(activeLink?.className).toContain('text-accent-foreground');
+        expect(activeLink.className).toContain('bg-accent');
+        expect(activeLink.className).toContain('text-accent-foreground');
       }
     );
 
@@ -362,8 +364,8 @@ describe('MobileMenu', () => {
     it('should render Settings link with correct href and icon', () => {
       render(<MobileMenu open={true} onOpenChange={jest.fn()} />);
 
-      expect(screen.getByText('Settings')).toBeInTheDocument();
-      const settingsLink = screen.getByText('Settings').closest('a');
+      // Settings is icon-only; its accessible name comes from aria-label.
+      const settingsLink = screen.getByRole('link', { name: 'Settings' });
       expect(settingsLink).toHaveAttribute('href', '/settings');
       expect(screen.getByTestId('icon-settings')).toBeInTheDocument();
     });

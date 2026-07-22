@@ -159,7 +159,12 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
                 height={44}
                 className="h-11 w-11"
               />
-              <SheetTitle className="text-lg font-semibold">The Hub</SheetTitle>
+              <SheetTitle
+                className="text-2xl font-bold tracking-tight"
+                style={{ fontFamily: 'var(--font-playfair), Georgia, serif' }}
+              >
+                The Hub
+              </SheetTitle>
             </Link>
             <SheetDescription className="sr-only">Main navigation menu</SheetDescription>
           </SheetHeader>
@@ -195,27 +200,10 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
             })}
           </nav>
 
-          {/* Sync data — global Moneytor pull. Sits just above Settings,
-              mirroring the desktop sidebar. */}
-          <div className="px-4 pt-0 pb-1">
-            <button
-              type="button"
-              onClick={handleSync}
-              disabled={syncMoneytor.isPending}
-              aria-label="Sync data with Moneytor"
-              className={cn(
-                'flex w-full items-center gap-3 rounded-lg px-3 py-3 text-base font-medium transition-all',
-                'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
-                'disabled:opacity-60'
-              )}
-            >
-              <RefreshCw className={cn('h-5 w-5', syncMoneytor.isPending && 'animate-spin')} />
-              {syncMoneytor.isPending ? 'Syncing…' : 'Sync data'}
-            </button>
-          </div>
-
-          {/* Settings - Bottom of navigation */}
-          <div className="p-4 pt-0">
+          {/* Bottom action row: Settings (left) + Sync (right), icon-only —
+              mirrors the desktop sidebar. Sync keeps the menu open so the
+              user sees the spinner. */}
+          <div className="flex items-center justify-between p-4 pt-0">
             {(() => {
               const isActive = pathname === settingsItem.href;
               const Icon = settingsItem.icon;
@@ -224,18 +212,33 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
                   href={settingsItem.href}
                   onClick={handleNavClick}
                   aria-current={isActive ? 'page' : undefined}
+                  aria-label={settingsItem.label}
+                  title={settingsItem.label}
                   className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-3 text-base font-medium transition-all',
+                    'flex h-11 w-11 items-center justify-center rounded-lg transition-all',
                     isActive
                       ? 'bg-accent text-accent-foreground'
                       : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
                   )}
                 >
                   <Icon className="h-5 w-5" />
-                  {settingsItem.label}
                 </Link>
               );
             })()}
+            <button
+              type="button"
+              onClick={handleSync}
+              disabled={syncMoneytor.isPending}
+              aria-label={syncMoneytor.isPending ? 'Syncing…' : 'Sync data with Moneytor'}
+              title="Sync data"
+              className={cn(
+                'flex h-11 w-11 items-center justify-center rounded-lg transition-all',
+                'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+                'disabled:opacity-60'
+              )}
+            >
+              <RefreshCw className={cn('h-5 w-5', syncMoneytor.isPending && 'animate-spin')} />
+            </button>
           </div>
 
           {/* Footer - User Section */}
