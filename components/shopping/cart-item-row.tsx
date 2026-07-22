@@ -78,15 +78,20 @@ export function CartItemRow({
 
   return (
     <div className="relative overflow-hidden rounded-md">
-      {/* Red background revealed on swipe */}
-      <div className="absolute inset-0 flex items-center justify-between bg-red-600 px-4">
-        <Trash2 className="h-5 w-5 text-white" />
-        <Trash2 className="h-5 w-5 text-white" />
-      </div>
+      {/* Red delete affordance — only rendered while actively swiping, so it
+          never shows at rest (previously it sat permanently behind the row and
+          leaked through if the row's background was ever removed). */}
+      {(isSwiping || translateX !== 0) && (
+        <div className="absolute inset-0 flex items-center justify-between bg-red-600 px-4">
+          <Trash2 className="h-5 w-5 text-white" />
+          <Trash2 className="h-5 w-5 text-white" />
+        </div>
+      )}
 
-      {/* Foreground row */}
+      {/* Foreground row — flat (matches the page background) so items read as a
+          plain list, while staying opaque so the swipe layer stays hidden. */}
       <div
-        className="relative flex items-center gap-3 px-4 py-3"
+        className="bg-background relative flex items-center gap-3 px-4 py-3"
         style={{
           transform: `translateX(${translateX}px)`,
           touchAction: 'pan-y',
