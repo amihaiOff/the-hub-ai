@@ -13,7 +13,7 @@ Guide for responsive, dark-mode-first UI development.
 1. **Mobile-first**: Design for mobile, enhance for desktop
 2. **Dark mode primary**: Dark is default theme
 3. **Color scheme**: Blue accents, green gains, red losses
-4. **Typography**: Inter font, tabular figures for numbers
+4. **Typography**: Lexend font, tabular figures for numbers
 
 ## Breakpoints
 

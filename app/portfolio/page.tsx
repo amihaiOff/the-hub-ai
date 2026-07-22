@@ -260,7 +260,7 @@ function AllocationBar({ accounts }: AllocationBarProps) {
             key={seg.symbol}
             className="flex cursor-default items-center gap-1.5 rounded-full border border-[#2d3748] bg-[#1e2125] px-2.5 py-1 text-xs transition-all duration-200"
             style={{
-              color: hovered === seg.symbol ? seg.color : 'rgba(160,174,192,0.6)',
+              color: hovered === seg.symbol ? seg.color : '#a0aec0',
               borderColor: hovered === seg.symbol ? seg.color + '80' : '#2d3748',
             }}
             onMouseEnter={() => setHovered(seg.symbol)}
@@ -322,7 +322,7 @@ function PerformanceChart({
               'active:scale-[0.97]',
               timeRange === value
                 ? 'bg-[#a8caff] text-[#121417]'
-                : 'text-[rgba(160,174,192,0.6)] hover:text-[#ffffff]',
+                : 'text-[#a0aec0] hover:text-[#ffffff]',
             ].join(' ')}
           >
             {label}
@@ -335,7 +335,7 @@ function PerformanceChart({
         {historyLoading ? (
           <ChartSkeleton />
         ) : data.length < 2 ? (
-          <div className="flex h-full items-center justify-center text-xs text-[rgba(160,174,192,0.4)]">
+          <div className="flex h-full items-center justify-center text-xs text-[#a0aec0]">
             Not enough history yet — sync daily to build the chart.
           </div>
         ) : (
@@ -358,7 +358,7 @@ function PerformanceChart({
                 tickLine={false}
                 tick={{
                   fontSize: 10,
-                  fill: 'rgba(160,174,192,0.4)',
+                  fill: '#a0aec0',
                   fontFamily: 'var(--font-lexend)',
                 }}
                 dy={8}
@@ -371,7 +371,7 @@ function PerformanceChart({
                   const point = payload[0].payload as { month: string; value: number };
                   return (
                     <div className="rounded-xl border border-[#2d3748] bg-[#1e2125]/95 px-3 py-2 text-xs shadow-xl backdrop-blur-sm">
-                      <p className="text-[rgba(160,174,192,0.5)]">{point.month}</p>
+                      <p className="text-[#a0aec0]">{point.month}</p>
                       <p className="mt-0.5 font-semibold text-[#ffffff] tabular-nums">
                         {fmtILS(point.value)}
                       </p>
@@ -431,7 +431,7 @@ function SortHeader({
       className={[
         'px-4 py-3 text-[10px] font-semibold tracking-widest uppercase',
         align === 'right' ? 'text-right' : 'text-left',
-        active ? 'text-[#a8caff]' : 'text-[rgba(160,174,192,0.4)]',
+        active ? 'text-[#a8caff]' : 'text-[#a0aec0]',
         sortable ? 'cursor-pointer select-none hover:text-[#ffffff]' : '',
       ].join(' ')}
       onClick={sortable ? () => onSort(sortable) : undefined}
@@ -568,8 +568,8 @@ function HoldingsTable({
   if (holdings.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-        <TrendingUp className="h-10 w-10 text-[rgba(160,174,192,0.2)]" aria-hidden="true" />
-        <p className="text-sm text-[rgba(160,174,192,0.4)]">No holdings yet</p>
+        <TrendingUp className="h-10 w-10 text-[#a0aec0]" aria-hidden="true" />
+        <p className="text-sm text-[#a0aec0]">No holdings yet</p>
       </div>
     );
   }
@@ -590,7 +590,7 @@ function HoldingsTable({
             {canEdit && <th className="hidden w-8 lg:table-cell" aria-hidden="true" />}
           </tr>
         </thead>
-        <tbody className="divide-y divide-[#a8caff1a]">
+        <tbody className="divide-y divide-[#2d3748]">
           {sorted.map((h) => {
             const color = colorMap[h.symbol] ?? '#a8caff';
             const isGain = h.gainLoss >= 0;
@@ -629,7 +629,7 @@ function HoldingsTable({
                         {h.symbol}
                       </div>
                       {h.name && (
-                        <div className="max-w-[160px] truncate text-[11px] text-[rgba(160,174,192,0.45)]">
+                        <div className="max-w-[160px] truncate text-[11px] text-[#a0aec0]">
                           {h.name}
                         </div>
                       )}
@@ -638,12 +638,12 @@ function HoldingsTable({
                 </td>
 
                 {/* Qty */}
-                <td className="px-4 py-3.5 text-right font-mono text-sm text-[rgba(160,174,192,0.7)] tabular-nums">
+                <td className="px-4 py-3.5 text-right font-mono text-sm text-[#a0aec0] tabular-nums">
                   {fmtQty(h.quantity)}
                 </td>
 
                 {/* Avg Cost */}
-                <td className="px-4 py-3.5 text-right font-mono text-sm text-[rgba(160,174,192,0.5)] tabular-nums">
+                <td className="px-4 py-3.5 text-right font-mono text-sm text-[#a0aec0] tabular-nums">
                   {h.avgCostBasis.toLocaleString('en-US', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
@@ -651,7 +651,7 @@ function HoldingsTable({
                 </td>
 
                 {/* Price */}
-                <td className="px-4 py-3.5 text-right font-mono text-sm text-[rgba(160,174,192,0.7)] tabular-nums">
+                <td className="px-4 py-3.5 text-right font-mono text-sm text-[#a0aec0] tabular-nums">
                   {h.currentPrice.toLocaleString('en-US', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
@@ -700,7 +700,7 @@ function HoldingsTable({
                         <DropdownMenuTrigger asChild>
                           <button
                             aria-label={`Actions for ${h.symbol}`}
-                            className="flex h-7 w-7 items-center justify-center rounded-md text-[rgba(160,174,192,0.4)] transition-colors hover:bg-[#2d3748] hover:text-[#ffffff] active:scale-[0.95]"
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-[#a0aec0] transition-colors hover:bg-[#2d3748] hover:text-[#ffffff] active:scale-[0.95]"
                           >
                             <MoreHorizontal className="h-4 w-4" />
                           </button>
@@ -713,7 +713,7 @@ function HoldingsTable({
                             onClick={() => setEditHolding(h)}
                             className="cursor-pointer gap-2 text-sm hover:bg-[#2d3748] focus:bg-[#2d3748]"
                           >
-                            <Pencil className="h-3.5 w-3.5 text-[rgba(160,174,192,0.5)]" />
+                            <Pencil className="h-3.5 w-3.5 text-[#a0aec0]" />
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem
@@ -735,7 +735,7 @@ function HoldingsTable({
       </table>
 
       {/* Mobile list — tap to expand */}
-      <div className="divide-y divide-[#a8caff1a] lg:hidden">
+      <div className="divide-y divide-[#2d3748] lg:hidden">
         {sorted.map((h) => {
           const color = colorMap[h.symbol] ?? '#a8caff';
           const isGain = h.gainLoss >= 0;
@@ -767,7 +767,7 @@ function HoldingsTable({
                       {h.symbol}
                     </span>
                   </div>
-                  <div className="mt-0.5 text-[11px] text-[rgba(160,174,192,0.4)] tabular-nums">
+                  <div className="mt-0.5 text-[11px] text-[#a0aec0] tabular-nums">
                     {fmtQty(h.quantity)} shares
                   </div>
                 </div>
@@ -788,13 +788,13 @@ function HoldingsTable({
                   style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
                   aria-hidden="true"
                 >
-                  <ChevronDown className="h-4 w-4 text-[rgba(160,174,192,0.3)]" />
+                  <ChevronDown className="h-4 w-4 text-[#a0aec0]" />
                 </div>
               </button>
 
               {/* Expanded details */}
               {isExpanded && (
-                <div className="border-t border-[#a8caff1a] bg-[#1e2125]/50 px-4 py-3">
+                <div className="border-t border-[#2d3748] bg-[#1e2125]/50 px-4 py-3">
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     {[
                       { label: 'Avg Cost', value: h.avgCostBasis.toFixed(2) },
@@ -807,7 +807,7 @@ function HoldingsTable({
                       },
                     ].map(({ label, value, color: c }) => (
                       <div key={label}>
-                        <p className="text-[rgba(160,174,192,0.4)]">{label}</p>
+                        <p className="text-[#a0aec0]">{label}</p>
                         <p
                           className="mt-0.5 font-semibold tabular-nums"
                           style={{ color: c ?? '#ffffff' }}
@@ -818,11 +818,11 @@ function HoldingsTable({
                     ))}
                   </div>
                   {canEdit && (
-                    <div className="mt-3 flex gap-2 border-t border-[#a8caff1a] pt-3">
+                    <div className="mt-3 flex gap-2 border-t border-[#2d3748] pt-3">
                       <button
                         aria-label={`Edit ${h.symbol}`}
                         onClick={() => setEditHolding(h)}
-                        className="flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#2d3748] bg-[#2d3748] px-3 text-xs font-medium text-[rgba(160,174,192,0.7)] transition-colors hover:bg-[#374151] active:scale-[0.98]"
+                        className="flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#3d4a5c] bg-[#2d3748] px-3 text-xs font-medium text-[#a0aec0] transition-colors hover:bg-[#374151] active:scale-[0.98]"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                         Edit
@@ -939,7 +939,7 @@ function AccountSection({
           aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${account.name}`}
         >
           <ChevronDown
-            className="h-3.5 w-3.5 shrink-0 text-[rgba(160,174,192,0.3)] transition-transform duration-200"
+            className="h-3.5 w-3.5 shrink-0 text-[#a0aec0] transition-transform duration-200"
             style={{ transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
             aria-hidden="true"
           />
@@ -952,9 +952,7 @@ function AccountSection({
                 </span>
               )}
             </div>
-            {account.broker && (
-              <p className="text-[11px] text-[rgba(160,174,192,0.4)]">{account.broker}</p>
-            )}
+            {account.broker && <p className="text-[11px] text-[#a0aec0]">{account.broker}</p>}
           </div>
           {account.owners && account.owners.length > 0 && (
             <OwnerBadges owners={account.owners} size="2xs" />
@@ -997,7 +995,7 @@ function AccountSection({
             <DropdownMenuTrigger asChild>
               <button
                 aria-label={`Actions for ${account.name}`}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[rgba(160,174,192,0.4)] transition-colors hover:bg-[#2d3748] hover:text-[#ffffff] active:scale-[0.95]"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#a0aec0] transition-colors hover:bg-[#2d3748] hover:text-[#ffffff] active:scale-[0.95]"
               >
                 <MoreVertical className="h-4 w-4" />
               </button>
@@ -1006,7 +1004,7 @@ function AccountSection({
               align="end"
               className="border-[#2d3748] bg-[#1e2125] text-[#ffffff]"
             >
-              <DropdownMenuLabel className="text-[10px] font-bold tracking-wider text-[rgba(160,174,192,0.4)] uppercase">
+              <DropdownMenuLabel className="text-[10px] font-bold tracking-wider text-[#a0aec0] uppercase">
                 Display currency
               </DropdownMenuLabel>
               <DropdownMenuRadioGroup
@@ -1076,13 +1074,13 @@ function AccountSection({
 
         {/* Cash balances section */}
         {account.cashBalances && account.cashBalances.length > 0 && (
-          <div className="mx-4 mt-2 mb-4 rounded-xl border border-[#a8caff1a] bg-[#1e2125]/50 lg:mx-8">
+          <div className="mx-4 mt-2 mb-4 rounded-xl border border-[#2d3748] bg-[#1e2125]/50 lg:mx-8">
             <div className="px-4 pt-3 pb-1">
-              <p className="text-[10px] font-bold tracking-[0.15em] text-[rgba(160,174,192,0.3)] uppercase">
+              <p className="text-[10px] font-bold tracking-[0.15em] text-[#a0aec0] uppercase">
                 Cash
               </p>
             </div>
-            <div className="divide-y divide-[#a8caff1a]">
+            <div className="divide-y divide-[#2d3748]">
               {account.cashBalances.map((cb) => {
                 const flag = CURRENCY_FLAGS[cb.currency] ?? '';
                 const sym = getCurrencySymbol(cb.currency);
@@ -1092,12 +1090,10 @@ function AccountSection({
                       <span className="text-base leading-none" aria-hidden="true">
                         {flag}
                       </span>
-                      <span className="text-xs font-semibold text-[rgba(160,174,192,0.5)]">
-                        {cb.currency}
-                      </span>
+                      <span className="text-xs font-semibold text-[#a0aec0]">{cb.currency}</span>
                     </div>
                     <div className="text-right">
-                      <span className="font-mono text-sm text-[rgba(160,174,192,0.6)] tabular-nums">
+                      <span className="font-mono text-sm text-[#a0aec0] tabular-nums">
                         {sym}
                         {cb.amount.toLocaleString('en-US', {
                           minimumFractionDigits: 2,
@@ -1105,7 +1101,7 @@ function AccountSection({
                         })}
                       </span>
                       {cb.currency !== account.currency && (
-                        <span className="ml-2 font-mono text-xs text-[rgba(160,174,192,0.35)] tabular-nums">
+                        <span className="ml-2 font-mono text-xs text-[#a0aec0] tabular-nums">
                           ({getCurrencySymbol(account.currency)}
                           {cb.convertedAmount.toLocaleString('en-US', {
                             minimumFractionDigits: 2,
@@ -1245,7 +1241,7 @@ function PortfolioV2Content() {
               <span className="text-sm font-medium tabular-nums" style={{ color: gainColor }}>
                 {fmtPct(totalGainLossPercent)} all time
               </span>
-              <span className="text-xs text-[rgba(160,174,192,0.3)]">
+              <span className="text-xs text-[#a0aec0]">
                 · {totalHoldings} holdings · {accounts.length} accounts
               </span>
             </div>
@@ -1266,7 +1262,7 @@ function PortfolioV2Content() {
               points={history?.points ?? []}
               isLoading={historyLoading}
             />
-            <p className="mt-2 text-[10px] text-[rgba(160,174,192,0.4)]">
+            <p className="mt-2 text-[10px] text-[#a0aec0]">
               Main chart shows Moneytor-synced history only · per-account sparklines use real data
               where available (Moneytor snapshots or stock price history)
             </p>
@@ -1280,7 +1276,7 @@ function PortfolioV2Content() {
           className="mt-8 px-4 lg:px-8"
           style={{ animation: 'fadeUp 0.5s 0.18s cubic-bezier(0.32,0.72,0,1) both' }}
         >
-          <p className="mb-3 text-[10px] font-bold tracking-[0.15em] text-[rgba(160,174,192,0.4)] uppercase">
+          <p className="mb-3 text-[10px] font-bold tracking-[0.15em] text-[#a0aec0] uppercase">
             Allocation
           </p>
           <AllocationBar accounts={accounts} />
@@ -1311,7 +1307,7 @@ function PortfolioV2Content() {
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#f87171]" aria-hidden="true" />
           <div>
             <p className="text-sm font-medium text-[#f87171]">Failed to load portfolio</p>
-            <p className="mt-0.5 text-xs text-[rgba(160,174,192,0.5)]">
+            <p className="mt-0.5 text-xs text-[#a0aec0]">
               {error instanceof Error ? error.message : 'An unexpected error occurred'}
             </p>
           </div>
