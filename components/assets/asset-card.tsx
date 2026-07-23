@@ -76,14 +76,21 @@ export function AssetCard({ asset }: AssetCardProps) {
     asset.type === 'mortgage' && asset.mortgageTracks?.some((t) => t.simulated != null)
   );
   const trackTotals = hasSimulatedTracks
-    ? (asset.mortgageTracks ?? []).reduce(
-        (acc, t) => ({
-          monthlyPayment: acc.monthlyPayment + (t.simulated?.monthlyPayment ?? 0),
-          interestPaid: acc.interestPaid + (t.simulated?.interestPaid ?? 0),
-          principalPaid: acc.principalPaid + (t.simulated?.principalPaid ?? 0),
-        }),
-        { monthlyPayment: 0, interestPaid: 0, principalPaid: 0 }
-      )
+    ? (() => {
+        const tracks = asset.mortgageTracks ?? [];
+        const monthlyPayment = tracks.reduce((s, t) => s + (t.simulated?.monthlyPayment ?? 0), 0);
+        // Weighted-average effective rate across tracks. Rates are stored as
+        // fractions (0.0468 = 4.68%); we compute in fractions and format later.
+        const totalBalance = tracks.reduce((s, t) => s + Math.abs(t.amount), 0);
+        const weightedRate =
+          totalBalance > 0
+            ? tracks.reduce(
+                (s, t) => s + Math.abs(t.amount) * (t.simulated?.effectiveRate ?? t.interestRate),
+                0
+              ) / totalBalance
+            : 0;
+        return { monthlyPayment, weightedRate };
+      })()
     : null;
 
   // Calculate projections based on asset type
@@ -218,8 +225,8 @@ export function AssetCard({ asset }: AssetCardProps) {
                   <span>{formatCurrency(trackTotals.monthlyPayment)}/mo total</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <TrendingUp className="h-3.5 w-3.5" />
-                  <span>{formatCurrency(trackTotals.interestPaid)} interest paid</span>
+                  <Percent className="h-3.5 w-3.5" />
+                  <span>{(trackTotals.weightedRate * 100).toFixed(3)}% blended</span>
                 </div>
               </div>
             ) : (
@@ -310,7 +317,11 @@ export function AssetCard({ asset }: AssetCardProps) {
                               <span className="font-mono tabular-nums">
                                 {formatCurrency(track.amount)}
                               </span>
-                              <span>{formatInterestRate(track.interestRate)}</span>
+                              {/* Show the effective rate at full stored precision
+                                  (e.g. 4.680%) rather than rounded to two decimals. */}
+                              <span className="tabular-nums">
+                                {(track.interestRate * 100).toFixed(3)}%
+                              </span>
                               {track.monthlyPayment && (
                                 <span className="font-mono tabular-nums">
                                   {formatCurrency(track.monthlyPayment)}/mo
@@ -328,11 +339,6 @@ export function AssetCard({ asset }: AssetCardProps) {
                             {trackInterest !== null && (
                               <div className="text-red-500">
                                 +{formatCurrency(trackInterest)} int.
-                              </div>
-                            )}
-                            {sim?.nextPaymentDate && (
-                              <div className="text-muted-foreground">
-                                Next: {formatDate(sim.nextPaymentDate)}
                               </div>
                             )}
                             {sim?.nextResetDate && (
