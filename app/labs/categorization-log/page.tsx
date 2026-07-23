@@ -56,9 +56,7 @@ export default function CategorizationLogPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="page-title text-4xl font-bold tracking-tight">
-          AI Categorization Log
-        </h1>
+        <h1 className="page-title text-4xl font-bold tracking-tight">AI Categorization Log</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           Every AI categorization query for this household — the transaction, the category the model
           chose (if any), and how confident it was. Low-confidence and no-match results are recorded

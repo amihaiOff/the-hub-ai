@@ -5,6 +5,7 @@ import { syncMoneytorForHouseholdAndLog } from '@/lib/api/moneytor-sync';
 import { MoneytorApiError } from '@/lib/api/moneytor';
 import { withCronLog } from '@/lib/utils/cron-logger';
 import { drainSuggestions, type DrainResult } from '@/lib/ai/drain-suggestions';
+import { fetchBoiPrime, upsertBoiPrimeIfChanged } from '@/lib/api/boi-prime';
 
 // Absolute wall-clock budget for the whole run. The AI categorization drain
 // runs last and stops starting model calls at this cutoff, leaving headroom
@@ -50,12 +51,18 @@ export async function GET(request: NextRequest) {
         budgetSkipped: 0,
         failures: [] as Array<{ householdId: string; error: string; code?: string }>,
       },
+      boiPrime: {
+        inserted: false,
+        rate: null as number | null,
+        previousRate: null as number | null,
+      },
     };
 
     try {
       await updateStockPrices(results);
       await checkMissingDeposits(results);
       await syncMoneytor(results);
+      await updateBoiPrime(results);
 
       // Best-effort daily backstop for automatic categorization: drain any
       // uncategorized transactions the AI hasn't attempted yet (e.g. large
@@ -248,5 +255,22 @@ async function syncMoneytor(results: {
         break;
       }
     }
+  }
+}
+
+/**
+ * Read BoI Prime once a day and record any change to the market_rates table.
+ * The reading is a no-op when the same rate is already stored; a change
+ * triggers PRIME_LINKED mortgage tracks to re-amortize on next read.
+ */
+async function updateBoiPrime(results: {
+  boiPrime: { inserted: boolean; rate: number | null; previousRate: number | null };
+}) {
+  try {
+    const reading = await fetchBoiPrime();
+    const outcome = await upsertBoiPrimeIfChanged(reading);
+    results.boiPrime = outcome;
+  } catch (err) {
+    console.error('Failed to update BoI Prime rate:', err);
   }
 }

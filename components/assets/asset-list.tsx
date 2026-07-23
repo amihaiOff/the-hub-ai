@@ -4,6 +4,36 @@ import { AssetCard } from './asset-card';
 import { PropertyCard } from './real-estate-section';
 import { MortgageCard } from './mortgages-section';
 import { type MiscAsset, separateAssetsByType } from '@/lib/utils/assets';
+
+/**
+ * A mortgage carrying simulated tracks is flattened into one virtual asset
+ * per track — each track gets its own card at the top level of the list,
+ * per the user's product decision. Non-simulated mortgages (legacy manual
+ * entries) render as a single card unchanged.
+ */
+function expandMortgageTracks(items: MiscAsset[]): MiscAsset[] {
+  const out: MiscAsset[] = [];
+  for (const item of items) {
+    const tracks = item.mortgageTracks ?? [];
+    const anySimulated = tracks.some((t) => t.simulated != null);
+    if (item.type !== 'mortgage' || !anySimulated) {
+      out.push(item);
+      continue;
+    }
+    for (const track of tracks) {
+      out.push({
+        ...item,
+        id: track.id ?? `${item.id}-${track.name}`,
+        name: `${item.name} · ${track.name}`,
+        currentValue: -Math.abs(track.amount), // mortgage → liability sign
+        interestRate: track.interestRate,
+        monthlyPayment: track.monthlyPayment,
+        mortgageTracks: [track],
+      });
+    }
+  }
+  return out;
+}
 import { formatCurrencyILS } from '@/lib/utils/budget';
 import type { MoneytorAccountRow, MoneytorRealEstateRow } from '@/lib/hooks/use-moneytor';
 
@@ -27,7 +57,8 @@ export function AssetList({ items, realEstate = [], mortgages = [], isLoading }:
     );
   }
 
-  const { assets, liabilities } = separateAssetsByType(items);
+  const expandedItems = expandMortgageTracks(items);
+  const { assets, liabilities } = separateAssetsByType(expandedItems);
 
   const assetsCount = assets.length + realEstate.length;
   const liabilitiesCount = liabilities.length + mortgages.length;
