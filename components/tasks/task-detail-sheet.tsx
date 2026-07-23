@@ -207,9 +207,12 @@ function TaskDetailBody({
   }, []);
 
   const handleCreateSubtask = () => {
+    // Server rejects empty titles (`z.string().min(1)`); seed with a
+    // placeholder so the create succeeds. The child's detail card opens
+    // with the title textarea focused so the user overwrites it immediately.
     createTask.mutate(
       {
-        title: '',
+        title: 'New sub-task',
         parentTaskId: task.id,
         priority: 'MEDIUM',
         // Inherit the parent's category so a fresh sub-task lands in the
