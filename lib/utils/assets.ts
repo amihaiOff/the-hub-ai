@@ -9,6 +9,17 @@ export interface Owner {
   color?: string | null;
 }
 
+export interface MortgageTrackSimulation {
+  currentBalance: number;
+  paymentsMade: number;
+  principalPaid: number;
+  interestPaid: number;
+  monthlyPayment: number;
+  effectiveRate: number;
+  nextPaymentDate: string | Date | null;
+  nextResetDate: string | Date | null;
+}
+
 export interface MortgageTrack {
   id?: string;
   name: string;
@@ -17,6 +28,8 @@ export interface MortgageTrack {
   monthlyPayment: number | null;
   maturityDate: Date | string | null;
   sortOrder?: number;
+  /** Present when the track has simulation inputs. */
+  simulated?: MortgageTrackSimulation | null;
 }
 
 export interface MiscAsset {

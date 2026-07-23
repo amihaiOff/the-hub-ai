@@ -406,24 +406,57 @@ model MiscAsset {
   @@map("misc_assets")
 }
 
+// Mortgage rate type — drives how a track's rate evolves over time.
+enum MortgageRateType {
+  FIXED // Nominal fixed to payoff.
+  PRIME_LINKED // Rate = current Bank of Israel Prime + spread; changes when Prime changes.
+  VARIABLE_24M // Rate resets every 24 months to (anchor + spread); anchor entered manually at reset.
+}
+
 // Mortgage Track - represents a single track/portion of a mortgage with its own terms
 model MortgageTrack {
   id             String    @id @default(cuid())
   mortgageId     String    @map("mortgage_id")
   name           String // Track name (e.g., "Fixed Rate", "Prime + 1%")
-  amount         Decimal   @db.Decimal(18, 2) // Outstanding balance for this track
-  interestRate   Decimal   @map("interest_rate") @db.Decimal(5, 4) // Annual % for this track
-  monthlyPayment Decimal?  @map("monthly_payment") @db.Decimal(18, 2) // Monthly payment for this track
+  amount         Decimal   @db.Decimal(18, 2) // Outstanding balance for this track (cache; simulation is authoritative)
+  interestRate   Decimal   @map("interest_rate") @db.Decimal(5, 4) // Annual % for this track (current effective)
+  monthlyPayment Decimal?  @map("monthly_payment") @db.Decimal(18, 2) // Monthly payment for this track (Spitzer)
   maturityDate   DateTime? @map("maturity_date") @db.Date // When this track ends
-  sortOrder      Int       @default(0) @map("sort_order") // For ordering tracks
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  // Simulation inputs. Present when a track was set up for auto-updates;
+  // absent when only a static current-balance snapshot was ever entered.
+  originationPrincipal Decimal?           @map("origination_principal") @db.Decimal(18, 2)
+  originationDate      DateTime?          @map("origination_date") @db.Date
+  paymentDay           Int?               @map("payment_day") // 1-28 (avoid 29/30/31 rollover ambiguity)
+  termMonths           Int?               @map("term_months")
+  rateType             MortgageRateType?  @map("rate_type")
+  rateSpread           Decimal?           @map("rate_spread") @db.Decimal(7, 5) // Added to Prime (or anchor) to yield interestRate; 5 fractional digits so 0.00975 stores exactly
+  nextResetDate        DateTime?          @map("next_reset_date") @db.Date // VARIABLE_24M: when the anchor is next reset
+
+  sortOrder Int      @default(0) @map("sort_order") // For ordering tracks
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relation to parent mortgage
   mortgage MiscAsset @relation(fields: [mortgageId], references: [id], onDelete: Cascade)
 
   @@index([mortgageId])
   @@map("mortgage_tracks")
+}
+
+// Market rate history — one row per rate change. Currently used for Bank of
+// Israel Prime, which drives PRIME_LINKED mortgage tracks. A daily cron looks
+// up the current Prime and inserts a new row only when it actually changes.
+model MarketRate {
+  id            String   @id @default(cuid())
+  name          String // e.g., 'BOI_PRIME'
+  rate          Decimal  @db.Decimal(6, 4) // Annual % (e.g., 6.0000 for 6%)
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@unique([name, effectiveFrom])
+  @@index([name, effectiveFrom])
+  @@map("market_rates")
 }
 
 // Net Worth Snapshots - bi-weekly historical records for graph

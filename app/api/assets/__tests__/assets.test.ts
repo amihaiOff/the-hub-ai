@@ -28,6 +28,11 @@ jest.mock('@/lib/db', () => ({
       createMany: jest.fn(),
       deleteMany: jest.fn(),
     },
+    marketRate: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue(null),
+      create: jest.fn(),
+    },
     $transaction: mockTransaction,
   },
 }));
@@ -83,6 +88,10 @@ describe('Assets API', () => {
         mortgageTrack: mockMortgageTrack,
       });
     });
+    // Default marketRate.findMany to empty history so the Prime lookup used
+    // by the summary route doesn't error when a test doesn't care.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ((prisma as any).marketRate.findMany as jest.Mock).mockResolvedValue([]);
   });
 
   describe('GET /api/assets (Summary)', () => {

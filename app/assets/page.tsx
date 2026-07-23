@@ -27,9 +27,7 @@ export default function AssetsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <h1 className="page-title text-4xl font-bold tracking-tight">
-        Assets & Liabilities
-      </h1>
+      <h1 className="page-title text-4xl font-bold tracking-tight">Assets & Liabilities</h1>
 
       {/* Error State */}
       {error && (
