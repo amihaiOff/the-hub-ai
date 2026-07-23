@@ -18,25 +18,31 @@ export function CurrencySelector({ currency, onCurrencyChange, disabled }: Curre
         variant="ghost"
         size="sm"
         onClick={() => onCurrencyChange('ILS')}
+        aria-label="Show values in ILS"
+        title="ILS"
+        aria-pressed={currency === 'ILS'}
         className={cn(
-          'h-7 px-3 text-xs font-medium',
+          'h-7 w-7 p-0 text-sm font-semibold',
           currency === 'ILS' ? 'bg-background shadow-sm' : 'hover:bg-transparent'
         )}
       >
-        ₪ ILS
+        ₪
       </Button>
       <Button
         variant="ghost"
         size="sm"
         onClick={() => onCurrencyChange('USD')}
         disabled={disabled}
+        aria-label="Show values in USD"
+        title="USD"
+        aria-pressed={currency === 'USD'}
         className={cn(
-          'h-7 px-3 text-xs font-medium',
+          'h-7 w-7 p-0 text-sm font-semibold',
           currency === 'USD' ? 'bg-background shadow-sm' : 'hover:bg-transparent',
           disabled && 'cursor-not-allowed opacity-50'
         )}
       >
-        $ USD
+        $
       </Button>
     </div>
   );
