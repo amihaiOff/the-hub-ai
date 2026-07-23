@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CalendarRange, FolderTree, LayoutGrid, Search, X, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { GroupBy } from './task-kanban-view';
 import type { CalendarMode } from './task-calendar-view';
 
@@ -144,9 +145,9 @@ export function TaskToolbar({
       {/* ── Right: view-specific controls + manage categories ──────────── */}
       <div className="ml-auto flex items-center gap-2">
         {view === 'kanban' && (
-          <ExpandingControl
-            active={active === 'group'}
-            onToggle={() => toggle('group')}
+          <PopoverControl
+            open={active === 'group'}
+            onOpenChange={(open) => setActive(open ? 'group' : null)}
             label="Group by"
             icon={<LayoutGrid className="h-4 w-4" />}
           >
@@ -164,13 +165,13 @@ export function TaskToolbar({
                 {opt.label}
               </OptionButton>
             ))}
-          </ExpandingControl>
+          </PopoverControl>
         )}
 
         {view === 'calendar' && onCalendarViewChange && (
-          <ExpandingControl
-            active={active === 'calendar'}
-            onToggle={() => toggle('calendar')}
+          <PopoverControl
+            open={active === 'calendar'}
+            onOpenChange={(open) => setActive(open ? 'calendar' : null)}
             label="Calendar view"
             icon={<CalendarRange className="h-4 w-4" />}
           >
@@ -188,7 +189,7 @@ export function TaskToolbar({
                 {opt.label}
               </OptionButton>
             ))}
-          </ExpandingControl>
+          </PopoverControl>
         )}
 
         {onManageCategories && (
@@ -240,35 +241,47 @@ function IconButton({
   );
 }
 
-/** An icon button that reveals a row of options to its side when active. */
-function ExpandingControl({
-  active,
-  onToggle,
+/**
+ * Icon button that opens its options in a Radix Popover positioned below.
+ * The popover overlays surrounding content instead of pushing it — so the
+ * toolbar never has to wrap when a control expands — and closes on any
+ * outside click, Escape, or focus loss.
+ */
+function PopoverControl({
+  open,
+  onOpenChange,
   label,
   icon,
   children,
 }: {
-  active: boolean;
-  onToggle: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   label: string;
   icon: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-none items-center">
-      <IconButton active={active} expanded={active} label={label} onClick={onToggle}>
-        {icon}
-      </IconButton>
-      <div
-        inert={!active}
-        className={cn(
-          'flex items-center gap-1 overflow-hidden transition-all duration-200',
-          active ? 'ml-1 max-w-[280px] opacity-100' : 'max-w-0 opacity-0'
-        )}
-      >
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          title={label}
+          aria-expanded={open}
+          className={cn(
+            'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition-colors',
+            open
+              ? 'border-primary/40 bg-primary/10 text-primary'
+              : 'border-border/60 bg-background hover:bg-muted/60'
+          )}
+        >
+          {icon}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" sideOffset={6} className="flex w-auto items-center gap-1 p-1">
         {children}
-      </div>
-    </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
