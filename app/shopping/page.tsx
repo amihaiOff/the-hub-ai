@@ -230,7 +230,7 @@ export default function ShoppingPage() {
         <div className="space-y-4">
           {uncheckedGroups.map(([categoryId, group]) => (
             <div key={categoryId}>
-              <h3 className="text-muted-foreground mb-2 px-1 text-xs font-semibold tracking-wide uppercase">
+              <h3 className="text-muted-foreground mb-2 px-1 text-base font-semibold tracking-wide uppercase">
                 {group.categoryName}
               </h3>
               <div className="space-y-1">
@@ -265,7 +265,7 @@ export default function ShoppingPage() {
           <div className="space-y-4">
             {checkedGroups.map(([categoryId, group]) => (
               <div key={categoryId}>
-                <h3 className="text-muted-foreground mb-2 px-1 text-xs font-semibold tracking-wide uppercase">
+                <h3 className="text-muted-foreground mb-2 px-1 text-base font-semibold tracking-wide uppercase">
                   {group.categoryName}
                 </h3>
                 <div className="space-y-1">

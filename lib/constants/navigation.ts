@@ -64,15 +64,7 @@ export const navItems: NavEntry[] = [
   { header: 'Finances' },
   { href: '/portfolio', label: 'Portfolio', icon: TrendingUp },
   { href: '/pension', label: 'Pension', icon: Building2 },
-  {
-    href: '/assets',
-    label: 'Assets',
-    icon: Wallet,
-    subItems: [
-      { href: '/assets', label: 'Overview', icon: LayoutDashboard },
-      { href: '/assets/mortgage-simulator', label: 'Mortgage Simulator', icon: Calculator },
-    ],
-  },
+  { href: '/assets', label: 'Assets', icon: Wallet },
   { href: '/insurance', label: 'Insurance', icon: Shield },
   {
     href: '/budget',
@@ -96,6 +88,7 @@ export const navItems: NavEntry[] = [
     label: 'Labs',
     icon: FlaskConical,
     subItems: [
+      { href: '/assets/mortgage-simulator', label: 'Mortgage Simulator', icon: Calculator },
       { href: '/moneytor-trnx', label: 'Moneytor Trnx', icon: ArrowLeftRight },
       { href: '/labs/dropped-trnx', label: 'Dropped Trnx', icon: Trash2 },
       { href: '/labs/sync-log', label: 'Sync Log', icon: History },
