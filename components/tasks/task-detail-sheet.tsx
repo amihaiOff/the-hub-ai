@@ -338,6 +338,48 @@ function TaskDetailBody({
         </MetaRow>
       </div>
 
+      {/* Sub-tasks — chips that wrap; tap a chip to drill into that task.
+          The "New sub-task" button always sits on its own line at the bottom.
+          Only rendered when the current task is top-level (schema allows one
+          level of nesting). Placed above Notes. */}
+      {canHaveSubtasks && (
+        <div className="border-border/40 space-y-3 border-t pt-5">
+          <h3 className="text-muted-foreground flex items-center gap-2 text-sm font-semibold tracking-[0.2em] uppercase">
+            <ListTree className="h-4 w-4" />
+            Sub-tasks
+          </h3>
+          {subtasks.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {subtasks.map((sub) => (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => onOpenSubtask(sub.id)}
+                  className={cn(
+                    'border-border/60 hover:bg-muted/40 max-w-full rounded-full border px-3 py-1 text-left text-sm break-words transition-colors',
+                    sub.done && 'text-muted-foreground line-through'
+                  )}
+                >
+                  {sub.title || 'Untitled'}
+                </button>
+              ))}
+            </div>
+          )}
+          {/* Own line at the bottom, below any chips. */}
+          <div>
+            <button
+              type="button"
+              onClick={handleCreateSubtask}
+              disabled={createTask.isPending}
+              className="border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/40 flex items-center gap-1.5 rounded-full border border-dashed px-3 py-1 text-sm transition-colors disabled:opacity-60"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New sub-task
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Notes — Tiptap-powered markdown editor. Toolbar (Bold, Italic,
           Strikethrough, Bullet list, Ordered list, Link) drives real
           editor commands; the stored value is markdown. */}
@@ -352,43 +394,6 @@ function TaskDetailBody({
           placeholder="Anything you want to remember about this task…"
         />
       </div>
-
-      {/* Sub-tasks — chips that wrap; tap a chip to drill into that task,
-          tap "New sub-task" to create one and immediately open it. Only
-          rendered when the current task is top-level (schema allows one
-          level of nesting). */}
-      {canHaveSubtasks && (
-        <div className="border-border/40 space-y-3 border-t pt-5">
-          <h3 className="text-muted-foreground flex items-center gap-2 text-sm font-semibold tracking-[0.2em] uppercase">
-            <ListTree className="h-4 w-4" />
-            Sub-tasks
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {subtasks.map((sub) => (
-              <button
-                key={sub.id}
-                type="button"
-                onClick={() => onOpenSubtask(sub.id)}
-                className={cn(
-                  'border-border/60 hover:bg-muted/40 max-w-full rounded-full border px-3 py-1 text-left text-sm break-words transition-colors',
-                  sub.done && 'text-muted-foreground line-through'
-                )}
-              >
-                {sub.title || 'Untitled'}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={handleCreateSubtask}
-              disabled={createTask.isPending}
-              className="border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/40 flex items-center gap-1.5 rounded-full border border-dashed px-3 py-1 text-sm transition-colors disabled:opacity-60"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              New sub-task
-            </button>
-          </div>
-        </div>
-      )}
 
       <div className="border-border/40 border-t pt-4">
         <Button
