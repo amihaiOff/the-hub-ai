@@ -69,6 +69,22 @@ export function AssetCard({ asset }: AssetCardProps) {
   const isDebt = isLiability(asset.type);
   const value = Math.abs(asset.currentValue);
   const hasTracks = asset.mortgageTracks && asset.mortgageTracks.length > 0;
+  // A mortgage whose tracks carry simulation data gets a per-track summary
+  // block (total payment, total interest paid to date) instead of the flat
+  // per-asset APR/monthly readout used by other asset types.
+  const hasSimulatedTracks = !!(
+    asset.type === 'mortgage' && asset.mortgageTracks?.some((t) => t.simulated != null)
+  );
+  const trackTotals = hasSimulatedTracks
+    ? (asset.mortgageTracks ?? []).reduce(
+        (acc, t) => ({
+          monthlyPayment: acc.monthlyPayment + (t.simulated?.monthlyPayment ?? 0),
+          interestPaid: acc.interestPaid + (t.simulated?.interestPaid ?? 0),
+          principalPaid: acc.principalPaid + (t.simulated?.principalPaid ?? 0),
+        }),
+        { monthlyPayment: 0, interestPaid: 0, principalPaid: 0 }
+      )
+    : null;
 
   // Calculate projections based on asset type
   const getProjection = () => {
@@ -193,34 +209,48 @@ export function AssetCard({ asset }: AssetCardProps) {
         {/* Row 2: Details */}
         <CardContent className="px-0 pt-4 pb-0">
           <div className="grid gap-3">
-            {/* Basic info row */}
-            <div className="flex flex-wrap gap-4 text-sm">
-              <div className="text-muted-foreground flex items-center gap-1.5">
-                <Percent className="h-3.5 w-3.5" />
-                <span>{formatInterestRate(asset.interestRate)} APR</span>
-              </div>
-              {asset.monthlyPayment && (
-                <div className="text-muted-foreground flex items-center gap-1.5">
+            {/* Summary row: for simulated mortgages, aggregate across tracks;
+                for everything else, show the flat asset-level fields. */}
+            {trackTotals ? (
+              <div className="text-muted-foreground flex flex-wrap gap-4 text-sm">
+                <div className="flex items-center gap-1.5">
                   <DollarSign className="h-3.5 w-3.5" />
-                  <span>{formatCurrency(asset.monthlyPayment)}/mo payment</span>
+                  <span>{formatCurrency(trackTotals.monthlyPayment)}/mo total</span>
                 </div>
-              )}
-              {asset.monthlyDeposit && (
-                <div className="text-muted-foreground flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5">
                   <TrendingUp className="h-3.5 w-3.5" />
-                  <span>{formatCurrency(asset.monthlyDeposit)}/mo deposit</span>
+                  <span>{formatCurrency(trackTotals.interestPaid)} interest paid</span>
                 </div>
-              )}
-              {asset.maturityDate && (
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-4 text-sm">
                 <div className="text-muted-foreground flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5" />
-                  <span>{formatDate(asset.maturityDate)}</span>
+                  <Percent className="h-3.5 w-3.5" />
+                  <span>{formatInterestRate(asset.interestRate)} APR</span>
                 </div>
-              )}
-            </div>
+                {asset.monthlyPayment && (
+                  <div className="text-muted-foreground flex items-center gap-1.5">
+                    <DollarSign className="h-3.5 w-3.5" />
+                    <span>{formatCurrency(asset.monthlyPayment)}/mo payment</span>
+                  </div>
+                )}
+                {asset.monthlyDeposit && (
+                  <div className="text-muted-foreground flex items-center gap-1.5">
+                    <TrendingUp className="h-3.5 w-3.5" />
+                    <span>{formatCurrency(asset.monthlyDeposit)}/mo deposit</span>
+                  </div>
+                )}
+                {asset.maturityDate && (
+                  <div className="text-muted-foreground flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5" />
+                    <span>{formatDate(asset.maturityDate)}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
-            {/* Projection row */}
-            {projection && (
+            {/* Projection row (skipped when we're already showing per-track totals) */}
+            {projection && !trackTotals && (
               <div className="bg-muted/50 rounded-lg p-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">{projection.label}</span>
@@ -266,18 +296,31 @@ export function AssetCard({ asset }: AssetCardProps) {
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-2 pt-2">
                   {asset.mortgageTracks.map((track) => {
-                    const trackInterest = calculateTrackInterest(track);
-                    const trackPayoff = calculateTrackPayoffDate(track);
+                    const sim = track.simulated;
+                    const trackInterest = sim?.interestPaid ?? calculateTrackInterest(track);
+                    const trackPayoff = sim?.nextPaymentDate
+                      ? null // For simulated tracks we show next-payment instead of payoff estimate
+                      : calculateTrackPayoffDate(track);
                     return (
                       <div key={track.id} className="bg-muted/30 rounded-lg p-3 text-sm">
-                        <div className="flex items-start justify-between">
-                          <div>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
                             <div className="font-medium">{track.name}</div>
-                            <div className="text-muted-foreground mt-1 flex flex-wrap gap-3 text-xs">
-                              <span>{formatCurrency(track.amount)}</span>
+                            <div className="text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                              <span className="font-mono tabular-nums">
+                                {formatCurrency(track.amount)}
+                              </span>
                               <span>{formatInterestRate(track.interestRate)}</span>
                               {track.monthlyPayment && (
-                                <span>{formatCurrency(track.monthlyPayment)}/mo</span>
+                                <span className="font-mono tabular-nums">
+                                  {formatCurrency(track.monthlyPayment)}/mo
+                                </span>
+                              )}
+                              {sim && (
+                                <span>
+                                  {sim.paymentsMade} paid · {formatCurrency(sim.principalPaid)}{' '}
+                                  principal
+                                </span>
                               )}
                             </div>
                           </div>
@@ -287,7 +330,17 @@ export function AssetCard({ asset }: AssetCardProps) {
                                 +{formatCurrency(trackInterest)} int.
                               </div>
                             )}
-                            {trackPayoff && (
+                            {sim?.nextPaymentDate && (
+                              <div className="text-muted-foreground">
+                                Next: {formatDate(sim.nextPaymentDate)}
+                              </div>
+                            )}
+                            {sim?.nextResetDate && (
+                              <div className="text-muted-foreground">
+                                Reset: {formatDate(sim.nextResetDate)}
+                              </div>
+                            )}
+                            {trackPayoff && !sim && (
                               <div className="text-muted-foreground">
                                 Payoff: {formatDate(trackPayoff)}
                               </div>
