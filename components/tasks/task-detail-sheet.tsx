@@ -2,11 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ArrowLeft,
   Calendar as CalendarIcon,
   CircleDot,
   Flag,
   FolderTree,
+  ListTree,
   Loader2,
+  Plus,
   Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -24,6 +27,8 @@ import {
 } from '@/components/ui/select';
 import {
   useTask,
+  useTasks,
+  useCreateTask,
   useUpdateTask,
   useDeleteTask,
   type TaskCategoryRow,
@@ -53,42 +58,109 @@ const PRIORITY_PILL: Record<TaskRow['priority'], string> = {
 };
 
 export function TaskDetailSheet({ taskId, onOpenChange, categories }: TaskDetailSheetProps) {
-  const { data: task, isLoading } = useTask(taskId);
   const open = !!taskId;
-
-  // Browser Back closes the sheet in-app instead of leaving the tasks page.
-  const close = useCallback(() => onOpenChange(false), [onOpenChange]);
-  useBackToClose(open, close);
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
         className="w-full overflow-y-auto rounded-l-3xl p-6 pt-12 sm:max-w-lg"
       >
-        {isLoading || !task ? (
-          <div className="text-muted-foreground flex items-center gap-2 text-sm">
-            <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-          </div>
-        ) : (
-          <TaskDetailBody key={task.id} task={task} categories={categories} onDeleted={close} />
+        {taskId && (
+          // Keyed by the root taskId so the internal nav stack resets when
+          // the parent opens the sheet on a different task — much simpler
+          // than a prop-derived useEffect reset.
+          <SheetInner
+            key={taskId}
+            rootTaskId={taskId}
+            categories={categories}
+            onClose={() => onOpenChange(false)}
+          />
         )}
       </SheetContent>
     </Sheet>
   );
 }
 
+function SheetInner({
+  rootTaskId,
+  categories,
+  onClose,
+}: {
+  rootTaskId: string;
+  categories: TaskCategoryRow[];
+  onClose: () => void;
+}) {
+  const [stack, setStack] = useState<string[]>([]);
+  const [currentId, setCurrentId] = useState<string>(rootTaskId);
+  const { data: task, isLoading } = useTask(currentId);
+
+  const pushChild = useCallback(
+    (childId: string) => {
+      setStack((s) => [...s, currentId]);
+      setCurrentId(childId);
+    },
+    [currentId]
+  );
+
+  const popToParent = useCallback(() => {
+    setStack((s) => {
+      if (s.length === 0) {
+        onClose();
+        return s;
+      }
+      const next = [...s];
+      const parent = next.pop()!;
+      setCurrentId(parent);
+      return next;
+    });
+  }, [onClose]);
+
+  // Browser Back mirrors the on-screen back arrow: pop the stack first,
+  // close the sheet only when there's nothing left to pop.
+  useBackToClose(true, popToParent);
+
+  if (isLoading || !task) {
+    return (
+      <div className="text-muted-foreground flex items-center gap-2 text-sm">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+      </div>
+    );
+  }
+  return (
+    <TaskDetailBody
+      key={task.id}
+      task={task}
+      categories={categories}
+      canGoBack={stack.length > 0}
+      onGoBack={popToParent}
+      onOpenSubtask={pushChild}
+      onDeleted={popToParent}
+    />
+  );
+}
+
 function TaskDetailBody({
   task,
   categories,
+  canGoBack,
+  onGoBack,
+  onOpenSubtask,
   onDeleted,
 }: {
   task: TaskRow;
   categories: TaskCategoryRow[];
+  canGoBack: boolean;
+  onGoBack: () => void;
+  onOpenSubtask: (id: string) => void;
   onDeleted: () => void;
 }) {
   const update = useUpdateTask();
   const del = useDeleteTask();
+  const createTask = useCreateTask();
+  // Only top-level tasks can host sub-tasks (schema invariant: one level deep).
+  const canHaveSubtasks = task.parentTaskId == null;
+  const subtasksQuery = useTasks(canHaveSubtasks ? { parentTaskId: task.id } : undefined);
+  const subtasks = canHaveSubtasks ? (subtasksQuery.data ?? []) : [];
 
   const [title, setTitle] = useState(task.title);
   const [notes, setNotes] = useState(task.notes ?? '');
@@ -134,8 +206,34 @@ function TaskDetailBody({
     return () => flushNotes();
   }, []);
 
+  const handleCreateSubtask = () => {
+    createTask.mutate(
+      {
+        title: '',
+        parentTaskId: task.id,
+        priority: 'MEDIUM',
+        // Inherit the parent's category so a fresh sub-task lands in the
+        // same swim lane; the user can change it inside the child.
+        categoryId: task.categoryId ?? undefined,
+      },
+      {
+        onSuccess: (created) => onOpenSubtask(created.id),
+      }
+    );
+  };
+
   return (
     <div className="space-y-5">
+      {canGoBack && (
+        <button
+          type="button"
+          onClick={onGoBack}
+          className="text-muted-foreground hover:text-foreground -ml-1 flex items-center gap-1.5 text-xs font-medium"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to parent
+        </button>
+      )}
       {/* Title — textarea so a long title wraps on mobile instead of
           horizontally overflowing. field-sizing-content grows the box to
           fit the content (Tailwind v4 utility), and Enter still commits
@@ -251,6 +349,43 @@ function TaskDetailBody({
           placeholder="Anything you want to remember about this task…"
         />
       </div>
+
+      {/* Sub-tasks — chips that wrap; tap a chip to drill into that task,
+          tap "New sub-task" to create one and immediately open it. Only
+          rendered when the current task is top-level (schema allows one
+          level of nesting). */}
+      {canHaveSubtasks && (
+        <div className="border-border/40 space-y-3 border-t pt-5">
+          <h3 className="text-muted-foreground flex items-center gap-2 text-sm font-semibold tracking-[0.2em] uppercase">
+            <ListTree className="h-4 w-4" />
+            Sub-tasks
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {subtasks.map((sub) => (
+              <button
+                key={sub.id}
+                type="button"
+                onClick={() => onOpenSubtask(sub.id)}
+                className={cn(
+                  'border-border/60 hover:bg-muted/40 max-w-full rounded-full border px-3 py-1 text-left text-sm break-words transition-colors',
+                  sub.done && 'text-muted-foreground line-through'
+                )}
+              >
+                {sub.title || 'Untitled'}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={handleCreateSubtask}
+              disabled={createTask.isPending}
+              className="border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/40 flex items-center gap-1.5 rounded-full border border-dashed px-3 py-1 text-sm transition-colors disabled:opacity-60"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New sub-task
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="border-border/40 border-t pt-4">
         <Button

@@ -325,7 +325,7 @@ function Column({
             <DraggableKanbanCard
               key={task.id}
               task={task}
-              onOpen={() => onOpenTask(task.id)}
+              onOpenTask={onOpenTask}
               groupBy={groupBy}
               selectionMode={selectionMode}
               selected={selectedIds.has(task.id)}
@@ -348,7 +348,7 @@ function Column({
 
 function DraggableKanbanCard({
   task,
-  onOpen,
+  onOpenTask,
   groupBy,
   selectionMode,
   selected,
@@ -356,13 +356,17 @@ function DraggableKanbanCard({
   onToggleSelection,
 }: {
   task: TaskRow;
-  onOpen: () => void;
+  onOpenTask: (id: string) => void;
   groupBy: GroupBy;
   selectionMode: boolean;
   selected: boolean;
   onEnterSelection: () => void;
   onToggleSelection: () => void;
 }) {
+  const onOpen = () => onOpenTask(task.id);
+  const [subtasksOpen, setSubtasksOpen] = useState(false);
+  const subtasks = task.children ?? [];
+  const subtaskCount = subtasks.length;
   // Dragging stays enabled in selection mode: a tap toggles selection, a drag
   // moves the card.
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -481,6 +485,60 @@ function DraggableKanbanCard({
               <span className="bg-muted/70 flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold">
                 {initials(task.assignee.name)}
               </span>
+            </div>
+          )}
+          {/* Sub-task collapsible — a chevron toggles a list of child titles
+              with a priority dot each. Click a title to open that child's
+              detail sheet directly. Stops propagation so tapping the chevron
+              or a child doesn't also trigger the parent-card open gesture. */}
+          {subtaskCount > 0 && (
+            <div className="border-border/40 mt-3 border-t pt-2">
+              <button
+                type="button"
+                aria-expanded={subtasksOpen}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSubtasksOpen((v) => !v);
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-[11px] font-medium"
+              >
+                <ChevronRight
+                  className={cn('h-3.5 w-3.5 transition-transform', subtasksOpen && 'rotate-90')}
+                />
+                <span>
+                  {subtaskCount} sub-task{subtaskCount === 1 ? '' : 's'}
+                </span>
+              </button>
+              {subtasksOpen && (
+                <ul className="mt-1.5 space-y-1">
+                  {subtasks.map((sub) => (
+                    <li key={sub.id}>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenTask(sub.id);
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className={cn(
+                          'hover:bg-muted/60 flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-xs',
+                          sub.done && 'text-muted-foreground line-through'
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            'inline-block h-1.5 w-1.5 shrink-0 rounded-full',
+                            PRIORITY_DOT[sub.priority]
+                          )}
+                          aria-label={`Priority ${sub.priority.toLowerCase()}`}
+                        />
+                        <span className="truncate">{sub.title || 'Untitled'}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
         </div>
