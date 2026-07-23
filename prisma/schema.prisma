@@ -430,7 +430,7 @@ model MortgageTrack {
   paymentDay           Int?               @map("payment_day") // 1-28 (avoid 29/30/31 rollover ambiguity)
   termMonths           Int?               @map("term_months")
   rateType             MortgageRateType?  @map("rate_type")
-  rateSpread           Decimal?           @map("rate_spread") @db.Decimal(5, 4) // Added to Prime (or anchor) to yield interestRate
+  rateSpread           Decimal?           @map("rate_spread") @db.Decimal(7, 5) // Added to Prime (or anchor) to yield interestRate; 5 fractional digits so 0.00975 stores exactly
   nextResetDate        DateTime?          @map("next_reset_date") @db.Date // VARIABLE_24M: when the anchor is next reset
 
   sortOrder Int      @default(0) @map("sort_order") // For ordering tracks
