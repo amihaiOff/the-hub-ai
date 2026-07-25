@@ -46,15 +46,21 @@ export function UndoRedoBar({
   return createPortal(
     <div
       className={cn(
-        'safe-px pointer-events-none fixed left-0 z-40 pl-3 lg:hidden',
-        // When a bottom tab bar is present, sit above it; otherwise flush to the
-        // bottom (clearing the iOS home indicator via safe-pb). bottom-24 clears
-        // the tab bar's height plus its toolbar-clearance padding.
-        liftAboveTabBar ? 'bottom-24' : 'safe-pb bottom-0 pb-3'
+        // Flush to the left screen edge (no inset) so the pill's left border
+        // sits at x=0.
+        'pointer-events-none fixed left-0 z-40 lg:hidden',
+        // Sit flush on top of the tab bar's divider. The tab bar is a constant
+        // ~3.5rem tall (content + its max(1rem, inset) bottom clearance, which
+        // stays 1rem on phones where the inset is < 1rem), so bottom-14 (3.5rem)
+        // keeps the pill locked to the divider in both toolbar states. Without a
+        // tab bar, flush to the bottom instead.
+        liftAboveTabBar ? 'bottom-14' : 'safe-pb bottom-0 pb-3'
       )}
       aria-label="Undo and redo"
     >
-      <div className="border-border/60 bg-card/90 pointer-events-auto flex items-center gap-0.5 rounded-xl border p-0.5 shadow-lg backdrop-blur-md">
+      {/* Square left corners so the left border reads as a clean vertical line
+          flush with the screen edge; rounded on the right only. */}
+      <div className="border-border/60 bg-card/90 pointer-events-auto flex items-center gap-0.5 rounded-l-none rounded-r-xl border p-0.5 shadow-lg backdrop-blur-md">
         <ArrowButton
           label="Undo"
           disabled={!canUndo}
