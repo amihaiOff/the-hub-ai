@@ -61,14 +61,28 @@ export async function POST(request: NextRequest) {
       select: { sortOrder: true },
     });
 
+    // A page always has at least one tab; content lives on the tab. The initial
+    // tab seeds from any content passed on create (kept for backward compat).
     const created = await prisma.page.create({
       data: {
         title: input.title ?? '',
         emoji: input.emoji ?? null,
-        content: input.content ? (input.content as Prisma.InputJsonValue) : Prisma.JsonNull,
         sortOrder: (top?.sortOrder ?? 0) - 1,
         ownerId: context.user.id,
         householdId: context.activeHousehold.id,
+        tabs: {
+          create: {
+            title: '',
+            content: input.content ? (input.content as Prisma.InputJsonValue) : Prisma.JsonNull,
+            sortOrder: 0,
+          },
+        },
+      },
+      include: {
+        tabs: {
+          orderBy: { sortOrder: 'asc' },
+          select: { id: true, title: true, content: true, sortOrder: true },
+        },
       },
     });
     return NextResponse.json({ success: true, data: created }, { status: 201 });

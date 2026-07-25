@@ -78,6 +78,7 @@ const mockPrisma = {
   task: { ...createMockFns('task'), update: jest.fn() },
   taskShare: createMockFns('taskShare'),
   page: createMockFns('page'),
+  pageTab: createMockFns('pageTab'),
 };
 
 jest.mock('@/lib/db', () => ({
@@ -819,6 +820,107 @@ describe('Restore API', () => {
       // budgetTag must be inserted before budgetTransactionTag
       const budgetTagIndex = createOps.indexOf('create:budgetTag');
       expect(budgetTagIndex).toBeLessThan(budgetTransactionTagIndex);
+    });
+
+    it('backfills a tab from page.content when restoring a pre-2.4 backup (no page_tabs.json)', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+      const pageContent = { type: 'doc', content: [{ type: 'paragraph' }] };
+      const metadata = {
+        schemaVersion: '2.3', // predates page_tabs
+        backupDate: '2024-01-01T00:00:00.000Z',
+        createdBy: 'test@example.com',
+        counts: {},
+      };
+      // A 2.3 backup carries pages but NO page_tabs.json.
+      const data = {
+        pages: [
+          {
+            id: 'page-1',
+            title: 'Legacy',
+            emoji: null,
+            content: pageContent,
+            sortOrder: 0,
+            ownerId: 'user-1',
+            householdId: 'household-1',
+            createdAt: '2024-01-01T00:00:00.000Z',
+            updatedAt: '2024-01-01T00:00:00.000Z',
+          },
+        ],
+      };
+
+      const blob = await createBackupZip(metadata, data);
+      const formData = new FormData();
+      formData.append('file', blob, 'backup.zip');
+      const request = new NextRequest('http://localhost/api/restore', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+
+      // Exactly one tab synthesized, seeded from the page's legacy content.
+      const tabCreates = (mockPrisma.pageTab.create as jest.Mock).mock.calls;
+      expect(tabCreates).toHaveLength(1);
+      expect(tabCreates[0][0].data.pageId).toBe('page-1');
+      expect(tabCreates[0][0].data.content).toEqual(pageContent);
+      expect(tabCreates[0][0].data.sortOrder).toBe(0);
+    });
+
+    it('does not backfill a tab when the backup already carries page_tabs', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+      const metadata = {
+        schemaVersion: '2.4',
+        backupDate: '2024-01-01T00:00:00.000Z',
+        createdBy: 'test@example.com',
+        counts: {},
+      };
+      const data = {
+        pages: [
+          {
+            id: 'page-1',
+            title: 'Modern',
+            emoji: null,
+            content: null,
+            sortOrder: 0,
+            ownerId: 'user-1',
+            householdId: 'household-1',
+            createdAt: '2024-01-01T00:00:00.000Z',
+            updatedAt: '2024-01-01T00:00:00.000Z',
+          },
+        ],
+        page_tabs: [
+          {
+            id: 'tab-1',
+            pageId: 'page-1',
+            title: 'Main',
+            content: { type: 'doc', content: [] },
+            sortOrder: 0,
+            createdAt: '2024-01-01T00:00:00.000Z',
+            updatedAt: '2024-01-01T00:00:00.000Z',
+          },
+        ],
+      };
+
+      const blob = await createBackupZip(metadata, data);
+      const formData = new FormData();
+      formData.append('file', blob, 'backup.zip');
+      const request = new NextRequest('http://localhost/api/restore', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+
+      // Only the explicit tab is created — no backfill for an already-tabbed page.
+      const tabCreates = (mockPrisma.pageTab.create as jest.Mock).mock.calls;
+      expect(tabCreates).toHaveLength(1);
+      expect(tabCreates[0][0].data.id).toBe('tab-1');
     });
 
     it('should restore all extended tables with optional fields present', async () => {

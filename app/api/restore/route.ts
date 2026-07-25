@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
       '2.1',
       '2.2',
       '2.3',
+      '2.4',
     ];
     if (!supportedVersions.includes(metadata.schemaVersion)) {
       return NextResponse.json(
@@ -170,6 +171,8 @@ export async function POST(request: NextRequest) {
     const generalLogs = await parseFile<Record<string, unknown>>('general_logs.json');
     // Schema version 2.3+ (empty for older backups).
     const pages = await parseFile<Record<string, unknown>>('pages.json');
+    // Schema version 2.4+ (empty for older backups).
+    const pageTabs = await parseFile<Record<string, unknown>>('page_tabs.json');
 
     // Execute operations sequentially without transaction
     // Neon serverless doesn't support long-running transactions well
@@ -183,7 +186,8 @@ export async function POST(request: NextRequest) {
     await prisma.task.deleteMany();
     await prisma.taskTag.deleteMany();
     await prisma.taskCategory.deleteMany();
-    // Pages (Areas documents)
+    // Pages (Areas documents) — tabs are children, delete them first.
+    await prisma.pageTab.deleteMany();
     await prisma.page.deleteMany();
     // Household-scoped leaf tables added to the backup in the 2.x line
     await prisma.partnerContact.deleteMany();
@@ -1132,6 +1136,40 @@ export async function POST(request: NextRequest) {
           sortOrder: pg.sortOrder as number,
           ownerId: pg.ownerId as string,
           householdId: pg.householdId as string,
+          createdAt: new Date(pg.createdAt as string),
+          updatedAt: new Date(pg.updatedAt as string),
+        },
+      });
+    }
+
+    // 46. Page Tabs (children of pages — after pages)
+    for (const tab of pageTabs) {
+      await prisma.pageTab.create({
+        data: {
+          id: tab.id as string,
+          pageId: tab.pageId as string,
+          title: (tab.title as string) ?? '',
+          content: (tab.content as object) ?? undefined,
+          sortOrder: tab.sortOrder as number,
+          createdAt: new Date(tab.createdAt as string),
+          updatedAt: new Date(tab.updatedAt as string),
+        },
+      });
+    }
+
+    // 46b. Backfill tabs for pages that have none. Pre-2.4 backups predate the
+    // page_tabs table, so their pages carry content on `page.content` with no
+    // tab rows. Mirror the DB migration's backfill so every restored page keeps
+    // at least one tab (and its content stays reachable in the editor).
+    const pagesWithTabs = new Set(pageTabs.map((t) => t.pageId as string));
+    for (const pg of pages) {
+      if (pagesWithTabs.has(pg.id as string)) continue;
+      await prisma.pageTab.create({
+        data: {
+          pageId: pg.id as string,
+          title: '',
+          content: (pg.content as object) ?? undefined,
+          sortOrder: 0,
           createdAt: new Date(pg.createdAt as string),
           updatedAt: new Date(pg.updatedAt as string),
         },

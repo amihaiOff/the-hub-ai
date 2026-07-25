@@ -17,6 +17,12 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
   const page = await prisma.page.findFirst({
     where: { id, householdId: context.activeHousehold.id },
+    include: {
+      tabs: {
+        orderBy: { sortOrder: 'asc' },
+        select: { id: true, title: true, content: true, sortOrder: true },
+      },
+    },
   });
   if (!page) {
     return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });

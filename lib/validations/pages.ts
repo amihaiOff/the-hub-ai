@@ -31,3 +31,17 @@ export const updatePageSchema = z.object({
   sortOrder: z.number().int().optional(),
 });
 export type UpdatePageInput = z.infer<typeof updatePageSchema>;
+
+/** A tab within a page — its own title + Tiptap content. */
+export const createPageTabSchema = z.object({
+  title: z.string().trim().max(200).optional(),
+  content: pageContentSchema.optional().nullable(),
+});
+export type CreatePageTabInput = z.infer<typeof createPageTabSchema>;
+
+export const updatePageTabSchema = z.object({
+  title: z.string().trim().max(200).optional(),
+  content: pageContentSchema.optional().nullable(),
+  sortOrder: z.number().int().optional(),
+});
+export type UpdatePageTabInput = z.infer<typeof updatePageTabSchema>;

@@ -1329,10 +1329,28 @@ model Page {
 
   owner     User      @relation("PageOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  tabs      PageTab[]
 
   @@index([householdId])
   @@index([householdId, sortOrder])
   @@map("pages")
+}
+
+// A tab within a Page. Each tab owns its own Tiptap JSON document; a page
+// always has at least one. (Page.content is legacy — content now lives here.)
+model PageTab {
+  id        String   @id @default(cuid())
+  pageId    String   @map("page_id")
+  title     String   @default("")
+  content   Json? // Tiptap JSON document. Null until the user types anything.
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId, sortOrder])
+  @@map("page_tabs")
 }
 
 // Household-scoped single-select category. Each task belongs to at most one

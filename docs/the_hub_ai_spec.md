@@ -130,10 +130,10 @@ Rules live on the Payees page in a tabbed UI (Payees / Rules tabs). Each rule ha
 ### Backup/Restore
 
 `GET /api/backup` produces a ZIP with one JSON file per table plus `metadata.json`
-(current `schemaVersion: 2.3`). `POST /api/restore` wipes the database and
+(current `schemaVersion: 2.4`). `POST /api/restore` wipes the database and
 re-inserts everything from a ZIP, in dependency order. Backup and restore are
 kept in lockstep — every table the backup captures is also restored, including
-the **Areas `pages`**, the full **tasks** module (tasks + categories, tags,
+the **Areas `pages`** and their **`page_tabs`**, the full **tasks** module (tasks + categories, tags,
 shares), partner contacts, budget account names, cc-generic payee names,
 moneytor real-estate (+snapshots), moneytor sync/drop logs, and general logs.
 Payee category rules are included too (`payee_category_rules.json`, schema 1.2+).
@@ -594,13 +594,29 @@ mobile, spans the full screen width so it reads as embedded in the page.
 `BLOB_READ_WRITE_TOKEN`) via the toolbar button or by pasting/dropping an image;
 if uploads aren't configured the editor falls back to embedding an image URL.
 
-**Storage:** content is persisted as a Tiptap/ProseMirror JSON document on the
-`pages` table (`title`, `emoji`, `content` JSONB, `sort_order`, `owner_id`,
-`household_id`). Title/emoji and body edits autosave (debounced) via
-`PATCH /api/pages/[id]`. New pages sort to the top of the Areas list.
+**Tabs:** a page holds one or more **tabs**, each with its own independent body
+document. Every page always has at least one tab. Tabs are managed from the ⋮
+menu — **Add tab** creates a new empty tab and switches to it; **Manage tabs…**
+opens a dialog to rename inline, reorder (move up/down), delete, or add. A page's
+last tab can't be deleted. When a page has two or more tabs, a **bottom tab bar**
+(styled like the budget section's, cleared to the right of the desktop sidebar)
+lets you switch between them; a single-tab page shows no bar. Switching tabs
+flushes the previous tab's pending autosave before loading the next, and each
+tab's body remounts on switch to preserve the "read once" editor invariant.
+
+**Storage:** each tab's content is persisted as a Tiptap/ProseMirror JSON
+document on the `page_tabs` table (`page_id`, `title`, `content` JSONB,
+`sort_order`), cascade-deleted with the owning page. The `pages` table holds page
+metadata (`title`, `emoji`, `sort_order`, `owner_id`, `household_id`) plus a
+legacy `content` column retained for backfill history. Title/emoji autosave
+(debounced) via `PATCH /api/pages/[id]`; tab body edits autosave via
+`PATCH /api/pages/[id]/tabs/[tabId]`. New pages sort to the top of the Areas list
+and are created with one initial empty tab.
 
 **Routes:** `/areas/[id]` renders a page in the app shell.
-`GET/POST /api/pages`, `GET/PATCH/DELETE /api/pages/[id]`, `POST /api/pages/upload`.
+`GET/POST /api/pages`, `GET/PATCH/DELETE /api/pages/[id]`,
+`POST /api/pages/[id]/tabs`, `PATCH/DELETE /api/pages/[id]/tabs/[tabId]`,
+`POST /api/pages/upload`.
 
 # Development & Deployment
 

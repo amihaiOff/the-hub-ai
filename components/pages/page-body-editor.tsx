@@ -68,6 +68,8 @@ interface PageBodyEditorProps {
   initialContent: unknown;
   /** Fired (debounced by the parent) with the latest JSON document. */
   onChange: (doc: unknown) => void;
+  /** When a bottom tab bar is shown, lift the floating undo pill above it. */
+  hasBottomTabBar?: boolean;
 }
 
 /**
@@ -76,7 +78,11 @@ interface PageBodyEditorProps {
  * keys this component on the page id, so it mounts fresh per page and we read
  * `initialContent` once instead of resetting on every keystroke.
  */
-export function PageBodyEditor({ initialContent, onChange }: PageBodyEditorProps) {
+export function PageBodyEditor({
+  initialContent,
+  onChange,
+  hasBottomTabBar = false,
+}: PageBodyEditorProps) {
   const editor = useEditor({
     extensions: [
       // Our CollapsibleHeading replaces StarterKit's default Heading so
@@ -200,7 +206,7 @@ export function PageBodyEditor({ initialContent, onChange }: PageBodyEditorProps
       <MobileBlockDragHandle editor={editor} />
       {/* Floating undo/redo arrows for touch users. Ctrl/Cmd-Z still works
           on desktop via Tiptap's built-in history keymap. */}
-      <UndoRedoBar editor={editor} />
+      <UndoRedoBar editor={editor} liftAboveTabBar={hasBottomTabBar} />
     </div>
   );
 }

@@ -12,7 +12,13 @@ import { cn } from '@/lib/utils';
  * Tiptap history, so this bar exists purely to give touch users the same
  * gesture without needing a physical keyboard.
  */
-export function UndoRedoBar({ editor }: { editor: Editor | null }) {
+export function UndoRedoBar({
+  editor,
+  liftAboveTabBar = false,
+}: {
+  editor: Editor | null;
+  liftAboveTabBar?: boolean;
+}) {
   // Tiptap's editor.can().undo() only re-evaluates on transactions — but
   // React doesn't rerender when Tiptap state changes unless we subscribe.
   const [, force] = useState(0);
@@ -33,23 +39,28 @@ export function UndoRedoBar({ editor }: { editor: Editor | null }) {
 
   return (
     <div
-      className="safe-pb pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center pb-3 lg:hidden"
+      className={cn(
+        'safe-px pointer-events-none fixed left-0 z-40 pl-3 lg:hidden',
+        // When a bottom tab bar is present, sit above it; otherwise flush to the
+        // bottom (clearing the iOS home indicator via safe-pb).
+        liftAboveTabBar ? 'bottom-16' : 'safe-pb bottom-0 pb-3'
+      )}
       aria-label="Undo and redo"
     >
-      <div className="border-border/60 bg-card/90 pointer-events-auto flex items-center gap-1 rounded-2xl border p-1 shadow-lg backdrop-blur-md">
+      <div className="border-border/60 bg-card/90 pointer-events-auto flex items-center gap-0.5 rounded-xl border p-0.5 shadow-lg backdrop-blur-md">
         <ArrowButton
           label="Undo"
           disabled={!canUndo}
           onClick={() => editor.chain().focus().undo().run()}
         >
-          <Undo2 className="h-5 w-5" />
+          <Undo2 className="h-4 w-4" />
         </ArrowButton>
         <ArrowButton
           label="Redo"
           disabled={!canRedo}
           onClick={() => editor.chain().focus().redo().run()}
         >
-          <Redo2 className="h-5 w-5" />
+          <Redo2 className="h-4 w-4" />
         </ArrowButton>
       </div>
     </div>
@@ -75,7 +86,7 @@ function ArrowButton({
       aria-label={label}
       title={label}
       className={cn(
-        'flex h-11 w-11 items-center justify-center rounded-xl transition-colors',
+        'flex h-10 w-10 items-center justify-center rounded-lg transition-colors',
         disabled
           ? 'text-muted-foreground/40 cursor-not-allowed'
           : 'text-foreground hover:bg-muted/60'

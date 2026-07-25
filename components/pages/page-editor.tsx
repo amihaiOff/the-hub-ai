@@ -2,12 +2,20 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, MoreHorizontal, Trash2 } from 'lucide-react';
-import { usePage, useUpdatePage, useDeletePage } from '@/lib/hooks/use-pages';
+import { Loader2, MoreHorizontal, Plus, Trash2, ListTree } from 'lucide-react';
+import {
+  usePage,
+  useUpdatePage,
+  useDeletePage,
+  useCreatePageTab,
+  useUpdatePageTab,
+  type PageTabRow,
+} from '@/lib/hooks/use-pages';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -22,6 +30,8 @@ import { Button } from '@/components/ui/button';
 import type { UpdatePageInput } from '@/lib/validations/pages';
 import { EmojiPicker } from './emoji-picker';
 import { PageBodyEditor } from './page-body-editor';
+import { PageTabBar } from './page-tab-bar';
+import { ManageTabsDialog } from './manage-tabs-dialog';
 
 const SAVE_MS = 700;
 
@@ -30,23 +40,31 @@ export function PageEditor({ pageId }: { pageId: string }) {
   const { data: page, isLoading, error } = usePage(pageId);
   const update = useUpdatePage();
   const del = useDeletePage();
+  const createTab = useCreatePageTab();
+  const updateTab = useUpdatePageTab();
 
   const [title, setTitle] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
-  // Seed the local title when the page loads / changes, tracked by id so
-  // switching pages re-seeds without fighting the controlled input while
-  // typing. This is React's "adjust state during render" pattern (state, not a
-  // ref, so it's render-safe).
+  const [manageOpen, setManageOpen] = useState(false);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+
+  // Seed local title + the active tab when the page loads / changes (tracked by
+  // id so switching pages re-seeds without fighting in-flight edits). React's
+  // "adjust state during render" pattern.
   const [seededId, setSeededId] = useState<string | null>(null);
   if (page && seededId !== page.id) {
     setSeededId(page.id);
     setTitle(page.title);
+    setActiveTabId(page.tabs[0]?.id ?? null);
   }
 
-  // Debounced autosave. A single pending patch (per page id) is merged and
-  // flushed on a timer — or immediately when the page changes / unmounts, so a
-  // fast navigation never drops the last edit. Refs are only touched in event
-  // handlers / effects (never during render).
+  const tabs = page?.tabs ?? [];
+  // Resolve the active tab defensively — falls back to the first tab if the
+  // current selection was deleted.
+  const activeTab: PageTabRow | undefined = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
+  const activeTabIdResolved = activeTab?.id ?? null;
+
+  // ── Page-level autosave (title / emoji) ────────────────────────────────
   const pending = useRef<{ id: string; patch: UpdatePageInput } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -62,7 +80,6 @@ export function PageEditor({ pageId }: { pageId: string }) {
 
   const schedule = useCallback(
     (patch: UpdatePageInput) => {
-      // If a different page has an unsaved edit, flush it before queuing this one.
       if (pending.current && pending.current.id !== pageId) flush();
       pending.current = { id: pageId, patch: { ...pending.current?.patch, ...patch } };
       if (timer.current) clearTimeout(timer.current);
@@ -71,9 +88,6 @@ export function PageEditor({ pageId }: { pageId: string }) {
     [pageId, flush]
   );
 
-  // Flush the outgoing page's pending edit when the id changes or on unmount.
-  // A ref indirection keeps the effect from depending on `flush` (whose
-  // identity changes each render) so it only fires on a real page switch.
   const flushRef = useRef(flush);
   useEffect(() => {
     flushRef.current = flush;
@@ -88,14 +102,62 @@ export function PageEditor({ pageId }: { pageId: string }) {
     [schedule]
   );
 
-  const saveContent = useCallback((doc: unknown) => schedule({ content: doc }), [schedule]);
+  // ── Tab-content autosave (per active tab) ──────────────────────────────
+  const tabPending = useRef<{ pageId: string; tabId: string; content: unknown } | null>(null);
+  const tabTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushTab = useCallback(() => {
+    if (tabTimer.current) {
+      clearTimeout(tabTimer.current);
+      tabTimer.current = null;
+    }
+    const p = tabPending.current;
+    tabPending.current = null;
+    if (p) updateTab.mutate({ pageId: p.pageId, tabId: p.tabId, patch: { content: p.content } });
+  }, [updateTab]);
+
+  const saveTabContent = useCallback(
+    (doc: unknown) => {
+      const tabId = activeTabIdResolved;
+      if (!tabId) return;
+      // Flush a pending edit for a different tab before queuing this one.
+      if (tabPending.current && tabPending.current.tabId !== tabId) flushTab();
+      tabPending.current = { pageId, tabId, content: doc };
+      if (tabTimer.current) clearTimeout(tabTimer.current);
+      tabTimer.current = setTimeout(flushTab, SAVE_MS);
+    },
+    [pageId, activeTabIdResolved, flushTab]
+  );
+
+  // Flush the outgoing tab's pending content when the page or active tab
+  // changes, or on unmount, so switching never drops the last edit.
+  const flushTabRef = useRef(flushTab);
+  useEffect(() => {
+    flushTabRef.current = flushTab;
+  }, [flushTab]);
+  useEffect(() => () => flushTabRef.current(), [pageId, activeTabIdResolved]);
+
+  const selectTab = useCallback(
+    (tabId: string) => {
+      flushTab();
+      setActiveTabId(tabId);
+    },
+    [flushTab]
+  );
+
+  const handleAddTab = useCallback(() => {
+    // Flush the current tab's pending edit before switching away from it.
+    flushTab();
+    createTab.mutate(
+      { pageId },
+      { onSuccess: (tab) => setActiveTabId(tab.id) }
+    );
+  }, [createTab, pageId, flushTab]);
 
   const handleDelete = () => {
     del.mutate(pageId, {
       onSuccess: () => {
         setConfirmOpen(false);
-        // Land on the dashboard (the app home). Direct target — `/dashboard`
-        // now just redirects to `/`.
         router.push('/');
       },
     });
@@ -116,15 +178,17 @@ export function PageEditor({ pageId }: { pageId: string }) {
     );
   }
 
+  const hasTabBar = tabs.length >= 2;
+  const saving = update.isPending || updateTab.isPending || createTab.isPending;
+  const saveError = update.isError || updateTab.isError;
+
   return (
-    <div className="mx-auto max-w-3xl space-y-4 pb-24">
-      {/* Top bar: save status + overflow menu (delete). */}
+    <div className={`mx-auto max-w-3xl space-y-4 ${hasTabBar ? 'pb-36' : 'pb-24'}`}>
+      {/* Top bar: save status + overflow menu. */}
       <div className="flex items-center justify-end gap-3">
-        {update.isError ? (
-          <span className="text-destructive text-xs">
-            Couldn&apos;t save — check your connection
-          </span>
-        ) : update.isPending ? (
+        {saveError ? (
+          <span className="text-destructive text-xs">Couldn&apos;t save — check your connection</span>
+        ) : saving ? (
           <span className="text-muted-foreground text-xs">Saving…</span>
         ) : null}
         <DropdownMenu>
@@ -138,6 +202,19 @@ export function PageEditor({ pageId }: { pageId: string }) {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="rounded-2xl">
+            <DropdownMenuItem
+              className="rounded-lg text-sm"
+              onSelect={handleAddTab}
+              disabled={createTab.isPending}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add tab
+            </DropdownMenuItem>
+            <DropdownMenuItem className="rounded-lg text-sm" onSelect={() => setManageOpen(true)}>
+              <ListTree className="mr-2 h-4 w-4" />
+              Manage tabs
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive rounded-lg text-sm"
               onSelect={() => setConfirmOpen(true)}
@@ -169,15 +246,37 @@ export function PageEditor({ pageId }: { pageId: string }) {
         />
       </div>
 
-      {/* Body — keyed on the page id so it mounts fresh per page. */}
-      <PageBodyEditor key={page.id} initialContent={page.content} onChange={saveContent} />
+      {/* Body — keyed on page id + active tab so it mounts fresh per tab and
+          reads that tab's content exactly once. */}
+      {activeTab && (
+        <PageBodyEditor
+          key={`${page.id}:${activeTab.id}`}
+          initialContent={activeTab.content}
+          onChange={saveTabContent}
+          hasBottomTabBar={hasTabBar}
+        />
+      )}
+
+      {/* Bottom tab bar — only when there's more than one tab. */}
+      {hasTabBar && activeTab && (
+        <PageTabBar tabs={tabs} activeTabId={activeTab.id} onSelect={selectTab} />
+      )}
+
+      <ManageTabsDialog
+        open={manageOpen}
+        onOpenChange={setManageOpen}
+        pageId={pageId}
+        tabs={tabs}
+        activeTabId={activeTab?.id ?? null}
+        onActiveTabChange={setActiveTabId}
+      />
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="rounded-3xl">
           <DialogHeader>
             <DialogTitle>Delete this page?</DialogTitle>
             <DialogDescription>
-              This permanently removes the page and its content.
+              This permanently removes the page and all of its tabs.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

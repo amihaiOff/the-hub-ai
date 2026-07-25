@@ -1,7 +1,12 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CreatePageInput, UpdatePageInput } from '@/lib/validations/pages';
+import type {
+  CreatePageInput,
+  UpdatePageInput,
+  CreatePageTabInput,
+  UpdatePageTabInput,
+} from '@/lib/validations/pages';
 
 // ─── Types the UI consumes ──────────────────────────────────────────────
 
@@ -15,11 +20,20 @@ export interface PageListRow {
   updatedAt: string;
 }
 
-/** Full page including its Tiptap JSON content, from the detail endpoint. */
-export interface PageRow extends PageListRow {
+/** One tab within a page — its own title + Tiptap JSON content. */
+export interface PageTabRow {
+  id: string;
+  title: string;
   content: unknown;
+  sortOrder: number;
+}
+
+/** Full page including its tabs (each with content), from the detail endpoint. */
+export interface PageRow extends PageListRow {
+  content: unknown; // legacy page-level content (unused; content lives on tabs)
   ownerId: string;
   householdId: string;
+  tabs: PageTabRow[];
 }
 
 // ─── Query keys ─────────────────────────────────────────────────────────
@@ -119,6 +133,75 @@ export function useDeletePage() {
       qc.removeQueries({ queryKey: pageKeys.detail(id) });
       qc.invalidateQueries({ queryKey: pageKeys.lists() });
     },
+  });
+}
+
+// ─── Tab mutations ──────────────────────────────────────────────────────
+
+/** Replace a page's tab list in the detail cache (keeps it sorted). */
+function setTabs(
+  qc: ReturnType<typeof useQueryClient>,
+  pageId: string,
+  update: (tabs: PageTabRow[]) => PageTabRow[]
+) {
+  const prev = qc.getQueryData<PageRow>(pageKeys.detail(pageId));
+  if (!prev) return prev;
+  const tabs = update(prev.tabs ?? []).slice().sort((a, b) => a.sortOrder - b.sortOrder);
+  qc.setQueryData<PageRow>(pageKeys.detail(pageId), { ...prev, tabs });
+  return prev;
+}
+
+export function useCreatePageTab() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ pageId, input }: { pageId: string; input?: CreatePageTabInput }) =>
+      fetchJson<PageTabRow>(`/api/pages/${pageId}/tabs`, {
+        method: 'POST',
+        body: JSON.stringify(input ?? {}),
+      }),
+    onSuccess: (tab, { pageId }) => setTabs(qc, pageId, (tabs) => [...tabs, tab]),
+  });
+}
+
+export function useUpdatePageTab() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      pageId,
+      tabId,
+      patch,
+    }: {
+      pageId: string;
+      tabId: string;
+      patch: UpdatePageTabInput;
+    }) =>
+      fetchJson<PageTabRow>(`/api/pages/${pageId}/tabs/${tabId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      }),
+    // Optimistically patch the tab in the detail cache so the tab bar label and
+    // ordering update instantly. Content isn't invalidated on settle (the live
+    // editor owns it), matching useUpdatePage.
+    onMutate: async ({ pageId, tabId, patch }) => {
+      await qc.cancelQueries({ queryKey: pageKeys.detail(pageId) });
+      const prev = setTabs(qc, pageId, (tabs) =>
+        tabs.map((t) => (t.id === tabId ? { ...t, ...patch } : t))
+      );
+      return { prev };
+    },
+    onError: (_e, { pageId }, ctx) => {
+      if (ctx?.prev) qc.setQueryData(pageKeys.detail(pageId), ctx.prev);
+    },
+  });
+}
+
+export function useDeletePageTab() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ pageId, tabId }: { pageId: string; tabId: string }) =>
+      fetchJson<{ ok: true }>(`/api/pages/${pageId}/tabs/${tabId}`, { method: 'DELETE' }),
+    onSuccess: (_d, { pageId, tabId }) =>
+      setTabs(qc, pageId, (tabs) => tabs.filter((t) => t.id !== tabId)),
   });
 }
 

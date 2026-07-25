@@ -70,6 +70,7 @@ export async function GET() {
       moneytorPensionSnapshots,
       generalLogs,
       pages,
+      pageTabs,
     ] = await Promise.all([
       prisma.user.findMany(),
       prisma.profile.findMany(),
@@ -114,12 +115,13 @@ export async function GET() {
       prisma.moneytorPensionSnapshot.findMany(),
       prisma.generalLog.findMany(),
       prisma.page.findMany(),
+      prisma.pageTab.findMany(),
     ]);
 
     // Create backup metadata
     const metadata = {
       backupDate: new Date().toISOString(),
-      schemaVersion: '2.3',
+      schemaVersion: '2.4',
       createdBy: user.email,
       counts: {
         users: users.length,
@@ -165,6 +167,7 @@ export async function GET() {
         moneytorPensionSnapshots: moneytorPensionSnapshots.length,
         generalLogs: generalLogs.length,
         pages: pages.length,
+        pageTabs: pageTabs.length,
       },
     };
 
@@ -246,6 +249,7 @@ export async function GET() {
     );
     zip.file('general_logs.json', JSON.stringify(generalLogs, jsonSerializer, 2));
     zip.file('pages.json', JSON.stringify(pages, jsonSerializer, 2));
+    zip.file('page_tabs.json', JSON.stringify(pageTabs, jsonSerializer, 2));
 
     // Generate ZIP as Blob
     const zipBlob = await zip.generateAsync({ type: 'blob' });
