@@ -29,12 +29,9 @@ export function PageTabBar({ tabs, activeTabId, onSelect }: PageTabBarProps) {
   return createPortal(
     <nav
       aria-label="Page tabs"
-      // Bottom clearance = max(1rem, safe-area-inset). Using max() (not base +
-      // inset) keeps the gap CONSTANT: the mobile browser toggles
-      // env(safe-area-inset-bottom) between 0 and the home-indicator height as
-      // its toolbar shows/hides on scroll — adding it made the gap grow. 1rem
-      // also lifts the labels clear of the browser's bottom toolbar.
-      className="pb-[max(1rem,env(safe-area-inset-bottom))] border-border/30 bg-background/95 fixed right-0 bottom-0 left-0 z-50 border-t backdrop-blur-lg lg:left-64"
+      // Bottom clearance adapts to browser vs installed-PWA — see
+      // `.page-tab-bar-pb` in globals.css.
+      className="page-tab-bar-pb border-border/30 bg-background/95 fixed right-0 bottom-0 left-0 z-50 border-t backdrop-blur-lg lg:left-64"
     >
       <div className="flex items-stretch gap-1 overflow-x-auto px-2 pt-1">
         {tabs.map((tab, i) => {

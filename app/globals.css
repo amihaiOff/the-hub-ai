@@ -163,6 +163,20 @@
     padding-right: calc(var(--safe-px-base, 0px) + env(safe-area-inset-right));
   }
 
+  /* Bottom clearance for the Areas page tab bar. In a browser tab a fixed
+     1rem lifts the labels clear of the browser's bottom toolbar and stays
+     constant as that toolbar shows/hides on scroll (no env(), so no jump). In
+     an installed PWA there's no browser toolbar — only the home indicator — so
+     trim the (large ~34px) safe-area inset down to a snug gap. */
+  .page-tab-bar-pb {
+    padding-bottom: 1rem;
+  }
+  @media (display-mode: standalone) {
+    .page-tab-bar-pb {
+      padding-bottom: max(0.5rem, calc(env(safe-area-inset-bottom) - 1.25rem));
+    }
+  }
+
   /* Glassmorphism effects */
   .glass {
     @apply bg-card/70 border-border/30 backdrop-blur-xl;

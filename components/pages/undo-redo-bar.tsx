@@ -5,6 +5,12 @@ import { createPortal } from 'react-dom';
 import type { Editor } from '@tiptap/react';
 import { Undo2, Redo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useKeyboardInset } from '@/lib/hooks/use-keyboard-inset';
+
+// Height of the Areas tab bar (its content + bottom clearance). The floating
+// controls sit just above it, at the same level, so undo/redo (left) and the
+// indent controls (right) read as one row across the bottom.
+export const TAB_BAR_CLEARANCE = '3.5rem';
 
 /**
  * Mobile-only floating undo/redo bar. Sits at the bottom of the viewport
@@ -20,6 +26,7 @@ export function UndoRedoBar({
   editor: Editor | null;
   liftAboveTabBar?: boolean;
 }) {
+  const inset = useKeyboardInset();
   // Tiptap's editor.can().undo() only re-evaluates on transactions — but
   // React doesn't rerender when Tiptap state changes unless we subscribe.
   const [, force] = useState(0);
@@ -46,34 +53,29 @@ export function UndoRedoBar({
   return createPortal(
     <div
       className={cn(
-        // Flush to the left screen edge (no inset) so the pill's left border
-        // sits at x=0.
         'pointer-events-none fixed left-0 z-40 lg:hidden',
-        // Sit flush on top of the tab bar's divider. The tab bar is a constant
-        // ~3.5rem tall (content + its max(1rem, inset) bottom clearance, which
-        // stays 1rem on phones where the inset is < 1rem), so bottom-14 (3.5rem)
-        // keeps the pill locked to the divider in both toolbar states. Without a
-        // tab bar, flush to the bottom instead.
-        liftAboveTabBar ? 'bottom-14' : 'safe-pb bottom-0 pb-3'
+        !liftAboveTabBar && 'safe-pb bottom-0 pb-3'
       )}
+      // Sit just above the tab bar (and above the on-screen keyboard when open),
+      // level with the indent controls on the right so they read as one row.
+      style={liftAboveTabBar ? { bottom: `calc(${TAB_BAR_CLEARANCE} + ${inset}px)` } : undefined}
       aria-label="Undo and redo"
     >
-      {/* Square left corners so the left border reads as a clean vertical line
-          flush with the screen edge; rounded on the right only. */}
-      <div className="border-border/60 bg-card/90 pointer-events-auto flex items-center gap-0.5 rounded-l-none rounded-r-xl border p-0.5 shadow-lg backdrop-blur-md">
+      {/* No background — just the two icons floating over the page. */}
+      <div className="pointer-events-auto flex items-center gap-0.5">
         <ArrowButton
           label="Undo"
           disabled={!canUndo}
           onClick={() => editor.chain().focus().undo().run()}
         >
-          <Undo2 className="h-4 w-4" />
+          <Undo2 className="h-5 w-5" />
         </ArrowButton>
         <ArrowButton
           label="Redo"
           disabled={!canRedo}
           onClick={() => editor.chain().focus().redo().run()}
         >
-          <Redo2 className="h-4 w-4" />
+          <Redo2 className="h-5 w-5" />
         </ArrowButton>
       </div>
     </div>,

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import { IndentDecrease, IndentIncrease } from 'lucide-react';
 import { useKeyboardInset } from '@/lib/hooks/use-keyboard-inset';
+import { TAB_BAR_CLEARANCE } from './undo-redo-bar';
 
 function isInList(editor: Editor): boolean {
   return (
@@ -74,9 +75,13 @@ export function ListIndentControls({ editor }: { editor: Editor }) {
   };
 
   return (
+    // No background — bare icons at the bottom-right, level with the undo/redo
+    // arrows on the left (both sit just above the tab bar via TAB_BAR_CLEARANCE,
+    // and lift with the on-screen keyboard). The buttons' own padding keeps the
+    // icons off the screen edge.
     <div
-      className="border-border/60 bg-background/95 fixed right-4 z-40 flex items-center gap-1 rounded-full border p-1 shadow-lg backdrop-blur"
-      style={{ bottom: `calc(1rem + env(safe-area-inset-bottom) + ${inset}px)` }}
+      className="fixed right-0 z-40 flex items-center gap-0.5"
+      style={{ bottom: `calc(${TAB_BAR_CLEARANCE} + ${inset}px)` }}
     >
       <button
         type="button"
@@ -87,7 +92,7 @@ export function ListIndentControls({ editor }: { editor: Editor }) {
         disabled={!canOutdent}
         aria-label="Outdent list item"
         title={canOutdent ? 'Outdent' : 'Already at the top level'}
-        className="hover:bg-muted text-muted-foreground hover:text-foreground flex h-10 w-10 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+        className="text-foreground hover:bg-muted/60 flex h-10 w-10 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
       >
         <IndentDecrease className="h-5 w-5" />
       </button>
@@ -97,7 +102,7 @@ export function ListIndentControls({ editor }: { editor: Editor }) {
         onClick={indent}
         aria-label="Indent list item"
         title="Indent"
-        className="hover:bg-muted text-muted-foreground hover:text-foreground flex h-10 w-10 items-center justify-center rounded-full transition-colors"
+        className="text-foreground hover:bg-muted/60 flex h-10 w-10 items-center justify-center rounded-lg transition-colors"
       >
         <IndentIncrease className="h-5 w-5" />
       </button>
