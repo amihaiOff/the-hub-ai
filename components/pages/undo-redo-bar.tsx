@@ -48,8 +48,9 @@ export function UndoRedoBar({
       className={cn(
         'safe-px pointer-events-none fixed left-0 z-40 pl-3 lg:hidden',
         // When a bottom tab bar is present, sit above it; otherwise flush to the
-        // bottom (clearing the iOS home indicator via safe-pb).
-        liftAboveTabBar ? 'bottom-16' : 'safe-pb bottom-0 pb-3'
+        // bottom (clearing the iOS home indicator via safe-pb). bottom-24 clears
+        // the tab bar's height plus its toolbar-clearance padding.
+        liftAboveTabBar ? 'bottom-24' : 'safe-pb bottom-0 pb-3'
       )}
       aria-label="Undo and redo"
     >

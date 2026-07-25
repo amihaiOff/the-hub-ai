@@ -29,9 +29,14 @@ export function PageTabBar({ tabs, activeTabId, onSelect }: PageTabBarProps) {
   return createPortal(
     <nav
       aria-label="Page tabs"
-      className="safe-pb border-border/30 bg-background/95 fixed right-0 bottom-0 left-0 z-50 border-t backdrop-blur-lg lg:left-64"
+      // The mobile browser's bottom toolbar overlaps `fixed bottom-0` content,
+      // and env(safe-area-inset-bottom) doesn't cover browser chrome — so add a
+      // 1rem base to the bottom padding (on top of any home-indicator inset) to
+      // lift the tab labels clear of the toolbar, mirroring the budget bar's
+      // taller layout.
+      className="safe-pb [--safe-pb-base:1rem] border-border/30 bg-background/95 fixed right-0 bottom-0 left-0 z-50 border-t backdrop-blur-lg lg:left-64"
     >
-      <div className="flex items-stretch gap-1 overflow-x-auto px-2 py-1">
+      <div className="flex items-stretch gap-1 overflow-x-auto px-2 pt-1">
         {tabs.map((tab, i) => {
           const isActive = tab.id === activeTabId;
           return (
