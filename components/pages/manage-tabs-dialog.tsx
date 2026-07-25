@@ -84,13 +84,13 @@ export function ManageTabsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-3xl">
+      <DialogContent className="max-h-[85vh] overflow-hidden rounded-3xl">
         <DialogHeader>
           <DialogTitle>Manage tabs</DialogTitle>
           <DialogDescription>Rename, reorder, add or remove this page&apos;s tabs.</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-2">
+        <div className="max-h-[50vh] space-y-2 overflow-y-auto">
           {tabs.map((tab, i) => (
             <div key={tab.id} className="flex items-center gap-2">
               <Input
@@ -100,13 +100,13 @@ export function ManageTabsDialog({
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                 }}
-                className="h-9 flex-1"
+                className="h-9 min-w-0 flex-1"
               />
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="text-muted-foreground hover:text-foreground h-8 w-8"
+                className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0"
                 aria-label="Move up"
                 disabled={i === 0}
                 onClick={() => move(i, -1)}
@@ -117,7 +117,7 @@ export function ManageTabsDialog({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="text-muted-foreground hover:text-foreground h-8 w-8"
+                className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0"
                 aria-label="Move down"
                 disabled={i === tabs.length - 1}
                 onClick={() => move(i, 1)}
@@ -128,7 +128,7 @@ export function ManageTabsDialog({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="text-muted-foreground hover:text-destructive h-8 w-8"
+                className="text-muted-foreground hover:text-destructive h-8 w-8 shrink-0"
                 aria-label="Delete tab"
                 disabled={tabs.length <= 1 || deleteTab.isPending}
                 onClick={() => remove(tab)}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Editor } from '@tiptap/react';
 import { Undo2, Redo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -33,11 +34,16 @@ export function UndoRedoBar({
     };
   }, [editor]);
 
+  // `editor` is only non-null after Tiptap initialises client-side, so we never
+  // reach the portal during SSR — document.body is always defined here.
   if (!editor) return null;
   const canUndo = editor.can().undo();
   const canRedo = editor.can().redo();
 
-  return (
+  // Portal to <body> so `position: fixed` resolves against the viewport rather
+  // than a transformed ancestor in the editor subtree (which would drop the bar
+  // to the content bottom instead of pinning it).
+  return createPortal(
     <div
       className={cn(
         'safe-px pointer-events-none fixed left-0 z-40 pl-3 lg:hidden',
@@ -63,7 +69,8 @@ export function UndoRedoBar({
           <Redo2 className="h-4 w-4" />
         </ArrowButton>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

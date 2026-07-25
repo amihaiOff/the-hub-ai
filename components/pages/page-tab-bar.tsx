@@ -1,5 +1,6 @@
 'use client';
 
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import type { PageTabRow } from '@/lib/hooks/use-pages';
 
@@ -16,11 +17,16 @@ interface PageTabBarProps {
 
 /**
  * Bottom tab switcher for an Areas page (mirrors the budget section's bottom
- * bar). Fixed to the viewport bottom; on desktop it clears the sidebar
- * (`lg:left-64`). Horizontally scrollable so many tabs stay reachable.
+ * bar). Rendered through a portal to `document.body` so its `position: fixed`
+ * is always resolved against the viewport — the editor subtree contains
+ * transformed / scroll ancestors that would otherwise make a nested fixed bar
+ * sit at the content bottom instead of staying pinned. On desktop it clears the
+ * sidebar (`lg:left-64`). Horizontally scrollable so many tabs stay reachable.
  */
 export function PageTabBar({ tabs, activeTabId, onSelect }: PageTabBarProps) {
-  return (
+  // Only rendered client-side by PageEditor (behind its isLoading guard), so
+  // document is always defined here.
+  return createPortal(
     <nav
       aria-label="Page tabs"
       className="safe-pb border-border/30 bg-background/95 fixed right-0 bottom-0 left-0 z-50 border-t backdrop-blur-lg lg:left-64"
@@ -46,6 +52,7 @@ export function PageTabBar({ tabs, activeTabId, onSelect }: PageTabBarProps) {
           );
         })}
       </div>
-    </nav>
+    </nav>,
+    document.body
   );
 }
