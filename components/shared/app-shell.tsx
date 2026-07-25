@@ -79,8 +79,16 @@ export function AppShell({ children }: AppShellProps) {
       {/* Mobile Menu (Sheet) */}
       <MobileMenu open={menuOpen} onOpenChange={setMenuOpen} />
 
-      {/* Main Content */}
-      <main id="main-content" tabIndex={-1} className="safe-px safe-pb lg:ml-64">
+      {/* Main Content.
+          `overflow-x-clip` keeps any wide child (e.g. a Tiptap table or the
+          full-bleed database block) from overflowing the viewport horizontally.
+          On mobile WebKit such overflow inflates the layout viewport, which then
+          throws off every position:fixed element — the bottom tab bar stops
+          looking pinned and centered dialogs compute their width against the
+          inflated width and spill off-screen. `clip` (not `hidden`) clips at the
+          viewport edge without creating a scroll container, so the sticky editor
+          toolbar and the database block's flush full-bleed still work. */}
+      <main id="main-content" tabIndex={-1} className="safe-px safe-pb lg:ml-64 overflow-x-clip">
         <div className="mx-auto max-w-7xl p-4 lg:p-8">{children}</div>
       </main>
     </div>
