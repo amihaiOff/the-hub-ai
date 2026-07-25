@@ -178,7 +178,9 @@ export function PageEditor({ pageId }: { pageId: string }) {
     );
   }
 
-  const hasTabBar = tabs.length >= 2;
+  // The bottom tab bar is always shown (even for a single-tab page) so it stays
+  // a consistent, pinned surface overlaying the content.
+  const hasTabBar = tabs.length >= 1;
   const saving = update.isPending || updateTab.isPending || createTab.isPending;
   const saveError = update.isError || updateTab.isError;
 
@@ -191,7 +193,10 @@ export function PageEditor({ pageId }: { pageId: string }) {
         ) : saving ? (
           <span className="text-muted-foreground text-xs">Saving…</span>
         ) : null}
-        <DropdownMenu>
+        {/* modal={false} keeps Radix from scroll-locking the body on open; the
+            scroll-lock adds scrollbar-compensation padding that visibly shifts
+            the whole page sideways on mobile. */}
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
@@ -257,7 +262,7 @@ export function PageEditor({ pageId }: { pageId: string }) {
         />
       )}
 
-      {/* Bottom tab bar — only when there's more than one tab. */}
+      {/* Bottom tab bar — always pinned to the viewport bottom. */}
       {hasTabBar && activeTab && (
         <PageTabBar tabs={tabs} activeTabId={activeTab.id} onSelect={selectTab} />
       )}
