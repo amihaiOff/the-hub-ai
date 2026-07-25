@@ -200,7 +200,7 @@ export function PageBodyEditor({
         </div>
       </DragHandle>
       <EditorContent editor={editor} />
-      <ListIndentControls editor={editor} />
+      <ListIndentControls editor={editor} hasBottomTabBar={hasBottomTabBar} />
       {/* Touch/mobile block reordering — the desktop DragHandle above uses the
           HTML5 drag API, which doesn't work on touch. */}
       <MobileBlockDragHandle editor={editor} />

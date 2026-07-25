@@ -178,9 +178,9 @@ export function PageEditor({ pageId }: { pageId: string }) {
     );
   }
 
-  // The bottom tab bar is always shown (even for a single-tab page) so it stays
-  // a consistent, pinned surface overlaying the content.
-  const hasTabBar = tabs.length >= 1;
+  // The bottom tab bar only appears once a page has more than one tab — a
+  // single-tab page shows no bar.
+  const hasTabBar = tabs.length >= 2;
   const saving = update.isPending || updateTab.isPending || createTab.isPending;
   const saveError = update.isError || updateTab.isError;
 

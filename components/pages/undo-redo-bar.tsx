@@ -13,6 +13,17 @@ import { useKeyboardInset } from '@/lib/hooks/use-keyboard-inset';
 export const TAB_BAR_CLEARANCE = '3.5rem';
 
 /**
+ * Bottom offset for the floating editor controls (undo/redo + indent), shared
+ * so they stay level with each other. Sits just above the tab bar when it's
+ * shown, otherwise near the bottom edge (clearing the home indicator). Both
+ * add the on-screen-keyboard inset so they ride above the keyboard.
+ */
+export function floatingControlBottom(hasTabBar: boolean, keyboardInset: number): string {
+  const base = hasTabBar ? TAB_BAR_CLEARANCE : 'calc(0.75rem + env(safe-area-inset-bottom))';
+  return `calc(${base} + ${keyboardInset}px)`;
+}
+
+/**
  * Mobile-only floating undo/redo bar. Sits at the bottom of the viewport
  * above the home-indicator inset, with two arrow icons (no words). The
  * desktop editor already has Ctrl/Cmd-Z and Ctrl/Cmd-Shift-Z bound via
@@ -52,13 +63,11 @@ export function UndoRedoBar({
   // to the content bottom instead of pinning it).
   return createPortal(
     <div
-      className={cn(
-        'pointer-events-none fixed left-0 z-40 lg:hidden',
-        !liftAboveTabBar && 'safe-pb bottom-0 pb-3'
-      )}
-      // Sit just above the tab bar (and above the on-screen keyboard when open),
-      // level with the indent controls on the right so they read as one row.
-      style={liftAboveTabBar ? { bottom: `calc(${TAB_BAR_CLEARANCE} + ${inset}px)` } : undefined}
+      className="pointer-events-none fixed left-0 z-40 lg:hidden"
+      // Sit just above the tab bar (or near the bottom when there's none), and
+      // above the on-screen keyboard when open — level with the indent controls
+      // on the right so they read as one row.
+      style={{ bottom: floatingControlBottom(liftAboveTabBar, inset) }}
       aria-label="Undo and redo"
     >
       {/* No background — just the two icons floating over the page. */}
