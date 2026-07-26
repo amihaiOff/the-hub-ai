@@ -457,8 +457,10 @@ describe('TransactionRow', () => {
           </tbody>
         </table>
       );
-      // Category cat-3 is "Groceries" in our mock data
-      expect(screen.getByText('Groceries')).toBeInTheDocument();
+      // "Groceries" appears in both the mobile sheet trigger (visible on
+      // narrow viewports) and the desktop CategorySelect combobox trigger
+      // (visible on lg:+). Both render in JSDOM; assert at least one.
+      expect(screen.getAllByText('Groceries').length).toBeGreaterThan(0);
     });
 
     it('should show "Uncategorized" when no category is selected for expense', () => {
@@ -470,7 +472,9 @@ describe('TransactionRow', () => {
           </tbody>
         </table>
       );
-      expect(screen.getByText('Uncategorized')).toBeInTheDocument();
+      // Same dual-render as above — mobile button + desktop combobox trigger
+      // both surface the placeholder/empty label.
+      expect(screen.getAllByText('Uncategorized').length).toBeGreaterThan(0);
     });
 
     it('should show "Income" when no category is selected for income', () => {
