@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, MoreHorizontal, Plus, Trash2, ListTree } from 'lucide-react';
+import {
+  Loader2,
+  Maximize2,
+  MoreHorizontal,
+  Plus,
+  Trash2,
+  ListTree,
+  Minimize2,
+} from 'lucide-react';
 import {
   usePage,
   useUpdatePage,
@@ -47,6 +55,20 @@ export function PageEditor({ pageId }: { pageId: string }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  // Full-width mode is desktop-only and persisted in localStorage under a
+  // single global key — flipping it applies to every areas page for this
+  // browser. Hydrating from an initializer keeps the toggle stable across
+  // remounts without an effect-triggered flash.
+  const [fullWidth, setFullWidthState] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem('pages:full-width') === '1';
+  });
+  const setFullWidth = useCallback((next: boolean) => {
+    setFullWidthState(next);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('pages:full-width', next ? '1' : '0');
+    }
+  }, []);
 
   // Seed local title + the active tab when the page loads / changes (tracked by
   // id so switching pages re-seeds without fighting in-flight edits). React's
@@ -182,7 +204,16 @@ export function PageEditor({ pageId }: { pageId: string }) {
   const saveError = update.isError || updateTab.isError;
 
   return (
-    <div className={`mx-auto max-w-3xl space-y-4 ${hasTabBar ? 'pb-36' : 'pb-24'}`}>
+    <div
+      className={
+        `mx-auto space-y-4 ${hasTabBar ? 'pb-36' : 'pb-24'} ` +
+        // Full-width is desktop-only. On mobile the max-w-3xl cap is a
+        // no-op anyway (viewport is narrower); on lg+ it drops so the
+        // page uses (nearly) the full width the shell affords, cutting
+        // the visible side margins by ~80%.
+        (fullWidth ? 'max-w-3xl lg:max-w-none' : 'max-w-3xl')
+      }
+    >
       {/* Top bar: save status + overflow menu. */}
       <div className="flex items-center justify-end gap-3">
         {saveError ? (
@@ -217,6 +248,32 @@ export function PageEditor({ pageId }: { pageId: string }) {
             <DropdownMenuItem className="rounded-lg text-sm" onSelect={() => setManageOpen(true)}>
               <ListTree className="mr-2 h-4 w-4" />
               Manage tabs
+            </DropdownMenuItem>
+            {/* Desktop-only: expand the page container to reduce side margins
+                by ~80%. Persisted in localStorage under `pages:full-width` so
+                the choice survives navigation. Hidden on mobile — the layout
+                is already effectively full-width there. */}
+            <DropdownMenuItem
+              className="hidden rounded-lg text-sm lg:flex"
+              onSelect={(e) => {
+                // Radix closes on select; explicit preventDefault keeps the
+                // menu open would be nice but this is a one-shot toggle so
+                // closing is fine. We still call setFullWidth explicitly.
+                e.preventDefault();
+                setFullWidth(!fullWidth);
+              }}
+            >
+              {fullWidth ? (
+                <>
+                  <Minimize2 className="mr-2 h-4 w-4" />
+                  Exit full width
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="mr-2 h-4 w-4" />
+                  Full width
+                </>
+              )}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
