@@ -9,7 +9,7 @@
     },
     {
       "path": "/api/cron/create-snapshot",
-      "schedule": "0 0 1,15 * *"
+      "schedule": "0 1 * * *"
     }
   ]
 }

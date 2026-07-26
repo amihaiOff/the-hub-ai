@@ -10,9 +10,13 @@ export const maxDuration = 60;
 
 /**
  * GET /api/cron/create-snapshot
- * Creates net worth snapshots on the 1st and 15th of each month
+ * Creates one net-worth snapshot per household per calendar month. Runs
+ * daily; each household is snapshot only on its own `snapshotDayOfMonth`
+ * (default 26 — late in the month so Moneytor sync, pension deposits and
+ * similar have time to settle). The stored `date` is the 1st of the
+ * current month, so a rerun on the same day is idempotent (upsert).
  *
- * Protected by CRON_SECRET in production
+ * Protected by CRON_SECRET in production.
  */
 export async function GET(request: NextRequest) {
   // Verify cron secret in production
@@ -40,13 +44,27 @@ export async function GET(request: NextRequest) {
       const rates = await fetchExchangeRates();
 
       const snapshots = [];
+      const skipped: Array<{ householdId: string; dayOfMonth: number; today: number }> = [];
       const today = new Date();
-      // Normalize to date-only (midnight UTC) for the snapshot date
-      const snapshotDate = new Date(
-        Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
-      );
+      // Normalize to the FIRST of the current month (UTC). Snapshots are
+      // monthly-resolution; multiple runs in the same month upsert the same
+      // row rather than creating dense intra-month points.
+      const snapshotDate = new Date(Date.UTC(today.getFullYear(), today.getMonth(), 1));
+      const todayDay = today.getUTCDate();
 
       for (const household of households) {
+        // Only take the snapshot on the household's configured day. The cron
+        // fires daily; every other day of the month is a no-op for this
+        // household. Values are clamped to 1–28 at the settings layer so no
+        // month-length edge cases here.
+        if (household.snapshotDayOfMonth !== todayDay) {
+          skipped.push({
+            householdId: household.id,
+            dayOfMonth: household.snapshotDayOfMonth,
+            today: todayDay,
+          });
+          continue;
+        }
         const profileIds = household.members.map((m) => m.profileId);
 
         // Calculate net worth for this household (manual tables + Moneytor)
@@ -140,6 +158,7 @@ export async function GET(request: NextRequest) {
           success: true,
           message: 'Net worth snapshots created',
           snapshots,
+          skipped,
           timestamp: new Date().toISOString(),
         },
       };

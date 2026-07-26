@@ -39,7 +39,8 @@ function formatDate(dateStr: string): string {
     'Nov',
     'Dec',
   ];
-  return `${months[date.getMonth()]} ${date.getDate()}`;
+  // Monthly-resolution snapshots: label with month + year rather than day.
+  return `${months[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 interface NetWorthChartProps {
