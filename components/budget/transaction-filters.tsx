@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Search, Filter, X } from 'lucide-react';
+import { Search, Filter, Sparkles, X } from 'lucide-react';
 import {
   type TransactionFilters as FilterType,
   useCategoryGroups,
@@ -39,6 +39,7 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
     filters.tagId,
     filters.type,
     filters.uncategorized,
+    filters.pendingSuggestion,
     filters.accountNumber,
   ].filter(Boolean).length;
 
@@ -50,6 +51,7 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
       tagId: undefined,
       type: undefined,
       uncategorized: undefined,
+      pendingSuggestion: undefined,
       accountNumber: undefined,
     });
   };
@@ -91,6 +93,34 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
                 </Button>
               )}
             </div>
+
+            {/* Pending AI suggestion — reviewer shortcut. Overrides Category
+                / Tag when active (see API where-clause), so we render it up
+                top and let the toggle itself convey the exclusivity. */}
+            <button
+              type="button"
+              onClick={() =>
+                onFiltersChange({
+                  ...filters,
+                  pendingSuggestion: filters.pendingSuggestion ? undefined : true,
+                })
+              }
+              aria-pressed={!!filters.pendingSuggestion}
+              className={
+                'flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition-colors ' +
+                (filters.pendingSuggestion
+                  ? 'border-primary/40 bg-primary/10 text-primary'
+                  : 'border-border/60 hover:bg-muted/60')
+              }
+            >
+              <span className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                <span className="font-medium">Pending AI suggestion</span>
+              </span>
+              <span className="text-muted-foreground text-xs">
+                {filters.pendingSuggestion ? 'On' : 'Off'}
+              </span>
+            </button>
 
             {/* Type */}
             <div className="grid gap-2">
@@ -258,6 +288,9 @@ export function ActiveFilterBadges({ filters, onRemoveFilter }: ActiveFilterBadg
   }
   if (filters.uncategorized) {
     badges.push({ key: 'uncategorized', label: 'Uncategorized' });
+  }
+  if (filters.pendingSuggestion) {
+    badges.push({ key: 'pendingSuggestion', label: 'Pending AI suggestion' });
   }
   if (filters.accountNumber) {
     const account = accountNames.find((a) => a.accountNumber === filters.accountNumber);

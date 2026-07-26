@@ -189,6 +189,12 @@ export const transactionFiltersSchema = z.object({
   source: transactionSourceSchema.optional(),
   paymentMethod: paymentMethodSchema.optional(),
   uncategorized: z.boolean().optional(),
+  /**
+   * Rows the AI has suggested a category for but the user hasn't accepted or
+   * declined yet — i.e. suggested_category_id IS NOT NULL AND category_id IS
+   * NULL. Overrides categoryId / uncategorized when set.
+   */
+  pendingSuggestion: z.boolean().optional(),
   accountNumber: z.string().optional(),
   limit: z.number().int().positive().max(1000).optional().default(100),
   offset: z.number().int().nonnegative().optional().default(0),
