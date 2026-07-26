@@ -480,6 +480,14 @@ function DraggableKanbanCard({
               {prettyStatus(task.status)}
             </span>
           )}
+          {/* Desktop-only notes preview — first 5 non-empty lines, markdown
+              rendered as plain text. Mobile cards stay compact so a swipe
+              gesture still targets the whole card cleanly. */}
+          {task.notes && (
+            <p className="text-muted-foreground mt-2 hidden text-xs leading-snug break-words whitespace-pre-line lg:block">
+              {notesPreview(task.notes, 5)}
+            </p>
+          )}
           {task.assignee && (
             <div className="mt-3">
               <span className="bg-muted/70 flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold">
@@ -555,4 +563,32 @@ function initials(name: string): string {
     .slice(0, 2)
     .join('')
     .toUpperCase();
+}
+
+/**
+ * Compress a markdown notes string into a short plain-text preview. Strips
+ * common leading syntax (heading #, list bullets, blockquote >, emphasis
+ * runs) so the card doesn't leak raw markdown, and returns the first
+ * `maxLines` non-empty lines. Ellipsis is appended if content was truncated.
+ */
+function notesPreview(md: string, maxLines: number): string {
+  const lines = md
+    .split(/\r?\n/)
+    .map((raw) =>
+      raw
+        .replace(/^\s*#{1,6}\s+/, '') // headings
+        .replace(/^\s*>\s?/, '') // blockquotes
+        .replace(/^\s*[-*+]\s+/, '• ') // bullets → bullet char
+        .replace(/^\s*\d+\.\s+/, '') // numbered lists (drop marker)
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/__(.*?)__/g, '$1')
+        .replace(/\*(.*?)\*/g, '$1')
+        .replace(/_(.*?)_/g, '$1')
+        .replace(/`([^`]+)`/g, '$1')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // [text](url) → text
+        .trim()
+    )
+    .filter((line) => line.length > 0);
+  const shown = lines.slice(0, maxLines).join('\n');
+  return lines.length > maxLines ? `${shown}\n…` : shown;
 }
