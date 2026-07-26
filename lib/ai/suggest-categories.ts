@@ -7,10 +7,10 @@ export const CONFIDENCE_THRESHOLD = 0.6;
 export const DEFAULT_BATCH_LIMIT = 8;
 export const MAX_BATCH_LIMIT = 25;
 export const SUGGEST_CONCURRENCY = 3;
-// After this many failed AI attempts a transaction is marked attempted so a
-// persistent failure (bad key, sustained rate-limit) can't re-bill it forever.
-// Genuinely transient failures still get a few retries across drains.
-export const MAX_CATEGORIZATION_ERRORS = 3;
+// Auto-retry after a categorization error is now off (one attempt per row via
+// the atomic claim below). Kept as an export at 1 so pre-existing callers
+// still type-check; the value is no longer consulted in the runtime path.
+export const MAX_CATEGORIZATION_ERRORS = 1;
 
 export interface SuggestCounts {
   processed: number;
@@ -54,6 +54,89 @@ export interface RunBatchOptions {
 export type SuggestResult =
   | { ok: true; counts: SuggestCounts }
   | { ok: false; reason: 'no_api_key' | 'no_categories' };
+
+/**
+ * Row shape returned by the atomic-claim UPDATE. Matches the fields consumed
+ * by the worker below. Payee name is joined in from `budget_payees`.
+ */
+interface ClaimedRow {
+  id: string;
+  amountIls: number;
+  notes: string | null;
+  categorizationErrorCount: number;
+  payeeName: string | null;
+}
+
+/**
+ * Atomically claim up to `limit` categorization candidates by stamping
+ * `categorization_attempted_at = NOW()` on them in a single UPDATE. Postgres
+ * `FOR UPDATE SKIP LOCKED` inside the sub-query guarantees two concurrent
+ * callers never grab the same rows. Returns the claimed rows (with the
+ * payee name already joined) for the caller to categorize.
+ */
+async function claimTransactionsForBatch(args: {
+  householdId: string;
+  limit: number;
+  onlyUnattempted: boolean;
+  transactionIds?: string[];
+}): Promise<ClaimedRow[]> {
+  const { householdId, limit, onlyUnattempted, transactionIds } = args;
+  const attemptedFilter = onlyUnattempted ? 'AND t.categorization_attempted_at IS NULL' : '';
+  const idsFilter = transactionIds && transactionIds.length > 0 ? 'AND t.id = ANY($2::text[])' : '';
+
+  // The Prisma model uses `tags: { none: {} }` in the old query — filter the
+  // same way here so we don't step on transactions the user tagged manually
+  // (a signal they've curated the row themselves).
+  const sql = `
+    WITH claimed AS (
+      UPDATE budget_transactions t
+      SET categorization_attempted_at = NOW()
+      WHERE t.id IN (
+        SELECT id FROM budget_transactions t2
+        WHERE t2.household_id = $1
+          AND t2.is_deleted = false
+          AND t2.type = 'expense'
+          AND t2.category_id IS NULL
+          AND t2.suggested_category_id IS NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM budget_transaction_tags bt WHERE bt.transaction_id = t2.id
+          )
+          ${attemptedFilter.replace(/t\./g, 't2.')}
+          ${idsFilter.replace(/t\./g, 't2.')}
+        ORDER BY t2.transaction_date DESC
+        LIMIT ${transactionIds && transactionIds.length > 0 ? '$3' : '$2'}
+        FOR UPDATE SKIP LOCKED
+      )
+      RETURNING t.id, t.amount_ils, t.notes, t.categorization_error_count, t.payee_id
+    )
+    SELECT c.id, c.amount_ils AS "amountIls", c.notes,
+           c.categorization_error_count AS "categorizationErrorCount",
+           p.name AS "payeeName"
+    FROM claimed c
+    LEFT JOIN budget_payees p ON p.id = c.payee_id`;
+
+  const params: unknown[] =
+    transactionIds && transactionIds.length > 0
+      ? [householdId, transactionIds, limit]
+      : [householdId, limit];
+
+  const rows = await prisma.$queryRawUnsafe<
+    Array<{
+      id: string;
+      amountIls: unknown;
+      notes: string | null;
+      categorizationErrorCount: number;
+      payeeName: string | null;
+    }>
+  >(sql, ...params);
+  return rows.map((r) => ({
+    id: r.id,
+    amountIls: Number(r.amountIls),
+    notes: r.notes,
+    categorizationErrorCount: r.categorizationErrorCount,
+    payeeName: r.payeeName,
+  }));
+}
 
 /** Run `worker` over `items` with bounded concurrency, preserving order. */
 async function mapPool<T, R>(items: T[], concurrency: number, worker: (item: T) => Promise<R>) {
@@ -104,16 +187,17 @@ export async function prepareHousehold(householdId: string): Promise<PrepareResu
 }
 
 /**
- * Run one batch of AI categorization for a household. For each uncategorized
- * expense without an existing suggestion, ask the model for a category and:
- *   - suggested:       attach suggestedCategoryId (+ confidence/timestamp);
+ * Run one batch of AI categorization for a household. Uses an atomic UPDATE
+ * to claim rows (stamping `categorization_attempted_at` immediately) so
+ * concurrent workers can never process the same transaction twice. For each
+ * claimed row:
+ *   - suggested:       attach suggestedCategoryId + confidence + timestamp;
  *   - low_confidence:  log only, leave the transaction uncategorized;
  *   - no_match:        log only, leave the transaction uncategorized;
  *   - error:           log + bump categorizationErrorCount.
- * Every non-error attempt stamps categorizationAttemptedAt so the automatic
- * pass never re-queries the model for the same transaction. Errors bump a
- * retry counter and stay re-queryable until it hits MAX_CATEGORIZATION_ERRORS,
- * at which point the row is stamped so a persistent failure can't re-bill it.
+ * Errors do NOT retry the row automatically — the stamp stays put. Users can
+ * manually re-attempt via the Suggest button with `force: true`, which resets
+ * the stamp on the target rows before claiming.
  */
 export async function runSuggestionBatch(
   householdId: string,
@@ -123,35 +207,19 @@ export async function runSuggestionBatch(
   const { apiKey, categories, nameById } = prepared;
   const limit = Math.min(options.limit ?? DEFAULT_BATCH_LIMIT, MAX_BATCH_LIMIT);
 
-  const where: {
-    householdId: string;
-    isDeleted: boolean;
-    type: 'expense';
-    categoryId: null;
-    suggestedCategoryId: null;
-    tags: { none: object };
-    categorizationAttemptedAt?: null;
-    id?: { in: string[] };
-  } = {
+  // Atomic claim: stamp `categorization_attempted_at` on the batch's rows in
+  // a single `UPDATE ... FROM (... FOR UPDATE SKIP LOCKED) RETURNING ...`.
+  // Concurrent workers can't observe the same row twice — Postgres locks the
+  // selected rows for the duration of the sub-query so any parallel claim
+  // sees them as already-taken and skips them. This eliminates the retry
+  // storm we saw in prod where up to 15 workers all categorized the same
+  // transaction because the old SELECT → LLM → UPDATE flow left a several-
+  // second window during which the row appeared un-attempted.
+  const transactions = await claimTransactionsForBatch({
     householdId,
-    isDeleted: false,
-    type: 'expense',
-    categoryId: null,
-    suggestedCategoryId: null,
-    tags: { none: {} },
-  };
-  if (options.onlyUnattempted) {
-    where.categorizationAttemptedAt = null;
-  }
-  if (options.transactionIds?.length) {
-    where.id = { in: options.transactionIds };
-  }
-
-  const transactions = await prisma.budgetTransaction.findMany({
-    where,
-    include: { payee: { select: { name: true } } },
-    orderBy: [{ transactionDate: 'desc' }],
-    take: limit,
+    limit,
+    onlyUnattempted: options.onlyUnattempted ?? false,
+    transactionIds: options.transactionIds,
   });
 
   const counts: SuggestCounts = {
@@ -166,12 +234,12 @@ export async function runSuggestionBatch(
     // Respect the wall-clock cutoff: leave the remaining rows for a later run
     // rather than risk overrunning the serverless timeout mid-write.
     if (options.deadlineMs !== undefined && Date.now() >= options.deadlineMs) return;
-    const name = tx.payee?.name || tx.notes || 'Unknown transaction';
+    const name = tx.payeeName || tx.notes || 'Unknown transaction';
     counts.processed++;
     try {
       const result = await categorizeTransaction(apiKey, {
         name,
-        amountIls: Number(tx.amountIls),
+        amountIls: tx.amountIls,
         notes: tx.notes,
         categories,
       });
@@ -179,20 +247,15 @@ export async function runSuggestionBatch(
       const chosenName = result.categoryId ? (nameById.get(result.categoryId) ?? null) : null;
       let status: 'suggested' | 'low_confidence' | 'no_match';
 
+      // `categorization_attempted_at` was already stamped by the atomic claim
+      // above; here we only add the suggestion payload when confidence clears
+      // the bar. No-match / low-confidence rows need no follow-up write.
       if (!result.categoryId) {
         status = 'no_match';
         counts.noMatch++;
-        await prisma.budgetTransaction.update({
-          where: { id: tx.id },
-          data: { categorizationAttemptedAt: new Date() },
-        });
       } else if (result.confidence < CONFIDENCE_THRESHOLD) {
         status = 'low_confidence';
         counts.lowConfidence++;
-        await prisma.budgetTransaction.update({
-          where: { id: tx.id },
-          data: { categorizationAttemptedAt: new Date() },
-        });
       } else {
         status = 'suggested';
         counts.suggested++;
@@ -202,7 +265,6 @@ export async function runSuggestionBatch(
             suggestedCategoryId: result.categoryId,
             suggestionConfidence: result.confidence,
             suggestedAt: new Date(),
-            categorizationAttemptedAt: new Date(),
           },
         });
       }
@@ -226,20 +288,17 @@ export async function runSuggestionBatch(
       });
     } catch (err) {
       counts.errors++;
-      // Bounded cross-run retry: record the failure. A transient error leaves
-      // the row unattempted so a later drain retries it, but once the failure
-      // count hits the cap we stamp categorizationAttemptedAt to give up — a
-      // persistent failure (bad key, sustained rate-limit) must not re-bill the
-      // same transaction on every run.
+      // The row's `categorization_attempted_at` stays stamped from the atomic
+      // claim — one auto-attempt per row, period. This is intentional: the
+      // prior "clear stamp on error, retry up to N times" behaviour is what
+      // turned a bad-key event into a $19 storm in prod. The user can
+      // manually re-attempt via the Suggest button (force=true) if desired.
+      // We still bump `categorization_error_count` for visibility.
       const nextErrorCount = (tx.categorizationErrorCount ?? 0) + 1;
-      const giveUp = nextErrorCount >= MAX_CATEGORIZATION_ERRORS;
       try {
         await prisma.budgetTransaction.update({
           where: { id: tx.id },
-          data: {
-            categorizationErrorCount: nextErrorCount,
-            ...(giveUp ? { categorizationAttemptedAt: new Date() } : {}),
-          },
+          data: { categorizationErrorCount: nextErrorCount },
         });
       } catch (updateErr) {
         console.error('Failed to record categorization error count:', updateErr);

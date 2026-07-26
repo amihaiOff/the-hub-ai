@@ -27,7 +27,12 @@ function submitResponse(input: unknown, stop = 'tool_use') {
 const input = { name: 'Shufersal', amountIls: 120, categories };
 
 describe('categorizeTransaction', () => {
-  beforeEach(() => jest.clearAllMocks());
+  // mockReset on the create fn only — clearAllMocks doesn't drain the
+  // mockResolvedValueOnce queue, and resetAllMocks nukes the SDK constructor
+  // mock so `new Anthropic(...)` breaks.
+  beforeEach(() => {
+    mockCreate.mockReset();
+  });
 
   it('returns the chosen category and clamps confidence', async () => {
     mockCreate.mockResolvedValueOnce(
@@ -56,7 +61,7 @@ describe('categorizeTransaction', () => {
     expect(r.categoryId).toBeNull();
   });
 
-  it('resumes after a paused turn, then reads the decision', async () => {
+  it('resumes after a paused turn (server-side web_search), then reads the decision', async () => {
     mockCreate
       .mockResolvedValueOnce({
         stop_reason: 'pause_turn',

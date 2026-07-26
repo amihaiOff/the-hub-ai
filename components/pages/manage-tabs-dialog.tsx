@@ -87,7 +87,9 @@ export function ManageTabsDialog({
       <DialogContent className="max-h-[85vh] overflow-hidden rounded-3xl">
         <DialogHeader>
           <DialogTitle>Manage tabs</DialogTitle>
-          <DialogDescription>Rename, reorder, add or remove this page&apos;s tabs.</DialogDescription>
+          <DialogDescription>
+            Rename, reorder, add or remove this page&apos;s tabs.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="max-h-[50vh] space-y-2 overflow-y-auto">

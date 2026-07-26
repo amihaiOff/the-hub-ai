@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import { IndentDecrease, IndentIncrease } from 'lucide-react';
 import { useKeyboardInset } from '@/lib/hooks/use-keyboard-inset';
-import { TAB_BAR_CLEARANCE } from './undo-redo-bar';
+import { floatingControlBottom } from './undo-redo-bar';
 
 function isInList(editor: Editor): boolean {
   return (
@@ -43,7 +43,14 @@ export function canOutdentWithinList(editor: Editor): boolean {
  * items in place — no scrolling back up to the editor toolbar — and it lifts
  * above the on-screen keyboard on mobile so it's never obscured.
  */
-export function ListIndentControls({ editor }: { editor: Editor }) {
+export function ListIndentControls({
+  editor,
+  hasBottomTabBar = false,
+}: {
+  editor: Editor;
+  /** Whether the page's bottom tab bar is showing, so the controls sit above it. */
+  hasBottomTabBar?: boolean;
+}) {
   const [inList, setInList] = useState(() => isInList(editor));
   const [canOutdent, setCanOutdent] = useState(() => canOutdentWithinList(editor));
   const inset = useKeyboardInset();
@@ -81,7 +88,7 @@ export function ListIndentControls({ editor }: { editor: Editor }) {
     // icons off the screen edge.
     <div
       className="fixed right-0 z-40 flex items-center gap-0.5"
-      style={{ bottom: `calc(${TAB_BAR_CLEARANCE} + ${inset}px)` }}
+      style={{ bottom: floatingControlBottom(hasBottomTabBar, inset) }}
     >
       <button
         type="button"

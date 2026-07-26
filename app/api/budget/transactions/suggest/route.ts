@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentContext } from '@/lib/auth-utils';
+import { prisma } from '@/lib/db';
 import { getFirstZodError } from '@/lib/validations/common';
 import {
   suggestCategoriesForHousehold,
@@ -8,12 +9,17 @@ import {
   MAX_BATCH_LIMIT,
 } from '@/lib/ai/suggest-categories';
 
-// Web search per transaction can take a few seconds; allow a generous ceiling.
 export const maxDuration = 60;
 
 const bodySchema = z.object({
   limit: z.number().int().min(1).max(MAX_BATCH_LIMIT).optional(),
   transactionIds: z.array(z.string()).max(MAX_BATCH_LIMIT).optional(),
+  /**
+   * When true, reset `categorization_attempted_at` on the target rows so the
+   * batch re-attempts them. Default is false — repeated Suggest clicks on
+   * already-attempted rows used to silently re-bill; this makes force opt-in.
+   */
+  force: z.boolean().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -33,12 +39,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // The manual button re-runs on demand, so it does NOT filter on
-    // categorizationAttemptedAt — the user can re-ask for no-match rows.
+    // Force-retry: clear the attempted stamp (and error count) on the
+    // targeted rows before the batch claims them. Household-scoped so this
+    // never touches another user's data.
+    if (validation.data.force) {
+      const where: {
+        householdId: string;
+        isDeleted: boolean;
+        id?: { in: string[] };
+      } = { householdId, isDeleted: false };
+      if (validation.data.transactionIds?.length) {
+        where.id = { in: validation.data.transactionIds };
+      }
+      await prisma.budgetTransaction.updateMany({
+        where,
+        data: { categorizationAttemptedAt: null, categorizationErrorCount: 0 },
+      });
+    }
+
     const result = await suggestCategoriesForHousehold(householdId, {
       limit: validation.data.limit ?? DEFAULT_BATCH_LIMIT,
       transactionIds: validation.data.transactionIds,
-      onlyUnattempted: false,
+      // Default to only-unattempted so a repeat click on the Suggest button
+      // is a no-op on rows the AI has already tried. Opt into a real re-run
+      // via `force: true` above.
+      onlyUnattempted: true,
     });
 
     if (!result.ok) {

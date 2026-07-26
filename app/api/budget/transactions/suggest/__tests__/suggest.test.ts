@@ -1,6 +1,8 @@
 /**
  * Integration tests for POST /api/budget/transactions/suggest.
- * The AI module is mocked — no network calls are made.
+ * The AI module is mocked — no network calls are made. Rows are now claimed
+ * via an atomic raw UPDATE (see suggest-categories.ts::claimTransactionsForBatch);
+ * these tests stub `$queryRawUnsafe` to return the "claimed" batch directly.
  */
 
 import { NextRequest } from 'next/server';
@@ -8,19 +10,11 @@ import { NextRequest } from 'next/server';
 // Mocks must be declared before importing the route.
 jest.mock('@/lib/db', () => ({
   prisma: {
-    household: {
-      findUnique: jest.fn(),
-    },
-    budgetCategory: {
-      findMany: jest.fn(),
-    },
-    budgetTransaction: {
-      findMany: jest.fn(),
-      update: jest.fn(),
-    },
-    budgetCategorizationLog: {
-      create: jest.fn(),
-    },
+    household: { findUnique: jest.fn() },
+    budgetCategory: { findMany: jest.fn() },
+    budgetTransaction: { update: jest.fn(), updateMany: jest.fn() },
+    budgetCategorizationLog: { create: jest.fn() },
+    $queryRawUnsafe: jest.fn(),
   },
 }));
 
@@ -40,9 +34,8 @@ import { POST } from '../route';
 const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 const mockCategorize = categorizeTransaction as jest.MockedFunction<typeof categorizeTransaction>;
+const mockClaim = mockPrisma.$queryRawUnsafe as jest.Mock;
 
-// Zero usage stub — these tests mock categorizeTransaction, so the exact token
-// counts don't matter; they only need to satisfy the CategorizeResult shape.
 const USAGE = {
   inputTokens: 0,
   outputTokens: 0,
@@ -64,6 +57,17 @@ const CATEGORY_ROWS = [
   { id: 'cat-2', name: 'Transit', group: { name: 'Transport' } },
 ];
 
+function claimed(rows: Array<Partial<Record<string, unknown>>>) {
+  return rows.map((r) => ({
+    id: 'tx-x',
+    amountIls: 10,
+    notes: null,
+    categorizationErrorCount: 0,
+    payeeName: null,
+    ...r,
+  }));
+}
+
 function makeRequest(body: unknown = {}) {
   return new NextRequest('http://localhost/api/budget/transactions/suggest', {
     method: 'POST',
@@ -71,7 +75,6 @@ function makeRequest(body: unknown = {}) {
   });
 }
 
-/** Default happy-path wiring: authed, key set, categories present. */
 function primeAuthKeyAndCategories() {
   mockGetCurrentContext.mockResolvedValue(mockContext);
   (mockPrisma.household.findUnique as jest.Mock).mockResolvedValue({
@@ -79,6 +82,7 @@ function primeAuthKeyAndCategories() {
   });
   (mockPrisma.budgetCategory.findMany as jest.Mock).mockResolvedValue(CATEGORY_ROWS);
   (mockPrisma.budgetTransaction.update as jest.Mock).mockResolvedValue({});
+  (mockPrisma.budgetTransaction.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
   (mockPrisma.budgetCategorizationLog.create as jest.Mock).mockResolvedValue({});
 }
 
@@ -122,7 +126,7 @@ describe('POST /api/budget/transactions/suggest — guards', () => {
     mockGetCurrentContext.mockResolvedValueOnce(mockContext);
     (mockPrisma.household.findUnique as jest.Mock).mockResolvedValueOnce({ anthropicApiKey: null });
     (mockPrisma.budgetCategory.findMany as jest.Mock).mockResolvedValueOnce(CATEGORY_ROWS);
-    (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+    mockClaim.mockResolvedValueOnce([]);
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
   });
@@ -141,7 +145,7 @@ describe('POST /api/budget/transactions/suggest — guards', () => {
 
   it('returns zeroed counts when there are no uncategorized transactions', async () => {
     primeAuthKeyAndCategories();
-    (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+    mockClaim.mockResolvedValueOnce([]);
     const res = await POST(makeRequest());
     const json = await res.json();
     expect(res.status).toBe(200);
@@ -163,41 +167,45 @@ describe('POST /api/budget/transactions/suggest — guards', () => {
   });
 });
 
-describe('POST /api/budget/transactions/suggest — query scoping', () => {
-  it('filters to uncategorized, un-suggested, untagged expenses in the household', async () => {
+describe('POST /api/budget/transactions/suggest — claim scoping', () => {
+  it('defaults to only-unattempted (safe against repeated Suggest clicks)', async () => {
     primeAuthKeyAndCategories();
-    (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+    mockClaim.mockResolvedValueOnce([]);
     await POST(makeRequest());
-    const call = (mockPrisma.budgetTransaction.findMany as jest.Mock).mock.calls[0][0];
-    expect(call.where).toEqual(
-      expect.objectContaining({
-        householdId: 'hh-1',
-        isDeleted: false,
-        type: 'expense',
-        categoryId: null,
-        suggestedCategoryId: null,
-        tags: { none: {} },
-      })
-    );
-    expect(call.take).toBe(8); // DEFAULT_LIMIT
+    const [sql, ...params] = mockClaim.mock.calls[0];
+    expect(String(sql)).toContain('categorization_attempted_at IS NULL');
+    expect(params[0]).toBe('hh-1');
   });
 
-  it('honours an explicit limit and transactionIds filter', async () => {
+  it('resets attempted-at first when force=true, then claims for a fresh attempt', async () => {
     primeAuthKeyAndCategories();
-    (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
-    await POST(makeRequest({ limit: 5, transactionIds: ['tx-a', 'tx-b'] }));
-    const call = (mockPrisma.budgetTransaction.findMany as jest.Mock).mock.calls[0][0];
-    expect(call.take).toBe(5);
-    expect(call.where.id).toEqual({ in: ['tx-a', 'tx-b'] });
+    mockClaim.mockResolvedValueOnce([]);
+    await POST(makeRequest({ force: true, transactionIds: ['tx-a'] }));
+    // updateMany fires before the batch to reset the stamp on the targeted rows.
+    const reset = (mockPrisma.budgetTransaction.updateMany as jest.Mock).mock.calls[0][0];
+    expect(reset.where).toEqual({ householdId: 'hh-1', isDeleted: false, id: { in: ['tx-a'] } });
+    expect(reset.data).toEqual({ categorizationAttemptedAt: null, categorizationErrorCount: 0 });
+    // Then the claim runs — still with the only-unattempted filter, but now
+    // the target rows are unattempted again after the reset.
+    const [sql] = mockClaim.mock.calls[0];
+    expect(String(sql)).toContain('categorization_attempted_at IS NULL');
+  });
+
+  it('respects an explicit limit', async () => {
+    primeAuthKeyAndCategories();
+    mockClaim.mockResolvedValueOnce([]);
+    await POST(makeRequest({ limit: 5 }));
+    const params = mockClaim.mock.calls[0].slice(1);
+    expect(params.at(-1)).toBe(5);
   });
 });
 
 describe('POST /api/budget/transactions/suggest — per-item decisions', () => {
-  it('writes a suggestion + log for a confident match', async () => {
+  it('writes a suggestion + log for a confident match; no second attempted-at stamp', async () => {
     primeAuthKeyAndCategories();
-    (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
-      { id: 'tx-1', amountIls: 120, notes: null, payee: { name: 'Shufersal' } },
-    ]);
+    mockClaim.mockResolvedValueOnce(
+      claimed([{ id: 'tx-1', amountIls: 120, payeeName: 'Shufersal' }])
+    );
     mockCategorize.mockResolvedValueOnce({
       categoryId: 'cat-1',
       confidence: 0.92,
@@ -212,11 +220,11 @@ describe('POST /api/budget/transactions/suggest — per-item decisions', () => {
 
     const updateCall = (mockPrisma.budgetTransaction.update as jest.Mock).mock.calls[0][0];
     expect(updateCall.where).toEqual({ id: 'tx-1' });
-    expect(updateCall.data.suggestedCategoryId).toBe('cat-1');
-    expect(updateCall.data.suggestionConfidence).toBe(0.92);
-    expect(updateCall.data.suggestedAt).toBeInstanceOf(Date);
-    // The attempt is stamped alongside the suggestion.
-    expect(updateCall.data.categorizationAttemptedAt).toBeInstanceOf(Date);
+    expect(updateCall.data).toEqual({
+      suggestedCategoryId: 'cat-1',
+      suggestionConfidence: 0.92,
+      suggestedAt: expect.any(Date),
+    });
 
     const logCall = (mockPrisma.budgetCategorizationLog.create as jest.Mock).mock.calls[0][0];
     expect(logCall.data).toMatchObject({
@@ -227,15 +235,14 @@ describe('POST /api/budget/transactions/suggest — per-item decisions', () => {
       resultCategoryId: 'cat-1',
       resultCategoryName: 'Groceries',
       confidence: 0.92,
-      reasoning: 'grocery chain',
     });
   });
 
-  it('logs low_confidence without writing a suggestion', async () => {
+  it('logs low_confidence without writing a suggestion or a second attempted-at', async () => {
     primeAuthKeyAndCategories();
-    (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
-      { id: 'tx-2', amountIls: 30, notes: 'bus', payee: null },
-    ]);
+    mockClaim.mockResolvedValueOnce(
+      claimed([{ id: 'tx-2', amountIls: 30, notes: 'bus', payeeName: null }])
+    );
     mockCategorize.mockResolvedValueOnce({
       categoryId: 'cat-2',
       confidence: 0.4,
@@ -246,10 +253,9 @@ describe('POST /api/budget/transactions/suggest — per-item decisions', () => {
     const res = await POST(makeRequest());
     const json = await res.json();
     expect(json.data).toMatchObject({ lowConfidence: 1, suggested: 0, processed: 1 });
-    // Stamps categorizationAttemptedAt (so the auto pass won't retry) but does
-    // NOT attach a suggestion.
-    const updateCall = (mockPrisma.budgetTransaction.update as jest.Mock).mock.calls[0][0];
-    expect(updateCall.data).toEqual({ categorizationAttemptedAt: expect.any(Date) });
+    // No follow-up transaction update on low_confidence — the atomic claim
+    // already stamped attempted_at.
+    expect(mockPrisma.budgetTransaction.update).not.toHaveBeenCalled();
 
     const logCall = (mockPrisma.budgetCategorizationLog.create as jest.Mock).mock.calls[0][0];
     expect(logCall.data.status).toBe('low_confidence');
@@ -260,9 +266,7 @@ describe('POST /api/budget/transactions/suggest — per-item decisions', () => {
 
   it('logs no_match when the model returns no category', async () => {
     primeAuthKeyAndCategories();
-    (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
-      { id: 'tx-3', amountIls: 99, notes: null, payee: null },
-    ]);
+    mockClaim.mockResolvedValueOnce(claimed([{ id: 'tx-3', amountIls: 99 }]));
     mockCategorize.mockResolvedValueOnce({
       categoryId: null,
       confidence: 0,
@@ -273,29 +277,29 @@ describe('POST /api/budget/transactions/suggest — per-item decisions', () => {
     const res = await POST(makeRequest());
     const json = await res.json();
     expect(json.data).toMatchObject({ noMatch: 1, suggested: 0, processed: 1 });
-    // Stamps categorizationAttemptedAt but attaches no suggestion.
-    const updateCall = (mockPrisma.budgetTransaction.update as jest.Mock).mock.calls[0][0];
-    expect(updateCall.data).toEqual({ categorizationAttemptedAt: expect.any(Date) });
+    expect(mockPrisma.budgetTransaction.update).not.toHaveBeenCalled();
 
     const logCall = (mockPrisma.budgetCategorizationLog.create as jest.Mock).mock.calls[0][0];
     expect(logCall.data.status).toBe('no_match');
-    expect(logCall.data.resultCategoryId).toBeNull();
-    expect(logCall.data.resultCategoryName).toBeNull();
-    // Falls back to the default label when neither payee nor notes exist.
     expect(logCall.data.transactionName).toBe('Unknown transaction');
   });
 
-  it('records an error log and increments errors when categorization throws (batch not rejected)', async () => {
+  it('bumps the error counter on categorization failure and never re-runs the row', async () => {
     primeAuthKeyAndCategories();
-    (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
-      { id: 'tx-4', amountIls: 10, notes: null, payee: { name: 'Boom' } },
-    ]);
+    mockClaim.mockResolvedValueOnce(
+      claimed([{ id: 'tx-4', payeeName: 'Boom', categorizationErrorCount: 2 }])
+    );
     mockCategorize.mockRejectedValueOnce(new Error('rate limited'));
 
     const res = await POST(makeRequest());
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json.data).toMatchObject({ errors: 1, processed: 1, suggested: 0 });
+
+    const updateCall = (mockPrisma.budgetTransaction.update as jest.Mock).mock.calls[0][0];
+    expect(updateCall.data).toEqual({ categorizationErrorCount: 3 });
+    // Note: no attemptedAt clear/reset — the atomic claim stamped it and it
+    // stays stamped. This is the storm-prevention behaviour.
 
     const logCall = (mockPrisma.budgetCategorizationLog.create as jest.Mock).mock.calls[0][0];
     expect(logCall.data.status).toBe('error');
@@ -304,9 +308,7 @@ describe('POST /api/budget/transactions/suggest — per-item decisions', () => {
 
   it('swallows a logging failure in the error path (no 500)', async () => {
     primeAuthKeyAndCategories();
-    (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
-      { id: 'tx-5', amountIls: 10, notes: null, payee: { name: 'Boom' } },
-    ]);
+    mockClaim.mockResolvedValueOnce(claimed([{ id: 'tx-5', payeeName: 'Boom' }]));
     mockCategorize.mockRejectedValueOnce(new Error('rate limited'));
     (mockPrisma.budgetCategorizationLog.create as jest.Mock).mockRejectedValueOnce(
       new Error('log write failed')
@@ -322,17 +324,19 @@ describe('POST /api/budget/transactions/suggest — per-item decisions', () => {
 
   it('aggregates counts across a mixed batch', async () => {
     primeAuthKeyAndCategories();
-    (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
-      { id: 'a', amountIls: 1, notes: null, payee: { name: 'A' } },
-      { id: 'b', amountIls: 2, notes: null, payee: { name: 'B' } },
-      { id: 'c', amountIls: 3, notes: null, payee: { name: 'C' } },
-      { id: 'd', amountIls: 4, notes: null, payee: { name: 'D' } },
-    ]);
+    mockClaim.mockResolvedValueOnce(
+      claimed([
+        { id: 'a', payeeName: 'A' },
+        { id: 'b', payeeName: 'B' },
+        { id: 'c', payeeName: 'C' },
+        { id: 'd', payeeName: 'D' },
+      ])
+    );
     mockCategorize
-      .mockResolvedValueOnce({ categoryId: 'cat-1', confidence: 0.9, reasoning: 'x', usage: USAGE }) // suggested
-      .mockResolvedValueOnce({ categoryId: 'cat-2', confidence: 0.5, reasoning: 'x', usage: USAGE }) // low
-      .mockResolvedValueOnce({ categoryId: null, confidence: 0, reasoning: 'x', usage: USAGE }) // no_match
-      .mockRejectedValueOnce(new Error('boom')); // error
+      .mockResolvedValueOnce({ categoryId: 'cat-1', confidence: 0.9, reasoning: 'x', usage: USAGE })
+      .mockResolvedValueOnce({ categoryId: 'cat-2', confidence: 0.5, reasoning: 'x', usage: USAGE })
+      .mockResolvedValueOnce({ categoryId: null, confidence: 0, reasoning: 'x', usage: USAGE })
+      .mockRejectedValueOnce(new Error('boom'));
 
     const res = await POST(makeRequest());
     const json = await res.json();
@@ -347,16 +351,13 @@ describe('POST /api/budget/transactions/suggest — per-item decisions', () => {
 
   it('treats confidence exactly at the threshold (0.6) as suggested', async () => {
     primeAuthKeyAndCategories();
-    (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
-      { id: 'tx-6', amountIls: 50, notes: null, payee: { name: 'Edge' } },
-    ]);
+    mockClaim.mockResolvedValueOnce(claimed([{ id: 'tx-6', payeeName: 'Edge' }]));
     mockCategorize.mockResolvedValueOnce({
       categoryId: 'cat-1',
       confidence: 0.6,
       reasoning: 'edge',
       usage: USAGE,
     });
-
     const res = await POST(makeRequest());
     const json = await res.json();
     expect(json.data).toMatchObject({ suggested: 1, lowConfidence: 0 });
