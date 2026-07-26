@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
       filterParams.tagIds = searchParams.get('tagIds')!.split(',');
     }
     if (searchParams.get('uncategorized') === 'true') filterParams.uncategorized = true;
+    if (searchParams.get('pendingSuggestion') === 'true') filterParams.pendingSuggestion = true;
     if (searchParams.get('accountNumber'))
       filterParams.accountNumber = searchParams.get('accountNumber');
 
@@ -95,9 +96,15 @@ export async function GET(request: NextRequest) {
     if (filters.paymentMethod) where.paymentMethod = filters.paymentMethod;
     if (filters.accountNumber) where.paymentIdentifier = filters.accountNumber;
 
-    // Uncategorized filter takes precedence over categoryId and tagIds
-    // Income transactions are never considered uncategorized
-    if (filters.uncategorized) {
+    // "Pending suggestion" and "uncategorized" filters both override an
+    // explicit categoryId / tagIds selection — they're global reviewer
+    // shortcuts. Only expenses can be pending or uncategorized (income never
+    // needs categorization).
+    if (filters.pendingSuggestion) {
+      where.categoryId = null;
+      where.suggestedCategoryId = { not: null };
+      where.type = 'expense';
+    } else if (filters.uncategorized) {
       where.categoryId = null;
       where.tags = { none: {} };
       where.type = 'expense';

@@ -267,6 +267,7 @@ describe('Create Snapshot Cron', () => {
         {
           id: 'household-1',
           name: 'Test Family',
+          snapshotDayOfMonth: new Date().getUTCDate(),
           members: [{ profileId: 'profile-1', profile: { id: 'profile-1' } }],
         },
       ]);
@@ -364,6 +365,7 @@ describe('Create Snapshot Cron', () => {
         {
           id: 'household-1',
           name: 'Test Family',
+          snapshotDayOfMonth: new Date().getUTCDate(),
           members: [{ profileId: 'profile-1', profile: { id: 'profile-1' } }],
         },
       ]);

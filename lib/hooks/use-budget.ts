@@ -136,6 +136,8 @@ export interface TransactionFilters {
   type?: 'income' | 'expense';
   searchQuery?: string;
   uncategorized?: boolean;
+  /** Rows with an AI suggestion the user hasn't accepted or declined. */
+  pendingSuggestion?: boolean;
   accountNumber?: string;
 }
 
@@ -253,6 +255,7 @@ export function useTransactions(filters?: TransactionFilters) {
       if (filters?.tagId) params.set('tagIds', filters.tagId);
       if (filters?.type) params.set('type', filters.type);
       if (filters?.uncategorized) params.set('uncategorized', 'true');
+      if (filters?.pendingSuggestion) params.set('pendingSuggestion', 'true');
       if (filters?.accountNumber) params.set('accountNumber', filters.accountNumber);
 
       const response = await fetchApi<PaginatedResponse<BudgetTransaction>>(

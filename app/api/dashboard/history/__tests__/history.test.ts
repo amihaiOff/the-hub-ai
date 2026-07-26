@@ -155,7 +155,11 @@ function mockCurrentValues(opts: {
   );
 }
 
+// Snapshots are monthly-resolution; the appended "today" datapoint carries
+// the first-of-current-month date so it lines up with any stored snapshot
+// from this month.
 const todayStr = new Date().toISOString().split('T')[0];
+const currentMonthStr = `${todayStr.slice(0, 7)}-01`;
 
 describe('Dashboard History API', () => {
   beforeEach(() => {
@@ -271,7 +275,7 @@ describe('Dashboard History API', () => {
       });
 
       // Third is the live "today" data point (empty current values => zeros)
-      expect(data.data[2].date).toBe(todayStr);
+      expect(data.data[2].date).toBe(currentMonthStr);
 
       // Verify database query
       expect(mockPrisma.netWorthSnapshot.findMany).toHaveBeenCalledWith({
@@ -356,14 +360,14 @@ describe('Dashboard History API', () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      // Mock history generates 24 bi-weekly data points
-      expect(data.data).toHaveLength(24);
-      // Last data point should have current date
-      const lastPoint = data.data[data.data.length - 1];
-      expect(lastPoint.date).toBe(todayStr);
+      // No stored snapshots → the history is just the live current-month
+      // datapoint. The prior "generate 24 bi-weekly points" mock backfill
+      // was misleading and was removed.
+      expect(data.data).toHaveLength(1);
+      expect(data.data[0].date).toBe(currentMonthStr);
     });
 
-    it('should handle empty portfolio/pension/assets in fallback mode', async () => {
+    it('returns just the current-month point when portfolio/pension/assets are all zero', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
 
       mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
@@ -376,14 +380,12 @@ describe('Dashboard History API', () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(data.data).toHaveLength(24);
-
-      // Last point should have zero values
-      const lastPoint = data.data[data.data.length - 1];
-      expect(lastPoint.netWorth).toBe(0);
-      expect(lastPoint.portfolio).toBe(0);
-      expect(lastPoint.pension).toBe(0);
-      expect(lastPoint.assets).toBe(0);
+      expect(data.data).toHaveLength(1);
+      expect(data.data[0].date).toBe(currentMonthStr);
+      expect(data.data[0].netWorth).toBe(0);
+      expect(data.data[0].portfolio).toBe(0);
+      expect(data.data[0].pension).toBe(0);
+      expect(data.data[0].assets).toBe(0);
     });
 
     it('should handle snapshots with negative asset values', async () => {
@@ -525,7 +527,7 @@ describe('Dashboard History API', () => {
       expect(data.data[1].date).toBe('2024-02-01');
       expect(data.data[2].date).toBe('2024-03-01');
       // Today is appended as last point
-      expect(data.data[3].date).toBe(todayStr);
+      expect(data.data[3].date).toBe(currentMonthStr);
       expect(data.data).toHaveLength(4);
     });
 
@@ -671,15 +673,15 @@ describe('Dashboard History API', () => {
       expect(data.data[0].portfolio).toBeCloseTo(40000.5);
     });
 
-    it('should replace today point instead of appending when last snapshot is today', async () => {
+    it('should replace the current-month point instead of appending when a snapshot for this month exists', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
 
-      // Create a snapshot with today's date
+      // Snapshot dated the first of the current month (monthly resolution).
       const mockSnapshots = [
         {
           id: 'snapshot-1',
           userId: 'user-1',
-          date: new Date(), // today
+          date: new Date(currentMonthStr),
           netWorth: createDecimal(100000),
           portfolio: createDecimal(40000),
           pension: createDecimal(50000),
@@ -698,7 +700,7 @@ describe('Dashboard History API', () => {
       expect(response.status).toBe(200);
       // Should NOT append an extra point; instead, the today snapshot is replaced
       expect(data.data).toHaveLength(1);
-      expect(data.data[0].date).toBe(todayStr);
+      expect(data.data[0].date).toBe(currentMonthStr);
       // The values come from computeCurrentValues (empty => 0), not the DB snapshot
       expect(data.data[0].netWorth).toBe(0);
       expect(data.data[0].portfolio).toBe(0);
@@ -787,7 +789,7 @@ describe('Dashboard History API', () => {
 
       // Second point: today's real-time values
       const todayPoint = data.data[1];
-      expect(todayPoint.date).toBe(todayStr);
+      expect(todayPoint.date).toBe(currentMonthStr);
       // Portfolio: calculatePortfolioSummary mock => 10 * 200 = 2000
       // Pension: 50000, Assets: 20000
       // Net worth: 2000 + 50000 + 20000 = 72000

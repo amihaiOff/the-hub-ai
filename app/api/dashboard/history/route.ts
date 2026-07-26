@@ -52,42 +52,29 @@ export async function GET() {
       assets: Math.round(current.assets),
     };
 
-    if (snapshots.length > 0) {
-      // Reverse to chronological order (oldest to newest)
-      const history: NetWorthDataPoint[] = snapshots.reverse().map((snapshot) => ({
-        date: snapshot.date.toISOString().split('T')[0],
-        netWorth: Number(snapshot.netWorth),
-        portfolio: Number(snapshot.portfolio),
-        pension: Number(snapshot.pension),
-        assets: Number(snapshot.assets),
-      }));
+    // Reverse to chronological order (oldest to newest). No mock backfill —
+    // if the user has zero snapshots they see one point (today), which is
+    // the honest picture.
+    const history: NetWorthDataPoint[] = snapshots.reverse().map((snapshot) => ({
+      date: snapshot.date.toISOString().split('T')[0],
+      netWorth: Number(snapshot.netWorth),
+      portfolio: Number(snapshot.portfolio),
+      pension: Number(snapshot.pension),
+      assets: Number(snapshot.assets),
+    }));
 
-      // Replace or append today's data point with real-time values
-      const lastIdx = history.length - 1;
-      if (history[lastIdx].date === todayStr) {
-        history[lastIdx] = todayPoint;
-      } else {
-        history.push(todayPoint);
-      }
-
-      return NextResponse.json({
-        success: true,
-        data: history,
-      });
+    // Append or replace with today's real-time datapoint. When the newest
+    // stored snapshot is already the current month's, overwrite it so the
+    // "today" value stays consistent with the dashboard cards.
+    const currentMonthStr = `${todayStr.slice(0, 7)}-01`;
+    const lastIdx = history.length - 1;
+    if (lastIdx >= 0 && history[lastIdx].date === currentMonthStr) {
+      history[lastIdx] = { ...todayPoint, date: currentMonthStr };
+    } else {
+      history.push({ ...todayPoint, date: currentMonthStr });
     }
 
-    // Fall back to generated mock data if no snapshots exist
-    const history = generateMockHistory(
-      current.netWorth,
-      current.portfolio,
-      current.pension,
-      current.assets
-    );
-
-    return NextResponse.json({
-      success: true,
-      data: history,
-    });
+    return NextResponse.json({ success: true, data: history });
   } catch (error) {
     console.error('Error fetching net worth history:', error);
     return NextResponse.json(
@@ -177,55 +164,4 @@ async function computeCurrentValues(userId: string, householdId: string | null) 
     assets,
     netWorth: portfolio + pension + assets,
   };
-}
-
-/**
- * Generate deterministic mock historical data.
- * Uses current values and works backwards with smooth growth curves.
- * Only used when no real snapshots exist yet.
- */
-function generateMockHistory(
-  currentNetWorth: number,
-  currentPortfolio: number,
-  currentPension: number,
-  currentAssets: number
-): NetWorthDataPoint[] {
-  const history: NetWorthDataPoint[] = [];
-  const now = new Date();
-
-  // Generate data points for the past 12 months (bi-weekly = 24 points)
-  for (let i = 23; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i * 14); // Every 2 weeks
-
-    const monthsAgo = i * 0.5;
-    const portfolioGrowthFactor = Math.pow(1.08, -monthsAgo / 12);
-    const pensionGrowthFactor = Math.pow(1.06, -monthsAgo / 12);
-
-    const portfolio = Math.round(currentPortfolio * portfolioGrowthFactor);
-    const pension = Math.round(currentPension * pensionGrowthFactor);
-    const assets = Math.round(currentAssets);
-    const netWorth = portfolio + pension + assets;
-
-    history.push({
-      date: date.toISOString().split('T')[0],
-      netWorth,
-      portfolio,
-      pension,
-      assets,
-    });
-  }
-
-  // Ensure the last data point matches current values exactly
-  if (history.length > 0) {
-    history[history.length - 1] = {
-      date: now.toISOString().split('T')[0],
-      netWorth: Math.round(currentNetWorth),
-      portfolio: Math.round(currentPortfolio),
-      pension: Math.round(currentPension),
-      assets: Math.round(currentAssets),
-    };
-  }
-
-  return history;
 }
