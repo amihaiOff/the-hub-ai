@@ -11,14 +11,13 @@ import Anthropic from '@anthropic-ai/sdk';
  */
 
 const MODEL = 'claude-haiku-4-5';
-// Web search is disabled: at $0.01 per search × ~1.15 searches/call in prod
-// history it accounted for roughly a third of the AI bill without measurable
-// accuracy gains on Israeli merchants (Haiku's training data covers them
-// better than a live search does). Flip to > 0 to re-enable.
-const MAX_WEB_SEARCHES = 0;
-// Without web-search there's never a pause_turn step, so the model always
-// responds in a single call. Keep the loop bound at 1 to make that explicit.
-const MAX_STEPS = 1;
+// One web search per transaction — the model can look up an unfamiliar
+// merchant name when needed, but can't chain multiple lookups. Prior default
+// was 3 searches/call which averaged ~1.15 in prod (extra headroom = extra $).
+const MAX_WEB_SEARCHES = 1;
+// Enough steps to handle the initial call + one pause_turn (for the search
+// server tool) + a follow-up submit_result. Anything past that gives up.
+const MAX_STEPS = 3;
 // Cap a single categorization so one slow/hung request can't eat the whole
 // serverless budget. The automatic drain retries on a later run.
 const REQUEST_TIMEOUT_MS = 30_000;

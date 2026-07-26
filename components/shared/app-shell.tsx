@@ -88,7 +88,7 @@ export function AppShell({ children }: AppShellProps) {
           inflated width and spill off-screen. `clip` (not `hidden`) clips at the
           viewport edge without creating a scroll container, so the sticky editor
           toolbar and the database block's flush full-bleed still work. */}
-      <main id="main-content" tabIndex={-1} className="safe-px safe-pb lg:ml-64 overflow-x-clip">
+      <main id="main-content" tabIndex={-1} className="safe-px safe-pb overflow-x-clip lg:ml-64">
         <div className="mx-auto max-w-7xl p-4 lg:p-8">{children}</div>
       </main>
     </div>

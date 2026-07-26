@@ -146,7 +146,9 @@ function setTabs(
 ) {
   const prev = qc.getQueryData<PageRow>(pageKeys.detail(pageId));
   if (!prev) return prev;
-  const tabs = update(prev.tabs ?? []).slice().sort((a, b) => a.sortOrder - b.sortOrder);
+  const tabs = update(prev.tabs ?? [])
+    .slice()
+    .sort((a, b) => a.sortOrder - b.sortOrder);
   qc.setQueryData<PageRow>(pageKeys.detail(pageId), { ...prev, tabs });
   return prev;
 }

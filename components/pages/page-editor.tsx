@@ -148,10 +148,7 @@ export function PageEditor({ pageId }: { pageId: string }) {
   const handleAddTab = useCallback(() => {
     // Flush the current tab's pending edit before switching away from it.
     flushTab();
-    createTab.mutate(
-      { pageId },
-      { onSuccess: (tab) => setActiveTabId(tab.id) }
-    );
+    createTab.mutate({ pageId }, { onSuccess: (tab) => setActiveTabId(tab.id) });
   }, [createTab, pageId, flushTab]);
 
   const handleDelete = () => {
@@ -189,7 +186,9 @@ export function PageEditor({ pageId }: { pageId: string }) {
       {/* Top bar: save status + overflow menu. */}
       <div className="flex items-center justify-end gap-3">
         {saveError ? (
-          <span className="text-destructive text-xs">Couldn&apos;t save — check your connection</span>
+          <span className="text-destructive text-xs">
+            Couldn&apos;t save — check your connection
+          </span>
         ) : saving ? (
           <span className="text-muted-foreground text-xs">Saving…</span>
         ) : null}

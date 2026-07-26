@@ -61,6 +61,20 @@ describe('categorizeTransaction', () => {
     expect(r.categoryId).toBeNull();
   });
 
+  it('resumes after a paused turn (server-side web_search), then reads the decision', async () => {
+    mockCreate
+      .mockResolvedValueOnce({
+        stop_reason: 'pause_turn',
+        content: [{ type: 'text', text: '...' }],
+      })
+      .mockResolvedValueOnce(
+        submitResponse({ categoryId: 'c-fun', confidence: 0.8, reasoning: 'cinema' })
+      );
+    const r = await categorizeTransaction('sk-test', input);
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+    expect(r.categoryId).toBe('c-fun');
+  });
+
   it('gives up gracefully when the model never submits', async () => {
     mockCreate.mockResolvedValueOnce({
       stop_reason: 'end_turn',
