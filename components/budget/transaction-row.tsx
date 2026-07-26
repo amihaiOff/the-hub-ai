@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { MoreVertical, Pencil, Trash2, Split, ChevronsUpDown, Check, X } from 'lucide-react';
 import { CategoryPickerSheet } from './category-picker-sheet';
+import { CategorySelect } from './category-select';
 import { cn } from '@/lib/utils';
 import {
   type BudgetTransaction,
@@ -298,7 +299,9 @@ export function TransactionRow({
         )}
       </td>
 
-      {/* Category */}
+      {/* Category — mobile opens a bottom sheet (native-feeling on touch),
+          desktop uses an inline combobox with typeahead so a keyboard user
+          can jump categories without a modal round-trip. */}
       <td className="px-4 py-2">
         <button
           type="button"
@@ -306,7 +309,7 @@ export function TransactionRow({
           disabled={updateTransaction.isPending}
           aria-label={`Select category for ${payeeName || 'transaction'}`}
           className={cn(
-            'flex h-auto w-full max-w-[180px] items-center justify-between gap-1 rounded-md px-2 py-1 text-left text-sm transition-colors',
+            'flex h-auto w-full max-w-[180px] items-center justify-between gap-1 rounded-md px-2 py-1 text-left text-sm transition-colors lg:hidden',
             'hover:bg-muted/50 disabled:opacity-50',
             !transaction.categoryId && 'text-muted-foreground italic'
           )}
@@ -321,6 +324,17 @@ export function TransactionRow({
           categoryGroups={categoryGroups}
           onSelect={(categoryId) => handleCategoryChange(categoryId ?? '')}
         />
+        <div className="hidden max-w-[220px] lg:block">
+          <CategorySelect
+            value={transaction.categoryId ?? ''}
+            onValueChange={handleCategoryChange}
+            categoryGroups={categoryGroups}
+            placeholder={isIncome ? 'Income' : 'Uncategorized'}
+            allowNone
+            noneLabel="Uncategorized"
+            disabled={updateTransaction.isPending}
+          />
+        </div>
         {hasSuggestion && (
           <div className="mt-1">
             <SuggestionBar transaction={transaction} />

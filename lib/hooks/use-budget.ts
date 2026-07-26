@@ -638,6 +638,31 @@ export function useAiUsage() {
   });
 }
 
+export interface AiUsageDayRow {
+  day: string; // YYYY-MM-DD
+  transactionCount: number;
+  spendUsd: number;
+  webSearches: number;
+}
+
+export interface AiUsageDaysData {
+  month: string;
+  days: AiUsageDayRow[];
+}
+
+/**
+ * Per-day breakdown of AI spend for a single month; used to expand a
+ * month row on the Labs → AI Spend page. Query is only enabled when
+ * `month` is set, so the parent can control lazy-load per row.
+ */
+export function useAiUsageDays(month: string | null) {
+  return useQuery({
+    queryKey: [...budgetKeys.aiUsage(), 'days', month] as const,
+    queryFn: () => fetchApi<AiUsageDaysData>(`/api/labs/ai-usage/days?month=${month}`),
+    enabled: !!month,
+  });
+}
+
 export function useBulkDeleteTransactions() {
   const queryClient = useQueryClient();
 
