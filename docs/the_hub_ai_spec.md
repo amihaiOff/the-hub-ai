@@ -1065,6 +1065,11 @@ Configured in `vercel.json`:
 
 # Design System & UI Guidelines
 
+> **Canonical reference: [`docs/design-system.md`](./design-system.md).** That
+> file is the single source of truth for tokens, radii, shadows, typography, and
+> component specs — read it before any UI work. The summary below is kept
+> aligned with it.
+
 ## Design Principles
 
 - **Mobile-First:** Design for mobile, enhance for desktop
@@ -1103,14 +1108,16 @@ Configured in `vercel.json`:
 
 ## Typography
 
-- **Font Family:** Lexend (sans-serif) - modern, highly readable, used for both body and headings
-- **Headings:**
-  - H1: 2.5rem (40px), bold, for main dashboard title
-  - H2: 2rem (32px), semibold, for section titles
-  - H3: 1.5rem (24px), semibold, for subsections
-- **Body:** 1rem (16px), normal weight
-- **Small/Caption:** 0.875rem (14px), for labels and secondary info
-- **Numbers:** Tabular figures (font-variant-numeric: tabular-nums) for aligned columns
+- **Body / headings:** Lexend (`--font-sans` / `--font-heading`) — modern,
+  highly readable.
+- **Wordmark only:** Playfair Display (`--font-playfair`), used exclusively for
+  the "The Hub" wordmark — nowhere else.
+- **Page titles:** non-Areas pages use a `.page-title` heading at `text-4xl` in
+  the base font, with `margin-bottom: 2.5rem` (or the gap on the flex header row
+  when the title shares it with an action).
+- **Body:** 1rem (16px); **Small/Caption:** 0.875rem (14px) for labels.
+- **Numbers:** tabular figures (`font-variant-numeric: tabular-nums`); compact
+  `K`/`M` notation on summary cards.
 
 ## Layout
 
@@ -1132,10 +1139,10 @@ Configured in `vercel.json`:
 
 ### Cards
 
-- Rounded corners (border-radius: 0.5rem)
-- Subtle shadow in light mode, border in dark mode
-- Padding: 1.5rem
-- Hover effect: slight shadow increase
+- Rounded corners: `rounded-3xl` (24px), via `components/ui/card.tsx`
+- Border **and** soft shadow (`.shadow-glow` = `0 10px 30px rgba(0,0,0,.45)`) in
+  dark mode — both, so cards lift off the slate base
+- Padding: 1.5rem (`py-6`, content `px-6`), `gap-6`
 
 ### Buttons
 

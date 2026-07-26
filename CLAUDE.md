@@ -254,12 +254,18 @@ Rules to keep server + client state cleanly separated:
 
 ### Styling & Design
 
+**Before implementing ANY UI/design feature, read `docs/design-system.md`** —
+the single source of truth for tokens, color palette, radii, shadows,
+typography, and component specs. Style with the semantic tokens it lists
+(`bg-card`, `text-muted-foreground`, …); never hard-code hex. Quick summary:
+
 - **Mobile-first responsive design**
-- **Dark mode is primary** (light mode secondary)
-- **Color scheme:** Blue accents, green for gains, red for losses
-- **Typography:** Lexend font, tabular figures for numbers
-- **Components:** shadcn/ui for consistency
-- **Layouts:** Single column mobile, sidebar + grid on desktop
+- **Dark mode is primary** (light mode secondary); warm-slate palette
+- **Color scheme:** pastel-blue accent, green for gains, red for losses
+- **Typography:** Lexend everywhere; Playfair only for the "The Hub" wordmark;
+  tabular figures for numbers
+- **Components:** shadcn/ui; `rounded-3xl` cards with `.shadow-glow`
+- **Layouts:** single column mobile, sidebar + grid on desktop
 
 ### Financial Calculations
 
