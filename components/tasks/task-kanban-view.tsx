@@ -472,20 +472,25 @@ function DraggableKanbanCard({
               {task.category.name}
             </span>
           )}
-          <div className="text-sm leading-snug font-semibold break-words">{task.title}</div>
-          {/* Free-text status label (shown in place of the notes preview). Hidden
-              when the board is already grouped by status — it'd be redundant. */}
-          {task.status && groupBy !== 'status' && (
-            <span className="text-muted-foreground bg-muted/60 mt-1.5 inline-flex max-w-full items-center truncate rounded-md px-2 py-0.5 text-[11px] font-medium">
-              {prettyStatus(task.status)}
-            </span>
-          )}
-          {/* Desktop-only notes preview — first 5 non-empty lines, markdown
-              rendered as plain text. Mobile cards stay compact so a swipe
-              gesture still targets the whole card cleanly. */}
+          {/* Title + status. On mobile they stack (status underneath) so a
+              long title doesn't collide with the pill; on desktop the pill
+              inlines to the right of the title, wrapping if needed. */}
+          <div className="flex flex-col gap-1.5 lg:flex-row lg:flex-wrap lg:items-baseline lg:gap-x-2 lg:gap-y-1">
+            <span className="text-sm leading-snug font-semibold break-words">{task.title}</span>
+            {task.status && groupBy !== 'status' && (
+              <span className="text-muted-foreground bg-muted/60 inline-flex max-w-full items-center truncate rounded-md px-2 py-0.5 text-[11px] font-medium">
+                {prettyStatus(task.status)}
+              </span>
+            )}
+          </div>
+          {/* Desktop-only notes preview — capped at 5 visible (wrapped)
+              lines via line-clamp, not stored markdown lines, because a
+              single long paragraph wraps into many visible ones. Mobile
+              cards stay compact so a swipe gesture still targets the whole
+              card cleanly. */}
           {task.notes && (
-            <p className="text-muted-foreground mt-2 hidden text-xs leading-snug break-words whitespace-pre-line lg:block">
-              {notesPreview(task.notes, 5)}
+            <p className="text-muted-foreground mt-2 hidden text-xs leading-snug break-words lg:line-clamp-5 lg:block">
+              {notesPreview(task.notes)}
             </p>
           )}
           {task.assignee && (
@@ -566,13 +571,15 @@ function initials(name: string): string {
 }
 
 /**
- * Compress a markdown notes string into a short plain-text preview. Strips
- * common leading syntax (heading #, list bullets, blockquote >, emphasis
- * runs) so the card doesn't leak raw markdown, and returns the first
- * `maxLines` non-empty lines. Ellipsis is appended if content was truncated.
+ * Compress a markdown notes string into a plain-text preview for the card.
+ * Strips common syntax (heading #, list bullets, blockquote >, emphasis
+ * runs, inline code, link URLs) so the card doesn't leak raw markdown.
+ * Collapses newlines to spaces — the caller uses CSS `line-clamp` to cap
+ * the number of *visible* (wrapped) lines, which is what actually matches
+ * user expectation on a variable-width card.
  */
-function notesPreview(md: string, maxLines: number): string {
-  const lines = md
+function notesPreview(md: string): string {
+  return md
     .split(/\r?\n/)
     .map((raw) =>
       raw
@@ -588,7 +595,6 @@ function notesPreview(md: string, maxLines: number): string {
         .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // [text](url) → text
         .trim()
     )
-    .filter((line) => line.length > 0);
-  const shown = lines.slice(0, maxLines).join('\n');
-  return lines.length > maxLines ? `${shown}\n…` : shown;
+    .filter((line) => line.length > 0)
+    .join(' ');
 }
