@@ -1,7 +1,9 @@
 'use client';
 
-import { AlertCircle, Loader2 } from 'lucide-react';
-import { useAiUsage, type AiUsageData } from '@/lib/hooks/use-budget';
+import { useState } from 'react';
+import { AlertCircle, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useAiUsage, useAiUsageDays, type AiUsageData } from '@/lib/hooks/use-budget';
 
 function usd(n: number, decimals = 2): string {
   return `$${n.toFixed(decimals)}`;
@@ -139,30 +141,116 @@ export default function AiUsagePage() {
             <Breakdown data={data} />
           )}
 
-          <div className="bg-card border-border rounded-lg border">
-            <div className="border-border/60 border-b px-4 py-2.5 text-sm font-medium">
-              Recent months
-            </div>
-            <div className="divide-border/60 divide-y">
-              {data.months
-                .slice()
-                .reverse()
-                .map((m) => (
-                  <div
-                    key={m.month}
-                    className="flex items-center justify-between px-4 py-2 text-sm"
-                  >
-                    <span>{monthLabel(m.month)}</span>
-                    <span className="text-muted-foreground text-xs tabular-nums">
-                      {m.transactionCount.toLocaleString()} txns
-                    </span>
-                    <span className="font-medium tabular-nums">{usd(m.spendUsd)}</span>
-                  </div>
-                ))}
-            </div>
-          </div>
+          <RecentMonths months={data.months} />
+          <p className="text-muted-foreground text-xs">Tap a month to see its daily breakdown.</p>
         </>
       )}
     </div>
   );
+}
+
+/**
+ * Recent-months list where a month row is a button that toggles a per-day
+ * breakdown table beneath it. Only one month is expanded at a time to keep
+ * the network + DOM footprint small; clicking a second row collapses the
+ * previous one automatically.
+ */
+function RecentMonths({ months }: { months: AiUsageData['months'] }) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  return (
+    <div className="bg-card border-border rounded-lg border">
+      <div className="border-border/60 border-b px-4 py-2.5 text-sm font-medium">Recent months</div>
+      <div className="divide-border/60 divide-y">
+        {months
+          .slice()
+          .reverse()
+          .map((m) => {
+            const isOpen = expanded === m.month;
+            return (
+              <div key={m.month}>
+                <button
+                  type="button"
+                  onClick={() => setExpanded(isOpen ? null : m.month)}
+                  aria-expanded={isOpen}
+                  className={cn(
+                    'hover:bg-muted/40 flex w-full items-center gap-3 px-4 py-2 text-sm transition-colors',
+                    isOpen && 'bg-muted/30'
+                  )}
+                >
+                  <ChevronRight
+                    className={cn(
+                      'text-muted-foreground h-3.5 w-3.5 shrink-0 transition-transform',
+                      isOpen && 'rotate-90'
+                    )}
+                  />
+                  <span className="flex-1 text-left">{monthLabel(m.month)}</span>
+                  <span className="text-muted-foreground text-xs tabular-nums">
+                    {m.transactionCount.toLocaleString()} txns
+                  </span>
+                  <span className="w-16 text-right font-medium tabular-nums">
+                    {usd(m.spendUsd)}
+                  </span>
+                </button>
+                {isOpen && <DayBreakdown month={m.month} />}
+              </div>
+            );
+          })}
+      </div>
+    </div>
+  );
+}
+
+function DayBreakdown({ month }: { month: string }) {
+  const { data, isLoading, error } = useAiUsageDays(month);
+
+  return (
+    <div className="bg-muted/20 border-border/50 border-t px-4 py-3">
+      {isLoading && (
+        <div className="text-muted-foreground flex items-center gap-2 text-xs">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Loading days…
+        </div>
+      )}
+      {error && (
+        <div className="text-destructive flex items-center gap-2 text-xs">
+          <ChevronDown className="h-3.5 w-3.5" />
+          {(error as Error).message}
+        </div>
+      )}
+      {data && data.days.length === 0 && (
+        <div className="text-muted-foreground text-xs">
+          No AI-categorized transactions in this month.
+        </div>
+      )}
+      {data && data.days.length > 0 && (
+        <table className="w-full text-xs tabular-nums">
+          <thead className="text-muted-foreground text-[10px] tracking-wider uppercase">
+            <tr>
+              <th className="py-1 text-left font-medium">Day</th>
+              <th className="py-1 text-right font-medium">Txns</th>
+              <th className="py-1 text-right font-medium">Searches</th>
+              <th className="py-1 text-right font-medium">Spend</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.days.map((d) => (
+              <tr key={d.day} className="border-border/40 border-t">
+                <td className="py-1 text-left">{dayLabel(d.day)}</td>
+                <td className="py-1 text-right">{d.transactionCount.toLocaleString()}</td>
+                <td className="py-1 text-right">{d.webSearches.toLocaleString()}</td>
+                <td className="py-1 text-right font-medium">{usd(d.spendUsd, 3)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+function dayLabel(key: string): string {
+  // YYYY-MM-DD → "Jul 24" (locale-agnostic day+month)
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleString(undefined, { month: 'short', day: 'numeric' });
 }
