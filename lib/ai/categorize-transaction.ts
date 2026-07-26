@@ -10,11 +10,15 @@ import Anthropic from '@anthropic-ai/sdk';
  * its own confidence threshold on top of that.
  */
 
-// Haiku 4.5 supports only the basic web-search tool variant (the dynamic-filter
-// `_20260209` variant requires Opus/Sonnet-tier models).
 const MODEL = 'claude-haiku-4-5';
-const MAX_WEB_SEARCHES = 3;
-const MAX_STEPS = 5;
+// Web search is disabled: at $0.01 per search × ~1.15 searches/call in prod
+// history it accounted for roughly a third of the AI bill without measurable
+// accuracy gains on Israeli merchants (Haiku's training data covers them
+// better than a live search does). Flip to > 0 to re-enable.
+const MAX_WEB_SEARCHES = 0;
+// Without web-search there's never a pause_turn step, so the model always
+// responds in a single call. Keep the loop bound at 1 to make that explicit.
+const MAX_STEPS = 1;
 // Cap a single categorization so one slow/hung request can't eat the whole
 // serverless budget. The automatic drain retries on a later run.
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -57,9 +61,11 @@ export interface CategorizeResult {
 
 export function buildSystemPrompt(categories: CategoryOption[]): string {
   const list = categories.map((c) => `- ${c.id}: ${c.name} (group: ${c.group})`).join('\n');
-  return `You categorize a household bank or credit-card transaction into exactly one of the user's budget categories.
-
-Use the web_search tool to look up unfamiliar merchant, payee, or business names before deciding — many are Israeli businesses whose category isn't obvious from the name alone.
+  const searchHint =
+    MAX_WEB_SEARCHES > 0
+      ? "\n\nUse the web_search tool to look up unfamiliar merchant, payee, or business names before deciding — many are Israeli businesses whose category isn't obvious from the name alone."
+      : '';
+  return `You categorize a household bank or credit-card transaction into exactly one of the user's budget categories.${searchHint}
 
 Choose a category ONLY if you are genuinely confident it fits. If none of the categories is a good fit, choose "none" rather than forcing a poor match. Be honest in the confidence score.
 
@@ -80,8 +86,12 @@ export async function categorizeTransaction(
   });
   const validIds = new Set(input.categories.map((c) => c.id));
 
+  const webSearchTools =
+    MAX_WEB_SEARCHES > 0
+      ? [{ type: 'web_search_20250305', name: 'web_search', max_uses: MAX_WEB_SEARCHES }]
+      : [];
   const tools = [
-    { type: 'web_search_20250305', name: 'web_search', max_uses: MAX_WEB_SEARCHES },
+    ...webSearchTools,
     {
       name: 'submit_result',
       description: 'Report the chosen budget category for the transaction. Call exactly once.',
