@@ -8,7 +8,10 @@ import { fetchSource } from '@/lib/wiki/fetch-source';
 import { composeBody, sourcePathFor } from '@/lib/wiki/compose';
 
 /** LLM ingest: URL, paste, or extracted text → summarized Source concept + 5 questions. */
-export const maxDuration = 120;
+// Vercel Hobby caps functions at 60s regardless of `maxDuration`; setting it
+// higher misleads without changing anything, so we pin to 60 and use Haiku
+// (see lib/ai/wiki-summarize.ts) so the flow reliably finishes inside it.
+export const maxDuration = 60;
 
 const inputSchema = z
   .object({
@@ -120,7 +123,7 @@ export async function POST(request: NextRequest) {
                 : [],
               project: project ? { id: input.projectId } : undefined,
               generated: {
-                by: 'wiki_summarizer/claude-sonnet-4-6',
+                by: 'wiki_summarizer/claude-haiku-4-5',
                 at: now.toISOString(),
               },
             },
@@ -128,7 +131,7 @@ export async function POST(request: NextRequest) {
             projectId: input.projectId ?? null,
             sourceUrl,
             sourceRaw: sourceText,
-            generatedBy: 'wiki_summarizer/claude-sonnet-4-6',
+            generatedBy: 'wiki_summarizer/claude-haiku-4-5',
             generatedAt: now,
             questions: {
               create: result.questions.map((q, i) => ({

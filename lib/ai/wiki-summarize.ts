@@ -8,15 +8,21 @@ import Anthropic from '@anthropic-ai/sdk';
  * and returns a structured `SummarizeResult`. The consumer stores the
  * result as a WikiConcept row + five WikiQuestion rows.
  *
- * Model choice: Sonnet 4.6 by default. The "deep understanding" question
- * synthesis is the exact place Haiku's ceiling would show; the whole flow
- * runs once per source (unlike categorization which is per transaction),
- * so the per-source cost of ~$0.03 is not a concern.
+ * Model choice: Haiku 4.5. Sonnet 4.6 gave nicer prose but consistently
+ * exceeded Vercel Hobby's 60s function ceiling on longer pastes, which
+ * surfaces as a raw platform-level 500 (the try/catch never gets a chance
+ * to return our JSON error). Haiku on the same input finishes in 15–25s
+ * and, because the tool schema forces the structure, the "deep-
+ * understanding" question quality is close enough. Flip back to Sonnet
+ * when we're on a plan with a >60s function budget.
  */
 
-const MODEL = 'claude-sonnet-4-6';
-const MAX_TOKENS = 4096;
-const REQUEST_TIMEOUT_MS = 60_000;
+const MODEL = 'claude-haiku-4-5';
+const MAX_TOKENS = 2048;
+// Truncate the source at ~20k chars (~5k tokens) so a wall of text can't
+// balloon the request past the platform's wall-clock ceiling.
+const MAX_SOURCE_CHARS = 20_000;
+const REQUEST_TIMEOUT_MS = 55_000;
 
 /**
  * Default household prompt used when no override is stored. Emphasises OKF
@@ -76,6 +82,15 @@ export async function summarizeSource(input: SummarizeInput): Promise<SummarizeR
     maxRetries: 1,
   });
 
+  // Truncate hard so a huge article can't push us past the platform's
+  // wall-clock ceiling. Sonnet/Haiku both give a good summary of the first
+  // ~5k tokens of an article; more input burns time without much gain for a
+  // structured summary task.
+  const truncated = input.sourceText.length > MAX_SOURCE_CHARS;
+  const sourceText = truncated
+    ? input.sourceText.slice(0, MAX_SOURCE_CHARS) + '\n\n… [truncated]'
+    : input.sourceText;
+
   const userText = [
     input.sourceUrl ? `Source URL: ${input.sourceUrl}` : null,
     input.project
@@ -84,7 +99,7 @@ export async function summarizeSource(input: SummarizeInput): Promise<SummarizeR
         }\n\n${input.project.body}\n`
       : null,
     '\n--- SOURCE TEXT ---\n',
-    input.sourceText,
+    sourceText,
   ]
     .filter(Boolean)
     .join('\n');

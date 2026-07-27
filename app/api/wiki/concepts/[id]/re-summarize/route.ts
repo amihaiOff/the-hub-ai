@@ -14,7 +14,8 @@ import { composeBody } from '@/lib/wiki/compose';
  * update questions in place: delete all + create fresh, inside a
  * transaction so nothing points at nothing mid-way.
  */
-export const maxDuration = 120;
+// See /api/wiki/sources for the plan-cap rationale.
+export const maxDuration = 60;
 
 const inputSchema = z.object({
   promptOverride: z.string().max(4000).optional(),
@@ -97,11 +98,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             description: result.description,
             tags: result.tags,
             generated: {
-              by: 'wiki_summarizer/claude-sonnet-4-6',
+              by: 'wiki_summarizer/claude-haiku-4-5',
               at: now.toISOString(),
             },
           },
-          generatedBy: 'wiki_summarizer/claude-sonnet-4-6',
+          generatedBy: 'wiki_summarizer/claude-haiku-4-5',
           generatedAt: now,
           questions: {
             create: result.questions.map((q, i) => ({
