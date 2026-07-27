@@ -530,7 +530,11 @@ function DraggableKanbanCard({
               {subtasksOpen && (
                 <ul className="mt-1.5 space-y-1">
                   {subtasks.map((sub) => (
-                    <li key={sub.id}>
+                    <li
+                      key={sub.id}
+                      className="hover:bg-muted/60 flex items-center gap-2 rounded-md pr-1 pl-1 text-xs"
+                    >
+                      {/* Left: click the label to drill into the sub-task. */}
                       <button
                         type="button"
                         onClick={(e) => {
@@ -539,7 +543,7 @@ function DraggableKanbanCard({
                         }}
                         onPointerDown={(e) => e.stopPropagation()}
                         className={cn(
-                          'hover:bg-muted/60 flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-xs',
+                          'flex min-w-0 flex-1 items-center gap-2 py-1 text-left',
                           sub.done && 'text-muted-foreground line-through'
                         )}
                       >
@@ -551,6 +555,32 @@ function DraggableKanbanCard({
                           aria-label={`Priority ${sub.priority.toLowerCase()}`}
                         />
                         <span className="truncate">{sub.title || 'Untitled'}</span>
+                      </button>
+                      {/* Right: compact done toggle. Inlined instead of
+                          reusing DoneToggle so the icon size fits the row.
+                          stopPropagation keeps the parent card from taking
+                          this click as an open gesture. */}
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={sub.done}
+                        aria-label={
+                          sub.done ? `Mark “${sub.title}” not done` : `Mark “${sub.title}” done`
+                        }
+                        title={sub.done ? 'Mark not done' : 'Mark done'}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDone(sub, !sub.done);
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className={cn(
+                          'flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors',
+                          sub.done
+                            ? 'border-emerald-500 bg-emerald-500 text-white'
+                            : 'border-muted-foreground/40 hover:border-foreground text-transparent'
+                        )}
+                      >
+                        <Check className="h-2.5 w-2.5" />
                       </button>
                     </li>
                   ))}
