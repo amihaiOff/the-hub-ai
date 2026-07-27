@@ -18,10 +18,12 @@ import Anthropic from '@anthropic-ai/sdk';
  */
 
 const MODEL = 'claude-haiku-4-5';
+// Wall-clock time is dominated by output generation, not input processing —
+// Haiku digests prompt tokens at ~30k tok/s, so a 500k-char article
+// (~120k tokens) adds only ~4s while a 2048-token output takes ~25s. The
+// tight lever is `max_tokens`; input length just costs money (Haiku input
+// = $1/M tokens) and doesn't push us past Vercel's 60s ceiling.
 const MAX_TOKENS = 2048;
-// Truncate the source at ~20k chars (~5k tokens) so a wall of text can't
-// balloon the request past the platform's wall-clock ceiling.
-const MAX_SOURCE_CHARS = 20_000;
 const REQUEST_TIMEOUT_MS = 55_000;
 
 /**
@@ -82,15 +84,6 @@ export async function summarizeSource(input: SummarizeInput): Promise<SummarizeR
     maxRetries: 1,
   });
 
-  // Truncate hard so a huge article can't push us past the platform's
-  // wall-clock ceiling. Sonnet/Haiku both give a good summary of the first
-  // ~5k tokens of an article; more input burns time without much gain for a
-  // structured summary task.
-  const truncated = input.sourceText.length > MAX_SOURCE_CHARS;
-  const sourceText = truncated
-    ? input.sourceText.slice(0, MAX_SOURCE_CHARS) + '\n\n… [truncated]'
-    : input.sourceText;
-
   const userText = [
     input.sourceUrl ? `Source URL: ${input.sourceUrl}` : null,
     input.project
@@ -99,7 +92,7 @@ export async function summarizeSource(input: SummarizeInput): Promise<SummarizeR
         }\n\n${input.project.body}\n`
       : null,
     '\n--- SOURCE TEXT ---\n',
-    sourceText,
+    input.sourceText,
   ]
     .filter(Boolean)
     .join('\n');
