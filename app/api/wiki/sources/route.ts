@@ -4,8 +4,11 @@ import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { getFirstZodError } from '@/lib/validations/common';
 import { summarizeSource } from '@/lib/ai/wiki-summarize';
-import { fetchSource } from '@/lib/wiki/fetch-source';
 import { composeBody, sourcePathFor } from '@/lib/wiki/compose';
+// fetch-source is imported dynamically only when a URL is provided; it
+// pulls in jsdom + Readability which are Node-internals-heavy. Keeping the
+// import lazy means paste mode never loads them, so any bundling wart with
+// those libraries can't crash the whole route module at load time.
 
 /** LLM ingest: URL, paste, or extracted text → summarized Source concept + 5 questions. */
 // Vercel Hobby caps functions at 60s regardless of `maxDuration`; setting it
@@ -25,11 +28,15 @@ const inputSchema = z
   });
 
 export async function POST(request: NextRequest) {
+  const t0 = Date.now();
+  const log = (msg: string) => console.log(`[wiki/sources +${Date.now() - t0}ms] ${msg}`);
   try {
+    log('handler entered');
     const context = await getCurrentContext();
     if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
+    log('auth ok');
     const householdId = context.activeHousehold.id;
 
     const body = await request.json();
@@ -41,6 +48,7 @@ export async function POST(request: NextRequest) {
       );
     }
     const input = parsed.data;
+    log(`input mode=${input.url ? 'url' : 'paste'} projectId=${input.projectId ?? 'none'}`);
 
     // Resolve API key + prompt from household settings.
     const household = await prisma.household.findUnique({
@@ -57,12 +65,14 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    log('household + key resolved');
 
     // Resolve source text.
     let sourceText: string;
     let sourceUrl: string | null = null;
     let fetchedTitle: string | null = null;
     if (input.url) {
+      const { fetchSource } = await import('@/lib/wiki/fetch-source');
       const fetched = await fetchSource(input.url);
       sourceText = fetched.text;
       sourceUrl = fetched.url;
@@ -81,6 +91,7 @@ export async function POST(request: NextRequest) {
       if (proj) project = proj;
     }
 
+    log(`source text ready (${sourceText.length} chars); calling LLM…`);
     const result = await summarizeSource({
       apiKey,
       systemPrompt: input.promptOverride || household?.wikiPrompt || null,
@@ -88,6 +99,7 @@ export async function POST(request: NextRequest) {
       sourceUrl,
       project,
     });
+    log('LLM returned');
 
     // Compose the OKF body from the parts and persist.
     const composedBody = composeBody({
