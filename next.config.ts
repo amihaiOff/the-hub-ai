@@ -1,9 +1,12 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // Mark pdf-parse as external to prevent bundling issues with dynamic require
-  // The library uses template literal requires that Turbopack can't trace
-  serverExternalPackages: ['pdf-parse'],
+  // Mark these as external to prevent bundling issues:
+  // - pdf-parse: template-literal requires that Turbopack can't trace
+  // - jsdom, @mozilla/readability: pull in Node internals + native-adjacent
+  //   modules that Vercel's serverless bundler struggles to trace, and would
+  //   silently crash the route module at load time (visible as an HTML 500).
+  serverExternalPackages: ['pdf-parse', 'jsdom', '@mozilla/readability'],
   images: {
     remotePatterns: [
       {
