@@ -44,6 +44,9 @@ model User {
   // Pages (Notion-like documents) authored by this user
   ownedPages Page[] @relation("PageOwner")
 
+  // Wiki quiz attempts recorded per user.
+  wikiAttempts WikiQuestionAttempt[]
+
   @@map("users")
 }
 
@@ -96,6 +99,9 @@ model Household {
   snapshotDayOfMonth   Int      @default(26) @map("snapshot_day_of_month")
   // Anthropic API key for AI transaction auto-categorization (nullable; set via Settings).
   anthropicApiKey      String?  @map("anthropic_api_key")
+  // System prompt for the Wiki LLM ingest pipeline. Null falls back to the
+  // built-in default in lib/ai/wiki-summarize.ts.
+  wikiPrompt           String?  @map("wiki_prompt") @db.Text
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
@@ -143,6 +149,9 @@ model Household {
 
   // Pages module (Notion-like documents)
   pages Page[]
+
+  // Wiki module (OKF-inspired knowledge bundle)
+  wikiConcepts WikiConcept[]
 
   // Cross-cutting activity log (renames, stale-row deletes, etc.)
   generalLogs GeneralLog[]
@@ -1433,4 +1442,78 @@ model GeneralLog {
   @@index([householdId, createdAt(sort: Desc)])
   @@index([householdId, readAt])
   @@map("general_logs")
+}
+
+// ─── Wiki module ────────────────────────────────────────────────────────
+// OKF-inspired knowledge bundle. One row per concept (source, project,
+// reference, ...). Body is markdown; frontmatter is the full OKF-style
+// metadata blob so we can round-trip to .md files later without a table
+// change every time OKF adds a field.
+model WikiConcept {
+  id           String    @id @default(cuid())
+  householdId  String    @map("household_id")
+  // OKF path within the bundle, unique per household. Drives URLs and any
+  // future export to a bundle tarball.
+  path         String
+  // OKF `type` field (e.g. "Source", "Project", "Reference").
+  type         String
+  title        String
+  description  String?
+  // Full OKF frontmatter as JSON — sources[], tags[], generated{}, etc.
+  frontmatter  Json      @default("{}")
+  // Rendered markdown body (summary + optional project-relevance section).
+  body         String    @db.Text
+  // For type='Source': the project this source is tied to, if any.
+  projectId    String?   @map("project_id")
+  // Original ingestion inputs, kept so re-summarize doesn't refetch.
+  sourceUrl    String?   @map("source_url")
+  sourceRaw    String?   @map("source_raw") @db.Text
+  // OKF §5.2 provenance for the concept itself.
+  generatedBy  String?   @map("generated_by")
+  generatedAt  DateTime? @map("generated_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  household   Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  project     WikiConcept?   @relation("WikiProjectSources", fields: [projectId], references: [id], onDelete: SetNull)
+  sources     WikiConcept[]  @relation("WikiProjectSources")
+  questions   WikiQuestion[]
+
+  @@unique([householdId, path])
+  @@index([householdId, type])
+  @@index([householdId, projectId])
+  @@map("wiki_concepts")
+}
+
+model WikiQuestion {
+  id          String   @id @default(cuid())
+  conceptId   String   @map("concept_id")
+  orderIndex  Int      @map("order_index")
+  question    String   @db.Text
+  // Four option strings in canonical order (A, B, C, D).
+  options     Json
+  correctIdx  Int      @map("correct_idx") // 0..3
+  explanation String   @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  concept  WikiConcept           @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  attempts WikiQuestionAttempt[]
+
+  @@index([conceptId, orderIndex])
+  @@map("wiki_questions")
+}
+
+model WikiQuestionAttempt {
+  id          String   @id @default(cuid())
+  questionId  String   @map("question_id")
+  userId      String   @map("user_id")
+  selectedIdx Int      @map("selected_idx")
+  correct     Boolean
+  attemptedAt DateTime @default(now()) @map("attempted_at")
+
+  question WikiQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, questionId])
+  @@map("wiki_question_attempts")
 }
