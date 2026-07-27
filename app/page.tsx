@@ -56,8 +56,13 @@ export default function DashboardPage() {
       {/* Notes — a lightweight scratchpad for later processing. Household-shared. */}
       <DashboardNotesCard />
 
-      {/* Total worth — collapsible so it isn't in-your-face on every visit.
-          Click the header to expand; the headline number stays hidden until then. */}
+      {/* Moneytor balances — bank accounts, debts, credit cards. Kept out of
+          the collapsible below so day-to-day cash-flow numbers stay visible. */}
+      <MoneytorBalancesCard />
+
+      {/* Total worth — collapsible, at the bottom. Contains the breakdown
+          card and the net-worth-over-time chart. Closed by default so the
+          headline number isn't in-your-face on every visit. */}
       <Card>
         <button
           type="button"
@@ -83,9 +88,6 @@ export default function DashboardPage() {
               error={error}
               flat
             />
-
-            {/* Moneytor balances — bank accounts, debts, credit cards. */}
-            <MoneytorBalancesCard />
 
             {/* Net Worth Chart */}
             <Card>
