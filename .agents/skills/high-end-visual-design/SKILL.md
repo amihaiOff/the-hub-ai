@@ -3,6 +3,26 @@ name: high-end-visual-design
 description: Teaches the AI to design like a high-end agency. Defines the exact fonts, spacing, shadows, card structures, and animations that make a website feel expensive. Blocks all the common defaults that make AI designs look cheap or generic.
 ---
 
+> ## ⚠️ The Hub — project reality (OVERRIDES anything below)
+>
+> This repo is a specific app, not a generic marketing site. **`docs/design-system.md`
+> is the source of truth.** Where this skill's generic rules conflict with the
+> app, follow the app:
+>
+> - **Shadows:** cards use a visible dark shadow — `.shadow-glow`
+>   (`0 10px 30px rgba(0,0,0,.45)`). This skill's ban on dark drop shadows
+>   (`rgba(0,0,0,0.3)`) does NOT apply.
+> - **Icons:** Lucide (`lucide-react`) is the project set. Ignore the Lucide ban.
+> - **Emojis:** allowed and used. Ignore any emoji ban.
+> - **Palette:** dark-mode-primary warm slate with a **pastel-blue** accent
+>   (`#A8CAFF`), pastel green/red. Ignore OLED-black / neon-orb / warm-cream archetypes.
+> - **Radius/Type:** cards `rounded-3xl`; Lexend everywhere, Playfair only for the wordmark.
+> - **Context:** a data-dense, mobile-first financial dashboard, not a landing page —
+>   skip the marketing-page patterns (double-bezel, hero archetypes, ambient blobs,
+>   variance engine) unless actually building a marketing page.
+>
+> Use this skill only for app-agnostic technique (spacing, motion perf, a11y, states).
+
 # Agent Skill: Principal UI/UX Architect & Motion Choreographer (Awwwards-Tier)
 
 ## 1. Meta Information & Core Directive
@@ -16,8 +36,8 @@ description: Teaches the AI to design like a high-end agency. Defines the exact 
 If your generated code includes ANY of the following, the design instantly fails:
 
 - **Banned Fonts:** Inter, Roboto, Arial, Open Sans, Helvetica. (Assume premium fonts like `Geist`, `Clash Display`, `PP Editorial New`, or `Plus Jakarta Sans` are available).
-- **Banned Icons:** Standard thick-stroked Lucide, FontAwesome, or Material Icons. Use only ultra-light, precise lines (e.g., Phosphor Light, Remix Line).
-- **Banned Borders & Shadows:** Generic 1px solid gray borders. Harsh, dark drop shadows (`shadow-md`, `rgba(0,0,0,0.3)`).
+- **Banned Icons:** FontAwesome, Material Icons. (Lucide is fine — it's The Hub's icon set; see the project block above.)
+- **Banned Borders:** Generic 1px solid gray borders. (Shadows are NOT banned for The Hub — cards use `.shadow-glow`; see the project block above.)
 - **Banned Layouts:** Edge-to-edge sticky navbars glued to the top. Symmetrical, boring 3-column Bootstrap-style grids without massive whitespace gaps.
 - **Banned Motion:** Standard `linear` or `ease-in-out` transitions. Instant state changes without interpolation.
 

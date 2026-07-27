@@ -3,6 +3,26 @@ name: design-taste-frontend
 description: Senior UI/UX Engineer. Architect digital interfaces overriding default LLM biases. Enforces metric-based rules, strict component architecture, CSS hardware acceleration, and balanced design engineering.
 ---
 
+> ## ⚠️ The Hub — project reality (OVERRIDES anything below)
+>
+> This repo is a specific app, not a generic site. **`docs/design-system.md`
+> is the source of truth.** Where this skill's generic rules conflict with the
+> app, follow the app:
+>
+> - **Icons:** Lucide (`lucide-react`) is the project set. Ignore the mandate for
+>   `@phosphor-icons`/`@radix-ui/react-icons`.
+> - **Emojis:** allowed and used (Areas page emoji, pickers). Ignore the "ANTI-EMOJI" ban.
+> - **Accent color:** the primary accent IS **pastel blue** (`#A8CAFF`). The
+>   "LILA BAN" on blue accents does NOT apply here.
+> - **Shadows/cards:** cards are used liberally and carry a visible dark shadow
+>   (`.shadow-glow`, `0 10px 30px rgba(0,0,0,.45)`) — not tinted-to-background.
+>   Ignore the anti-card / tinted-shadow rules.
+> - **Type:** Lexend everywhere; Playfair serif is used for the "The Hub" wordmark —
+>   serif is NOT banned. Ignore mandates for Geist/Satoshi/etc.
+> - **Context:** dark-mode-primary, mobile-first financial dashboard.
+>
+> Use this skill only for app-agnostic technique (states, a11y, layout hygiene).
+
 # High-Agency Frontend Skill
 
 ## 1. ACTIVE BASELINE CONFIGURATION
@@ -25,13 +45,13 @@ Unless the user explicitly specifies a different stack, adhere to these structur
 - **Styling Policy:** Use Tailwind CSS (v3/v4) for 90% of styling.
   - **TAILWIND VERSION LOCK:** Check `package.json` first. Do not use v4 syntax in v3 projects.
   - **T4 CONFIG GUARD:** For v4, do NOT use `tailwindcss` plugin in `postcss.config.js`. Use `@tailwindcss/postcss` or the Vite plugin.
-- **ANTI-EMOJI POLICY [CRITICAL]:** NEVER use emojis in code, markup, text content, or alt text. Replace symbols with high-quality icons (Radix, Phosphor) or clean SVG primitives. Emojis are BANNED.
+- **EMOJI POLICY:** Emojis are allowed and used in The Hub (Areas page emoji, pickers). See the project block above.
 - **Responsiveness & Spacing:**
   - Standardize breakpoints (`sm`, `md`, `lg`, `xl`).
   - Contain page layouts using `max-w-[1400px] mx-auto` or `max-w-7xl`.
   - **Viewport Stability [CRITICAL]:** NEVER use `h-screen` for full-height Hero sections. ALWAYS use `min-h-[100dvh]` to prevent catastrophic layout jumping on mobile browsers (iOS Safari).
   - **Grid over Flex-Math:** NEVER use complex flexbox percentage math (`w-[calc(33%-1rem)]`). ALWAYS use CSS Grid (`grid grid-cols-1 md:grid-cols-3 gap-6`) for reliable structures.
-- **Icons:** You MUST use exactly `@phosphor-icons/react` or `@radix-ui/react-icons` as the import paths (check installed version). Standardize `strokeWidth` globally (e.g., exclusively use `1.5` or `2.0`).
+- **Icons:** The Hub uses Lucide (`lucide-react`). Standardize `strokeWidth` globally (e.g., exclusively use `1.5` or `2.0`).
 
 ## 3. DESIGN ENGINEERING DIRECTIVES (Bias Correction)
 
@@ -41,13 +61,13 @@ LLMs have statistical biases toward specific UI cliché patterns. Proactively co
 
 - **Display/Headlines:** Default to `text-4xl md:text-6xl tracking-tighter leading-none`.
   - **ANTI-SLOP:** Discourage `Inter` for "Premium" or "Creative" vibes. Force unique character using `Geist`, `Outfit`, `Cabinet Grotesk`, or `Satoshi`.
-  - **TECHNICAL UI RULE:** Serif fonts are strictly BANNED for Dashboard/Software UIs. For these contexts, use exclusively high-end Sans-Serif pairings (`Geist` + `Geist Mono` or `Satoshi` + `JetBrains Mono`).
+  - **TECHNICAL UI RULE:** Body/UI is sans-serif — The Hub uses **Lexend**. Serif is reserved for the "The Hub" wordmark (Playfair); don't introduce other display fonts.
 - **Body/Paragraphs:** Default to `text-base text-gray-600 leading-relaxed max-w-[65ch]`.
 
 **Rule 2: Color Calibration**
 
 - **Constraint:** Max 1 Accent Color. Saturation < 80%.
-- **THE LILA BAN:** The "AI Purple/Blue" aesthetic is strictly BANNED. No purple button glows, no neon gradients. Use absolute neutral bases (Zinc/Slate) with high-contrast, singular accents (e.g. Emerald, Electric Blue, or Deep Rose).
+- **Accent:** The Hub's accent IS pastel blue (`#A8CAFF`) on a slate base — allowed and intended. Still avoid purple button glows and neon gradients.
 - **COLOR CONSISTENCY:** Stick to one palette for the entire output. Do not fluctuate between warm and cool grays within the same project.
 
 **Rule 3: Layout Diversification**
