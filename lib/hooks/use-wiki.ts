@@ -40,7 +40,28 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
   });
-  const json = (await res.json()) as { success: boolean; data?: T; error?: string };
+  const text = await res.text();
+  // The API always returns JSON, but Vercel's platform error pages (deploy
+  // in progress, function crash, gateway timeout) return HTML. Parse
+  // defensively so the client shows a readable error either way.
+  type Envelope = { success?: boolean; data?: T; error?: string };
+  let json: Envelope | null = null;
+  try {
+    json = text ? (JSON.parse(text) as Envelope) : null;
+  } catch {
+    /* not JSON — fall through */
+  }
+  if (json == null) {
+    // Grab the <title> if the response was an HTML error page; else show the
+    // status. Truncate hard so the toast doesn't drown the UI.
+    const titleMatch = text.match(/<title[^>]*>([^<]{1,120})/i);
+    const summary = titleMatch
+      ? titleMatch[1].trim()
+      : text.slice(0, 120).replace(/\s+/g, ' ').trim();
+    throw new Error(
+      `Server returned a non-JSON response (${res.status})${summary ? `: ${summary}` : ''}`
+    );
+  }
   if (!res.ok || !json.success) {
     throw new Error(json.error ?? `Request failed (${res.status})`);
   }

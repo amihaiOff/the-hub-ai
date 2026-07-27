@@ -23,20 +23,20 @@ below — **never hard-code hex values** in components.
 Semantic tokens resolve per theme in `app/globals.css` (`:root` = light,
 `.dark` = primary). Dark values:
 
-| Token | Hex | Use |
-| --- | --- | --- |
-| `background` | `#2A2F3A` | App base (mid-dark so soft shadows read) |
-| `card` / `popover` | `#373E4C` | Surface 1 — cards, popovers (lifts off base) |
-| `secondary` / `muted` / `accent` | `#424A59` | Surface 2 — chips, filled buttons, hover, muted fills |
-| `foreground` | `#FFFFFF` | Primary text |
-| `muted-foreground` | `#A0AEC0` | Secondary text, labels, captions |
-| `border` / `input` | `#4A5162` | Dividers, edges (slightly lighter than surfaces) |
-| `primary` | `#A8CAFF` | Pastel blue — buttons, links, active state |
-| `primary-foreground` | `#2A2F3A` | Text on primary |
-| `destructive` | `#F5A5A5` | Pastel red — destructive actions, losses |
-| `ring` | `#A8CAFF` | Focus ring |
-| `sidebar` | `#232732` | Sidebar (slightly darker than base) |
-| charts 1–5 | `#A8CAFF` `#8FDDB0` `#F5CD85` `#C9B8F7` `#F5A5A5` | Recharts series |
+| Token                            | Hex                                               | Use                                                   |
+| -------------------------------- | ------------------------------------------------- | ----------------------------------------------------- |
+| `background`                     | `#2A2F3A`                                         | App base (mid-dark so soft shadows read)              |
+| `card` / `popover`               | `#373E4C`                                         | Surface 1 — cards, popovers (lifts off base)          |
+| `secondary` / `muted` / `accent` | `#424A59`                                         | Surface 2 — chips, filled buttons, hover, muted fills |
+| `foreground`                     | `#FFFFFF`                                         | Primary text                                          |
+| `muted-foreground`               | `#A0AEC0`                                         | Secondary text, labels, captions                      |
+| `border` / `input`               | `#4A5162`                                         | Dividers, edges (slightly lighter than surfaces)      |
+| `primary`                        | `#A8CAFF`                                         | Pastel blue — buttons, links, active state            |
+| `primary-foreground`             | `#2A2F3A`                                         | Text on primary                                       |
+| `destructive`                    | `#F5A5A5`                                         | Pastel red — destructive actions, losses              |
+| `ring`                           | `#A8CAFF`                                         | Focus ring                                            |
+| `sidebar`                        | `#232732`                                         | Sidebar (slightly darker than base)                   |
+| charts 1–5                       | `#A8CAFF` `#8FDDB0` `#F5CD85` `#C9B8F7` `#F5A5A5` | Recharts series                                       |
 
 - **Gains = green `#8FDDB0`, losses = red `#F5A5A5`.**
 - **Light mode (secondary):** white / `#F9FAFB` backgrounds, `#111827` text,
@@ -63,7 +63,7 @@ Cards carry a border **and** a shadow in dark mode (both, not either/or).
 ## Typography
 
 - **Sans / body / headings: Lexend** (`--font-sans`, `--font-heading`).
-- **Wordmark only: Playfair Display** (`--font-playfair`) — used *exclusively*
+- **Wordmark only: Playfair Display** (`--font-playfair`) — used _exclusively_
   for the "The Hub" wordmark, nowhere else.
 - **Mono:** `--font-mono` (code / editor code blocks).
 - **Numbers: tabular figures** (`font-variant-numeric: tabular-nums`) for aligned
@@ -79,7 +79,7 @@ Build on **shadcn/ui** primitives in `components/ui/`; shared business
 components in `components/shared/`.
 
 - **Card** (`components/ui/card.tsx`): `bg-card text-card-foreground border
-  border-border rounded-3xl shadow-glow`, `py-6`, header/content/footer `px-6`,
+border-border rounded-3xl shadow-glow`, `py-6`, header/content/footer `px-6`,
   `gap-6`.
 - **Buttons:** primary = `bg-primary` / `text-primary-foreground`; secondary /
   ghost / outline; destructive = red. Subtle hover (opacity/darken), 200–300ms.
