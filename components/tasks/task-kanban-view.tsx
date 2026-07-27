@@ -489,7 +489,11 @@ function DraggableKanbanCard({
               cards stay compact so a swipe gesture still targets the whole
               card cleanly. */}
           {task.notes && (
-            <p className="text-muted-foreground mt-2 hidden text-xs leading-snug break-words lg:line-clamp-5 lg:block">
+            // `hidden` at base + `lg:line-clamp-5` at lg. Do NOT add `lg:block`
+            // alongside line-clamp — that overrides the `-webkit-box` display
+            // Tailwind's line-clamp utility needs, and the preview would
+            // render as a plain paragraph without truncation.
+            <p className="text-muted-foreground mt-2 hidden text-xs leading-snug break-words lg:line-clamp-5">
               {notesPreview(task.notes)}
             </p>
           )}
