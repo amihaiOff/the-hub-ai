@@ -2,16 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Loader2, StickyNote } from 'lucide-react';
+import { Loader2, StickyNote } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
 
 /**
  * Dashboard scratchpad — a household-shared textarea for one-off notes the
  * user wants to sweep into real tasks or notes later. Autosaves debounced
- * so the user never has to click Save; a tiny status pill next to the
- * title conveys saved/saving/error state.
+ * with no visible status: the box just always saves. A save failure is
+ * silently retried on the next keystroke via the same debounce path.
  */
 
 const AUTOSAVE_MS = 800;
@@ -57,7 +56,6 @@ function Editor({ initial }: { initial: string }) {
   const qc = useQueryClient();
   const [value, setValue] = useState(initial);
   const savedRef = useRef(initial);
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const save = useMutation({
@@ -73,19 +71,13 @@ function Editor({ initial }: { initial: string }) {
     },
     onSuccess: (data) => {
       savedRef.current = data.notes;
-      setStatus('saved');
       qc.setQueryData(['dashboard', 'notes'], data);
     },
-    onError: () => setStatus('error'),
   });
 
   // Debounced autosave. Cleared on unmount so a rapid page-nav doesn't fire.
   useEffect(() => {
-    if (value === savedRef.current) {
-      setStatus('idle');
-      return;
-    }
-    setStatus('saving');
+    if (value === savedRef.current) return;
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       save.mutate(value);
@@ -98,42 +90,11 @@ function Editor({ initial }: { initial: string }) {
   }, [value]);
 
   return (
-    <div className="space-y-2">
-      <Textarea
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="Jot down anything for later — thoughts, tasks, links to convert into wiki sources…"
-        className="min-h-[100px] resize-y text-sm"
-      />
-      <div className="flex justify-end">
-        <StatusPill status={status} />
-      </div>
-    </div>
-  );
-}
-
-function StatusPill({ status }: { status: 'idle' | 'saving' | 'saved' | 'error' }) {
-  if (status === 'idle') return null;
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 text-[10px]',
-        status === 'error' ? 'text-destructive' : 'text-muted-foreground'
-      )}
-    >
-      {status === 'saving' ? (
-        <>
-          <Loader2 className="h-3 w-3 animate-spin" />
-          Saving…
-        </>
-      ) : status === 'saved' ? (
-        <>
-          <Check className="h-3 w-3" />
-          Saved
-        </>
-      ) : (
-        'Save failed'
-      )}
-    </span>
+    <Textarea
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      placeholder="Jot down anything for later — thoughts, tasks, links to convert into wiki sources…"
+      className="min-h-[100px] resize-y text-sm"
+    />
   );
 }
