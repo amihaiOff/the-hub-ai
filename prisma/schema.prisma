@@ -102,6 +102,9 @@ model Household {
   // System prompt for the Wiki LLM ingest pipeline. Null falls back to the
   // built-in default in lib/ai/wiki-summarize.ts.
   wikiPrompt           String?  @map("wiki_prompt") @db.Text
+  // Household-scoped dashboard scratchpad — a single markdown block for
+  // rough notes / TODOs the user wants to sweep into a real task later.
+  dashboardNotes       String?  @map("dashboard_notes") @db.Text
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
