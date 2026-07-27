@@ -10,6 +10,12 @@ interface TotalWorthCardProps {
   format: (value: number) => string;
   isLoading: boolean;
   error: unknown;
+  /**
+   * When true, skip the outer `<Card>` chrome and render the content flat.
+   * Used when this card is already nested inside another container (e.g.
+   * the collapsible net-worth block on the dashboard).
+   */
+  flat?: boolean;
 }
 
 /** One positive net-worth category (debts are handled separately). */
@@ -38,38 +44,41 @@ export function TotalWorthCard({
   format,
   isLoading,
   error,
+  flat,
 }: TotalWorthCardProps) {
+  const body = isLoading ? (
+    <div className="space-y-4">
+      <div className="bg-muted h-9 w-40 animate-pulse rounded" />
+      <div className="bg-muted h-3 w-full animate-pulse rounded-full" />
+      <div className="space-y-2">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="bg-muted h-6 w-full animate-pulse rounded" />
+        ))}
+      </div>
+    </div>
+  ) : error ? (
+    <div className="text-destructive text-sm">Failed to load breakdown</div>
+  ) : !breakdown ? (
+    <div className="text-muted-foreground py-6 text-center text-sm">
+      Add your accounts to see your total worth breakdown.
+    </div>
+  ) : (
+    <Breakdown breakdown={breakdown} netWorth={netWorth ?? breakdown.netWorth} format={format} />
+  );
+
+  if (flat) {
+    // Rendered inside another card (see the collapsible on the dashboard).
+    // No outer chrome, no header — the parent already labels the section.
+    return <div>{body}</div>;
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Total Worth</CardTitle>
         <CardDescription>How your net worth breaks down by category</CardDescription>
       </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="space-y-4">
-            <div className="bg-muted h-9 w-40 animate-pulse rounded" />
-            <div className="bg-muted h-3 w-full animate-pulse rounded-full" />
-            <div className="space-y-2">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="bg-muted h-6 w-full animate-pulse rounded" />
-              ))}
-            </div>
-          </div>
-        ) : error ? (
-          <div className="text-destructive text-sm">Failed to load breakdown</div>
-        ) : !breakdown ? (
-          <div className="text-muted-foreground py-6 text-center text-sm">
-            Add your accounts to see your total worth breakdown.
-          </div>
-        ) : (
-          <Breakdown
-            breakdown={breakdown}
-            netWorth={netWorth ?? breakdown.netWorth}
-            format={format}
-          />
-        )}
-      </CardContent>
+      <CardContent>{body}</CardContent>
     </Card>
   );
 }

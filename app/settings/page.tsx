@@ -22,6 +22,7 @@ import { PartnerPhoneSettings } from '@/components/settings/partner-phone-settin
 import { BillingCycleSettings } from '@/components/settings/billing-cycle-settings';
 import { SnapshotDaySettings } from '@/components/settings/snapshot-day-settings';
 import { AiCategorizationSettings } from '@/components/settings/ai-categorization-settings';
+import { WikiPromptSettings } from '@/components/settings/wiki-prompt-settings';
 import { SyncAliasesSettings } from '@/components/settings/sync-aliases-settings';
 
 const settingsLinks = [
@@ -375,6 +376,10 @@ export default function SettingsPage() {
 
           <div className="border-border/60 border-t pt-4">
             <AiCategorizationSettings />
+          </div>
+
+          <div className="border-border/60 border-t pt-4">
+            <WikiPromptSettings />
           </div>
         </CardContent>
       </Card>
