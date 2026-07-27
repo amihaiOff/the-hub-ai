@@ -3,6 +3,21 @@ name: redesign-existing-projects
 description: Upgrades existing websites and apps to premium quality. Audits current design, identifies generic AI patterns, and applies high-end design standards without breaking functionality. Works with any CSS framework or vanilla CSS.
 ---
 
+> ## ⚠️ The Hub — project reality (OVERRIDES anything below)
+>
+> This repo is a specific app with an established design. **`docs/design-system.md`
+> is the source of truth** — a "redesign" here means aligning to it, not importing
+> a generic aesthetic. Where this skill's generic standards conflict, follow the app:
+>
+> - Keep the **dark-mode-primary** warm-slate palette (`#2A2F3A`/`#373E4C`) with a
+>   **pastel-blue** accent (`#A8CAFF`); keep the visible `.shadow-glow` card shadows,
+>   `rounded-3xl` cards, **Lucide** icons, **emojis**, and **Lexend** (+ Playfair wordmark).
+> - Do not swap fonts/icons, flatten shadows, or shift to a light/monochrome palette
+>   in the name of "premium" — those are already deliberate choices here.
+>
+> Use this skill for its audit/process (find generic patterns, apply consistently),
+> targeting the app's own tokens.
+
 # Redesign Skill
 
 ## How This Works

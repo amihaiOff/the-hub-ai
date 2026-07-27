@@ -3,6 +3,26 @@ name: minimalist-ui
 description: Clean editorial-style interfaces. Warm monochrome palette, typographic contrast, flat bento grids, muted pastels. No gradients, no heavy shadows.
 ---
 
+> ## ⚠️ The Hub — project reality (OVERRIDES anything below)
+>
+> This repo is a specific app, not a generic website. **`docs/design-system.md`
+> is the source of truth.** Where this skill's generic rules conflict with the
+> app, follow the app:
+>
+> - **Palette:** dark-mode-primary warm slate (`#2A2F3A` base, `#373E4C` cards)
+>   with a **pastel-blue** accent (`#A8CAFF`), pastel green gains / red losses —
+>   NOT a light warm-monochrome canvas. Ignore the light/monochrome-only palette,
+>   the "no primary-colored elements", and warm-cream/off-white mandates.
+> - **Shadows:** cards use a visible dark shadow — `.shadow-glow`
+>   (`0 10px 30px rgba(0,0,0,.45)`). Ignore the near-zero / ultra-diffuse shadow rule.
+> - **Icons:** Lucide (`lucide-react`) is the project set. Ignore the Lucide ban.
+> - **Emojis:** allowed and used (Areas page emoji, pickers). Ignore the emoji ban.
+> - **Radius:** cards `rounded-3xl` (24px); `rounded-full` chips are fine. Ignore 8–12px caps.
+> - **Type:** Lexend everywhere; Playfair only for the "The Hub" wordmark.
+> - **Context:** a data-dense, mobile-first financial dashboard, not an editorial/marketing page.
+>
+> Use this skill only for app-agnostic technique (whitespace, motion perf, a11y).
+
 # Protocol: Premium Utilitarian Minimalism UI Architect
 
 ## 1. Protocol Overview
@@ -15,12 +35,12 @@ Description: An advanced frontend engineering directive for generating highly re
 The AI must strictly avoid the following generic web development defaults:
 
 - DO NOT use the "Inter", "Roboto", or "Open Sans" typefaces.
-- DO NOT use generic, thin-line icon libraries like "Lucide", "Feather", or standard "Heroicons".
-- DO NOT use Tailwind's default heavy drop shadows (e.g., `shadow-md`, `shadow-lg`, `shadow-xl`). Shadows must be practically non-existent or heavily customized to be ultra-diffuse and low opacity (< 0.05).
+- (Lucide is The Hub's icon set — allowed; see the project block above.)
+- (Shadow ban removed for The Hub — cards use a visible `.shadow-glow`; see the project block above.)
 - DO NOT use primary colored backgrounds for large elements or sections (e.g., no bright blue, green, or red hero sections).
 - DO NOT use gradients, neon colors, or 3D glassmorphism (beyond subtle navbar blurs).
 - DO NOT use `rounded-full` (pill shapes) for large containers, cards, or primary buttons.
-- DO NOT use emojis anywhere in code, markup, text content, headings, or alt text. Replace with proper icons or clean SVG primitives.
+- (Emoji ban removed for The Hub — emojis are used; see the project block above.)
 - DO NOT use generic placeholder names like "John Doe", "Acme Corp", or "Lorem Ipsum". Use realistic, contextual content.
 - DO NOT use AI copywriting clichés: "Elevate", "Seamless", "Unleash", "Next-Gen", "Game-changer", "Delve". Write plain, specific language.
 
