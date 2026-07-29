@@ -16,8 +16,10 @@ export interface WikiGrouping {
 /**
  * Split the flat concept list into the top-level "no project" sources plus one
  * group per project. Pure + deterministic so the Wiki page's structure is unit
- * testable. Input order (updatedAt desc from the API) is preserved for sources;
- * projects are sorted by title for a stable heading order.
+ * testable. A source can belong to several projects (many-to-many), so it
+ * appears once under each of its projects; a source with no (or only dangling)
+ * memberships lands in the top section. Input order (updatedAt desc from the
+ * API) is preserved within each group; projects are sorted by title.
  */
 export function groupWikiConcepts(rows: WikiConceptListRow[]): WikiGrouping {
   const projects = rows.filter((r) => r.type === 'Project');
@@ -28,14 +30,16 @@ export function groupWikiConcepts(rows: WikiConceptListRow[]): WikiGrouping {
 
   for (const row of rows) {
     if (row.type === 'Project') continue;
-    // A source counts as "assigned" only if its projectId points to a project
-    // that still exists; a dangling id falls back to the top section.
-    if (row.projectId && knownProjectIds.has(row.projectId)) {
-      const arr = byProject.get(row.projectId) ?? [];
-      arr.push(row);
-      byProject.set(row.projectId, arr);
-    } else {
+    // Keep only memberships pointing at a project that still exists.
+    const memberships = row.projectIds.filter((pid) => knownProjectIds.has(pid));
+    if (memberships.length === 0) {
       unassignedSources.push(row);
+      continue;
+    }
+    for (const pid of memberships) {
+      const arr = byProject.get(pid) ?? [];
+      arr.push(row);
+      byProject.set(pid, arr);
     }
   }
 

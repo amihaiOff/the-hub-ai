@@ -8,7 +8,8 @@ export interface WikiConceptListRow {
   type: string;
   title: string;
   description: string | null;
-  projectId: string | null;
+  /** Ids of every project this source is filed under (many-to-many). */
+  projectIds: string[];
   sourceUrl: string | null;
   generatedAt: string | null;
   updatedAt: string;
@@ -18,7 +19,8 @@ export interface WikiConceptDetail extends WikiConceptListRow {
   body: string;
   frontmatter: Record<string, unknown>;
   sourceRaw: string | null;
-  project: { id: string; title: string; path: string } | null;
+  /** Full project rows this source is filed under, sorted by title. */
+  projects: { id: string; title: string; path: string }[];
   questions: {
     id: string;
     orderIndex: number;
@@ -132,6 +134,35 @@ export function useCreateProject() {
         body: JSON.stringify({ type: 'Project', ...input, body: input.body ?? '' }),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: wikiKeys.list() }),
+  });
+}
+
+export function useAddToProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { conceptId: string; projectId: string }) =>
+      fetchJson<void>(`/api/wiki/concepts/${input.conceptId}/projects`, {
+        method: 'POST',
+        body: JSON.stringify({ projectId: input.projectId }),
+      }),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: wikiKeys.detail(vars.conceptId) });
+      qc.invalidateQueries({ queryKey: wikiKeys.list() });
+    },
+  });
+}
+
+export function useRemoveFromProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { conceptId: string; projectId: string }) =>
+      fetchJson<void>(`/api/wiki/concepts/${input.conceptId}/projects/${input.projectId}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: wikiKeys.detail(vars.conceptId) });
+      qc.invalidateQueries({ queryKey: wikiKeys.list() });
+    },
   });
 }
 

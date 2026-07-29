@@ -141,6 +141,12 @@ export async function POST(request: NextRequest) {
             },
             body: composedBody,
             projectId: input.projectId ?? null,
+            // Also record the ingest project as a membership so it groups under
+            // that project in the list (membership is the many-to-many source
+            // of truth; projectId stays as the relevance-section marker).
+            projectMemberships: input.projectId
+              ? { create: { projectId: input.projectId } }
+              : undefined,
             sourceUrl,
             sourceRaw: sourceText,
             generatedBy: 'wiki_summarizer/claude-haiku-4-5',

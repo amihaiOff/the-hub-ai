@@ -24,14 +24,20 @@ export async function GET() {
       type: true,
       title: true,
       description: true,
-      projectId: true,
       sourceUrl: true,
       generatedAt: true,
       updatedAt: true,
+      // Every project this source is filed under (many-to-many).
+      projectMemberships: { select: { projectId: true } },
     },
     orderBy: [{ updatedAt: 'desc' }],
   });
-  return NextResponse.json({ success: true, data: rows });
+  // Flatten memberships to a plain projectIds[] for the client grouping.
+  const data = rows.map(({ projectMemberships, ...row }) => ({
+    ...row,
+    projectIds: projectMemberships.map((m) => m.projectId),
+  }));
+  return NextResponse.json({ success: true, data });
 }
 
 const createSchema = z.object({

@@ -16,6 +16,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     where: { id, householdId: context.activeHousehold.id },
     include: {
       project: { select: { id: true, title: true, path: true } },
+      // All projects this source is filed under (many-to-many memberships).
+      projectMemberships: {
+        include: { project: { select: { id: true, title: true, path: true } } },
+      },
       questions: {
         orderBy: { orderIndex: 'asc' },
       },
@@ -24,7 +28,11 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   if (!concept) {
     return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
   }
-  return NextResponse.json({ success: true, data: concept });
+  const { projectMemberships, ...rest } = concept;
+  const projects = projectMemberships
+    .map((m) => m.project)
+    .sort((a, b) => a.title.localeCompare(b.title));
+  return NextResponse.json({ success: true, data: { ...rest, projects } });
 }
 
 const patchSchema = z.object({

@@ -7,7 +7,7 @@ function row(over: Partial<WikiConceptListRow> & { id: string }): WikiConceptLis
     type: 'Source',
     title: over.id,
     description: null,
-    projectId: null,
+    projectIds: [],
     sourceUrl: null,
     generatedAt: null,
     updatedAt: '2026-01-01T00:00:00Z',
@@ -26,8 +26,8 @@ describe('groupWikiConcepts', () => {
     const { unassignedSources, projects } = groupWikiConcepts([
       row({ id: 'pB', type: 'Project', title: 'B project' }),
       row({ id: 'pA', type: 'Project', title: 'A project' }),
-      row({ id: 's1', projectId: 'pA' }),
-      row({ id: 's2', projectId: 'pA' }),
+      row({ id: 's1', projectIds: ['pA'] }),
+      row({ id: 's2', projectIds: ['pA'] }),
       row({ id: 's3' }),
     ]);
     expect(unassignedSources.map((s) => s.id)).toEqual(['s3']);
@@ -37,8 +37,21 @@ describe('groupWikiConcepts', () => {
     expect(projects[1].sources).toEqual([]); // empty project still surfaced
   });
 
-  it('treats a source with a dangling projectId as unassigned', () => {
-    const { unassignedSources, projects } = groupWikiConcepts([row({ id: 's1', projectId: 'ghost' })]);
+  it('lists a multi-project source under each of its projects', () => {
+    const { unassignedSources, projects } = groupWikiConcepts([
+      row({ id: 'pA', type: 'Project', title: 'A' }),
+      row({ id: 'pB', type: 'Project', title: 'B' }),
+      row({ id: 's1', projectIds: ['pA', 'pB'] }),
+    ]);
+    expect(unassignedSources).toEqual([]);
+    expect(projects.find((g) => g.project.id === 'pA')?.sources.map((s) => s.id)).toEqual(['s1']);
+    expect(projects.find((g) => g.project.id === 'pB')?.sources.map((s) => s.id)).toEqual(['s1']);
+  });
+
+  it('treats a source with only dangling memberships as unassigned', () => {
+    const { unassignedSources, projects } = groupWikiConcepts([
+      row({ id: 's1', projectIds: ['ghost'] }),
+    ]);
     expect(unassignedSources.map((s) => s.id)).toEqual(['s1']);
     expect(projects).toEqual([]);
   });
