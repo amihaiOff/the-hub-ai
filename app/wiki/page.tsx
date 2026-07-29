@@ -29,14 +29,18 @@ export default function WikiPage() {
       <div className="mb-10 flex flex-wrap items-center justify-between gap-3">
         <h1 className="page-title text-2xl font-bold tracking-tight lg:text-3xl">Wiki</h1>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => setNewProjectOpen(true)}>
-            <FolderPlus className="mr-1.5 h-4 w-4" />
-            New project
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={() => setNewProjectOpen(true)}
+            aria-label="New project"
+            title="New project"
+          >
+            <FolderPlus className="h-4 w-4" />
           </Button>
-          <Button asChild size="sm">
+          <Button asChild size="icon" aria-label="New source" title="New source">
             <Link href="/wiki/new">
-              <Plus className="mr-1.5 h-4 w-4" />
-              New source
+              <Plus className="h-4 w-4" />
             </Link>
           </Button>
         </div>
