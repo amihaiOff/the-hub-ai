@@ -19,11 +19,12 @@ import Anthropic from '@anthropic-ai/sdk';
 
 const MODEL = 'claude-haiku-4-5';
 // Wall-clock time is dominated by output generation, not input processing —
-// Haiku digests prompt tokens at ~30k tok/s, so a 500k-char article
-// (~120k tokens) adds only ~4s while a 2048-token output takes ~25s. The
-// tight lever is `max_tokens`; input length just costs money (Haiku input
-// = $1/M tokens) and doesn't push us past Vercel's 60s ceiling.
-const MAX_TOKENS = 2048;
+// Haiku digests prompt tokens at ~30k tok/s while output runs at ~80 tok/s.
+// Summary + 5 questions on a real article can hit ~2500-3000 tokens; 2048
+// was truncating mid-JSON and the tool call arrived with an empty
+// questions array. 3500 tokens ≈ ~44s of output which stays safely under
+// Vercel Hobby's 60s function ceiling with room for Prisma + fetch.
+const MAX_TOKENS = 3500;
 const REQUEST_TIMEOUT_MS = 55_000;
 
 /**
@@ -36,7 +37,7 @@ export const DEFAULT_WIKI_PROMPT = `You produce an OKF-compliant knowledge summa
 # Output shape
 Call the submit tool exactly once with:
 - title, description, tags — for the concept's frontmatter.
-- summary_markdown — a structured markdown summary organised under ## subheadings, favouring bullet lists, tables, and short paragraphs over long prose. Cover the source's central claims, key definitions, and any non-obvious mechanics; skip fluff and marketing framing.
+- summary_markdown — a structured markdown summary organised under ## subheadings, favouring bullet lists, tables, and short paragraphs over long prose. Cover the source's central claims, key definitions, and any non-obvious mechanics; skip fluff and marketing framing. Aim for ~400-700 words total — dense, not padded.
 - project_relevance_markdown — ONLY when a project context is supplied. Explain, in specific terms tied to the project's stated goals, how the source's ideas apply. Do NOT restate the summary; write only the "so what for this project" side.
 - questions — exactly FIVE multiple-choice questions that test deep understanding. Not memorization: each question should force the reader to reason about implications, tradeoffs, or applications of the source's ideas. Four plausible options each (a-d), one correct, and a one-to-two-sentence explanation that cites the reasoning, not just the answer.
 
@@ -165,33 +166,64 @@ export async function summarizeSource(input: SummarizeInput): Promise<SummarizeR
   if (!submit) {
     throw new Error('Model did not call submit tool');
   }
-  const raw = submit.input as {
+  // Defensive parse of the tool output. `tool_choice` forces the shape but
+  // partial returns and edge-case validations can still hand us missing or
+  // ill-typed fields — surface a clear error rather than an opaque
+  // `Cannot read properties of undefined (reading 'map')` deep in the
+  // route.
+  const raw = (submit.input ?? {}) as Partial<{
     title: string;
     description: string;
-    tags: string[];
+    tags: unknown;
     summary_markdown: string;
     project_relevance_markdown: string | null;
-    questions: Array<{
-      question: string;
-      options: string[];
-      correct_index: number;
-      explanation: string;
-    }>;
-  };
+    questions: unknown;
+  }>;
 
-  const questions: QuestionShape[] = raw.questions.map((q) => ({
-    question: q.question,
-    options: [q.options[0], q.options[1], q.options[2], q.options[3]],
-    correctIdx: Math.max(0, Math.min(3, Math.round(q.correct_index))) as 0 | 1 | 2 | 3,
-    explanation: q.explanation,
-  }));
+  if (typeof raw.summary_markdown !== 'string' || raw.summary_markdown.trim().length === 0) {
+    throw new Error('Model returned no summary — try again or use a shorter source.');
+  }
+  if (!Array.isArray(raw.questions) || raw.questions.length === 0) {
+    throw new Error('Model returned no questions — try again with more content.');
+  }
+
+  const questions: QuestionShape[] = (raw.questions as unknown[])
+    .map((q): QuestionShape | null => {
+      if (!q || typeof q !== 'object') return null;
+      const rec = q as Record<string, unknown>;
+      const question = typeof rec.question === 'string' ? rec.question : '';
+      const opts = Array.isArray(rec.options) ? (rec.options as unknown[]) : [];
+      // Need 4 options; pad or slice to exactly 4 rather than crashing.
+      const options: [string, string, string, string] = [
+        typeof opts[0] === 'string' ? opts[0] : '',
+        typeof opts[1] === 'string' ? opts[1] : '',
+        typeof opts[2] === 'string' ? opts[2] : '',
+        typeof opts[3] === 'string' ? opts[3] : '',
+      ];
+      const correctRaw = Number(rec.correct_index);
+      const correctIdx = Math.max(
+        0,
+        Math.min(3, Number.isFinite(correctRaw) ? Math.round(correctRaw) : 0)
+      ) as 0 | 1 | 2 | 3;
+      const explanation = typeof rec.explanation === 'string' ? rec.explanation : '';
+      if (!question || options.every((o) => !o)) return null;
+      return { question, options, correctIdx, explanation };
+    })
+    .filter((q): q is QuestionShape => q !== null);
+
+  if (questions.length === 0) {
+    throw new Error('Model returned malformed questions — try again.');
+  }
 
   return {
-    title: raw.title,
-    description: raw.description,
-    tags: Array.isArray(raw.tags) ? raw.tags.slice(0, 12) : [],
+    title: typeof raw.title === 'string' && raw.title.trim() ? raw.title : 'Untitled source',
+    description: typeof raw.description === 'string' ? raw.description : '',
+    tags: Array.isArray(raw.tags)
+      ? (raw.tags as unknown[]).filter((t): t is string => typeof t === 'string').slice(0, 12)
+      : [],
     summaryMarkdown: raw.summary_markdown,
-    projectRelevanceMarkdown: raw.project_relevance_markdown || null,
+    projectRelevanceMarkdown:
+      typeof raw.project_relevance_markdown === 'string' ? raw.project_relevance_markdown : null,
     questions,
     usage: {
       inputTokens: resp.usage.input_tokens ?? 0,
