@@ -165,33 +165,64 @@ export async function summarizeSource(input: SummarizeInput): Promise<SummarizeR
   if (!submit) {
     throw new Error('Model did not call submit tool');
   }
-  const raw = submit.input as {
+  // Defensive parse of the tool output. `tool_choice` forces the shape but
+  // partial returns and edge-case validations can still hand us missing or
+  // ill-typed fields — surface a clear error rather than an opaque
+  // `Cannot read properties of undefined (reading 'map')` deep in the
+  // route.
+  const raw = (submit.input ?? {}) as Partial<{
     title: string;
     description: string;
-    tags: string[];
+    tags: unknown;
     summary_markdown: string;
     project_relevance_markdown: string | null;
-    questions: Array<{
-      question: string;
-      options: string[];
-      correct_index: number;
-      explanation: string;
-    }>;
-  };
+    questions: unknown;
+  }>;
 
-  const questions: QuestionShape[] = raw.questions.map((q) => ({
-    question: q.question,
-    options: [q.options[0], q.options[1], q.options[2], q.options[3]],
-    correctIdx: Math.max(0, Math.min(3, Math.round(q.correct_index))) as 0 | 1 | 2 | 3,
-    explanation: q.explanation,
-  }));
+  if (typeof raw.summary_markdown !== 'string' || raw.summary_markdown.trim().length === 0) {
+    throw new Error('Model returned no summary — try again or use a shorter source.');
+  }
+  if (!Array.isArray(raw.questions) || raw.questions.length === 0) {
+    throw new Error('Model returned no questions — try again with more content.');
+  }
+
+  const questions: QuestionShape[] = (raw.questions as unknown[])
+    .map((q): QuestionShape | null => {
+      if (!q || typeof q !== 'object') return null;
+      const rec = q as Record<string, unknown>;
+      const question = typeof rec.question === 'string' ? rec.question : '';
+      const opts = Array.isArray(rec.options) ? (rec.options as unknown[]) : [];
+      // Need 4 options; pad or slice to exactly 4 rather than crashing.
+      const options: [string, string, string, string] = [
+        typeof opts[0] === 'string' ? opts[0] : '',
+        typeof opts[1] === 'string' ? opts[1] : '',
+        typeof opts[2] === 'string' ? opts[2] : '',
+        typeof opts[3] === 'string' ? opts[3] : '',
+      ];
+      const correctRaw = Number(rec.correct_index);
+      const correctIdx = Math.max(
+        0,
+        Math.min(3, Number.isFinite(correctRaw) ? Math.round(correctRaw) : 0)
+      ) as 0 | 1 | 2 | 3;
+      const explanation = typeof rec.explanation === 'string' ? rec.explanation : '';
+      if (!question || options.every((o) => !o)) return null;
+      return { question, options, correctIdx, explanation };
+    })
+    .filter((q): q is QuestionShape => q !== null);
+
+  if (questions.length === 0) {
+    throw new Error('Model returned malformed questions — try again.');
+  }
 
   return {
-    title: raw.title,
-    description: raw.description,
-    tags: Array.isArray(raw.tags) ? raw.tags.slice(0, 12) : [],
+    title: typeof raw.title === 'string' && raw.title.trim() ? raw.title : 'Untitled source',
+    description: typeof raw.description === 'string' ? raw.description : '',
+    tags: Array.isArray(raw.tags)
+      ? (raw.tags as unknown[]).filter((t): t is string => typeof t === 'string').slice(0, 12)
+      : [],
     summaryMarkdown: raw.summary_markdown,
-    projectRelevanceMarkdown: raw.project_relevance_markdown || null,
+    projectRelevanceMarkdown:
+      typeof raw.project_relevance_markdown === 'string' ? raw.project_relevance_markdown : null,
     questions,
     usage: {
       inputTokens: resp.usage.input_tokens ?? 0,
