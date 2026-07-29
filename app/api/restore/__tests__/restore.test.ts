@@ -79,6 +79,10 @@ const mockPrisma = {
   taskShare: createMockFns('taskShare'),
   page: createMockFns('page'),
   pageTab: createMockFns('pageTab'),
+  wikiConcept: createMockFns('wikiConcept'),
+  wikiConceptProject: createMockFns('wikiConceptProject'),
+  wikiQuestion: createMockFns('wikiQuestion'),
+  wikiQuestionAttempt: createMockFns('wikiQuestionAttempt'),
 };
 
 jest.mock('@/lib/db', () => ({
@@ -921,6 +925,81 @@ describe('Restore API', () => {
       const tabCreates = (mockPrisma.pageTab.create as jest.Mock).mock.calls;
       expect(tabCreates).toHaveLength(1);
       expect(tabCreates[0][0].data.id).toBe('tab-1');
+    });
+
+    it('restores wiki concepts Projects-first and nulls a dangling projectId', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+      mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+
+      const D = '2024-01-01T00:00:00.000Z';
+      const metadata = {
+        schemaVersion: '2.5',
+        backupDate: D,
+        createdBy: 'test@example.com',
+        counts: {},
+      };
+      const concept = (over: Record<string, unknown>) => ({
+        householdId: 'household-1',
+        path: `p/${over.id}`,
+        type: 'Source',
+        title: over.id,
+        description: null,
+        frontmatter: {},
+        body: '# Summary\n\nx',
+        projectId: null,
+        sourceUrl: null,
+        sourceRaw: null,
+        generatedBy: null,
+        generatedAt: null,
+        createdAt: D,
+        updatedAt: D,
+        ...over,
+      });
+      const data = {
+        // Deliberately list the Source before the Project to prove the route
+        // reorders Projects first for the self-referential FK.
+        wiki_concepts: [
+          concept({ id: 'src-1', type: 'Source', projectId: 'proj-1' }),
+          concept({ id: 'proj-1', type: 'Project' }),
+          concept({ id: 'src-2', type: 'Source', projectId: 'ghost' }),
+        ],
+        wiki_concept_projects: [
+          { id: 'm-1', sourceId: 'src-1', projectId: 'proj-1', createdAt: D },
+        ],
+        wiki_questions: [
+          {
+            id: 'q-1',
+            conceptId: 'src-1',
+            orderIndex: 0,
+            question: 'Q?',
+            options: ['a', 'b', 'c', 'd'],
+            correctIdx: 1,
+            explanation: 'because',
+            createdAt: D,
+          },
+        ],
+      };
+
+      const blob = await createBackupZip(metadata, data);
+      const formData = new FormData();
+      formData.append('file', blob, 'backup.zip');
+      const response = await POST(
+        new NextRequest('http://localhost/api/restore', { method: 'POST', body: formData })
+      );
+      expect(response.status).toBe(200);
+
+      const conceptCreates = (mockPrisma.wikiConcept.create as jest.Mock).mock.calls;
+      const orderById = conceptCreates.map((c) => c[0].data.id);
+      // Project inserted before either source.
+      expect(orderById.indexOf('proj-1')).toBeLessThan(orderById.indexOf('src-1'));
+      expect(orderById.indexOf('proj-1')).toBeLessThan(orderById.indexOf('src-2'));
+      // Valid projectId kept, dangling one nulled.
+      const byId = Object.fromEntries(conceptCreates.map((c) => [c[0].data.id, c[0].data]));
+      expect(byId['src-1'].projectId).toBe('proj-1');
+      expect(byId['src-2'].projectId).toBeNull();
+      // Join rows + questions restored.
+      expect((mockPrisma.wikiConceptProject.create as jest.Mock)).toHaveBeenCalledTimes(1);
+      expect((mockPrisma.wikiQuestion.create as jest.Mock)).toHaveBeenCalledTimes(1);
     });
 
     it('should restore all extended tables with optional fields present', async () => {

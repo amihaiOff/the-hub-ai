@@ -10,6 +10,7 @@ import {
   TransactionSource,
   PaymentMethod,
   TaskPriority,
+  Prisma,
 } from '@prisma/client';
 
 // Extend timeout for restore operations (Neon serverless can be slow)
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
       '2.2',
       '2.3',
       '2.4',
+      '2.5',
     ];
     if (!supportedVersions.includes(metadata.schemaVersion)) {
       return NextResponse.json(
@@ -173,6 +175,15 @@ export async function POST(request: NextRequest) {
     const pages = await parseFile<Record<string, unknown>>('pages.json');
     // Schema version 2.4+ (empty for older backups).
     const pageTabs = await parseFile<Record<string, unknown>>('page_tabs.json');
+    // Wiki module — schema version 2.5+ (empty for older backups).
+    const wikiConcepts = await parseFile<Record<string, unknown>>('wiki_concepts.json');
+    const wikiConceptProjects = await parseFile<Record<string, unknown>>(
+      'wiki_concept_projects.json'
+    );
+    const wikiQuestions = await parseFile<Record<string, unknown>>('wiki_questions.json');
+    const wikiQuestionAttempts = await parseFile<Record<string, unknown>>(
+      'wiki_question_attempts.json'
+    );
 
     // Execute operations sequentially without transaction
     // Neon serverless doesn't support long-running transactions well
@@ -189,6 +200,11 @@ export async function POST(request: NextRequest) {
     // Pages (Areas documents) — tabs are children, delete them first.
     await prisma.pageTab.deleteMany();
     await prisma.page.deleteMany();
+    // Wiki module — children (attempts, memberships, questions) before concepts.
+    await prisma.wikiQuestionAttempt.deleteMany();
+    await prisma.wikiConceptProject.deleteMany();
+    await prisma.wikiQuestion.deleteMany();
+    await prisma.wikiConcept.deleteMany();
     // Household-scoped leaf tables added to the backup in the 2.x line
     await prisma.partnerContact.deleteMany();
     await prisma.ccGenericPayeeName.deleteMany();
@@ -1172,6 +1188,79 @@ export async function POST(request: NextRequest) {
           sortOrder: 0,
           createdAt: new Date(pg.createdAt as string),
           updatedAt: new Date(pg.updatedAt as string),
+        },
+      });
+    }
+
+    // 47. Wiki concepts (after users + households). Insert Projects before
+    // Sources so a source's self-referential projectId points at an
+    // already-inserted project; a dangling projectId (project missing from the
+    // backup) is nulled rather than failing the whole restore.
+    const wikiConceptIds = new Set(wikiConcepts.map((c) => c.id as string));
+    const orderedConcepts = [...wikiConcepts].sort(
+      (a, b) => (a.type === 'Project' ? 0 : 1) - (b.type === 'Project' ? 0 : 1)
+    );
+    for (const c of orderedConcepts) {
+      const projectId = (c.projectId as string | null) ?? null;
+      await prisma.wikiConcept.create({
+        data: {
+          id: c.id as string,
+          householdId: c.householdId as string,
+          path: c.path as string,
+          type: c.type as string,
+          title: (c.title as string) ?? '',
+          description: (c.description as string | null) ?? null,
+          frontmatter: (c.frontmatter as Prisma.InputJsonValue) ?? {},
+          body: (c.body as string) ?? '',
+          projectId: projectId && wikiConceptIds.has(projectId) ? projectId : null,
+          sourceUrl: (c.sourceUrl as string | null) ?? null,
+          sourceRaw: (c.sourceRaw as string | null) ?? null,
+          generatedBy: (c.generatedBy as string | null) ?? null,
+          generatedAt: c.generatedAt ? new Date(c.generatedAt as string) : null,
+          createdAt: new Date(c.createdAt as string),
+          updatedAt: new Date(c.updatedAt as string),
+        },
+      });
+    }
+
+    // 48. Wiki concept memberships (join table — after concepts).
+    for (const m of wikiConceptProjects) {
+      await prisma.wikiConceptProject.create({
+        data: {
+          id: m.id as string,
+          sourceId: m.sourceId as string,
+          projectId: m.projectId as string,
+          createdAt: new Date(m.createdAt as string),
+        },
+      });
+    }
+
+    // 49. Wiki questions (children of concepts — after concepts).
+    for (const q of wikiQuestions) {
+      await prisma.wikiQuestion.create({
+        data: {
+          id: q.id as string,
+          conceptId: q.conceptId as string,
+          orderIndex: q.orderIndex as number,
+          question: q.question as string,
+          options: q.options as Prisma.InputJsonValue,
+          correctIdx: q.correctIdx as number,
+          explanation: q.explanation as string,
+          createdAt: new Date(q.createdAt as string),
+        },
+      });
+    }
+
+    // 50. Wiki question attempts (after questions + users).
+    for (const a of wikiQuestionAttempts) {
+      await prisma.wikiQuestionAttempt.create({
+        data: {
+          id: a.id as string,
+          questionId: a.questionId as string,
+          userId: a.userId as string,
+          selectedIdx: a.selectedIdx as number,
+          correct: a.correct as boolean,
+          attemptedAt: new Date(a.attemptedAt as string),
         },
       });
     }

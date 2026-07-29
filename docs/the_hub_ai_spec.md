@@ -130,10 +130,13 @@ Rules live on the Payees page in a tabbed UI (Payees / Rules tabs). Each rule ha
 ### Backup/Restore
 
 `GET /api/backup` produces a ZIP with one JSON file per table plus `metadata.json`
-(current `schemaVersion: 2.4`). `POST /api/restore` wipes the database and
+(current `schemaVersion: 2.5`). `POST /api/restore` wipes the database and
 re-inserts everything from a ZIP, in dependency order. Backup and restore are
 kept in lockstep — every table the backup captures is also restored, including
-the **Areas `pages`** and their **`page_tabs`**, the full **tasks** module (tasks + categories, tags,
+the **Areas `pages`** and their **`page_tabs`**, the full **Wiki** module
+(`wiki_concepts` + the `wiki_concept_projects` memberships, `wiki_questions`,
+`wiki_question_attempts`; restore inserts Project concepts before Sources for the
+self-referential `project_id`), the full **tasks** module (tasks + categories, tags,
 shares), partner contacts, budget account names, cc-generic payee names,
 moneytor real-estate (+snapshots), moneytor sync/drop logs, and general logs.
 Payee category rules are included too (`payee_category_rules.json`, schema 1.2+).
