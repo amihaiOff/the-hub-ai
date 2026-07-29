@@ -1478,14 +1478,39 @@ model WikiConcept {
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
   household   Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  // Legacy single-project link. Retained as the "relevance project" — the one
+  // the body's project-relevance section was written for at ingest. Membership
+  // (which projects a source is filed under) now lives in wiki_concept_projects
+  // so a source can belong to many projects.
   project     WikiConcept?   @relation("WikiProjectSources", fields: [projectId], references: [id], onDelete: SetNull)
   sources     WikiConcept[]  @relation("WikiProjectSources")
   questions   WikiQuestion[]
+  // Many-to-many membership (this concept AS a source → projects it's filed under).
+  projectMemberships WikiConceptProject[] @relation("SourceMemberships")
+  // Reverse side (this concept AS a project → its member sources).
+  memberSources      WikiConceptProject[] @relation("ProjectMembers")
 
   @@unique([householdId, path])
   @@index([householdId, type])
   @@index([householdId, projectId])
   @@map("wiki_concepts")
+}
+
+// Join table: a source concept filed under a project concept. Many-to-many so
+// one source can live in several projects. Both sides are WikiConcepts in the
+// same household; cascade-deletes with either end.
+model WikiConceptProject {
+  id        String   @id @default(cuid())
+  sourceId  String   @map("source_id")
+  projectId String   @map("project_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  source  WikiConcept @relation("SourceMemberships", fields: [sourceId], references: [id], onDelete: Cascade)
+  project WikiConcept @relation("ProjectMembers", fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, projectId])
+  @@index([projectId])
+  @@map("wiki_concept_projects")
 }
 
 model WikiQuestion {

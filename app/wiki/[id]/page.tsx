@@ -8,6 +8,7 @@ import {
   Check,
   ExternalLink,
   FolderKanban,
+  FolderPlus,
   Loader2,
   MoreHorizontal,
   RefreshCw,
@@ -18,9 +19,11 @@ import {
   useWikiConcept,
   useReSummarize,
   useDeleteWikiConcept,
+  useRemoveFromProject,
   useSubmitAttempt,
 } from '@/lib/hooks/use-wiki';
 import { WikiMarkdown } from '@/components/wiki/wiki-markdown';
+import { AddToProjectDialog } from '@/components/wiki/add-to-project-dialog';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -38,6 +41,8 @@ export default function WikiConceptPage() {
   const { data, isLoading, error } = useWikiConcept(id);
   const reSummarize = useReSummarize();
   const del = useDeleteWikiConcept();
+  const removeFromProject = useRemoveFromProject();
+  const [addProjectOpen, setAddProjectOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -72,15 +77,42 @@ export default function WikiConceptPage() {
           )}
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
             <span className="border-border/60 rounded-full border px-2 py-0.5">{data.type}</span>
-            {data.project && (
-              <Link
-                href={`/wiki/${data.project.id}`}
-                className="border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors"
+            {data.projects.map((p) => (
+              <span
+                key={p.id}
+                className="border-primary/40 bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full border py-0.5 pr-1 pl-2"
               >
-                <FolderKanban className="h-3 w-3" />
-                {data.project.title}
-              </Link>
-            )}
+                <Link
+                  href={`/wiki/${p.id}`}
+                  className="inline-flex items-center gap-1 hover:underline"
+                >
+                  <FolderKanban className="h-3 w-3" />
+                  {p.title}
+                </Link>
+                <button
+                  type="button"
+                  aria-label={`Remove from ${p.title}`}
+                  title="Remove from project"
+                  // Disable only the chip that's mid-removal, not all of them.
+                  disabled={
+                    removeFromProject.isPending &&
+                    removeFromProject.variables?.projectId === p.id
+                  }
+                  onClick={() =>
+                    removeFromProject.mutate(
+                      { conceptId: data.id, projectId: p.id },
+                      {
+                        onError: (e) =>
+                          alert(e instanceof Error ? e.message : 'Failed to remove from project'),
+                      }
+                    )
+                  }
+                  className="hover:bg-primary/20 -my-0.5 rounded-full p-1.5 transition-colors disabled:opacity-50"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
             {data.sourceUrl && (
               <a
                 href={data.sourceUrl}
@@ -102,6 +134,15 @@ export default function WikiConceptPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            {data.type !== 'Project' && (
+              <>
+                <DropdownMenuItem onSelect={() => setAddProjectOpen(true)}>
+                  <FolderPlus className="mr-2 h-4 w-4" />
+                  Add to project
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuItem
               onSelect={() => {
                 reSummarize.mutate({ id: data.id });
@@ -144,6 +185,13 @@ export default function WikiConceptPage() {
 
       {/* Quiz */}
       {data.questions.length > 0 && <Quiz questions={data.questions} />}
+
+      <AddToProjectDialog
+        open={addProjectOpen}
+        onOpenChange={setAddProjectOpen}
+        conceptId={data.id}
+        currentProjectIds={data.projects.map((p) => p.id)}
+      />
     </div>
   );
 }
