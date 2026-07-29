@@ -36,13 +36,19 @@ export function NewProjectDialog({ open, onOpenChange, onCreated }: NewProjectDi
   const submit = async () => {
     const t = title.trim();
     if (!t) return;
-    const project = await createProject.mutateAsync({
-      title: t,
-      description: description.trim() || undefined,
-    });
-    reset();
-    onOpenChange(false);
-    onCreated?.(project.id);
+    try {
+      const project = await createProject.mutateAsync({
+        title: t,
+        description: description.trim() || undefined,
+      });
+      reset();
+      onOpenChange(false);
+      onCreated?.(project.id);
+    } catch {
+      // The error is already surfaced via createProject.isError below; swallow
+      // the rejection so a failed create doesn't become an unhandledrejection.
+      // The dialog stays open with the entered text so the user can retry.
+    }
   };
 
   return (

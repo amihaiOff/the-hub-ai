@@ -97,7 +97,7 @@ function ProjectGroup({ group }: { group: WikiProjectGroup }) {
           href={`/wiki/${group.project.id}`}
           aria-label={`Open project ${group.project.title}`}
           title="Open project"
-          className="text-muted-foreground hover:text-foreground shrink-0 transition-colors"
+          className="text-muted-foreground hover:text-foreground hover:bg-muted/60 -m-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors"
         >
           <ArrowUpRight className="h-4 w-4" />
         </Link>
@@ -136,8 +136,8 @@ function SourceCard({ concept }: { concept: WikiConceptListRow }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Open source in a new tab"
-                title="Open source"
-                className="text-muted-foreground hover:text-foreground mt-0.5 shrink-0 transition-colors"
+                title="Open source in a new tab"
+                className="text-muted-foreground hover:text-foreground hover:bg-muted/60 -m-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors"
               >
                 <ExternalLink className="h-4 w-4" />
               </a>
@@ -148,7 +148,7 @@ function SourceCard({ concept }: { concept: WikiConceptListRow }) {
             <Collapsible open={open} onOpenChange={setOpen} className="mt-1.5">
               <CollapsibleTrigger className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors">
                 <ChevronRight
-                  className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-90')}
+                  className={cn('h-3.5 w-3.5 shrink-0 transition-transform', open && 'rotate-90')}
                 />
                 {open ? 'Hide abstract' : 'Abstract'}
               </CollapsibleTrigger>
