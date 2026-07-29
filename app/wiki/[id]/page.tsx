@@ -93,11 +93,21 @@ export default function WikiConceptPage() {
                   type="button"
                   aria-label={`Remove from ${p.title}`}
                   title="Remove from project"
-                  disabled={removeFromProject.isPending}
-                  onClick={() =>
-                    removeFromProject.mutate({ conceptId: data.id, projectId: p.id })
+                  // Disable only the chip that's mid-removal, not all of them.
+                  disabled={
+                    removeFromProject.isPending &&
+                    removeFromProject.variables?.projectId === p.id
                   }
-                  className="hover:bg-primary/20 rounded-full p-0.5 transition-colors disabled:opacity-50"
+                  onClick={() =>
+                    removeFromProject.mutate(
+                      { conceptId: data.id, projectId: p.id },
+                      {
+                        onError: (e) =>
+                          alert(e instanceof Error ? e.message : 'Failed to remove from project'),
+                      }
+                    )
+                  }
+                  className="hover:bg-primary/20 -my-0.5 rounded-full p-1.5 transition-colors disabled:opacity-50"
                 >
                   <X className="h-3 w-3" />
                 </button>

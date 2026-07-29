@@ -51,7 +51,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ success: false, error: 'Project not found' }, { status: 400 });
     }
 
-    // Idempotent: adding an existing membership is a no-op.
+    // Idempotent: adding an existing membership is a no-op. We deliberately do
+    // NOT touch the source's relevance `projectId` here — that's the single
+    // project the body's relevance section was written for at ingest, and it's
+    // orthogonal to membership. (DELETE clears it only if it matched the removed
+    // project.) Adding a source to a project is organizational; it does not
+    // regenerate a per-project relevance section.
     await prisma.wikiConceptProject.upsert({
       where: { sourceId_projectId: { sourceId: id, projectId } },
       create: { sourceId: id, projectId },

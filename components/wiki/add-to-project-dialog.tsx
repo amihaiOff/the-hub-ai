@@ -46,7 +46,13 @@ export function AddToProjectDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) add.reset(); // clear any prior error so reopening is clean
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="rounded-3xl">
         <DialogHeader>
           <DialogTitle>Add to project</DialogTitle>

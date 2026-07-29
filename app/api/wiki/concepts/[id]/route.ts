@@ -32,14 +32,21 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const projects = projectMemberships
     .map((m) => m.project)
     .sort((a, b) => a.title.localeCompare(b.title));
-  return NextResponse.json({ success: true, data: { ...rest, projects } });
+  // Include projectIds too so the payload satisfies WikiConceptDetail (which
+  // extends the list row) and stays consistent with the list endpoint.
+  return NextResponse.json({
+    success: true,
+    data: { ...rest, projects, projectIds: projectMemberships.map((m) => m.projectId) },
+  });
 }
 
+// Note: `projectId` is intentionally NOT patchable here. Membership lives in
+// wiki_concept_projects (see the /projects routes); letting PATCH set the
+// scalar directly would desync grouping from the membership table.
 const patchSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().max(500).nullable().optional(),
   body: z.string().optional(),
-  projectId: z.string().cuid().nullable().optional(),
 });
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -64,16 +71,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         { success: false, error: getFirstZodError(parsed.error) },
         { status: 400 }
       );
-    }
-    // Guard: projectId, when set, must reference a Project in this household.
-    if (parsed.data.projectId) {
-      const proj = await prisma.wikiConcept.findFirst({
-        where: { id: parsed.data.projectId, householdId, type: 'Project' },
-        select: { id: true },
-      });
-      if (!proj) {
-        return NextResponse.json({ success: false, error: 'Project not found' }, { status: 400 });
-      }
     }
     const updated = await prisma.wikiConcept.update({
       where: { id },
