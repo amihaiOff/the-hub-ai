@@ -5,12 +5,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, StickyNote } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { WikiMarkdown } from '@/components/wiki/wiki-markdown';
 
 /**
- * Dashboard scratchpad — a household-shared textarea for one-off notes the
- * user wants to sweep into real tasks or notes later. Autosaves debounced
- * with no visible status: the box just always saves. A save failure is
- * silently retried on the next keystroke via the same debounce path.
+ * Dashboard scratchpad — a household-shared markdown block for one-off
+ * notes. Two modes:
+ *   - view: renders `body` as markdown. Click to edit.
+ *   - edit: raw textarea, autosaves debounced. Blur to return to view.
+ * Empty state (no notes yet) opens directly into edit mode with a
+ * placeholder so the box is discoverable.
  */
 
 const AUTOSAVE_MS = 800;
@@ -55,6 +58,7 @@ export function DashboardNotesCard() {
 function Editor({ initial }: { initial: string }) {
   const qc = useQueryClient();
   const [value, setValue] = useState(initial);
+  const [editing, setEditing] = useState(initial.trim().length === 0);
   const savedRef = useRef(initial);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -79,9 +83,7 @@ function Editor({ initial }: { initial: string }) {
   useEffect(() => {
     if (value === savedRef.current) return;
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      save.mutate(value);
-    }, AUTOSAVE_MS);
+    timerRef.current = setTimeout(() => save.mutate(value), AUTOSAVE_MS);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
@@ -89,12 +91,53 @@ function Editor({ initial }: { initial: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
+  // Flush any pending debounced write when leaving edit mode. Otherwise
+  // clicking out too fast could re-render the view with the last-saved
+  // (stale) markdown and the newest keystrokes would only land ~800ms later.
+  const flushAndClose = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (value !== savedRef.current) save.mutate(value);
+    setEditing(false);
+  };
+
+  const openEdit = () => setEditing(true);
+
+  if (editing) {
+    return (
+      <Textarea
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={flushAndClose}
+        placeholder="Jot down anything for later — thoughts, tasks, links to convert into wiki sources…"
+        className="min-h-[100px] resize-y font-mono text-xs"
+      />
+    );
+  }
+
+  // View mode.
+  if (!value.trim()) {
+    // Shouldn't normally happen (empty note opens directly into edit mode),
+    // but if the user cleared everything and blurred, offer a re-entry.
+    return (
+      <button
+        type="button"
+        onClick={openEdit}
+        className="text-muted-foreground hover:text-foreground w-full py-4 text-left text-xs"
+      >
+        Jot down anything for later — click to start.
+      </button>
+    );
+  }
   return (
-    <Textarea
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      placeholder="Jot down anything for later — thoughts, tasks, links to convert into wiki sources…"
-      className="min-h-[100px] resize-y text-sm"
-    />
+    <button
+      type="button"
+      onClick={openEdit}
+      aria-label="Edit notes"
+      title="Click to edit"
+      className="hover:bg-muted/30 -mx-2 w-full cursor-text rounded px-2 py-1 text-left transition-colors"
+    >
+      <WikiMarkdown source={value} />
+    </button>
   );
 }
