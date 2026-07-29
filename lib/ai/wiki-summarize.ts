@@ -19,11 +19,12 @@ import Anthropic from '@anthropic-ai/sdk';
 
 const MODEL = 'claude-haiku-4-5';
 // Wall-clock time is dominated by output generation, not input processing —
-// Haiku digests prompt tokens at ~30k tok/s, so a 500k-char article
-// (~120k tokens) adds only ~4s while a 2048-token output takes ~25s. The
-// tight lever is `max_tokens`; input length just costs money (Haiku input
-// = $1/M tokens) and doesn't push us past Vercel's 60s ceiling.
-const MAX_TOKENS = 2048;
+// Haiku digests prompt tokens at ~30k tok/s while output runs at ~80 tok/s.
+// Summary + 5 questions on a real article can hit ~2500-3000 tokens; 2048
+// was truncating mid-JSON and the tool call arrived with an empty
+// questions array. 3500 tokens ≈ ~44s of output which stays safely under
+// Vercel Hobby's 60s function ceiling with room for Prisma + fetch.
+const MAX_TOKENS = 3500;
 const REQUEST_TIMEOUT_MS = 55_000;
 
 /**
@@ -36,7 +37,7 @@ export const DEFAULT_WIKI_PROMPT = `You produce an OKF-compliant knowledge summa
 # Output shape
 Call the submit tool exactly once with:
 - title, description, tags — for the concept's frontmatter.
-- summary_markdown — a structured markdown summary organised under ## subheadings, favouring bullet lists, tables, and short paragraphs over long prose. Cover the source's central claims, key definitions, and any non-obvious mechanics; skip fluff and marketing framing.
+- summary_markdown — a structured markdown summary organised under ## subheadings, favouring bullet lists, tables, and short paragraphs over long prose. Cover the source's central claims, key definitions, and any non-obvious mechanics; skip fluff and marketing framing. Aim for ~400-700 words total — dense, not padded.
 - project_relevance_markdown — ONLY when a project context is supplied. Explain, in specific terms tied to the project's stated goals, how the source's ideas apply. Do NOT restate the summary; write only the "so what for this project" side.
 - questions — exactly FIVE multiple-choice questions that test deep understanding. Not memorization: each question should force the reader to reason about implications, tradeoffs, or applications of the source's ideas. Four plausible options each (a-d), one correct, and a one-to-two-sentence explanation that cites the reasoning, not just the answer.
 
