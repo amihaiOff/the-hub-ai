@@ -12,7 +12,6 @@ import {
   Redo2,
   Trash2,
   Undo2,
-  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useKeyboardInset } from '@/lib/hooks/use-keyboard-inset';
@@ -32,8 +31,7 @@ import { InsertBlockSheet } from './insert-block-sheet';
  *   undo / redo → history navigation
  *   delete      → remove the current top-level block
  *   duplicate   → copy the current top-level block below itself
- *   outdent     → only rendered inside a nested list
- *   ×           → dismiss the toolbar (blur the editor)
+ *   indent / outdent → only rendered when the cursor is inside a list
  *
  * Uses semantic tokens from docs/design-system.md — no hard-coded hex.
  */
@@ -112,11 +110,6 @@ export function MobileEditorToolbar({
     editor.chain().focus().sinkListItem('listItem').run() ||
       editor.chain().focus().sinkListItem('taskItem').run();
   };
-  const close = () => {
-    setSheetOpen(false);
-    editor.commands.blur();
-  };
-
   return (
     <>
       {createPortal(
@@ -172,10 +165,6 @@ export function MobileEditorToolbar({
                 </IconButton>
               </>
             )}
-            <Divider />
-            <IconButton label="Close" onClick={close}>
-              <X className="h-5 w-5" />
-            </IconButton>
           </div>
         </div>,
         document.body
