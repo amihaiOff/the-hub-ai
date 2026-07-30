@@ -27,14 +27,14 @@ import {
 import { cn } from '@/lib/utils';
 import { uploadPageImage } from '@/lib/hooks/use-pages';
 import { Column, ColumnBlock } from './columns-extension';
-import { ListIndentControls, canOutdentWithinList } from './list-indent-controls';
+import { canOutdentWithinList } from './list-indent-controls';
 import { MobileBlockDragHandle } from './mobile-block-drag-handle';
 import { AutoTextDirection } from './auto-text-direction';
 import { SlashMenuExtension } from './slash-menu';
 import { CollapsibleHeading } from './collapsible-heading';
 import { TableFloatingControls } from './table-floating-controls';
 import { DatabaseBlock } from './database-extension';
-import { UndoRedoBar } from './undo-redo-bar';
+import { MobileEditorToolbar } from './mobile-editor-toolbar';
 
 /**
  * Keeps Shift-Tab (outdent) from lifting a top-level list item out of the
@@ -150,7 +150,11 @@ export function PageBodyEditor({
       onPaste={(e) => handleData(e.clipboardData, () => e.preventDefault())}
       onDrop={(e) => handleData(e.dataTransfer, () => e.preventDefault())}
     >
-      <Toolbar editor={editor} />
+      {/* Sticky top toolbar for desktop only — on mobile the floating
+          MobileEditorToolbar at the bottom takes over. */}
+      <div className="hidden lg:block">
+        <Toolbar editor={editor} />
+      </div>
       <TableFloatingControls editor={editor} />
       {/* Six-dot drag handle floats to the left of the hovered block on
           desktop. Hidden on touch-only viewports (the block itself is
@@ -200,13 +204,12 @@ export function PageBodyEditor({
         </div>
       </DragHandle>
       <EditorContent editor={editor} />
-      <ListIndentControls editor={editor} hasBottomTabBar={hasBottomTabBar} />
       {/* Touch/mobile block reordering — the desktop DragHandle above uses the
           HTML5 drag API, which doesn't work on touch. */}
       <MobileBlockDragHandle editor={editor} />
-      {/* Floating undo/redo arrows for touch users. Ctrl/Cmd-Z still works
-          on desktop via Tiptap's built-in history keymap. */}
-      <UndoRedoBar editor={editor} liftAboveTabBar={hasBottomTabBar} />
+      {/* Consolidated floating toolbar for touch users — undo/redo, block
+          type, delete/duplicate, outdent. Shown only while editing. */}
+      <MobileEditorToolbar editor={editor} hasBottomTabBar={hasBottomTabBar} />
     </div>
   );
 }
