@@ -17,7 +17,10 @@ function row(over: Partial<WikiConceptListRow> & { id: string }): WikiConceptLis
 
 describe('groupWikiConcepts', () => {
   it('puts project-less sources in the top section', () => {
-    const { unassignedSources, projects } = groupWikiConcepts([row({ id: 's1' }), row({ id: 's2' })]);
+    const { unassignedSources, projects } = groupWikiConcepts([
+      row({ id: 's1' }),
+      row({ id: 's2' }),
+    ]);
     expect(unassignedSources.map((s) => s.id)).toEqual(['s1', 's2']);
     expect(projects).toEqual([]);
   });

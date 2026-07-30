@@ -63,8 +63,8 @@ export function NewProjectDialog({ open, onOpenChange, onCreated }: NewProjectDi
         <DialogHeader>
           <DialogTitle>New project</DialogTitle>
           <DialogDescription>
-            Group related sources under a project. Sources filed under it also get a
-            &ldquo;project relevance&rdquo; section when summarized.
+            Group related sources under a project. Sources filed under it also get a &ldquo;project
+            relevance&rdquo; section when summarized.
           </DialogDescription>
         </DialogHeader>
 
@@ -100,7 +100,11 @@ export function NewProjectDialog({ open, onOpenChange, onCreated }: NewProjectDi
               {(createProject.error as Error).message}
             </span>
           )}
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={createProject.isPending}>
+          <Button
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+            disabled={createProject.isPending}
+          >
             Cancel
           </Button>
           <Button onClick={submit} disabled={!title.trim() || createProject.isPending}>

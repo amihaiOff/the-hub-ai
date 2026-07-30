@@ -475,6 +475,25 @@ model MarketRate {
   @@map("market_rates")
 }
 
+// One row per market-rate fetch attempt — successful, no-op, or failed.
+// Populated by the monthly BoI-prime cron (see /api/cron/daily-tasks). Kept
+// on-record so a debugger can look at exactly which URL the LLM cited, what
+// value it extracted, and whether it matched the previous stored rate.
+model MarketRateFetchLog {
+  id           String   @id @default(cuid())
+  name         String // 'BOI_PRIME'
+  sourceUrl    String?  @map("source_url") // URL the LLM cited, or null on env-var / failure
+  rate         Decimal? @db.Decimal(6, 4) // Extracted rate as a fraction, or null on failure
+  previousRate Decimal? @map("previous_rate") @db.Decimal(6, 4)
+  inserted     Boolean  @default(false) // true iff a new market_rates row was written
+  error        String?  @db.Text
+  notes        String?  @db.Text // The LLM's own reasoning / any diagnostic string
+  fetchedAt    DateTime @default(now()) @map("fetched_at")
+
+  @@index([name, fetchedAt(sort: Desc)])
+  @@map("market_rate_fetch_logs")
+}
+
 // Net Worth Snapshots - bi-weekly historical records for graph
 model NetWorthSnapshot {
   id        String   @id @default(cuid())

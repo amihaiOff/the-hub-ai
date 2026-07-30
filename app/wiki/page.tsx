@@ -6,11 +6,7 @@ import { ArrowUpRight, BookOpen, ChevronRight, ExternalLink, FolderPlus, Plus } 
 import { useWikiConcepts, type WikiConceptListRow } from '@/lib/hooks/use-wiki';
 import { groupWikiConcepts, type WikiProjectGroup } from '@/lib/wiki/group';
 import { NewProjectDialog } from '@/components/wiki/new-project-dialog';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -18,10 +14,7 @@ export default function WikiPage() {
   const { data, isLoading, error } = useWikiConcepts();
   const [newProjectOpen, setNewProjectOpen] = useState(false);
 
-  const { unassignedSources, projects } = useMemo(
-    () => groupWikiConcepts(data ?? []),
-    [data]
-  );
+  const { unassignedSources, projects } = useMemo(() => groupWikiConcepts(data ?? []), [data]);
 
   return (
     <div className="space-y-4 sm:space-y-6">
