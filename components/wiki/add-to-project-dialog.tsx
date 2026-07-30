@@ -31,8 +31,7 @@ export function AddToProjectDialog({
   const add = useAddToProject();
 
   const available = useMemo(
-    () =>
-      (data ?? []).filter((c) => c.type === 'Project' && !currentProjectIds.includes(c.id)),
+    () => (data ?? []).filter((c) => c.type === 'Project' && !currentProjectIds.includes(c.id)),
     [data, currentProjectIds]
   );
 
@@ -82,9 +81,7 @@ export function AddToProjectDialog({
           </div>
         )}
 
-        {add.isError && (
-          <p className="text-destructive text-xs">{(add.error as Error).message}</p>
-        )}
+        {add.isError && <p className="text-destructive text-xs">{(add.error as Error).message}</p>}
       </DialogContent>
     </Dialog>
   );

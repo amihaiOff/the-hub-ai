@@ -5,7 +5,12 @@ import { syncMoneytorForHouseholdAndLog } from '@/lib/api/moneytor-sync';
 import { MoneytorApiError } from '@/lib/api/moneytor';
 import { withCronLog } from '@/lib/utils/cron-logger';
 import { drainSuggestions, type DrainResult } from '@/lib/ai/drain-suggestions';
-import { fetchBoiPrime, upsertBoiPrimeIfChanged } from '@/lib/api/boi-prime';
+import {
+  logBoiPrimeFetch,
+  readBoiPrimeOverride,
+  scrapeBoiPrimeViaLlm,
+  upsertBoiPrimeIfChanged,
+} from '@/lib/api/boi-prime';
 
 // Absolute wall-clock budget for the whole run. The AI categorization drain
 // runs last and stops starting model calls at this cutoff, leaving headroom
@@ -259,18 +264,59 @@ async function syncMoneytor(results: {
 }
 
 /**
- * Read BoI Prime once a day and record any change to the market_rates table.
- * The reading is a no-op when the same rate is already stored; a change
- * triggers PRIME_LINKED mortgage tracks to re-amortize on next read.
+ * Refresh BoI Prime — env-var override every run, LLM web-lookup once a
+ * month (day 1). Every attempt lands in market_rate_fetch_logs with the
+ * source URL the LLM cited, the extracted rate, and whether it triggered a
+ * new market_rates insert.
  */
 async function updateBoiPrime(results: {
   boiPrime: { inserted: boolean; rate: number | null; previousRate: number | null };
 }) {
+  // 1. Env override always wins (manual escape hatch). No LLM call needed.
+  const override = readBoiPrimeOverride();
+  if (override) {
+    try {
+      const outcome = await upsertBoiPrimeIfChanged(override);
+      results.boiPrime = outcome;
+      await logBoiPrimeFetch({ reading: override, outcome });
+    } catch (err) {
+      console.error('BoI Prime override upsert failed:', err);
+      await logBoiPrimeFetch({
+        reading: override,
+        outcome: { inserted: false, rate: null, previousRate: null },
+        error: err instanceof Error ? err.message : 'Unknown error',
+      });
+    }
+    return;
+  }
+
+  // 2. LLM web-lookup runs once a month (day 1). Any other day is a no-op —
+  // no log noise, no LLM cost.
+  const today = new Date();
+  if (today.getUTCDate() !== 1) return;
+
+  const apiKey = process.env.ANTHROPIC_API_KEY || '';
+  if (!apiKey) {
+    // Log the skip so the operator sees why the monthly refresh didn't run.
+    await logBoiPrimeFetch({
+      reading: null,
+      outcome: { inserted: false, rate: null, previousRate: null },
+      error: 'ANTHROPIC_API_KEY not set — monthly LLM lookup skipped.',
+    });
+    return;
+  }
+
   try {
-    const reading = await fetchBoiPrime();
+    const reading = await scrapeBoiPrimeViaLlm(apiKey);
     const outcome = await upsertBoiPrimeIfChanged(reading);
     results.boiPrime = outcome;
+    await logBoiPrimeFetch({ reading, outcome });
   } catch (err) {
-    console.error('Failed to update BoI Prime rate:', err);
+    console.error('BoI Prime LLM lookup failed:', err);
+    await logBoiPrimeFetch({
+      reading: null,
+      outcome: { inserted: false, rate: null, previousRate: null },
+      error: err instanceof Error ? err.message : 'Unknown error',
+    });
   }
 }

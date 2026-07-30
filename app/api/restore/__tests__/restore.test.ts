@@ -998,8 +998,8 @@ describe('Restore API', () => {
       expect(byId['src-1'].projectId).toBe('proj-1');
       expect(byId['src-2'].projectId).toBeNull();
       // Join rows + questions restored.
-      expect((mockPrisma.wikiConceptProject.create as jest.Mock)).toHaveBeenCalledTimes(1);
-      expect((mockPrisma.wikiQuestion.create as jest.Mock)).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.wikiConceptProject.create as jest.Mock).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.wikiQuestion.create as jest.Mock).toHaveBeenCalledTimes(1);
     });
 
     it('should restore all extended tables with optional fields present', async () => {

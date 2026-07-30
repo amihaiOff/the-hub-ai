@@ -95,8 +95,7 @@ export default function WikiConceptPage() {
                   title="Remove from project"
                   // Disable only the chip that's mid-removal, not all of them.
                   disabled={
-                    removeFromProject.isPending &&
-                    removeFromProject.variables?.projectId === p.id
+                    removeFromProject.isPending && removeFromProject.variables?.projectId === p.id
                   }
                   onClick={() =>
                     removeFromProject.mutate(
