@@ -7,12 +7,9 @@ import {
   Heading1,
   Heading2,
   Heading3,
-  Heading4,
-  Heading5,
-  Heading6,
   List,
-  ListChecks,
   ListOrdered,
+  Pilcrow,
   Quote,
   Table as TableIcon,
 } from 'lucide-react';
@@ -42,6 +39,12 @@ export function InsertBlockSheet({
     on: () => void;
   }[] = [
     {
+      icon: Pilcrow,
+      label: 'Paragraph',
+      shortcut: '',
+      on: () => editor.chain().focus().setParagraph().run(),
+    },
+    {
       icon: Heading1,
       label: 'Heading 1',
       shortcut: '#',
@@ -60,24 +63,6 @@ export function InsertBlockSheet({
       on: () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
     },
     {
-      icon: Heading4,
-      label: 'Heading 4',
-      shortcut: '####',
-      on: () => editor.chain().focus().toggleHeading({ level: 4 }).run(),
-    },
-    {
-      icon: Heading5,
-      label: 'Heading 5',
-      shortcut: '#####',
-      on: () => editor.chain().focus().toggleHeading({ level: 5 }).run(),
-    },
-    {
-      icon: Heading6,
-      label: 'Heading 6',
-      shortcut: '######',
-      on: () => editor.chain().focus().toggleHeading({ level: 6 }).run(),
-    },
-    {
       icon: List,
       label: 'Bulleted list',
       shortcut: '*',
@@ -88,12 +73,6 @@ export function InsertBlockSheet({
       label: 'Numbered list',
       shortcut: '1.',
       on: () => editor.chain().focus().toggleOrderedList().run(),
-    },
-    {
-      icon: ListChecks,
-      label: 'To-do list',
-      shortcut: '☐',
-      on: () => editor.chain().focus().toggleList('taskList', 'taskItem').run(),
     },
     {
       icon: Code,

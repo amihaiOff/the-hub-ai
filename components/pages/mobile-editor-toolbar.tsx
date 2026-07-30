@@ -113,6 +113,7 @@ export function MobileEditorToolbar({
             <button
               type="button"
               onClick={openSheet}
+              onMouseDown={(e) => e.preventDefault()}
               aria-label="Change block type"
               className="text-foreground hover:bg-muted/60 flex h-9 shrink-0 items-center gap-1 rounded-lg px-2 text-sm"
             >
