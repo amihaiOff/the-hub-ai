@@ -3,7 +3,17 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Editor } from '@tiptap/react';
-import { ChevronDown, Copy, IndentDecrease, Plus, Redo2, Trash2, Undo2, X } from 'lucide-react';
+import {
+  ChevronDown,
+  Copy,
+  IndentDecrease,
+  IndentIncrease,
+  Plus,
+  Redo2,
+  Trash2,
+  Undo2,
+  X,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useKeyboardInset } from '@/lib/hooks/use-keyboard-inset';
 import { floatingControlBottom } from './undo-redo-bar';
@@ -70,7 +80,12 @@ export function MobileEditorToolbar({
   if (!focused && !sheetOpen) return null;
 
   const label = currentBlockLabel(editor);
-  const inList = canOutdentWithinList(editor);
+  const inList =
+    editor.isActive('listItem') ||
+    editor.isActive('taskItem') ||
+    editor.isActive('bulletList') ||
+    editor.isActive('orderedList');
+  const canOutdent = canOutdentWithinList(editor);
   const canUndo = editor.can().undo();
   const canRedo = editor.can().redo();
 
@@ -93,6 +108,10 @@ export function MobileEditorToolbar({
     editor.chain().focus().liftListItem('listItem').run() ||
       editor.chain().focus().liftListItem('taskItem').run();
   };
+  const indent = () => {
+    editor.chain().focus().sinkListItem('listItem').run() ||
+      editor.chain().focus().sinkListItem('taskItem').run();
+  };
   const close = () => {
     setSheetOpen(false);
     editor.commands.blur();
@@ -103,7 +122,8 @@ export function MobileEditorToolbar({
       {createPortal(
         <div
           className="pointer-events-none fixed inset-x-0 z-40 flex justify-center px-2 lg:hidden"
-          style={{ bottom: floatingControlBottom(hasBottomTabBar, inset) }}
+          // Small extra gap so the toolbar isn't flush with the tab bar.
+          style={{ bottom: `calc(${floatingControlBottom(hasBottomTabBar, inset)} + 0.5rem)` }}
           aria-label="Block editor toolbar"
         >
           <div className="border-border/60 bg-card/95 pointer-events-auto flex max-w-full items-center gap-0.5 overflow-x-auto rounded-2xl border px-1 py-1 shadow-lg backdrop-blur">
@@ -143,9 +163,14 @@ export function MobileEditorToolbar({
               <Copy className="h-5 w-5" />
             </IconButton>
             {inList && (
-              <IconButton label="Outdent" onClick={outdent}>
-                <IndentDecrease className="h-5 w-5" />
-              </IconButton>
+              <>
+                <IconButton label="Outdent" onClick={outdent} disabled={!canOutdent}>
+                  <IndentDecrease className="h-5 w-5" />
+                </IconButton>
+                <IconButton label="Indent" onClick={indent}>
+                  <IndentIncrease className="h-5 w-5" />
+                </IconButton>
+              </>
             )}
             <Divider />
             <IconButton label="Close" onClick={close}>
