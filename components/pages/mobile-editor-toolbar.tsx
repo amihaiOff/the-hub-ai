@@ -5,6 +5,8 @@ import { createPortal } from 'react-dom';
 import type { Editor } from '@tiptap/react';
 import {
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   IndentDecrease,
   IndentIncrease,
@@ -45,6 +47,7 @@ export function MobileEditorToolbar({
   const inset = useKeyboardInset();
   const [focused, setFocused] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   // Tiptap history and node-position state only mutates via transactions —
   // re-render the toolbar on every one so labels + enabled state stay live.
   const [, force] = useState(0);
@@ -114,57 +117,84 @@ export function MobileEditorToolbar({
     <>
       {createPortal(
         <div
-          className="pointer-events-none fixed inset-x-0 z-40 flex justify-center px-2 lg:hidden"
+          className={cn(
+            'pointer-events-none fixed inset-x-0 z-40 flex px-2 lg:hidden',
+            // Centered when expanded so the row breathes evenly; anchored
+            // right when collapsed so it visually parks against the edge.
+            collapsed ? 'justify-end' : 'justify-center'
+          )}
           // Small extra gap so the toolbar isn't flush with the tab bar.
           style={{ bottom: `calc(${floatingControlBottom(hasBottomTabBar, inset)} + 0.5rem)` }}
           aria-label="Block editor toolbar"
         >
-          <div className="border-border/60 bg-card/95 pointer-events-auto flex max-w-full items-center gap-0.5 overflow-x-auto rounded-2xl border px-1 py-1 shadow-lg backdrop-blur">
-            <IconButton label="Insert block" onClick={openSheet}>
-              <Plus className="h-5 w-5" />
-            </IconButton>
-            <button
-              type="button"
-              onClick={openSheet}
-              onMouseDown={(e) => e.preventDefault()}
-              aria-label="Change block type"
-              className="text-foreground hover:bg-muted/60 flex h-9 shrink-0 items-center gap-1 rounded-lg px-2 text-sm"
+          <div className="border-border/60 bg-card/95 pointer-events-auto flex max-w-full items-center rounded-2xl border py-1 pr-1 shadow-lg backdrop-blur">
+            {/* Collapsible section — width and padding animate to 0 so the
+                whole bar shrinks horizontally into the chevron. Inner row
+                stays laid out; overflow-hidden clips it as the wrapper
+                collapses. Fast (150ms) per user request. */}
+            <div
+              className={cn(
+                'flex items-center gap-0.5 overflow-hidden transition-[max-width,padding,opacity] duration-150 ease-out',
+                collapsed ? 'max-w-0 pl-0 opacity-0' : 'max-w-[95vw] pl-1 opacity-100'
+              )}
+              aria-hidden={collapsed}
             >
-              <span className="truncate">{label}</span>
-              <ChevronDown className="text-muted-foreground h-3.5 w-3.5" />
-            </button>
-            <Divider />
+              <IconButton label="Insert block" onClick={openSheet}>
+                <Plus className="h-5 w-5" />
+              </IconButton>
+              <button
+                type="button"
+                onClick={openSheet}
+                onMouseDown={(e) => e.preventDefault()}
+                aria-label="Change block type"
+                className="text-foreground hover:bg-muted/60 flex h-9 shrink-0 items-center gap-1 rounded-lg px-2 text-sm"
+              >
+                <span className="truncate">{label}</span>
+                <ChevronDown className="text-muted-foreground h-3.5 w-3.5" />
+              </button>
+              <Divider />
+              <IconButton
+                label="Undo"
+                onClick={() => editor.chain().focus().undo().run()}
+                disabled={!canUndo}
+              >
+                <Undo2 className="h-5 w-5" />
+              </IconButton>
+              <IconButton
+                label="Redo"
+                onClick={() => editor.chain().focus().redo().run()}
+                disabled={!canRedo}
+              >
+                <Redo2 className="h-5 w-5" />
+              </IconButton>
+              <Divider />
+              <IconButton label="Delete block" onClick={deleteBlock}>
+                <Trash2 className="h-5 w-5" />
+              </IconButton>
+              <IconButton label="Duplicate block" onClick={duplicateBlock}>
+                <Copy className="h-5 w-5" />
+              </IconButton>
+              {inList && (
+                <>
+                  <IconButton label="Outdent" onClick={outdent} disabled={!canOutdent}>
+                    <IndentDecrease className="h-5 w-5" />
+                  </IconButton>
+                  <IconButton label="Indent" onClick={indent}>
+                    <IndentIncrease className="h-5 w-5" />
+                  </IconButton>
+                </>
+              )}
+            </div>
             <IconButton
-              label="Undo"
-              onClick={() => editor.chain().focus().undo().run()}
-              disabled={!canUndo}
+              label={collapsed ? 'Expand toolbar' : 'Collapse toolbar'}
+              onClick={() => setCollapsed((c) => !c)}
             >
-              <Undo2 className="h-5 w-5" />
+              {collapsed ? (
+                <ChevronLeft className="h-5 w-5" />
+              ) : (
+                <ChevronRight className="h-5 w-5" />
+              )}
             </IconButton>
-            <IconButton
-              label="Redo"
-              onClick={() => editor.chain().focus().redo().run()}
-              disabled={!canRedo}
-            >
-              <Redo2 className="h-5 w-5" />
-            </IconButton>
-            <Divider />
-            <IconButton label="Delete block" onClick={deleteBlock}>
-              <Trash2 className="h-5 w-5" />
-            </IconButton>
-            <IconButton label="Duplicate block" onClick={duplicateBlock}>
-              <Copy className="h-5 w-5" />
-            </IconButton>
-            {inList && (
-              <>
-                <IconButton label="Outdent" onClick={outdent} disabled={!canOutdent}>
-                  <IndentDecrease className="h-5 w-5" />
-                </IconButton>
-                <IconButton label="Indent" onClick={indent}>
-                  <IndentIncrease className="h-5 w-5" />
-                </IconButton>
-              </>
-            )}
           </div>
         </div>,
         document.body
