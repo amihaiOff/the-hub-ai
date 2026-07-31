@@ -13,7 +13,16 @@ import { marked } from 'marked';
  * whatever the LLM emits inside its markdown, which is text.
  */
 export function WikiMarkdown({ source, className }: { source: string; className?: string }) {
-  const html = useMemo(() => marked.parse(source, { async: false }) as string, [source]);
+  const html = useMemo(() => {
+    const raw = marked.parse(source, { async: false }) as string;
+    // Give each block element `dir="auto"` so it picks its own direction from
+    // its first strong character — Hebrew blocks render right-to-left and
+    // right-aligned, English stays left-to-right, mixed docs work line by line
+    // (mirrors the Areas editor). marked emits attribute-less block tags, so a
+    // simple tag rewrite is safe; the paired CSS in `.wiki-prose` uses
+    // `text-align: start` and logical (inline) gutters.
+    return raw.replace(/<(h[1-6]|p|li|blockquote|td|th)>/g, '<$1 dir="auto">');
+  }, [source]);
   return (
     <div className={`wiki-prose ${className ?? ''}`} dangerouslySetInnerHTML={{ __html: html }} />
   );
