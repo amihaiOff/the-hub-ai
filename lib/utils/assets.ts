@@ -1,3 +1,5 @@
+import { addMonths } from 'date-fns';
+
 // Types for misc assets
 
 export type MiscAssetType = 'bank_deposit' | 'loan' | 'mortgage' | 'child_savings';
@@ -223,9 +225,10 @@ export function calculatePayoffDate(
   const months = calculateMonthsToPayoff(balance, annualRate, monthlyPayment);
   if (months === null) return null;
 
-  const payoffDate = new Date();
-  payoffDate.setMonth(payoffDate.getMonth() + months);
-  return payoffDate;
+  // date-fns addMonths clamps to the last valid day, so adding months to a
+  // month-end date (e.g. the 31st) doesn't roll forward into the next month
+  // and skew the payoff month by one.
+  return addMonths(new Date(), months);
 }
 
 /**

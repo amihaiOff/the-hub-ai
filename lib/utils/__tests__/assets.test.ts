@@ -1,3 +1,4 @@
+import { addMonths } from 'date-fns';
 import {
   calculateMaturityValue,
   calculateDepositInterest,
@@ -337,8 +338,7 @@ describe('Assets Utility Functions', () => {
     });
 
     it('should handle string date input', () => {
-      const futureDate = new Date();
-      futureDate.setMonth(futureDate.getMonth() + 6);
+      const futureDate = addMonths(new Date(), 6);
       const result = getMonthsUntilDate(futureDate.toISOString());
       expect(result).toBe(6);
     });
@@ -350,8 +350,7 @@ describe('Assets Utility Functions', () => {
     });
 
     it('should calculate months spanning years', () => {
-      const futureDate = new Date();
-      futureDate.setMonth(futureDate.getMonth() + 30);
+      const futureDate = addMonths(new Date(), 30);
       const result = getMonthsUntilDate(futureDate);
       expect(result).toBe(30);
     });

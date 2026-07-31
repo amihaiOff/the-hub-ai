@@ -8,8 +8,10 @@ import {
   createColumnHelper,
   getCoreRowModel,
   getSortedRowModel,
+  getFilteredRowModel,
   useReactTable,
   type SortingState,
+  type ColumnFiltersState,
 } from '@tanstack/react-table';
 import {
   ArrowDown,
@@ -18,6 +20,7 @@ import {
   Baseline,
   Calendar,
   ChevronDown,
+  Filter,
   Hash,
   ListChecks,
   Plus,
@@ -26,6 +29,8 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { cellMatchesFilter, isColumnFilterActive, type ColumnFilter } from './db-filter';
+import { DatabaseFilterPanel } from './database-filter-panel';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   Dialog,
@@ -127,6 +132,10 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
   const setRows = (next: DatabaseRow[]) => updateAttributes({ rows: next });
 
   const [sorting, setSorting] = useState<SortingState>([]);
+  // Per-column filters — ephemeral view state (like sorting), never persisted.
+  const [filters, setFilters] = useState<Record<string, ColumnFilter>>({});
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const filterBtnRef = useRef<HTMLButtonElement>(null);
   // Column pending deletion — drives the confirmation dialog. Deletion is
   // destructive (drops the column and every cell under it), so all delete
   // entry points route through here instead of removing immediately.
@@ -142,19 +151,44 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
           id: col.id,
           header: () => col.name,
           sortingFn: (a, b, id) => sortByType(col, a.original.cells[id], b.original.cells[id]),
+          filterFn: (row, id, value) =>
+            cellMatchesFilter(row.original.cells[id], value as ColumnFilter),
         })
       ),
     [columns, columnHelper]
   );
 
+  // Only feed TanStack the ACTIVE filters, and only for columns that still
+  // exist (a filter left behind by a deleted column, or one emptied back to a
+  // no-op, is dropped from the row model and the chip count).
+  const columnFilters: ColumnFiltersState = useMemo(
+    () =>
+      columns
+        .filter((c) => filters[c.id] && isColumnFilterActive(filters[c.id]))
+        .map((c) => ({ id: c.id, value: filters[c.id] })),
+    [columns, filters]
+  );
+
   const table = useReactTable({
     data: rows,
     columns: tableColumns,
-    state: { sorting },
+    state: { sorting, columnFilters },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
   });
+
+  const setColumnFilter = (colId: string, next: ColumnFilter) =>
+    setFilters((cur) => ({ ...cur, [colId]: next }));
+  const clearColumnFilter = (colId: string) =>
+    setFilters((cur) => {
+      const n = { ...cur };
+      delete n[colId];
+      return n;
+    });
+  const clearAllFilters = () => setFilters({});
+  const activeFilterColumns = columns.filter((c) => columnFilters.some((f) => f.id === c.id));
 
   const updateCell = useCallback(
     (rowId: string, colId: string, value: DatabaseCellValue) => {
@@ -181,6 +215,9 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
     // the new empty row wherever its blank value falls (e.g. at the top under
     // a descending sort). The user can re-sort by clicking a header again.
     if (sorting.length) setSorting([]);
+    // Also clear filters: a fresh row has empty cells and would be hidden by any
+    // active filter, so the scroll-into-view + focus below would silently no-op.
+    if (Object.keys(filters).length) setFilters({});
     setRows([...rows, row]);
     setFocusIntent({ kind: 'row', id: row.id });
   };
@@ -225,6 +262,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
         return { ...r, cells: rest };
       })
     );
+    clearColumnFilter(colId);
   };
   // Ask before deleting — all delete entry points (quick-X, column menu,
   // mobile sheet) call this, which opens the confirmation dialog.
@@ -251,6 +289,10 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
         return { ...r, cells: { ...r.cells, [colId]: coerceValue(raw, type) } };
       })
     );
+    // The existing filter is typed to the OLD column kind; drop it so it can't
+    // run the wrong predicate against coerced values (which would silently blank
+    // the grid) or render a mismatched control in the panel.
+    clearColumnFilter(colId);
   };
   const setSelectOptions = (
     colId: string,
@@ -269,6 +311,48 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
 
   return (
     <NodeViewWrapper as="div" className="database-block group/db relative my-4 pl-9">
+      {/* Filter toolbar — per-column filters held in ephemeral view state. */}
+      {columns.length > 0 && (
+        <div className="relative mb-1.5 flex flex-wrap items-center gap-1.5">
+          <button
+            ref={filterBtnRef}
+            type="button"
+            onClick={() => setFilterPanelOpen((o) => !o)}
+            aria-label="Filter rows"
+            className={cn(
+              'flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs transition-colors',
+              activeFilterColumns.length > 0
+                ? 'border-primary/50 bg-primary/10 text-primary'
+                : 'border-border/60 text-muted-foreground hover:bg-muted/50'
+            )}
+          >
+            <Filter className="h-3.5 w-3.5" />
+            Filter{activeFilterColumns.length > 0 ? ` (${activeFilterColumns.length})` : ''}
+          </button>
+          {activeFilterColumns.map((col) => (
+            <button
+              key={col.id}
+              type="button"
+              onClick={() => clearColumnFilter(col.id)}
+              title={`Clear filter on ${col.name}`}
+              className="border-primary/40 bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
+            >
+              <span className="max-w-[8rem] truncate">{col.name}</span>
+              <X className="h-3 w-3 shrink-0" />
+            </button>
+          ))}
+          {filterPanelOpen && (
+            <DatabaseFilterPanel
+              columns={columns}
+              filters={filters}
+              anchorEl={filterBtnRef.current}
+              onChange={setColumnFilter}
+              onClearAll={clearAllFilters}
+              onClose={() => setFilterPanelOpen(false)}
+            />
+          )}
+        </div>
+      )}
       <div ref={wrapperRef} className="relative overflow-x-auto">
         {/* Table width = column count × 10rem (+ the narrow add-column cell)
             so table-layout: fixed cells keep their intrinsic size. On narrow
@@ -367,6 +451,18 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                 </td>
               </tr>
             )}
+            {activeFilterColumns.length > 0 &&
+              rows.length > 0 &&
+              table.getRowModel().rows.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={(columns.length || 1) + (editable ? 1 : 0)}
+                    className="text-muted-foreground py-4 text-center text-xs"
+                  >
+                    No rows match the filter.
+                  </td>
+                </tr>
+              )}
             {/* "+ New row" footer — a left-aligned text button spans the
                 full table width, matching the Notion inline-database style. */}
             {editable && (
@@ -631,7 +727,7 @@ function ColumnHeader({
             : undefined
         }
         title={sort ? `Sorted ${sort}` : 'Click to sort'}
-        className="text-muted-foreground flex min-w-0 flex-1 items-center gap-2 px-3 py-3 text-left text-[0.7rem] font-semibold tracking-[0.08em] uppercase select-none"
+        className="text-muted-foreground flex min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left text-[0.7rem] font-semibold tracking-[0.08em] uppercase select-none"
       >
         <TypeIcon className={cn('h-3.5 w-3.5 shrink-0', typeMeta.color)} />
         {editable && editing ? (

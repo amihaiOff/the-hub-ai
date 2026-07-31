@@ -3,6 +3,7 @@
  * Tests financial calculations, date formatting, and allocation functions
  */
 
+import { subMonths } from 'date-fns';
 import {
   calculateTotalDeposits,
   calculateThisMonthDeposits,
@@ -112,8 +113,9 @@ describe('Pension Utility Functions', () => {
     });
 
     it('should return 0 when no deposits this month', () => {
-      const lastMonth = new Date();
-      lastMonth.setMonth(lastMonth.getMonth() - 1);
+      // subMonths clamps end-of-month, so on the 31st this stays in the real
+      // previous month instead of rolling back into the current one.
+      const lastMonth = subMonths(new Date(), 1);
 
       const accounts: PensionAccountSummary[] = [
         {

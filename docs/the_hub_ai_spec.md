@@ -586,7 +586,14 @@ blocks (a two-column block moves as a unit; dropping a block inside a column is
 not offered).
 
 **Database block:** a Notion-like grid with typed columns (text / number / date /
-select / checkbox), click-header sorting, and per-cell editors. Text cells wrap
+select / checkbox), click-header sorting, and per-cell editors. A **Filter**
+toolbar above the grid offers **per-column filters** typed to the column
+(contains for text, min/max range for number/date, option multi-select for
+select, checked/unchecked for checkbox); active filters show as removable chips
+and rows filter live. Filter state is **ephemeral per-viewer** view state (like
+sorting) — never persisted to the document. Built on TanStack Table's
+`getFilteredRowModel`; matching logic is the pure `cellMatchesFilter`
+(`components/pages/db-filter.ts`, unit-tested). Text cells wrap
 onto multiple lines. Add a column via the **+** in a trailing narrow header cell,
 and add a row via the **+** in a narrow row at the bottom of the table; a new row
 always lands at the bottom (any active sort is cleared). Deleting a column asks

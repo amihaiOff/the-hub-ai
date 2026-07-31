@@ -106,6 +106,7 @@ function Editor({ initial }: { initial: string }) {
     return (
       <Textarea
         autoFocus
+        dir="auto"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onBlur={flushAndClose}
