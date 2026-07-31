@@ -727,7 +727,7 @@ function ColumnHeader({
             : undefined
         }
         title={sort ? `Sorted ${sort}` : 'Click to sort'}
-        className="text-muted-foreground flex min-w-0 flex-1 items-center gap-2 px-3 py-3 text-left text-[0.7rem] font-semibold tracking-[0.08em] uppercase select-none"
+        className="text-muted-foreground flex min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left text-[0.7rem] font-semibold tracking-[0.08em] uppercase select-none"
       >
         <TypeIcon className={cn('h-3.5 w-3.5 shrink-0', typeMeta.color)} />
         {editable && editing ? (
