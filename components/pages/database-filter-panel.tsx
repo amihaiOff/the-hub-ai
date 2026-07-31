@@ -13,6 +13,8 @@ interface DatabaseFilterPanelProps {
   columns: DatabaseColumn[];
   /** Active filters keyed by column id (only active ones are present). */
   filters: Record<string, ColumnFilter>;
+  /** The trigger button — excluded from outside-click so it can toggle closed. */
+  anchorEl?: HTMLElement | null;
   onChange: (colId: string, next: ColumnFilter) => void;
   onClearAll: () => void;
   onClose: () => void;
@@ -26,16 +28,22 @@ interface DatabaseFilterPanelProps {
 export function DatabaseFilterPanel({
   columns,
   filters,
+  anchorEl,
   onChange,
   onClearAll,
   onClose,
 }: DatabaseFilterPanelProps) {
   const ref = useRef<HTMLDivElement>(null);
 
-  // Close on outside click / Escape.
+  // Close on outside click / Escape. The trigger button is excluded so its own
+  // click toggles the panel closed instead of racing this handler (mousedown
+  // close → click reopen).
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      const target = e.target as Node;
+      if (ref.current?.contains(target)) return;
+      if (anchorEl?.contains(target)) return;
+      onClose();
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -46,14 +54,16 @@ export function DatabaseFilterPanel({
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey);
     };
-  }, [onClose]);
+  }, [onClose, anchorEl]);
 
   const anyActive = Object.values(filters).some(isColumnFilterActive);
 
   return (
     <div
       ref={ref}
-      className="border-border bg-card absolute top-full left-0 z-30 mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-xl border p-3 shadow-lg"
+      // max-w accounts for the block's pl-9 (2.25rem) indent plus a small gutter
+      // so the panel never spills past the right edge on a ~320px screen.
+      className="border-border bg-card absolute top-full left-0 z-30 mt-1 w-72 max-w-[calc(100vw-4.5rem)] rounded-xl border p-3 shadow-lg"
     >
       <div className="mb-2 flex items-center justify-between">
         <span className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
@@ -102,6 +112,7 @@ function FilterControl({
     return (
       <input
         type="text"
+        aria-label={`Filter ${column.name}`}
         value={value.query}
         placeholder="Contains…"
         onChange={(e) => onChange({ kind: 'text', query: e.target.value })}
@@ -116,6 +127,7 @@ function FilterControl({
       <div className="flex items-center gap-1.5">
         <input
           type="number"
+          aria-label={`${column.name} minimum`}
           value={value.min ?? ''}
           placeholder="Min"
           onChange={(e) => onChange({ ...value, min: num(e.target.value) })}
@@ -124,6 +136,7 @@ function FilterControl({
         <span className="text-muted-foreground text-xs">–</span>
         <input
           type="number"
+          aria-label={`${column.name} maximum`}
           value={value.max ?? ''}
           placeholder="Max"
           onChange={(e) => onChange({ ...value, max: num(e.target.value) })}
@@ -139,6 +152,7 @@ function FilterControl({
       <div className="flex items-center gap-1.5">
         <input
           type="date"
+          aria-label={`${column.name} from`}
           value={value.min ?? ''}
           onChange={(e) => onChange({ ...value, min: str(e.target.value) })}
           className={inputCls}
@@ -146,6 +160,7 @@ function FilterControl({
         <span className="text-muted-foreground text-xs">–</span>
         <input
           type="date"
+          aria-label={`${column.name} to`}
           value={value.max ?? ''}
           onChange={(e) => onChange({ ...value, max: str(e.target.value) })}
           className={inputCls}

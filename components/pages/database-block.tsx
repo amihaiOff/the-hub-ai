@@ -135,6 +135,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
   // Per-column filters — ephemeral view state (like sorting), never persisted.
   const [filters, setFilters] = useState<Record<string, ColumnFilter>>({});
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const filterBtnRef = useRef<HTMLButtonElement>(null);
   // Column pending deletion — drives the confirmation dialog. Deletion is
   // destructive (drops the column and every cell under it), so all delete
   // entry points route through here instead of removing immediately.
@@ -214,6 +215,9 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
     // the new empty row wherever its blank value falls (e.g. at the top under
     // a descending sort). The user can re-sort by clicking a header again.
     if (sorting.length) setSorting([]);
+    // Also clear filters: a fresh row has empty cells and would be hidden by any
+    // active filter, so the scroll-into-view + focus below would silently no-op.
+    if (Object.keys(filters).length) setFilters({});
     setRows([...rows, row]);
     setFocusIntent({ kind: 'row', id: row.id });
   };
@@ -258,6 +262,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
         return { ...r, cells: rest };
       })
     );
+    clearColumnFilter(colId);
   };
   // Ask before deleting — all delete entry points (quick-X, column menu,
   // mobile sheet) call this, which opens the confirmation dialog.
@@ -284,6 +289,10 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
         return { ...r, cells: { ...r.cells, [colId]: coerceValue(raw, type) } };
       })
     );
+    // The existing filter is typed to the OLD column kind; drop it so it can't
+    // run the wrong predicate against coerced values (which would silently blank
+    // the grid) or render a mismatched control in the panel.
+    clearColumnFilter(colId);
   };
   const setSelectOptions = (
     colId: string,
@@ -306,6 +315,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
       {columns.length > 0 && (
         <div className="relative mb-1.5 flex flex-wrap items-center gap-1.5">
           <button
+            ref={filterBtnRef}
             type="button"
             onClick={() => setFilterPanelOpen((o) => !o)}
             aria-label="Filter rows"
@@ -335,6 +345,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
             <DatabaseFilterPanel
               columns={columns}
               filters={filters}
+              anchorEl={filterBtnRef.current}
               onChange={setColumnFilter}
               onClearAll={clearAllFilters}
               onClose={() => setFilterPanelOpen(false)}
