@@ -62,20 +62,9 @@ export default function ItemsPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <Package className="text-muted-foreground h-6 w-6" />
-          <h1 className="page-title text-4xl font-bold tracking-tight">Items Library</h1>
-          {items.length > 0 && (
-            <Badge variant="secondary" className="tabular-nums">
-              {items.length}
-            </Badge>
-          )}
-        </div>
-        <Button size="sm" onClick={() => setShowCreateDialog(true)}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          Add Item
-        </Button>
+      <div className="flex items-center gap-2">
+        <Package className="text-muted-foreground h-6 w-6" />
+        <h1 className="page-title text-4xl font-bold tracking-tight">Items Library</h1>
       </div>
 
       {/* Search */}
@@ -211,6 +200,16 @@ export default function ItemsPage() {
         }}
         item={editingItem}
       />
+
+      {/* FAB — add item */}
+      <button
+        onClick={() => setShowCreateDialog(true)}
+        aria-label="Add item"
+        title="Add item"
+        className="bg-primary text-primary-foreground hover:bg-primary/90 fixed right-6 bottom-6 z-40 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform active:scale-95"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
     </div>
   );
 }

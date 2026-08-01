@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   ShoppingCart,
   Plus,
@@ -11,7 +10,6 @@ import {
   AlertCircle,
   PackageCheck,
   HelpCircle,
-  Package,
   Clock,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -28,7 +26,6 @@ import {
 import { CartItemRow } from '@/components/shopping/cart-item-row';
 import { AddItemSheet } from '@/components/shopping/add-item-sheet';
 import { DeliverDialog } from '@/components/shopping/deliver-dialog';
-import Link from 'next/link';
 
 export default function ShoppingPage() {
   const [showAddSheet, setShowAddSheet] = useState(false);
@@ -106,19 +103,8 @@ export default function ShoppingPage() {
       <div className="mb-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <h1 className="page-title text-4xl font-bold tracking-tight">Shopping List</h1>
-          {cartItems.length > 0 && (
-            <Badge variant="secondary" className="tabular-nums">
-              {cartItems.length}
-            </Badge>
-          )}
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/shopping/items">
-            <Button variant="outline" size="sm">
-              <Package className="mr-1.5 h-4 w-4" />
-              Items Library
-            </Button>
-          </Link>
           {checkedCount > 0 && (
             <Button variant="outline" size="sm" onClick={() => setShowDeliverDialog(true)}>
               <PackageCheck className="mr-1.5 h-4 w-4" />
