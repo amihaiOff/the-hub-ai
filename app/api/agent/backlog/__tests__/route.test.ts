@@ -40,25 +40,30 @@ describe('GET /api/agent/backlog', () => {
 
   it('returns the flagged rows for the authenticated household', async () => {
     mockAuth.mockResolvedValueOnce('hh-1');
+    // Content lives on the page's tabs, not `Page.content`.
     (mockPrisma.page.findMany as jest.Mock).mockResolvedValueOnce([
       {
         id: 'p1',
         title: 'Roadmap',
-        content: {
-          type: 'doc',
-          content: [
-            {
-              type: 'databaseBlock',
-              attrs: {
-                columns: COLS,
-                rows: [
-                  { id: 'r1', cells: { c_name: 'Do X', c_claude: true } },
-                  { id: 'r2', cells: { c_name: 'Skip', c_claude: false } },
-                ],
-              },
+        tabs: [
+          {
+            content: {
+              type: 'doc',
+              content: [
+                {
+                  type: 'databaseBlock',
+                  attrs: {
+                    columns: COLS,
+                    rows: [
+                      { id: 'r1', cells: { c_name: 'Do X', c_claude: true } },
+                      { id: 'r2', cells: { c_name: 'Skip', c_claude: false } },
+                    ],
+                  },
+                },
+              ],
             },
-          ],
-        },
+          },
+        ],
       },
     ]);
     const res = await GET(req());
