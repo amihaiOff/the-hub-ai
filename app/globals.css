@@ -410,10 +410,14 @@
     border-collapse: separate;
     border-spacing: 0;
     width: 100%;
-    /* Subtle outer border + rounded corners, Notion-style. The `overflow`
-       lives on the wrapper below so the border-radius clips the header
-       band and last-row cells cleanly. */
     background: transparent;
+    /* Reset the chrome `.page-body table` paints (a full 1px border + rounded
+       corners). The single visible border lives on the `.overflow-x-auto`
+       wrapper below; without this reset the table's own inherited border sits
+       just inside the wrapper's and reads as a doubled top/bottom border. */
+    border: none;
+    border-radius: 0;
+    overflow: visible;
   }
   .database-block > .overflow-x-auto {
     border: 1px solid color-mix(in oklab, var(--border) 50%, transparent);
