@@ -89,6 +89,13 @@ backup coverage and had to be retrofitted.
 Older backups (with no JSON for the new table) still restore cleanly —
 `parseFile` returns `[]` when the file is missing.
 
+**Hard enforcement:** `app/api/backup/__tests__/coverage.test.ts`
+parses `schema.prisma` and fails CI if any model isn't either backed
+up (with matching restore code) or listed in the test's
+`INTENTIONALLY_EXCLUDED` allowlist. If the guard test fails after you
+add a model, either wire up backup+restore or add the model to the
+allowlist with a one-line reason.
+
 ## Migration Workflow
 
 1. Modify `prisma/schema.prisma`
