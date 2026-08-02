@@ -46,6 +46,29 @@ export function isColumnFilterActive(f: ColumnFilter): boolean {
 }
 
 /**
+ * A cell value that satisfies the given active filter, used to seed a freshly
+ * added row so it stays visible under the current filter instead of being
+ * hidden (an empty cell fails every active filter). Returns `undefined` when
+ * the filter is inactive or can't be satisfied by a single deterministic value
+ * (leave the cell untouched in that case).
+ */
+export function seedValueForFilter(f: ColumnFilter): DatabaseCellValue | undefined {
+  if (!isColumnFilterActive(f)) return undefined;
+  switch (f.kind) {
+    case 'text':
+      return f.query;
+    case 'number':
+      return f.min ?? f.max ?? undefined;
+    case 'date':
+      return f.min ?? f.max ?? undefined;
+    case 'select':
+      return f.optionIds[0];
+    case 'checkbox':
+      return f.want === 'checked';
+  }
+}
+
+/**
  * Does a cell value pass the filter? Called per row by TanStack's
  * getFilteredRowModel. An inactive filter passes everything; an active filter
  * against an empty/missing cell fails (empty cells are filtered out).

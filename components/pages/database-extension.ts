@@ -38,7 +38,7 @@ declare module '@tiptap/core' {
   }
 }
 
-function newId(prefix: string): string {
+export function newId(prefix: string): string {
   // Simple non-cryptographic id — enough for local disambiguation.
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -78,6 +78,15 @@ export const DatabaseBlock = Node.create({
 
   addAttributes() {
     return {
+      // Stable per-block id. Persisted so per-viewer view state (e.g. the
+      // ephemeral column filters, which live in localStorage keyed by this id)
+      // can be re-associated with the block across reloads. Older blocks have
+      // no id; the NodeView backfills one on first mount.
+      id: {
+        default: null as string | null,
+        parseHTML: (el) => el.getAttribute('data-block-id'),
+        renderHTML: (attrs) => (attrs.id ? { 'data-block-id': attrs.id } : {}),
+      },
       columns: {
         default: null as DatabaseColumn[] | null,
         parseHTML: (el) => tryParseJson(el.getAttribute('data-columns')),
