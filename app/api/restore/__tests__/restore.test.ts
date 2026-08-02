@@ -83,6 +83,10 @@ const mockPrisma = {
   wikiConceptProject: createMockFns('wikiConceptProject'),
   wikiQuestion: createMockFns('wikiQuestion'),
   wikiQuestionAttempt: createMockFns('wikiQuestionAttempt'),
+  // Tables added to the restore round-trip in schema version 2.6.
+  householdInvite: createMockFns('householdInvite'),
+  marketRate: createMockFns('marketRate'),
+  moneytorTransaction: createMockFns('moneytorTransaction'),
 };
 
 jest.mock('@/lib/db', () => ({

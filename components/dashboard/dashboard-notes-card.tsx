@@ -2,8 +2,17 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Loader2, StickyNote } from 'lucide-react';
+import { Loader2, StickyNote, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { WikiMarkdown } from '@/components/wiki/wiki-markdown';
 
@@ -23,6 +32,8 @@ interface NotesResponse {
 }
 
 export function DashboardNotesCard() {
+  const qc = useQueryClient();
+  const [confirmClear, setConfirmClear] = useState(false);
   const query = useQuery({
     queryKey: ['dashboard', 'notes'],
     queryFn: async () => {
@@ -32,13 +43,47 @@ export function DashboardNotesCard() {
       return json.data as NotesResponse;
     },
   });
+
+  const clearAll = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/dashboard/notes', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: '' }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      return json.data as NotesResponse;
+    },
+    onSuccess: (data) => {
+      // setQueryData bumps dataUpdatedAt → Editor is re-keyed and remounts
+      // with the fresh empty value, dropping any in-progress unsaved edits.
+      qc.setQueryData(['dashboard', 'notes'], data);
+      setConfirmClear(false);
+    },
+  });
+
+  const hasNotes = (query.data?.notes ?? '').trim().length > 0;
+
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
           <StickyNote className="text-muted-foreground h-4 w-4" />
           Notes
         </CardTitle>
+        {hasNotes && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setConfirmClear(true)}
+            aria-label="Clear all notes"
+            title="Clear all notes"
+            className="text-muted-foreground hover:text-destructive h-7 px-2"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="pt-0">
         {query.isLoading ? (
@@ -48,9 +93,33 @@ export function DashboardNotesCard() {
         ) : query.error ? (
           <div className="text-destructive text-xs">{(query.error as Error).message}</div>
         ) : (
-          <Editor initial={query.data?.notes ?? ''} />
+          <Editor key={query.dataUpdatedAt} initial={query.data?.notes ?? ''} />
         )}
       </CardContent>
+
+      <Dialog open={confirmClear} onOpenChange={setConfirmClear}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear all notes?</DialogTitle>
+            <DialogDescription>
+              This wipes the scratchpad for everyone in the household. It can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmClear(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => clearAll.mutate()}
+              disabled={clearAll.isPending}
+            >
+              {clearAll.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Clear all
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
