@@ -132,20 +132,32 @@ export default function BudgetSettingsPage() {
       </Card>
 
       <Card>
-        <CardContent className="space-y-4 pt-6">
+        <CardContent className="pt-6">
           <AccountNamesSettings />
-          <div className="border-border/60 border-t pt-4">
-            <PartnerPhoneSettings />
-          </div>
-          <div className="border-border/60 border-t pt-4">
-            <BillingCycleSettings />
-          </div>
-          <div className="border-border/60 border-t pt-4">
-            <SnapshotDaySettings />
-          </div>
-          <div className="border-border/60 border-t pt-4">
-            <AiCategorizationSettings />
-          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-6">
+          <PartnerPhoneSettings />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-6">
+          <BillingCycleSettings />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-6">
+          <SnapshotDaySettings />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-6">
+          <AiCategorizationSettings />
         </CardContent>
       </Card>
     </div>

@@ -252,9 +252,9 @@ describe('MobileMenu', () => {
       expect(screen.queryByTestId('sheet')).not.toBeInTheDocument();
     });
 
-    it('should render SheetContent with side="right"', () => {
+    it('should render SheetContent with side="left"', () => {
       render(<MobileMenu open={true} onOpenChange={jest.fn()} />);
-      expect(screen.getByTestId('sheet-content')).toHaveAttribute('data-side', 'right');
+      expect(screen.getByTestId('sheet-content')).toHaveAttribute('data-side', 'left');
     });
   });
 
