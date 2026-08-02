@@ -5,6 +5,16 @@
 
 import { NextRequest } from 'next/server';
 
+// Route now checks for pending invites in the DB; stub prisma so tests
+// don't require a real database connection.
+jest.mock('@/lib/db', () => ({
+  prisma: {
+    householdInvite: {
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
+  },
+}));
+
 // Need to set up env before importing the route
 const originalEnv = process.env.ALLOWED_EMAILS;
 

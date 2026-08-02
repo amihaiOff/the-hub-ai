@@ -110,6 +110,7 @@ model Household {
 
   // Members
   members HouseholdMember[]
+  invites HouseholdInvite[]
 
   // Budget module relations
   budgetCategoryGroups BudgetCategoryGroup[]
@@ -238,6 +239,34 @@ model HouseholdMember {
 
   @@unique([householdId, profileId])
   @@map("household_members")
+}
+
+// HouseholdInvite - pending invitation for someone to join a household.
+// When the invitee signs in with a matching email, they're auto-attached:
+// a Profile is created (linked to their User) + HouseholdMember row added,
+// and the invite is marked accepted. Prevents duplicate onboarding.
+model HouseholdInvite {
+  id          String        @id @default(cuid())
+  householdId String        @map("household_id")
+  // Stored lowercased for case-insensitive matching on sign-in.
+  email       String
+  role        HouseholdRole @default(member)
+  // Optional profile name / color to apply at accept time; falls back to
+  // the invitee's display name and the default palette.
+  suggestedName  String? @map("suggested_name")
+  suggestedColor String? @map("suggested_color")
+  invitedByProfileId String @map("invited_by_profile_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  expiresAt   DateTime  @map("expires_at")
+  acceptedAt  DateTime? @map("accepted_at")
+  acceptedByUserId String? @map("accepted_by_user_id")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  // One pending invite per (household, email). Accepted rows can coexist.
+  @@unique([householdId, email])
+  @@index([email])
+  @@map("household_invites")
 }
 
 // Junction tables for asset ownership (supports multi-profile ownership)

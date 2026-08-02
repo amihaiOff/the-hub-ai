@@ -1,5 +1,6 @@
 import { stackServerApp } from '@/stack/server';
 import { prisma } from '@/lib/db';
+import { acceptPendingInvitesForUser } from '@/lib/invites';
 import type { HouseholdRole } from '@prisma/client';
 
 export interface CurrentUser {
@@ -111,10 +112,22 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     return null;
   }
 
-  // Check email allowlist (if configured)
+  // Check email allowlist (if configured). A pending household invite for
+  // this email acts as an implicit allowlist grant — otherwise an admin
+  // would have to touch the env var every time they invite someone.
   if (ALLOWED_EMAILS.length > 0 && !ALLOWED_EMAILS.includes(email.toLowerCase())) {
-    console.warn(`Sign-in denied for email: ${email} - not in allowlist`);
-    return null;
+    const invited = await prisma.householdInvite.findFirst({
+      where: {
+        email: email.toLowerCase(),
+        acceptedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      select: { id: true },
+    });
+    if (!invited) {
+      console.warn(`Sign-in denied for email: ${email} - not in allowlist`);
+      return null;
+    }
   }
 
   const dbUser = await prisma.user.upsert({
@@ -155,6 +168,13 @@ export async function getCurrentContext(
   const user = await getCurrentUser();
   if (!user) {
     return null;
+  }
+
+  // Accept any pending household invites addressed to this email BEFORE we
+  // look for a profile — a fresh sign-in with an invite waiting should skip
+  // onboarding and land the user directly in the inviting household.
+  if (user.email) {
+    await acceptPendingInvitesForUser(user.id, user.email, user.name);
   }
 
   // Get profile with household memberships

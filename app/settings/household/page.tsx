@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, MoreHorizontal, Shield, UserMinus } from 'lucide-react';
+import { ArrowLeft, Loader2, Mail, MoreHorizontal, Shield, Trash2, UserMinus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,9 @@ import {
   useUpdateHousehold,
   useUpdateHouseholdMember,
   useRemoveHouseholdMember,
+  useHouseholdInvites,
+  useCreateHouseholdInvite,
+  useRevokeHouseholdInvite,
 } from '@/lib/hooks/use-households';
 
 export default function HouseholdSettingsPage() {
@@ -41,10 +44,15 @@ export default function HouseholdSettingsPage() {
   const updateHousehold = useUpdateHousehold();
   const updateMember = useUpdateHouseholdMember();
   const removeMember = useRemoveHouseholdMember();
+  const { data: invites } = useHouseholdInvites(activeHousehold?.id || '');
+  const createInvite = useCreateHouseholdInvite();
+  const revokeInvite = useRevokeHouseholdInvite();
 
   const [editName, setEditName] = useState(false);
   const [name, setName] = useState('');
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
   const isOwner = activeHousehold?.role === 'owner';
   const isAdmin = activeHousehold?.role === 'admin' || isOwner;
@@ -76,6 +84,28 @@ export default function HouseholdSettingsPage() {
       refetchHousehold();
     } catch (error) {
       console.error('Error updating member role:', error);
+    }
+  };
+
+  const handleInvite = async () => {
+    if (!activeHousehold) return;
+    const email = inviteEmail.trim();
+    if (!email) return;
+    setInviteError(null);
+    try {
+      await createInvite.mutateAsync({ householdId: activeHousehold.id, email });
+      setInviteEmail('');
+    } catch (err) {
+      setInviteError(err instanceof Error ? err.message : 'Failed to send invite');
+    }
+  };
+
+  const handleRevoke = async (inviteId: string) => {
+    if (!activeHousehold) return;
+    try {
+      await revokeInvite.mutateAsync({ householdId: activeHousehold.id, inviteId });
+    } catch (err) {
+      console.error('Error revoking invite:', err);
     }
   };
 
@@ -234,6 +264,75 @@ export default function HouseholdSettingsPage() {
           ))}
         </CardContent>
       </Card>
+
+      {/* Invitations — admin/owner only. Pending invites auto-attach the
+          invitee on their first sign-in, skipping the onboarding flow. */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Invitations</CardTitle>
+            <CardDescription>
+              Invite someone by email. When they sign in with a matching Google account, they land
+              directly in this household.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                type="email"
+                placeholder="wife@example.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
+              />
+              <Button
+                onClick={handleInvite}
+                disabled={createInvite.isPending || !inviteEmail.trim()}
+              >
+                {createInvite.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Mail className="mr-2 h-4 w-4" />
+                    Invite
+                  </>
+                )}
+              </Button>
+            </div>
+            {inviteError && <p className="text-destructive text-sm">{inviteError}</p>}
+
+            {invites && invites.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                  Pending
+                </div>
+                {invites.map((inv) => (
+                  <div key={inv.id} className="flex items-center gap-3 rounded-lg border p-3">
+                    <Mail className="text-muted-foreground h-4 w-4 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{inv.email}</div>
+                      <div className="text-muted-foreground text-xs">
+                        Expires {new Date(inv.expiresAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                      {inv.role}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRevoke(inv.id)}
+                      aria-label="Revoke invite"
+                    >
+                      <Trash2 className="text-destructive h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Remove Member Confirmation Dialog */}
       <Dialog open={!!confirmRemove} onOpenChange={() => setConfirmRemove(null)}>
