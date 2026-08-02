@@ -37,6 +37,12 @@ jest.mock('@/lib/db', () => ({
     householdMember: {
       findMany: mockHouseholdMemberFindMany,
     },
+    householdInvite: {
+      findFirst: jest.fn().mockResolvedValue(null),
+      findMany: jest.fn().mockResolvedValue([]),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
   },
 }));
 
