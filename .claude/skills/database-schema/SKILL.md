@@ -55,6 +55,40 @@ model Example {
 }
 ```
 
+## Backup Coverage (IMPORTANT)
+
+Any new Prisma model that stores **user data** must be added to backup and
+restore, or a restore will silently drop it. This has bitten us before —
+stock accounts, moneytor transactions, and market rates all shipped without
+backup coverage and had to be retrofitted.
+
+**When you add a model, decide up front:**
+
+1. **User data → cover it.** Add to both `/app/api/backup/route.ts` and
+   `/app/api/restore/route.ts`, and bump `schemaVersion` in backup (+ add
+   the new version to `supportedVersions` in restore).
+2. **Regenerable / ephemeral → explicitly skip it, and say why in the
+   backup route's opening comment.** Examples: verification tokens, cache
+   tables, cron/AI/telemetry logs, market-rate fetch logs (BoI Prime rows
+   themselves ARE backed up; only the _fetch_ log is skipped).
+
+**Checklist for a new user-data model:**
+
+- [ ] `backup/route.ts`: add to `findMany` destructuring, `metadata.counts`,
+      and `zip.file()` write (filename = snake_case table name + `.json`).
+- [ ] `backup/route.ts`: bump `schemaVersion` (e.g. `'2.6'` → `'2.7'`).
+- [ ] `restore/route.ts`: add `parseFile` call, add to delete phase in the
+      correct dependency order (children before parents), add create loop
+      with the model's exact field list.
+- [ ] `restore/route.ts`: add the new version to `supportedVersions`.
+- [ ] `backup.test.ts` + `restore.test.ts`: update `schemaVersion`
+      assertions and add mocks (`prisma.<model>.findMany`, `.create`,
+      `.deleteMany`).
+- [ ] Confirm `npm test` and `npm run type-check` are green before shipping.
+
+Older backups (with no JSON for the new table) still restore cleanly —
+`parseFile` returns `[]` when the file is missing.
+
 ## Migration Workflow
 
 1. Modify `prisma/schema.prisma`

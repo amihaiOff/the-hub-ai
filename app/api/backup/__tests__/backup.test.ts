@@ -64,6 +64,13 @@ jest.mock('@/lib/db', () => ({
     wikiConceptProject: { findMany: jest.fn() },
     wikiQuestion: { findMany: jest.fn() },
     wikiQuestionAttempt: { findMany: jest.fn() },
+    stockAccount: { findMany: jest.fn() },
+    stockAccountOwner: { findMany: jest.fn() },
+    stockHolding: { findMany: jest.fn() },
+    stockAccountCash: { findMany: jest.fn() },
+    householdInvite: { findMany: jest.fn() },
+    marketRate: { findMany: jest.fn() },
+    moneytorTransaction: { findMany: jest.fn() },
   },
 }));
 
@@ -343,6 +350,13 @@ describe('Backup API', () => {
       (mockPrisma.wikiConceptProject.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.wikiQuestion.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.wikiQuestionAttempt.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.stockAccount.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.stockHolding.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.stockAccountCash.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.householdInvite.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.marketRate.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.moneytorTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const response = await GET();
 
@@ -405,17 +419,22 @@ describe('Backup API', () => {
       expect(zip.file('wiki_concept_projects.json')).not.toBeNull();
       expect(zip.file('wiki_questions.json')).not.toBeNull();
       expect(zip.file('wiki_question_attempts.json')).not.toBeNull();
-      // Legacy "portfolio old design" tables are intentionally excluded
-      expect(zip.file('stock_accounts.json')).toBeNull();
-      expect(zip.file('stock_holdings.json')).toBeNull();
-      expect(zip.file('stock_account_cash.json')).toBeNull();
-      expect(zip.file('stock_account_owners.json')).toBeNull();
+      // Legacy stock-portfolio tables are re-included from 2.6 onward so
+      // users still holding rows there get a round-trip; stock_price_history
+      // remains excluded (regenerable price cache).
+      expect(zip.file('stock_accounts.json')).not.toBeNull();
+      expect(zip.file('stock_holdings.json')).not.toBeNull();
+      expect(zip.file('stock_account_cash.json')).not.toBeNull();
+      expect(zip.file('stock_account_owners.json')).not.toBeNull();
+      expect(zip.file('household_invites.json')).not.toBeNull();
+      expect(zip.file('market_rates.json')).not.toBeNull();
+      expect(zip.file('moneytor_transactions.json')).not.toBeNull();
       expect(zip.file('stock_price_history.json')).toBeNull();
 
       // Verify metadata content
       const metadataContent = await zip.file('metadata.json')!.async('string');
       const metadata = JSON.parse(metadataContent);
-      expect(metadata.schemaVersion).toBe('2.5');
+      expect(metadata.schemaVersion).toBe('2.6');
       expect(metadata.createdBy).toBe('test@example.com');
       expect(metadata.counts).toEqual({
         users: 1,
@@ -466,6 +485,13 @@ describe('Backup API', () => {
         wikiConceptProjects: 0,
         wikiQuestions: 0,
         wikiQuestionAttempts: 0,
+        stockAccounts: 0,
+        stockAccountOwners: 0,
+        stockHoldings: 0,
+        stockAccountCash: 0,
+        householdInvites: 0,
+        marketRates: 0,
+        moneytorTransactions: 0,
       });
 
       // Verify data files contain correct data
@@ -532,6 +558,13 @@ describe('Backup API', () => {
       (mockPrisma.wikiConceptProject.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.wikiQuestion.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.wikiQuestionAttempt.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.stockAccount.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.stockHolding.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.stockAccountCash.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.householdInvite.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.marketRate.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.moneytorTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const response = await GET();
 
@@ -637,6 +670,13 @@ describe('Backup API', () => {
       (mockPrisma.wikiConceptProject.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.wikiQuestion.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.wikiQuestionAttempt.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.stockAccount.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.stockHolding.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.stockAccountCash.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.householdInvite.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.marketRate.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.moneytorTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
 
       const response = await GET();
       const blob = await response.blob();

@@ -19,11 +19,10 @@ export async function GET() {
     }
 
     // Fetch all data from the tables we back up. Intentionally excluded:
-    //   - moneytor_transactions (raw archive; they're promoted into budget_transactions)
-    //   - stock_accounts / stock_holdings / stock_account_cash / stock_account_owners /
-    //     stock_price_history ("portfolio old design" — superseded by Moneytor accounts)
+    //   - stock_price_history (price cache; the 6-hourly cron rebuilds it)
     //   - verification_tokens (auth artifacts)
     //   - cron_run_logs (runtime telemetry)
+    //   - market_rate_fetch_logs (BoI-prime fetch telemetry; regenerable)
     //   - budget_categorization_logs (AI-categorization telemetry: token usage +
     //     decision audit log; regenerable, not user content)
     const [
@@ -75,6 +74,13 @@ export async function GET() {
       wikiConceptProjects,
       wikiQuestions,
       wikiQuestionAttempts,
+      stockAccounts,
+      stockAccountOwners,
+      stockHoldings,
+      stockAccountCash,
+      householdInvites,
+      marketRates,
+      moneytorTransactions,
     ] = await Promise.all([
       prisma.user.findMany(),
       prisma.profile.findMany(),
@@ -124,12 +130,19 @@ export async function GET() {
       prisma.wikiConceptProject.findMany(),
       prisma.wikiQuestion.findMany(),
       prisma.wikiQuestionAttempt.findMany(),
+      prisma.stockAccount.findMany(),
+      prisma.stockAccountOwner.findMany(),
+      prisma.stockHolding.findMany(),
+      prisma.stockAccountCash.findMany(),
+      prisma.householdInvite.findMany(),
+      prisma.marketRate.findMany(),
+      prisma.moneytorTransaction.findMany(),
     ]);
 
     // Create backup metadata
     const metadata = {
       backupDate: new Date().toISOString(),
-      schemaVersion: '2.5',
+      schemaVersion: '2.6',
       createdBy: user.email,
       counts: {
         users: users.length,
@@ -180,6 +193,13 @@ export async function GET() {
         wikiConceptProjects: wikiConceptProjects.length,
         wikiQuestions: wikiQuestions.length,
         wikiQuestionAttempts: wikiQuestionAttempts.length,
+        stockAccounts: stockAccounts.length,
+        stockAccountOwners: stockAccountOwners.length,
+        stockHoldings: stockHoldings.length,
+        stockAccountCash: stockAccountCash.length,
+        householdInvites: householdInvites.length,
+        marketRates: marketRates.length,
+        moneytorTransactions: moneytorTransactions.length,
       },
     };
 
@@ -269,6 +289,13 @@ export async function GET() {
       'wiki_question_attempts.json',
       JSON.stringify(wikiQuestionAttempts, jsonSerializer, 2)
     );
+    zip.file('stock_accounts.json', JSON.stringify(stockAccounts, jsonSerializer, 2));
+    zip.file('stock_account_owners.json', JSON.stringify(stockAccountOwners, jsonSerializer, 2));
+    zip.file('stock_holdings.json', JSON.stringify(stockHoldings, jsonSerializer, 2));
+    zip.file('stock_account_cash.json', JSON.stringify(stockAccountCash, jsonSerializer, 2));
+    zip.file('household_invites.json', JSON.stringify(householdInvites, jsonSerializer, 2));
+    zip.file('market_rates.json', JSON.stringify(marketRates, jsonSerializer, 2));
+    zip.file('moneytor_transactions.json', JSON.stringify(moneytorTransactions, jsonSerializer, 2));
 
     // Generate ZIP as Blob
     const zipBlob = await zip.generateAsync({ type: 'blob' });

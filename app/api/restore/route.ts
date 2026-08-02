@@ -73,6 +73,7 @@ export async function POST(request: NextRequest) {
       '2.3',
       '2.4',
       '2.5',
+      '2.6',
     ];
     if (!supportedVersions.includes(metadata.schemaVersion)) {
       return NextResponse.json(
@@ -184,6 +185,12 @@ export async function POST(request: NextRequest) {
     const wikiQuestionAttempts = await parseFile<Record<string, unknown>>(
       'wiki_question_attempts.json'
     );
+    // Schema version 2.6+ (empty for older backups).
+    const householdInvites = await parseFile<Record<string, unknown>>('household_invites.json');
+    const marketRates = await parseFile<Record<string, unknown>>('market_rates.json');
+    const moneytorTransactions = await parseFile<Record<string, unknown>>(
+      'moneytor_transactions.json'
+    );
 
     // Execute operations sequentially without transaction
     // Neon serverless doesn't support long-running transactions well
@@ -212,6 +219,13 @@ export async function POST(request: NextRequest) {
     await prisma.generalLog.deleteMany();
     await prisma.moneytorDropLog.deleteMany();
     await prisma.moneytorSyncLog.deleteMany();
+    // MoneytorTransaction: raw sync archive. Delete before moneytorAccount even
+    // though there's no DB-level FK today, since Moneytor accounts are the
+    // conceptual parent and this keeps the delete order stable.
+    await prisma.moneytorTransaction.deleteMany();
+    // Household-scoped rate history / pending invites — leaf tables.
+    await prisma.householdInvite.deleteMany();
+    await prisma.marketRate.deleteMany();
     await prisma.moneytorRealEstateSnapshot.deleteMany();
     await prisma.moneytorRealEstate.deleteMany();
     // Moneytor tables (no children other than household — safe to wipe first)
@@ -239,10 +253,12 @@ export async function POST(request: NextRequest) {
     await prisma.budgetTag.deleteMany();
     // Original tables
     await prisma.netWorthSnapshot.deleteMany();
-    // Legacy stock-portfolio tables (old design, superseded by Moneytor). The
-    // backup no longer writes stock_*.json, so on a 2.x restore these parse as
-    // empty arrays — the deletes below just clear any pre-existing rows. Kept so
-    // restoring an older (1.x) backup that still contains them round-trips.
+    // Legacy stock-portfolio tables (old "portfolio" design, superseded by
+    // Moneytor accounts). Re-included in the backup from 2.6 onward so a
+    // user who still has data in these tables round-trips cleanly; older 2.x
+    // backups (that skipped them) parse as empty arrays here. stock_price_history
+    // remains excluded from the backup (regenerable price cache) — the delete
+    // still runs so it doesn't leak stale rows across a restore.
     await prisma.stockPriceHistory.deleteMany();
     await prisma.stockAccountCash.deleteMany();
     await prisma.stockHolding.deleteMany();
@@ -1261,6 +1277,60 @@ export async function POST(request: NextRequest) {
           selectedIdx: a.selectedIdx as number,
           correct: a.correct as boolean,
           attemptedAt: new Date(a.attemptedAt as string),
+        },
+      });
+    }
+
+    // 51. Household Invites (after households)
+    for (const hi of householdInvites) {
+      await prisma.householdInvite.create({
+        data: {
+          id: hi.id as string,
+          householdId: hi.householdId as string,
+          email: hi.email as string,
+          role: hi.role as HouseholdRole,
+          suggestedName: (hi.suggestedName as string | null) ?? null,
+          suggestedColor: (hi.suggestedColor as string | null) ?? null,
+          invitedByProfileId: hi.invitedByProfileId as string,
+          createdAt: new Date(hi.createdAt as string),
+          expiresAt: new Date(hi.expiresAt as string),
+          acceptedAt: hi.acceptedAt ? new Date(hi.acceptedAt as string) : null,
+          acceptedByUserId: (hi.acceptedByUserId as string | null) ?? null,
+        },
+      });
+    }
+
+    // 52. Market Rates (no relations — BoI Prime history keyed by name+date)
+    for (const mr of marketRates) {
+      await prisma.marketRate.create({
+        data: {
+          id: mr.id as string,
+          name: mr.name as string,
+          rate: mr.rate as number | string,
+          effectiveFrom: new Date(mr.effectiveFrom as string),
+          createdAt: new Date(mr.createdAt as string),
+        },
+      });
+    }
+
+    // 53. Moneytor Transactions (raw archive from Moneytor sync; PK is Moneytor's ULID)
+    for (const mt of moneytorTransactions) {
+      await prisma.moneytorTransaction.create({
+        data: {
+          id: mt.id as string,
+          transactionDate: new Date(mt.transactionDate as string),
+          amount: mt.amount as number | string,
+          currency: mt.currency as string,
+          description: mt.description as string,
+          extraInfo: (mt.extraInfo as string | null) ?? null,
+          category: mt.category as string,
+          accountId: mt.accountId as string,
+          type: mt.type as string,
+          replacesMoneytorId: (mt.replacesMoneytorId as string | null) ?? null,
+          householdId: mt.householdId as string,
+          syncedAt: new Date(mt.syncedAt as string),
+          createdAt: new Date(mt.createdAt as string),
+          updatedAt: new Date(mt.updatedAt as string),
         },
       });
     }
