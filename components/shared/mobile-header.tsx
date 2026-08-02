@@ -14,10 +14,10 @@ export function MobileHeader({ onMenuClick }: MobileHeaderProps) {
       className="border-border bg-background safe-pt safe-px flex items-center justify-between border-b p-4 lg:hidden"
       style={{ ['--safe-pt-base' as string]: '1rem', ['--safe-px-base' as string]: '1rem' }}
     >
-      <Logo />
       <Button variant="ghost" size="icon" onClick={onMenuClick} aria-label="Open menu">
         <Menu className="h-5 w-5" />
       </Button>
+      <Logo />
     </header>
   );
 }
