@@ -2,9 +2,17 @@
 
 import { useState, useRef } from 'react';
 import Link from 'next/link';
-import { Home, Users, ChevronRight, Download, Upload, Loader2, Plus, Trash2 } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient as useQC } from '@tanstack/react-query';
-import { Input } from '@/components/ui/input';
+import {
+  BookOpen,
+  ChevronRight,
+  Download,
+  Home,
+  Loader2,
+  RefreshCw,
+  Upload,
+  Users,
+  Wallet,
+} from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,13 +25,6 @@ import {
 } from '@/components/ui/dialog';
 import { useHouseholdContext } from '@/lib/contexts/household-context';
 import { useQueryClient } from '@tanstack/react-query';
-import { AccountNamesSettings } from '@/components/budget';
-import { PartnerPhoneSettings } from '@/components/settings/partner-phone-settings';
-import { BillingCycleSettings } from '@/components/settings/billing-cycle-settings';
-import { SnapshotDaySettings } from '@/components/settings/snapshot-day-settings';
-import { AiCategorizationSettings } from '@/components/settings/ai-categorization-settings';
-import { WikiPromptSettings } from '@/components/settings/wiki-prompt-settings';
-import { SyncAliasesSettings } from '@/components/settings/sync-aliases-settings';
 
 const settingsLinks = [
   {
@@ -38,51 +39,29 @@ const settingsLinks = [
     description: 'Manage family member profiles',
     icon: Users,
   },
+  {
+    href: '/settings/budget',
+    title: 'Budget',
+    description: 'CC payees, accounts, cycles, and AI categorization',
+    icon: Wallet,
+  },
+  {
+    href: '/settings/data-sync',
+    title: 'Data Sync',
+    description: 'Sync aliases for stable cross-source linking',
+    icon: RefreshCw,
+  },
+  {
+    href: '/settings/wiki-prompt',
+    title: 'Wiki Prompt',
+    description: 'System prompt for wiki source summarization',
+    icon: BookOpen,
+  },
 ];
-
-function useCcGenericPayees() {
-  const qc = useQC();
-
-  const query = useQuery({
-    queryKey: ['cc-generic-payees'],
-    queryFn: async () => {
-      const res = await fetch('/api/budget/cc-generic-payees');
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-      return data.data as { id: string; name: string }[];
-    },
-  });
-
-  const add = useMutation({
-    mutationFn: async (name: string) => {
-      const res = await fetch('/api/budget/cc-generic-payees', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['cc-generic-payees'] }),
-  });
-
-  const remove = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/budget/cc-generic-payees/${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['cc-generic-payees'] }),
-  });
-
-  return { query, add, remove };
-}
 
 export default function SettingsPage() {
   const { activeHousehold, isLoading } = useHouseholdContext();
   const queryClient = useQueryClient();
-  const { query: ccQuery, add: ccAdd, remove: ccRemove } = useCcGenericPayees();
-  const [newCcName, setNewCcName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -281,120 +260,6 @@ export default function SettingsPage() {
             Backup includes all users, profiles, accounts, holdings, deposits, and snapshots.
             Restoring will replace all existing data.
           </p>
-        </CardContent>
-      </Card>
-
-      {/* Budget Settings Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Budget Settings</CardTitle>
-          <CardDescription>
-            Configure how transactions are processed and deduplicated
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Generic credit card payee names</p>
-            <p className="text-muted-foreground text-xs">
-              Foreign purchases appear twice — once from your bank (generic name) and once from your
-              credit card feed (real merchant). Add the generic names your bank uses so they are
-              automatically removed when the real transaction exists with the same amount.
-            </p>
-
-            <div className="mt-3 space-y-2">
-              {ccQuery.isLoading && (
-                <div className="text-muted-foreground flex items-center gap-2 text-sm">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Loading…
-                </div>
-              )}
-              {ccQuery.data?.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
-                >
-                  <span>{item.name}</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-muted-foreground hover:text-destructive h-6 w-6 p-0"
-                    onClick={() => ccRemove.mutate(item.id)}
-                    disabled={ccRemove.isPending}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
-              {ccQuery.data?.length === 0 && (
-                <p className="text-muted-foreground text-xs">No names configured yet.</p>
-              )}
-            </div>
-
-            <form
-              className="flex gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const trimmed = newCcName.trim();
-                if (!trimmed) return;
-                ccAdd.mutate(trimmed, { onSuccess: () => setNewCcName('') });
-              }}
-            >
-              <Input
-                value={newCcName}
-                onChange={(e) => setNewCcName(e.target.value)}
-                placeholder="e.g. מקס איט פיננסים"
-                className="flex-1 text-sm"
-              />
-              <Button type="submit" size="sm" disabled={ccAdd.isPending || !newCcName.trim()}>
-                {ccAdd.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Plus className="h-4 w-4" />
-                )}
-              </Button>
-            </form>
-            {ccAdd.isError && (
-              <p className="text-xs text-red-500">{(ccAdd.error as Error).message}</p>
-            )}
-          </div>
-
-          <div className="border-border/60 border-t pt-4">
-            <AccountNamesSettings />
-          </div>
-
-          <div className="border-border/60 border-t pt-4">
-            <PartnerPhoneSettings />
-          </div>
-
-          <div className="border-border/60 border-t pt-4">
-            <BillingCycleSettings />
-          </div>
-
-          <div className="border-border/60 border-t pt-4">
-            <SnapshotDaySettings />
-          </div>
-
-          <div className="border-border/60 border-t pt-4">
-            <AiCategorizationSettings />
-          </div>
-
-          <div className="border-border/60 border-t pt-4">
-            <WikiPromptSettings />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Sync Aliases Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Data sync</CardTitle>
-          <CardDescription>
-            Pin stable aliases for each synced entity so re-linked accounts collapse into the same
-            row.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <SyncAliasesSettings />
         </CardContent>
       </Card>
 

@@ -3,11 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import type { DatabaseColumn } from './database-extension';
-import {
-  defaultFilterFor,
-  isColumnFilterActive,
-  type ColumnFilter,
-} from './db-filter';
+import { defaultFilterFor, isColumnFilterActive, type ColumnFilter } from './db-filter';
 
 interface DatabaseFilterPanelProps {
   columns: DatabaseColumn[];
@@ -175,9 +171,7 @@ function FilterControl({
       const has = value.optionIds.includes(optId);
       onChange({
         kind: 'select',
-        optionIds: has
-          ? value.optionIds.filter((o) => o !== optId)
-          : [...value.optionIds, optId],
+        optionIds: has ? value.optionIds.filter((o) => o !== optId) : [...value.optionIds, optId],
       });
     };
     if (options.length === 0) {
