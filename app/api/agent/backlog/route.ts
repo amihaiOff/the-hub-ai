@@ -20,12 +20,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
+  // Content lives on the page's tabs (`PageTab.content`), not `Page.content`
+  // (that column is a frozen snapshot from the tabs migration). Read every tab
+  // so rows added after the migration are included.
   const pages = await prisma.page.findMany({
     where: { householdId },
-    select: { id: true, title: true, content: true },
+    select: {
+      id: true,
+      title: true,
+      tabs: { select: { content: true }, orderBy: { sortOrder: 'asc' } },
+    },
     orderBy: { updatedAt: 'desc' },
   });
 
-  const tasks = extractBacklog(pages);
+  const tasks = extractBacklog(
+    pages.map((p) => ({ id: p.id, title: p.title, contents: p.tabs.map((t) => t.content) }))
+  );
   return NextResponse.json({ success: true, data: { tasks, count: tasks.length } });
 }

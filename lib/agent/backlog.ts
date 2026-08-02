@@ -36,7 +36,13 @@ export interface BacklogTask {
 interface PageInput {
   id: string;
   title: string;
-  content: unknown;
+  /**
+   * The page's content document(s). Areas pages hold their content in one or
+   * more tabs (`PageTab.content`), so a page has an array of docs. `content`
+   * (a single doc) is still accepted for the legacy single-document shape.
+   */
+  contents?: unknown[];
+  content?: unknown;
 }
 
 type Node = { type?: string; attrs?: Record<string, unknown>; content?: Node[]; text?: string };
@@ -86,40 +92,59 @@ function cellToString(v: CellValue): string {
  */
 export function extractBacklog(pages: PageInput[]): BacklogTask[] {
   const tasks: BacklogTask[] = [];
+  // Guard against the same row surfacing twice — e.g. if an identical database
+  // block ends up in two of a page's tabs. A row is unique per page.
+  const seen = new Set<string>();
 
   for (const page of pages) {
-    const root = page.content as Node | null;
-    if (!root) continue;
-    const pageContext = extractText(root);
+    // A page's content lives across its tabs (or a single legacy doc). Scan
+    // every doc for database blocks, and build the page context from all of them.
+    const docs = (page.contents ?? (page.content !== undefined ? [page.content] : [])).filter(
+      (d): d is Node => d != null
+    );
+    if (docs.length === 0) continue;
 
-    for (const node of walk(root)) {
-      if (node.type !== 'databaseBlock') continue;
-      const cols = (node.attrs?.columns as DbColumn[] | undefined) ?? [];
-      const rows = (node.attrs?.rows as DbRow[] | undefined) ?? [];
-      const claudeCol = cols.find(isClaudeColumn);
-      if (!claudeCol) continue;
+    const pageContext = docs
+      .map((d) => extractText(d))
+      .filter(Boolean)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
 
-      const titleCol = titleColumn(cols);
-      for (const row of rows) {
-        const flag = row.cells?.[claudeCol.id];
-        const flagged =
-          flag === true || (typeof flag === 'string' && flag.trim() !== '') || flag === 1;
-        if (!flagged) continue;
+    for (const root of docs) {
+      for (const node of walk(root)) {
+        if (node.type !== 'databaseBlock') continue;
+        const cols = (node.attrs?.columns as DbColumn[] | undefined) ?? [];
+        const rows = (node.attrs?.rows as DbRow[] | undefined) ?? [];
+        const claudeCol = cols.find(isClaudeColumn);
+        if (!claudeCol) continue;
 
-        const fields: Record<string, CellValue> = {};
-        for (const col of cols) {
-          if (col.id === claudeCol.id) continue;
-          fields[col.name] = row.cells?.[col.id] ?? null;
+        const titleCol = titleColumn(cols);
+        for (const row of rows) {
+          const flag = row.cells?.[claudeCol.id];
+          const flagged =
+            flag === true || (typeof flag === 'string' && flag.trim() !== '') || flag === 1;
+          if (!flagged) continue;
+
+          const dedupeKey = `${page.id}:${row.id}`;
+          if (seen.has(dedupeKey)) continue;
+          seen.add(dedupeKey);
+
+          const fields: Record<string, CellValue> = {};
+          for (const col of cols) {
+            if (col.id === claudeCol.id) continue;
+            fields[col.name] = row.cells?.[col.id] ?? null;
+          }
+
+          tasks.push({
+            pageId: page.id,
+            pageTitle: page.title,
+            rowId: row.id,
+            title: titleCol ? cellToString(row.cells?.[titleCol.id] ?? '') : '',
+            fields,
+            pageContext,
+          });
         }
-
-        tasks.push({
-          pageId: page.id,
-          pageTitle: page.title,
-          rowId: row.id,
-          title: titleCol ? cellToString(row.cells?.[titleCol.id] ?? '') : '',
-          fields,
-          pageContext,
-        });
       }
     }
   }
