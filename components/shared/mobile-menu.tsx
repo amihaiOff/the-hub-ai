@@ -147,7 +147,7 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="w-72 p-0">
+      <SheetContent side="right" className="w-72 p-0">
         <div className="flex h-full flex-col">
           {/* Header with Logo */}
           <SheetHeader className="border-border/30 border-b p-4">
