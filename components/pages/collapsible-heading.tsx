@@ -70,7 +70,12 @@ function HeadingNodeView({ node, updateAttributes, editor }: NodeViewProps) {
         aria-expanded={!collapsed}
         className={cn(
           'text-muted-foreground/60 hover:text-foreground absolute top-1/2 -left-6 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded transition-opacity',
-          collapsed ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          // Desktop reveals the toggle on hover; touch devices have no hover, so
+          // keep it visible there — otherwise collapsible headings look like
+          // plain headings on mobile and the collapse affordance is undiscoverable.
+          collapsed
+            ? 'opacity-100'
+            : 'opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100'
         )}
       >
         <ChevronRight className={cn('h-4 w-4 transition-transform', !collapsed && 'rotate-90')} />
