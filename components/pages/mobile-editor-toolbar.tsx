@@ -47,7 +47,10 @@ export function MobileEditorToolbar({
   const inset = useKeyboardInset();
   const [focused, setFocused] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  // Default to collapsed so opening an Areas page doesn't blast the toolbar
+  // across the bottom of the screen — user taps the chevron to expand it
+  // when they actually want the block controls.
+  const [collapsed, setCollapsed] = useState(true);
   // Tiptap history and node-position state only mutates via transactions —
   // re-render the toolbar on every one so labels + enabled state stay live.
   const [, force] = useState(0);
