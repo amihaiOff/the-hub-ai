@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   Calendar as CalendarIcon,
+  Check,
   CircleDot,
   Flag,
   FolderTree,
@@ -37,6 +38,7 @@ import {
 } from '@/lib/hooks/use-tasks';
 import { TASK_PRIORITIES } from '@/lib/validations/tasks';
 import { prettyPriority } from './task-filters-bar';
+import { useToggleTaskDone } from './task-undo';
 
 interface TaskDetailSheetProps {
   taskId: string | null;
@@ -157,6 +159,7 @@ function TaskDetailBody({
   const update = useUpdateTask();
   const del = useDeleteTask();
   const createTask = useCreateTask();
+  const setSubtaskDone = useToggleTaskDone();
   // Only top-level tasks can host sub-tasks (schema invariant: one level deep).
   const canHaveSubtasks = task.parentTaskId == null;
   const subtasksQuery = useTasks(canHaveSubtasks ? { parentTaskId: task.id } : undefined);
@@ -349,21 +352,42 @@ function TaskDetailBody({
             Sub-tasks
           </h3>
           {subtasks.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+            <ul className="divide-border/40 divide-y">
               {subtasks.map((sub) => (
-                <button
-                  key={sub.id}
-                  type="button"
-                  onClick={() => onOpenSubtask(sub.id)}
-                  className={cn(
-                    'border-border/60 hover:bg-muted/40 max-w-full rounded-full border px-3 py-1 text-left text-sm break-words transition-colors',
-                    sub.done && 'text-muted-foreground line-through'
-                  )}
-                >
-                  {sub.title || 'Untitled'}
-                </button>
+                <li key={sub.id} className="flex items-center gap-2">
+                  {/* Left: tap the title to drill into the sub-task. */}
+                  <button
+                    type="button"
+                    onClick={() => onOpenSubtask(sub.id)}
+                    className={cn(
+                      'min-w-0 flex-1 py-2.5 text-left text-sm break-words transition-colors',
+                      sub.done ? 'text-muted-foreground line-through' : 'hover:text-foreground'
+                    )}
+                  >
+                    {sub.title || 'Untitled'}
+                  </button>
+                  {/* Right: done toggle. */}
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={sub.done}
+                    aria-label={
+                      sub.done ? `Mark “${sub.title}” not done` : `Mark “${sub.title}” done`
+                    }
+                    title={sub.done ? 'Mark not done' : 'Mark done'}
+                    onClick={() => setSubtaskDone(sub, !sub.done)}
+                    className={cn(
+                      'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors',
+                      sub.done
+                        ? 'border-emerald-500 bg-emerald-500 text-white'
+                        : 'border-muted-foreground/40 hover:border-foreground text-transparent'
+                    )}
+                  >
+                    <Check className="h-3 w-3" />
+                  </button>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
           {/* Own line at the bottom, below any chips. */}
           <div>
