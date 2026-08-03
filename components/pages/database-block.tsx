@@ -19,17 +19,27 @@ import {
   ArrowUpDown,
   Baseline,
   Calendar,
+  Check,
   ChevronDown,
   Filter,
   Hash,
   ListChecks,
   Plus,
+  Redo2,
   SquareCheckBig,
   Trash2,
+  Undo2,
   X,
 } from 'lucide-react';
+import { useKeyboardInset } from '@/lib/hooks/use-keyboard-inset';
+import { floatingControlBottom } from './undo-redo-bar';
 import { cn } from '@/lib/utils';
-import { cellMatchesFilter, isColumnFilterActive, type ColumnFilter } from './db-filter';
+import {
+  cellMatchesFilter,
+  isColumnFilterActive,
+  seedValueForFilter,
+  type ColumnFilter,
+} from './db-filter';
 import { DatabaseFilterPanel } from './database-filter-panel';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
@@ -44,11 +54,47 @@ import {
   makeColumn,
   makeRow,
   makeSelectOption,
+  newId,
   type DatabaseCellValue,
   type DatabaseColumn,
   type DatabaseColumnType,
   type DatabaseRow,
 } from './database-extension';
+
+/**
+ * Read/write a block's persisted column filters. Filters are per-viewer view
+ * state (never written to the shared document), but the user wants them to
+ * survive a page reload, so they live in localStorage keyed by the block id.
+ */
+const FILTER_STORAGE_PREFIX = 'hubai:db-filters:';
+
+function loadPersistedFilters(blockId: string | null): Record<string, ColumnFilter> {
+  if (!blockId || typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(FILTER_STORAGE_PREFIX + blockId);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, ColumnFilter>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistFilters(blockId: string | null, filters: Record<string, ColumnFilter>) {
+  if (!blockId || typeof window === 'undefined') return;
+  try {
+    const key = FILTER_STORAGE_PREFIX + blockId;
+    // Only keep filters that actually constrain something, so cleared filters
+    // don't linger in storage and the key is removed once nothing is active.
+    const active = Object.fromEntries(
+      Object.entries(filters).filter(([, f]) => isColumnFilterActive(f))
+    );
+    if (Object.keys(active).length === 0) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, JSON.stringify(active));
+  } catch {
+    // Storage unavailable (private mode / quota) — persistence is best-effort.
+  }
+}
 
 const TYPE_META: Record<
   DatabaseColumnType,
@@ -131,9 +177,40 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
   const setColumns = (next: DatabaseColumn[]) => updateAttributes({ columns: next });
   const setRows = (next: DatabaseRow[]) => updateAttributes({ rows: next });
 
+  // Stable block id — used to key persisted view state (filters). Older blocks
+  // predate the id attribute; backfill one on first mount so persistence has a
+  // stable key. `null` until the backfill effect runs.
+  const blockId = (node.attrs.id ?? null) as string | null;
+  useEffect(() => {
+    // Backfill a stable id on legacy blocks — but only when the doc is
+    // editable, since this writes an attribute (a read-only viewer must never
+    // mutate the document). Runs at most once per block.
+    if (!blockId && editable) updateAttributes({ id: newId('dbb') });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [sorting, setSorting] = useState<SortingState>([]);
-  // Per-column filters — ephemeral view state (like sorting), never persisted.
-  const [filters, setFilters] = useState<Record<string, ColumnFilter>>({});
+  // Per-column filters — per-viewer view state (like sorting), not written to
+  // the shared doc, but persisted to localStorage (keyed by blockId) so they
+  // survive reloads. Seeded from storage on first render.
+  const [filters, setFilters] = useState<Record<string, ColumnFilter>>(() =>
+    loadPersistedFilters(blockId)
+  );
+  // Once the id backfill lands, hydrate filters for the now-known key (the
+  // initial render had blockId === null for legacy blocks).
+  const hydratedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (blockId && hydratedFor.current !== blockId) {
+      hydratedFor.current = blockId;
+      const stored = loadPersistedFilters(blockId);
+      if (Object.keys(stored).length) setFilters(stored);
+    }
+  }, [blockId]);
+  // Mirror filter changes into storage.
+  useEffect(() => {
+    persistFilters(blockId, filters);
+  }, [blockId, filters]);
+
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const filterBtnRef = useRef<HTMLButtonElement>(null);
   // Column pending deletion — drives the confirmation dialog. Deletion is
@@ -215,9 +292,17 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
     // the new empty row wherever its blank value falls (e.g. at the top under
     // a descending sort). The user can re-sort by clicking a header again.
     if (sorting.length) setSorting([]);
-    // Also clear filters: a fresh row has empty cells and would be hidden by any
-    // active filter, so the scroll-into-view + focus below would silently no-op.
-    if (Object.keys(filters).length) setFilters({});
+    // Keep active filters (they persist across reloads and shouldn't be wiped by
+    // adding a row). A blank row would be hidden by any active filter, so seed
+    // the new row's cells to satisfy each active filter — the row then stays
+    // visible and the scroll-into-view + focus below works.
+    for (const col of columns) {
+      const f = filters[col.id];
+      if (f && isColumnFilterActive(f)) {
+        const seed = seedValueForFilter(f);
+        if (seed !== undefined) row.cells[col.id] = seed;
+      }
+    }
     setRows([...rows, row]);
     setFocusIntent({ kind: 'row', id: row.id });
   };
@@ -303,6 +388,34 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
 
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const tbodyRef = useRef<HTMLTableSectionElement | null>(null);
+
+  // Track whether a cell field is being edited. Focusing a cell's <textarea>/
+  // <input> blurs the ProseMirror editor, so the page's own mobile toolbar
+  // hides — leaving the user with no controls (and no easy way to dismiss the
+  // keyboard). We surface a minimal cell toolbar (undo / redo / done) instead.
+  const [cellEditing, setCellEditing] = useState(false);
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el || !editable) return;
+    const isField = (t: EventTarget | null) =>
+      t instanceof HTMLElement &&
+      !!t.closest('td') &&
+      (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT');
+    const onIn = (e: FocusEvent) => {
+      if (isField(e.target)) setCellEditing(true);
+    };
+    const onOut = (e: FocusEvent) => {
+      // Keep the bar up while focus hops between cell fields; close when it
+      // leaves the table entirely (relatedTarget is the element gaining focus).
+      if (!isField(e.relatedTarget)) setCellEditing(false);
+    };
+    el.addEventListener('focusin', onIn);
+    el.addEventListener('focusout', onOut);
+    return () => {
+      el.removeEventListener('focusin', onIn);
+      el.removeEventListener('focusout', onOut);
+    };
+  }, [editable]);
 
   // A narrow trailing "add column" cell (2.5rem) lives in the header when
   // editable; include its width so table-layout: fixed leaves room for it.
@@ -486,6 +599,8 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
 
       {editable && <DeleteRowGutter tbodyRef={tbodyRef} rows={rows} onDelete={deleteRow} />}
 
+      {editable && cellEditing && <CellEditToolbar editor={editor} />}
+
       <Dialog
         open={confirmDeleteCol !== null}
         onOpenChange={(open) => !open && setConfirmDeleteCol(null)}
@@ -650,6 +765,93 @@ function DeleteRowGutter({
         );
       })}
     </div>
+  );
+}
+
+// ─── Cell edit toolbar (mobile, while a cell field is focused) ───────────
+
+/**
+ * A minimal floating toolbar shown while a database cell is being edited on
+ * mobile. Focusing a cell field blurs the ProseMirror editor, so the page's
+ * own block toolbar disappears; this restores undo / redo and a "done" button
+ * to dismiss the keyboard. Block-level actions (insert/delete/type) are
+ * intentionally omitted — they act on the whole table, not the cell.
+ *
+ * Buttons use `onMouseDown`-prevent so tapping them doesn't blur the cell
+ * (which would dismiss the keyboard and close this bar mid-tap). "Done"
+ * blurs deliberately.
+ */
+function CellEditToolbar({ editor }: { editor: NodeViewProps['editor'] }) {
+  const inset = useKeyboardInset();
+  const [, force] = useState(0);
+  useEffect(() => {
+    const rerender = () => force((n) => n + 1);
+    editor.on('transaction', rerender);
+    return () => {
+      editor.off('transaction', rerender);
+    };
+  }, [editor]);
+
+  const canUndo = editor.can().undo();
+  const canRedo = editor.can().redo();
+
+  return createPortal(
+    <div
+      className="pointer-events-none fixed inset-x-0 z-40 flex justify-center px-2 lg:hidden"
+      style={{ bottom: `calc(${floatingControlBottom(false, inset)} + 0.5rem)` }}
+      aria-label="Cell editor toolbar"
+    >
+      <div className="border-border/60 bg-card/95 pointer-events-auto flex items-center gap-0.5 rounded-2xl border p-1 shadow-lg backdrop-blur">
+        <button
+          type="button"
+          aria-label="Undo"
+          title="Undo"
+          disabled={!canUndo}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => editor.commands.undo()}
+          className={cn(
+            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors',
+            canUndo
+              ? 'text-foreground hover:bg-muted/60'
+              : 'text-muted-foreground/40 cursor-not-allowed'
+          )}
+        >
+          <Undo2 className="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          aria-label="Redo"
+          title="Redo"
+          disabled={!canRedo}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => editor.commands.redo()}
+          className={cn(
+            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors',
+            canRedo
+              ? 'text-foreground hover:bg-muted/60'
+              : 'text-muted-foreground/40 cursor-not-allowed'
+          )}
+        >
+          <Redo2 className="h-5 w-5" />
+        </button>
+        <span className="bg-border/70 mx-0.5 h-5 w-px shrink-0" aria-hidden />
+        <button
+          type="button"
+          aria-label="Done editing"
+          title="Done"
+          // No mousedown-prevent here — tapping Done should blur the cell,
+          // which dismisses the keyboard and closes this bar.
+          onClick={() => {
+            const el = document.activeElement;
+            if (el instanceof HTMLElement) el.blur();
+          }}
+          className="text-primary hover:bg-primary/10 flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors"
+        >
+          <Check className="h-4 w-4" /> Done
+        </button>
+      </div>
+    </div>,
+    document.body
   );
 }
 

@@ -2,6 +2,7 @@ import {
   cellMatchesFilter,
   defaultFilterFor,
   isColumnFilterActive,
+  seedValueForFilter,
   type ColumnFilter,
 } from '../db-filter';
 
@@ -71,5 +72,44 @@ describe('cellMatchesFilter', () => {
     expect(cellMatchesFilter(false, { kind: 'checkbox', want: 'unchecked' })).toBe(true);
     expect(cellMatchesFilter(null, { kind: 'checkbox', want: 'unchecked' })).toBe(true);
     expect(cellMatchesFilter(true, { kind: 'checkbox', want: 'unchecked' })).toBe(false);
+  });
+});
+
+describe('seedValueForFilter', () => {
+  it('returns undefined for inactive filters (nothing to seed)', () => {
+    expect(seedValueForFilter({ kind: 'text', query: '' })).toBeUndefined();
+    expect(seedValueForFilter({ kind: 'number', min: null, max: null })).toBeUndefined();
+    expect(seedValueForFilter({ kind: 'date', min: null, max: null })).toBeUndefined();
+    expect(seedValueForFilter({ kind: 'select', optionIds: [] })).toBeUndefined();
+    expect(seedValueForFilter({ kind: 'checkbox', want: 'any' })).toBeUndefined();
+  });
+
+  it('produces a value that satisfies the active filter it came from', () => {
+    const cases: ColumnFilter[] = [
+      { kind: 'text', query: 'hello' },
+      { kind: 'number', min: 5, max: null },
+      { kind: 'number', min: null, max: 20 },
+      { kind: 'date', min: '2026-01-01', max: null },
+      { kind: 'date', min: null, max: '2026-12-31' },
+      { kind: 'select', optionIds: ['o2', 'o3'] },
+      { kind: 'checkbox', want: 'checked' },
+      { kind: 'checkbox', want: 'unchecked' },
+    ];
+    for (const f of cases) {
+      const seed = seedValueForFilter(f);
+      expect(seed).not.toBeUndefined();
+      // The seeded value must pass the very filter that produced it, so the
+      // freshly added row stays visible.
+      expect(cellMatchesFilter(seed as string | number | boolean | null, f)).toBe(true);
+    }
+  });
+
+  it('seeds a select cell with the first chosen option id', () => {
+    expect(seedValueForFilter({ kind: 'select', optionIds: ['o7', 'o9'] })).toBe('o7');
+  });
+
+  it('seeds checkbox from the desired state', () => {
+    expect(seedValueForFilter({ kind: 'checkbox', want: 'checked' })).toBe(true);
+    expect(seedValueForFilter({ kind: 'checkbox', want: 'unchecked' })).toBe(false);
   });
 });
