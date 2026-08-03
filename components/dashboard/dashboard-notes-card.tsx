@@ -79,9 +79,10 @@ export function DashboardNotesCard() {
             onClick={() => setConfirmClear(true)}
             aria-label="Clear all notes"
             title="Clear all notes"
-            className="text-muted-foreground hover:text-destructive h-7 px-2"
+            className="text-muted-foreground hover:text-destructive h-7 gap-1.5 px-2 text-xs"
           >
             <Trash2 className="h-3.5 w-3.5" />
+            Clear all
           </Button>
         )}
       </CardHeader>
