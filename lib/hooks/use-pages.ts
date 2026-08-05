@@ -33,6 +33,7 @@ export interface PageRow extends PageListRow {
   content: unknown; // legacy page-level content (unused; content lives on tabs)
   ownerId: string;
   householdId: string;
+  autoCapitalize: boolean;
   tabs: PageTabRow[];
 }
 

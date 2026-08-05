@@ -35,6 +35,8 @@ import { CollapsibleHeading } from './collapsible-heading';
 import { TableFloatingControls } from './table-floating-controls';
 import { DatabaseBlock } from './database-extension';
 import { MobileEditorToolbar } from './mobile-editor-toolbar';
+import { AutoCapitalize } from './auto-capitalize';
+import { MathInline, MathBlock } from './math-extension';
 
 /**
  * Keeps Shift-Tab (outdent) from lifting a top-level list item out of the
@@ -70,6 +72,8 @@ interface PageBodyEditorProps {
   onChange: (doc: unknown) => void;
   /** When a bottom tab bar is shown, lift the floating undo pill above it. */
   hasBottomTabBar?: boolean;
+  /** Auto-capitalize sentence starts. Defaults to true. */
+  autoCapitalize?: boolean;
 }
 
 /**
@@ -82,46 +86,58 @@ export function PageBodyEditor({
   initialContent,
   onChange,
   hasBottomTabBar = false,
+  autoCapitalize = true,
 }: PageBodyEditorProps) {
-  const editor = useEditor({
-    extensions: [
-      // Our CollapsibleHeading replaces StarterKit's default Heading so
-      // headings gain a `collapsed` attribute and the outline-toggle UX.
-      StarterKit.configure({ link: false, heading: false }),
-      CollapsibleHeading.configure({ levels: [1, 2, 3] }),
-      Link.configure({
-        // Open links on click (the editor is always editable, and the Link
-        // extension only opens a link when openOnClick is on) — links open in a
-        // new tab. Editing a link still works via the toolbar Link button.
-        openOnClick: true,
-        autolink: true,
-        HTMLAttributes: {
-          class: 'text-primary underline underline-offset-2',
-          target: '_blank',
-          rel: 'noopener noreferrer',
+  const editor = useEditor(
+    {
+      extensions: [
+        AutoCapitalize.configure({ enabled: autoCapitalize }),
+        MathInline,
+        MathBlock,
+        // Our CollapsibleHeading replaces StarterKit's default Heading so
+        // headings gain a `collapsed` attribute and the outline-toggle UX.
+        StarterKit.configure({ link: false, heading: false }),
+        CollapsibleHeading.configure({ levels: [1, 2, 3] }),
+        Link.configure({
+          // Open links on click (the editor is always editable, and the Link
+          // extension only opens a link when openOnClick is on) — links open in a
+          // new tab. Editing a link still works via the toolbar Link button.
+          openOnClick: true,
+          autolink: true,
+          HTMLAttributes: {
+            class: 'text-primary underline underline-offset-2',
+            target: '_blank',
+            rel: 'noopener noreferrer',
+          },
+        }),
+        Image.configure({ inline: false, HTMLAttributes: { class: 'page-image' } }),
+        Table.configure({ resizable: true }),
+        TableRow,
+        TableHeader,
+        TableCell,
+        ColumnBlock,
+        Column,
+        DatabaseBlock,
+        SlashMenuExtension,
+        ListOutdentGuard,
+        AutoTextDirection,
+      ],
+      content: (initialContent as object) ?? '',
+      onUpdate: ({ editor }) => onChange(editor.getJSON()),
+      editorProps: {
+        attributes: {
+          class: 'page-body min-h-[60vh] px-1 py-2 focus:outline-none',
         },
-      }),
-      Image.configure({ inline: false, HTMLAttributes: { class: 'page-image' } }),
-      Table.configure({ resizable: true }),
-      TableRow,
-      TableHeader,
-      TableCell,
-      ColumnBlock,
-      Column,
-      DatabaseBlock,
-      SlashMenuExtension,
-      ListOutdentGuard,
-      AutoTextDirection,
-    ],
-    content: (initialContent as object) ?? '',
-    onUpdate: ({ editor }) => onChange(editor.getJSON()),
-    editorProps: {
-      attributes: {
-        class: 'page-body min-h-[60vh] px-1 py-2 focus:outline-none',
       },
+      immediatelyRender: false,
+      // Remount the editor when the auto-cap flag flips. This drops undo
+      // history and cursor position on toggle, which is a fine tradeoff —
+      // users toggle this setting rarely and never mid-typing. Keeps the
+      // extension configuration immutable, no runtime mutation of Tiptap
+      // internals required.
     },
-    immediatelyRender: false,
-  });
+    [autoCapitalize]
+  );
 
   // Paste/drop of image files → upload to Blob and insert. Handled at the React
   // wrapper level (not in useEditor's initializer, which can't reference the

@@ -18,6 +18,7 @@ import {
   List,
   ListOrdered,
   Quote,
+  Sigma,
   Table as TableIcon,
   TextIcon,
 } from 'lucide-react';
@@ -136,6 +137,30 @@ export const SLASH_ITEMS: SlashItem[] = [
       const chain = editor.chain().focus().deleteRange(range);
       (chain as unknown as { setColumns?: () => typeof chain }).setColumns?.()?.run();
     },
+  },
+  {
+    title: 'Inline math',
+    keywords: ['math', 'latex', 'katex', 'equation', 'inline', 'formula'],
+    icon: Sigma,
+    command: ({ editor, range }) =>
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .insertContent({ type: 'mathInline', attrs: { tex: '' } })
+        .run(),
+  },
+  {
+    title: 'Math block',
+    keywords: ['math', 'latex', 'katex', 'equation', 'block', 'display', 'formula'],
+    icon: Sigma,
+    command: ({ editor, range }) =>
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .insertContent({ type: 'mathBlock', attrs: { tex: '' } })
+        .run(),
   },
   {
     title: 'Image',

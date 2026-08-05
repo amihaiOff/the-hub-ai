@@ -60,6 +60,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (input.title !== undefined) data.title = input.title;
     if (input.emoji !== undefined) data.emoji = input.emoji;
     if (input.sortOrder !== undefined) data.sortOrder = input.sortOrder;
+    if (input.autoCapitalize !== undefined) data.autoCapitalize = input.autoCapitalize;
     if (input.content !== undefined) {
       data.content =
         input.content === null ? Prisma.JsonNull : (input.content as Prisma.InputJsonValue);

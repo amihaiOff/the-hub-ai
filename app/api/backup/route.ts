@@ -142,7 +142,7 @@ export async function GET() {
     // Create backup metadata
     const metadata = {
       backupDate: new Date().toISOString(),
-      schemaVersion: '2.6',
+      schemaVersion: '2.7',
       createdBy: user.email,
       counts: {
         users: users.length,

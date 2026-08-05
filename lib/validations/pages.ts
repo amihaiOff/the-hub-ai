@@ -29,6 +29,7 @@ export const updatePageSchema = z.object({
   emoji: emojiSchema.optional(),
   content: pageContentSchema.optional().nullable(),
   sortOrder: z.number().int().optional(),
+  autoCapitalize: z.boolean().optional(),
 });
 export type UpdatePageInput = z.infer<typeof updatePageSchema>;
 

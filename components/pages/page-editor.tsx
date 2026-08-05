@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  Check,
   Loader2,
   Maximize2,
   MoreHorizontal,
@@ -10,6 +11,7 @@ import {
   Trash2,
   ListTree,
   Minimize2,
+  Type,
 } from 'lucide-react';
 import {
   usePage,
@@ -249,6 +251,24 @@ export function PageEditor({ pageId }: { pageId: string }) {
               <ListTree className="mr-2 h-4 w-4" />
               Manage tabs
             </DropdownMenuItem>
+            {/* Toggle sentence-start auto-capitalization for this page's
+                editors. Preventing default keeps the menu open would be
+                ideal but Radix closes on select anyway — mirrors the
+                full-width toggle's `e.preventDefault()` pattern. */}
+            <DropdownMenuItem
+              className="rounded-lg text-sm"
+              onSelect={(e) => {
+                e.preventDefault();
+                update.mutate({
+                  id: pageId,
+                  patch: { autoCapitalize: !(page.autoCapitalize ?? true) },
+                });
+              }}
+            >
+              <Type className="mr-2 h-4 w-4" />
+              Auto-capitalize
+              {(page.autoCapitalize ?? true) && <Check className="ml-auto h-4 w-4" />}
+            </DropdownMenuItem>
             {/* Desktop-only: expand the page container to reduce side margins
                 by ~80%. Persisted in localStorage under `pages:full-width` so
                 the choice survives navigation. Hidden on mobile — the layout
@@ -315,6 +335,7 @@ export function PageEditor({ pageId }: { pageId: string }) {
           initialContent={activeTab.content}
           onChange={saveTabContent}
           hasBottomTabBar={hasTabBar}
+          autoCapitalize={page.autoCapitalize ?? true}
         />
       )}
 
