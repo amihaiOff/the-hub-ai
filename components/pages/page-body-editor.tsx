@@ -36,6 +36,7 @@ import { TableFloatingControls } from './table-floating-controls';
 import { DatabaseBlock } from './database-extension';
 import { MobileEditorToolbar } from './mobile-editor-toolbar';
 import { AutoCapitalize } from './auto-capitalize';
+import { MathInline, MathBlock } from './math-extension';
 
 /**
  * Keeps Shift-Tab (outdent) from lifting a top-level list item out of the
@@ -91,6 +92,8 @@ export function PageBodyEditor({
     {
       extensions: [
         AutoCapitalize.configure({ enabled: autoCapitalize }),
+        MathInline,
+        MathBlock,
         // Our CollapsibleHeading replaces StarterKit's default Heading so
         // headings gain a `collapsed` attribute and the outline-toggle UX.
         StarterKit.configure({ link: false, heading: false }),
