@@ -11,7 +11,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Plus, MoreVertical, Pencil, Trash2, AlertCircle, Loader2, Merge } from 'lucide-react';
+import {
+  Plus,
+  MoreVertical,
+  Pencil,
+  Trash2,
+  AlertCircle,
+  Loader2,
+  Merge,
+  Percent,
+} from 'lucide-react';
 import {
   useCategoryGroups,
   useDeleteCategory,
@@ -23,6 +32,7 @@ import {
   type BudgetCategoryGroup,
   formatCurrencyILS,
 } from '@/lib/utils/budget';
+import { cn } from '@/lib/utils';
 import { AddCategoryDialog, EditCategoryDialog, AddCategoryGroupDialog } from '@/components/budget';
 import { MergeCategoriesDialog } from '@/components/budget/merge-categories-dialog';
 import { getGroupChartColor } from '@/lib/utils/category-group-icons';
@@ -402,9 +412,15 @@ interface CategoryRow {
   groupName: string;
   budget: number;
   color: string;
+  isGroupStart: boolean;
 }
 
+type ChartMode = 'pct' | 'value';
+
 function BudgetDistribution({ categoryGroups }: BudgetDistributionProps) {
+  // Each chart independently toggles between percent and absolute readouts.
+  const [groupMode, setGroupMode] = useState<ChartMode>('pct');
+  const [catMode, setCatMode] = useState<ChartMode>('pct');
   const { totalBudget, groupRows, categoryRows } = useMemo(() => {
     const groups: GroupRow[] = categoryGroups
       .map((g, idx) => ({
@@ -412,28 +428,36 @@ function BudgetDistribution({ categoryGroups }: BudgetDistributionProps) {
         name: g.name,
         total: g.categories.reduce((sum, c) => sum + (c.budget || 0), 0),
         count: g.categories.length,
+        // One stable colour per group (by group index) so every category in a
+        // group shares it — the category chart then reads as coloured bands.
         color: getGroupChartColor(g.name, idx),
       }))
       .filter((g) => g.total > 0)
       .sort((a, b) => b.total - a.total);
     const total = groups.reduce((sum, g) => sum + g.total, 0);
 
+    // Categories sorted BY GROUP (groups in the same order as the group chart —
+    // largest first), then by budget within each group. The first category of
+    // each group is flagged so the chart can print a subtle group heading.
+    const byId = new Map(categoryGroups.map((g) => [g.id, g]));
     const cats: CategoryRow[] = [];
-    let fallbackIdx = 0;
-    for (const g of categoryGroups) {
-      for (const c of g.categories) {
-        if ((c.budget || 0) > 0) {
-          cats.push({
-            id: c.id,
-            name: c.name,
-            groupName: g.name,
-            budget: c.budget || 0,
-            color: getGroupChartColor(g.name, fallbackIdx++),
-          });
-        }
-      }
+    for (const g of groups) {
+      const src = byId.get(g.id);
+      if (!src) continue;
+      const groupCats = src.categories
+        .filter((c) => (c.budget || 0) > 0)
+        .sort((a, b) => (b.budget || 0) - (a.budget || 0));
+      groupCats.forEach((c, i) => {
+        cats.push({
+          id: c.id,
+          name: c.name,
+          groupName: g.name,
+          budget: c.budget || 0,
+          color: g.color,
+          isGroupStart: i === 0,
+        });
+      });
     }
-    cats.sort((a, b) => b.budget - a.budget);
 
     return { totalBudget: total, groupRows: groups, categoryRows: cats };
   }, [categoryGroups]);
@@ -467,10 +491,14 @@ function BudgetDistribution({ categoryGroups }: BudgetDistributionProps) {
 
       {/* Group Distribution */}
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">By group</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">By group</h2>
+          <ChartModeToggle mode={groupMode} onChange={setGroupMode} />
+        </div>
         <Card>
           <CardContent className="py-4">
             <DistributionBarChart
+              mode={groupMode}
               data={groupRows.map((g) => ({
                 name: g.name,
                 value: g.total,
@@ -484,20 +512,75 @@ function BudgetDistribution({ categoryGroups }: BudgetDistributionProps) {
 
       {/* Category Distribution */}
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">By category</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">By category</h2>
+          <ChartModeToggle mode={catMode} onChange={setCatMode} />
+        </div>
         <Card>
           <CardContent className="py-4">
             <DistributionBarChart
+              mode={catMode}
+              grouped
               data={categoryRows.map((c) => ({
                 name: c.name,
                 value: c.budget,
                 color: c.color,
                 pct: (c.budget / totalBudget) * 100,
+                groupName: c.groupName,
+                isGroupStart: c.isGroupStart,
               }))}
             />
           </CardContent>
         </Card>
       </section>
+    </div>
+  );
+}
+
+/**
+ * Segmented control to switch a distribution chart between percentage and
+ * absolute (shekel) readouts. Percent uses the lucide Percent glyph; shekel
+ * uses the ₪ character (lucide has no shekel icon).
+ */
+function ChartModeToggle({ mode, onChange }: { mode: ChartMode; onChange: (m: ChartMode) => void }) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Chart readout"
+      className="border-border/60 inline-flex items-center gap-0.5 rounded-lg border p-0.5"
+    >
+      <button
+        type="button"
+        role="radio"
+        aria-label="Show percentages"
+        aria-checked={mode === 'pct'}
+        title="Percent"
+        onClick={() => onChange('pct')}
+        className={cn(
+          'flex min-h-9 min-w-11 items-center justify-center rounded-md text-xs transition-colors',
+          mode === 'pct'
+            ? 'bg-muted text-foreground'
+            : 'text-muted-foreground hover:text-foreground'
+        )}
+      >
+        <Percent className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
+        role="radio"
+        aria-label="Show amounts in shekels"
+        aria-checked={mode === 'value'}
+        title="Shekels"
+        onClick={() => onChange('value')}
+        className={cn(
+          'flex min-h-9 min-w-11 items-center justify-center rounded-md text-sm leading-none font-semibold transition-colors',
+          mode === 'value'
+            ? 'bg-muted text-foreground'
+            : 'text-muted-foreground hover:text-foreground'
+        )}
+      >
+        ₪
+      </button>
     </div>
   );
 }
@@ -535,16 +618,80 @@ interface DistributionDatum {
   value: number;
   color: string;
   pct: number;
+  groupName?: string;
+  isGroupStart?: boolean;
 }
 
-function DistributionBarChart({ data }: { data: DistributionDatum[] }) {
-  const ROW = 36;
+/** Compact shekel amount for axis ticks / bar-end labels (₪1.2k, ₪320). */
+function fmtCompactShekel(v: number): string {
+  return v >= 1000 ? `₪${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}k` : `₪${Math.round(v)}`;
+}
+
+/**
+ * Custom Y-axis tick for the grouped (by-category) chart. Renders the category
+ * name and, on the first category of each group, a subtle uppercase group
+ * heading above it so groups are easy — but quiet — to pick out. Reads the
+ * datum by tick index so duplicate category names stay correct.
+ */
+function GroupedYTick(props: {
+  x?: number;
+  y?: number;
+  payload?: { value?: string; index?: number };
+  data: DistributionDatum[];
+}) {
+  const { x = 0, y = 0, payload, data } = props;
+  const datum = payload?.index != null ? data[payload.index] : undefined;
+  return (
+    <g transform={`translate(${x},${y})`}>
+      {datum?.isGroupStart && datum.groupName && (
+        <text
+          x={0}
+          y={-15}
+          textAnchor="end"
+          fontSize={9}
+          letterSpacing="0.08em"
+          fill="#8b8b94"
+        >
+          {datum.groupName.toUpperCase()}
+        </text>
+      )}
+      <text x={0} y={0} dy={4} textAnchor="end" fontSize={12} fill="#a1a1aa">
+        {payload?.value ?? ''}
+      </text>
+    </g>
+  );
+}
+
+function DistributionBarChart({
+  data,
+  mode,
+  grouped = false,
+}: {
+  data: DistributionDatum[];
+  mode: ChartMode;
+  grouped?: boolean;
+}) {
+  const ROW = grouped ? 40 : 36;
   const TOP_BOTTOM = 48;
   const height = Math.max(160, data.length * ROW + TOP_BOTTOM);
-  // Reserve room on the right for the "xx.x%" label that sits beyond the bar.
-  const rightMargin = 56;
+  // Absolute (shekel) labels are wider than "xx.x%", so reserve more room.
+  const rightMargin = mode === 'value' ? 64 : 56;
   // Left margin holds the YAxis tick labels (category/group names).
   const leftMargin = 8;
+
+  // The bar width and the readouts both follow the selected mode: percentages
+  // (0–100) or absolute shekels. Proportions are identical either way — only
+  // the numbers on the axis and bar ends change.
+  const dataKey = mode === 'pct' ? 'pct' : 'value';
+  const xTickFormatter =
+    mode === 'pct'
+      ? (v: number) => `${Math.round(v)}%`
+      : (v: number) =>
+          v >= 1000 ? `₪${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}k` : `₪${Math.round(v)}`;
+  const labelFormatter = (v: unknown) => {
+    const n = typeof v === 'number' ? v : Number(v ?? 0);
+    return mode === 'pct' ? `${n.toFixed(1)}%` : fmtCompactShekel(n);
+  };
 
   return (
     <div className="w-full" style={{ height }}>
@@ -552,7 +699,7 @@ function DistributionBarChart({ data }: { data: DistributionDatum[] }) {
         <BarChart
           data={data}
           layout="vertical"
-          margin={{ top: 8, right: rightMargin, bottom: 24, left: leftMargin }}
+          margin={{ top: grouped ? 20 : 8, right: rightMargin, bottom: 24, left: leftMargin }}
           barCategoryGap="25%"
         >
           <XAxis
@@ -560,9 +707,7 @@ function DistributionBarChart({ data }: { data: DistributionDatum[] }) {
             axisLine={false}
             tickLine={false}
             tick={{ fontSize: 11, fill: '#71717a' }}
-            tickFormatter={(v: number) =>
-              v >= 1000 ? `${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}k` : String(v)
-            }
+            tickFormatter={xTickFormatter}
           />
           <YAxis
             type="category"
@@ -570,7 +715,14 @@ function DistributionBarChart({ data }: { data: DistributionDatum[] }) {
             axisLine={false}
             tickLine={false}
             width={130}
-            tick={{ fontSize: 12, fill: '#a1a1aa' }}
+            // Render every tick so a group's first-category heading is never
+            // thinned away by Recharts' overlap avoidance.
+            interval={0}
+            tick={
+              grouped
+                ? (tickProps) => <GroupedYTick {...tickProps} data={data} />
+                : { fontSize: 12, fill: '#a1a1aa' }
+            }
           />
           <Tooltip
             cursor={{ fill: 'rgba(255,255,255,0.04)' }}
@@ -581,17 +733,14 @@ function DistributionBarChart({ data }: { data: DistributionDatum[] }) {
               />
             )}
           />
-          <Bar dataKey="value" radius={[0, 4, 4, 0]} isAnimationActive={false}>
+          <Bar dataKey={dataKey} radius={[0, 4, 4, 0]} isAnimationActive={false}>
             {data.map((entry, i) => (
               <Cell key={`b-${i}`} fill={entry.color} />
             ))}
             <LabelList
-              dataKey="pct"
+              dataKey={dataKey}
               position="right"
-              formatter={(v) => {
-                const n = typeof v === 'number' ? v : Number(v ?? 0);
-                return `${n.toFixed(1)}%`;
-              }}
+              formatter={labelFormatter}
               style={{ fill: '#a1a1aa', fontSize: 11 }}
             />
           </Bar>
