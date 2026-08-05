@@ -49,17 +49,34 @@ export function DesktopTabsBar() {
   const reorderTabs = useDesktopTabs((s) => s.reorderTabs);
   const syncActiveToRoute = useDesktopTabs((s) => s.syncActiveToRoute);
 
-  // Sync the active tab whenever the pathname changes. Runs after the
-  // page has painted so `document.title` reflects the new page. Falls
-  // back to the nav-map title if the page didn't set a document title
-  // yet.
+  // Sync the active tab whenever the pathname changes, using the default
+  // title for now — a page component that later sets document.title (e.g.
+  // an Areas page rendering the page's own title) triggers the observer
+  // below and refines the tab label.
   useEffect(() => {
-    const title =
-      typeof document !== 'undefined' && document.title
-        ? document.title.replace(/^The Hub[·\-—:\s]*/i, '').trim() || document.title
-        : defaultTitleForPath(pathname);
-    syncActiveToRoute(pathname, title || defaultTitleForPath(pathname));
+    syncActiveToRoute(pathname, defaultTitleForPath(pathname));
     // We WANT to run on every pathname change — the store dedupes no-op writes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  // Watch document.title. Pages that set their own title (Areas pages set
+  // the page's title; other routes may set a route-specific title later)
+  // update the active tab's label as soon as the change lands.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const titleEl = document.querySelector('title');
+    if (!titleEl) return;
+    const apply = () => {
+      const raw = document.title.trim();
+      if (!raw) return;
+      // Strip a common "The Hub" prefix if the layout ever adds one.
+      const stripped = raw.replace(/^The Hub[·\-—:\s]*/i, '').trim() || raw;
+      syncActiveToRoute(pathname, stripped);
+    };
+    apply();
+    const observer = new MutationObserver(apply);
+    observer.observe(titleEl, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 

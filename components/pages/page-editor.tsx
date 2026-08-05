@@ -118,6 +118,14 @@ export function PageEditor({ pageId }: { pageId: string }) {
   }, [flush]);
   useEffect(() => () => flushRef.current(), [pageId]);
 
+  // Reflect the page's title in document.title so browser tabs and the
+  // in-app desktop tab bar (which observes document.title) show the
+  // actual page name — not a generic "Areas" fallback.
+  useEffect(() => {
+    if (!title) return;
+    document.title = title;
+  }, [title]);
+
   const saveTitle = useCallback(
     (next: string) => {
       setTitle(next);
