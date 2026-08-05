@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
       '2.4',
       '2.5',
       '2.6',
+      '2.7',
     ];
     if (!supportedVersions.includes(metadata.schemaVersion)) {
       return NextResponse.json(
@@ -1166,6 +1167,7 @@ export async function POST(request: NextRequest) {
           emoji: (pg.emoji as string | null) ?? null,
           content: (pg.content as object) ?? undefined,
           sortOrder: pg.sortOrder as number,
+          autoCapitalize: (pg.autoCapitalize as boolean | undefined) ?? true,
           ownerId: pg.ownerId as string,
           householdId: pg.householdId as string,
           createdAt: new Date(pg.createdAt as string),

@@ -5,6 +5,7 @@ import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import { Markdown } from 'tiptap-markdown';
+import { AutoCapitalize } from '@/components/pages/auto-capitalize';
 import { Bold, Italic, Link2, List, ListOrdered, Strikethrough, Type } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -47,6 +48,7 @@ export function NotesEditor({ value, onChange, onBlur, placeholder }: NotesEdito
         breaks: true, // treat single newlines as <br> to match Notion-ish feel
         transformPastedText: true,
       }),
+      AutoCapitalize.configure({ enabled: true }),
     ],
     content: value,
     onUpdate: ({ editor }) => {

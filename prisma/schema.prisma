@@ -1386,6 +1386,10 @@ model Page {
   // Tiptap JSON document. Null until the user types anything.
   content     Json?
   sortOrder   Int      @default(0) @map("sort_order")
+  // When true (default), Tiptap editors on this page auto-capitalize the first
+  // letter of a sentence (after `.`/`!`/`?` + whitespace) and the first letter
+  // of each block. Toggle lives in the page kebab menu.
+  autoCapitalize Boolean @default(true) @map("auto_capitalize")
   ownerId     String   @map("owner_id")
   householdId String   @map("household_id")
   createdAt   DateTime @default(now()) @map("created_at")

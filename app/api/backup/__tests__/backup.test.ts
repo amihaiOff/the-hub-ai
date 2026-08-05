@@ -434,7 +434,7 @@ describe('Backup API', () => {
       // Verify metadata content
       const metadataContent = await zip.file('metadata.json')!.async('string');
       const metadata = JSON.parse(metadataContent);
-      expect(metadata.schemaVersion).toBe('2.6');
+      expect(metadata.schemaVersion).toBe('2.7');
       expect(metadata.createdBy).toBe('test@example.com');
       expect(metadata.counts).toEqual({
         users: 1,
