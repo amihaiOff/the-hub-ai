@@ -6,6 +6,7 @@ import { useAuthState } from '@/lib/hooks/use-auth';
 import { Sidebar } from './sidebar';
 import { MobileHeader } from './mobile-header';
 import { MobileMenu } from './mobile-menu';
+import { DesktopTabsBar } from './desktop-tabs-bar';
 
 import { useNeedsOnboarding } from '@/lib/contexts/household-context';
 
@@ -79,6 +80,10 @@ export function AppShell({ children }: AppShellProps) {
       {/* Mobile Menu (Sheet) */}
       <MobileMenu open={menuOpen} onOpenChange={setMenuOpen} />
 
+      {/* Desktop-only browser-style tab bar. Fixed at the top of the
+          viewport past the sidebar. Adds ~40px of top padding to main. */}
+      <DesktopTabsBar />
+
       {/* Main Content.
           `overflow-x-clip` keeps any wide child (e.g. a Tiptap table or the
           full-bleed database block) from overflowing the viewport horizontally.
@@ -88,7 +93,11 @@ export function AppShell({ children }: AppShellProps) {
           inflated width and spill off-screen. `clip` (not `hidden`) clips at the
           viewport edge without creating a scroll container, so the sticky editor
           toolbar and the database block's flush full-bleed still work. */}
-      <main id="main-content" tabIndex={-1} className="safe-px safe-pb overflow-x-clip lg:ml-64">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="safe-px safe-pb overflow-x-clip lg:ml-64 lg:pt-10"
+      >
         <div className="mx-auto max-w-7xl p-4 lg:p-8">{children}</div>
       </main>
     </div>
