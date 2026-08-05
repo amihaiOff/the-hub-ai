@@ -544,15 +544,20 @@ function BudgetDistribution({ categoryGroups }: BudgetDistributionProps) {
  */
 function ChartModeToggle({ mode, onChange }: { mode: ChartMode; onChange: (m: ChartMode) => void }) {
   return (
-    <div className="border-border/60 inline-flex items-center gap-0.5 rounded-lg border p-0.5">
+    <div
+      role="radiogroup"
+      aria-label="Chart readout"
+      className="border-border/60 inline-flex items-center gap-0.5 rounded-lg border p-0.5"
+    >
       <button
         type="button"
+        role="radio"
         aria-label="Show percentages"
-        aria-pressed={mode === 'pct'}
+        aria-checked={mode === 'pct'}
         title="Percent"
         onClick={() => onChange('pct')}
         className={cn(
-          'flex h-6 w-7 items-center justify-center rounded-md text-xs transition-colors',
+          'flex min-h-9 min-w-11 items-center justify-center rounded-md text-xs transition-colors',
           mode === 'pct'
             ? 'bg-muted text-foreground'
             : 'text-muted-foreground hover:text-foreground'
@@ -562,12 +567,13 @@ function ChartModeToggle({ mode, onChange }: { mode: ChartMode; onChange: (m: Ch
       </button>
       <button
         type="button"
+        role="radio"
         aria-label="Show amounts in shekels"
-        aria-pressed={mode === 'value'}
+        aria-checked={mode === 'value'}
         title="Shekels"
         onClick={() => onChange('value')}
         className={cn(
-          'flex h-6 w-7 items-center justify-center rounded-md text-sm leading-none font-semibold transition-colors',
+          'flex min-h-9 min-w-11 items-center justify-center rounded-md text-sm leading-none font-semibold transition-colors',
           mode === 'value'
             ? 'bg-muted text-foreground'
             : 'text-muted-foreground hover:text-foreground'
@@ -680,7 +686,8 @@ function DistributionBarChart({
   const xTickFormatter =
     mode === 'pct'
       ? (v: number) => `${Math.round(v)}%`
-      : (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}k` : String(v));
+      : (v: number) =>
+          v >= 1000 ? `₪${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}k` : `₪${Math.round(v)}`;
   const labelFormatter = (v: unknown) => {
     const n = typeof v === 'number' ? v : Number(v ?? 0);
     return mode === 'pct' ? `${n.toFixed(1)}%` : fmtCompactShekel(n);
@@ -692,7 +699,7 @@ function DistributionBarChart({
         <BarChart
           data={data}
           layout="vertical"
-          margin={{ top: 8, right: rightMargin, bottom: 24, left: leftMargin }}
+          margin={{ top: grouped ? 20 : 8, right: rightMargin, bottom: 24, left: leftMargin }}
           barCategoryGap="25%"
         >
           <XAxis
@@ -708,6 +715,9 @@ function DistributionBarChart({
             axisLine={false}
             tickLine={false}
             width={130}
+            // Render every tick so a group's first-category heading is never
+            // thinned away by Recharts' overlap avoidance.
+            interval={0}
             tick={
               grouped
                 ? (tickProps) => <GroupedYTick {...tickProps} data={data} />
