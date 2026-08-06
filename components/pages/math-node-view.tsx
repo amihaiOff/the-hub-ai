@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 import katex from 'katex';
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
-import { NodeSelection } from '@tiptap/pm/state';
 import { cn } from '@/lib/utils';
 
 /**
@@ -56,38 +55,59 @@ function deselectNode(props: NodeViewProps) {
     .run();
 }
 
+/**
+ * Notion-style math node views use a LOCAL `editing` flag rather than
+ * `props.selected` as the source of truth for whether to show the raw
+ * TeX input.
+ *
+ * Why: writing to `node.attrs.tex` on every keystroke would replace the
+ * node in the ProseMirror doc, which clears the NodeSelection (and thus
+ * `props.selected`), which unmounts the input mid-typing. Instead we
+ * keep the TeX in local state (`draft`) and only commit it to the node
+ * on blur / Escape — one attribute-update per edit, no focus churn.
+ *
+ * New nodes (empty `tex`) mount in edit mode; the input auto-focuses.
+ * Clicking a rendered node flips `editing` back to `true`.
+ */
+
 export function MathInlineView(props: NodeViewProps) {
   const tex = (props.node.attrs.tex as string) ?? '';
-  const selected = props.selected;
   const inputRef = useRef<HTMLInputElement>(null);
+  const [editing, setEditing] = useState(tex.length === 0 || props.selected);
   const [draft, setDraft] = useState(tex);
 
-  // Sync draft when the underlying attribute changes from outside (undo, etc).
+  // Pull in an external `tex` change (undo/redo, remote update) only when
+  // we're not actively editing — never clobber the user's typing. Deferred
+  // via queueMicrotask so the effect doesn't fire a synchronous setState
+  // (which the lint rule flags as cascading-render-prone).
   useEffect(() => {
-    setDraft(tex);
-  }, [tex]);
+    if (editing) return;
+    queueMicrotask(() => setDraft(tex));
+  }, [tex, editing]);
 
-  // When the node becomes selected, focus the input so the user can start
-  // typing raw TeX immediately (Notion-style).
   useEffect(() => {
-    if (selected) inputRef.current?.focus();
-  }, [selected]);
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
 
-  if (selected) {
+  const commit = () => {
+    if (draft !== tex) props.updateAttributes({ tex: draft });
+    setEditing(false);
+    // Move the caret past the node so the user can keep typing.
+    deselectNode(props);
+  };
+
+  if (editing) {
     return (
       <NodeViewWrapper as="span" className="math-inline inline-block align-middle">
         <input
           ref={inputRef}
           value={draft}
-          onChange={(e) => {
-            setDraft(e.target.value);
-            props.updateAttributes({ tex: e.target.value });
-          }}
-          onBlur={() => deselectNode(props)}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
           onKeyDown={(e) => {
             if (e.key === 'Escape' || e.key === 'Enter') {
               e.preventDefault();
-              deselectNode(props);
+              commit();
             }
           }}
           spellCheck={false}
@@ -104,15 +124,7 @@ export function MathInlineView(props: NodeViewProps) {
     <NodeViewWrapper
       as="span"
       className="math-inline hover:bg-muted/40 inline-block cursor-pointer rounded-md px-0.5 align-middle transition-colors"
-      onClick={() => {
-        // Select the node so the view swaps to edit mode.
-        const { editor, getPos } = props;
-        const pos = typeof getPos === 'function' ? getPos() : null;
-        if (pos == null) return;
-        const { state, view } = editor;
-        const tr = state.tr.setSelection(NodeSelection.create(state.doc, pos));
-        view.dispatch(tr);
-      }}
+      onClick={() => setEditing(true)}
     >
       <RenderedMath tex={tex} displayMode={false} />
     </NodeViewWrapper>
@@ -121,38 +133,42 @@ export function MathInlineView(props: NodeViewProps) {
 
 export function MathBlockView(props: NodeViewProps) {
   const tex = (props.node.attrs.tex as string) ?? '';
-  const selected = props.selected;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [editing, setEditing] = useState(tex.length === 0 || props.selected);
   const [draft, setDraft] = useState(tex);
 
   useEffect(() => {
-    setDraft(tex);
-  }, [tex]);
+    if (editing) return;
+    queueMicrotask(() => setDraft(tex));
+  }, [tex, editing]);
 
   useEffect(() => {
-    if (selected) textareaRef.current?.focus();
-  }, [selected]);
+    if (editing) textareaRef.current?.focus();
+  }, [editing]);
 
-  if (selected) {
+  const commit = () => {
+    if (draft !== tex) props.updateAttributes({ tex: draft });
+    setEditing(false);
+    deselectNode(props);
+  };
+
+  if (editing) {
     return (
       <NodeViewWrapper className="math-block my-2">
         <textarea
           ref={textareaRef}
           value={draft}
-          onChange={(e) => {
-            setDraft(e.target.value);
-            props.updateAttributes({ tex: e.target.value });
-          }}
-          onBlur={() => deselectNode(props)}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
               e.preventDefault();
-              deselectNode(props);
+              commit();
             }
             // Ctrl/Cmd+Enter finishes editing; plain Enter inserts a newline.
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
-              deselectNode(props);
+              commit();
             }
           }}
           spellCheck={false}
@@ -169,14 +185,7 @@ export function MathBlockView(props: NodeViewProps) {
       className={cn(
         'math-block hover:bg-muted/40 my-2 cursor-pointer rounded-md py-2 text-center transition-colors'
       )}
-      onClick={() => {
-        const { editor, getPos } = props;
-        const pos = typeof getPos === 'function' ? getPos() : null;
-        if (pos == null) return;
-        const { state, view } = editor;
-        const tr = state.tr.setSelection(NodeSelection.create(state.doc, pos));
-        view.dispatch(tr);
-      }}
+      onClick={() => setEditing(true)}
     >
       <RenderedMath tex={tex} displayMode={true} />
     </NodeViewWrapper>
