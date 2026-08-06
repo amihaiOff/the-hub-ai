@@ -59,26 +59,10 @@ export function DesktopTabsBar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  // Watch document.title. Pages that set their own title (Areas pages set
-  // the page's title; other routes may set a route-specific title later)
-  // update the active tab's label as soon as the change lands.
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const titleEl = document.querySelector('title');
-    if (!titleEl) return;
-    const apply = () => {
-      const raw = document.title.trim();
-      if (!raw) return;
-      // Strip a common "The Hub" prefix if the layout ever adds one.
-      const stripped = raw.replace(/^The Hub[·\-—:\s]*/i, '').trim() || raw;
-      syncActiveToRoute(pathname, stripped);
-    };
-    apply();
-    const observer = new MutationObserver(apply);
-    observer.observe(titleEl, { childList: true, subtree: true, characterData: true });
-    return () => observer.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  // Note: pages that know their own real title (e.g. Areas pages showing a
+  // page named "Roadmap") call `setActiveTabTitle` directly on the store.
+  // No MutationObserver here — Next.js can recreate the <title> element,
+  // which breaks the observer silently.
 
   // Route to the active tab's path when it changes (user clicked a tab).
   const lastRoutedPath = useRef<string | null>(null);
@@ -150,7 +134,7 @@ export function DesktopTabsBar() {
     >
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={tabIds} strategy={horizontalListSortingStrategy}>
-          <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+          <div className="flex min-w-0 flex-1 items-end gap-0.5 overflow-x-auto overflow-y-hidden">
             {tabs.map((tab) => (
               <SortableTab
                 key={tab.id}
