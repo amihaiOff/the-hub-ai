@@ -351,7 +351,22 @@ export function PageEditor({ pageId }: { pageId: string }) {
 
       {/* Bottom tab bar — always pinned to the viewport bottom. */}
       {hasTabBar && activeTab && (
-        <PageTabBar tabs={tabs} activeTabId={activeTab.id} onSelect={selectTab} />
+        <PageTabBar
+          tabs={tabs}
+          activeTabId={activeTab.id}
+          onSelect={selectTab}
+          onRename={(tabId, title) => updateTab.mutate({ pageId, tabId, patch: { title } })}
+          onReorder={(orderedIds) => {
+            // Persist by writing each moved tab's new sortOrder. Cheap for
+            // the handful of tabs a page has in practice; skips writes for
+            // tabs that already sit at the target index.
+            orderedIds.forEach((tabId, idx) => {
+              const current = tabs.find((t) => t.id === tabId);
+              if (!current || current.sortOrder === idx) return;
+              updateTab.mutate({ pageId, tabId, patch: { sortOrder: idx } });
+            });
+          }}
+        />
       )}
 
       <ManageTabsDialog
