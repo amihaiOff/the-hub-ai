@@ -929,7 +929,7 @@ function ColumnHeader({
             : undefined
         }
         title={sort ? `Sorted ${sort}` : 'Click to sort'}
-        className="text-muted-foreground flex min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left text-[0.7rem] font-semibold tracking-[0.08em] uppercase select-none"
+        className="text-muted-foreground flex min-w-0 flex-1 items-center justify-center gap-2 px-3 py-1.5 text-center text-[0.7rem] font-semibold tracking-[0.08em] uppercase select-none"
       >
         {/* Type icon hidden by default — the reference design uses pure
             uppercase text in the header. Long-press / right-click still
@@ -1616,25 +1616,57 @@ function DateCell({
 }) {
   const dateStr = typeof value === 'string' ? value : '';
   const display = dateStr ? formatDateForDisplay(dateStr) : '—';
+  const inputRef = useRef<HTMLInputElement | null>(null);
   return (
-    <label className="relative flex h-full w-full items-center px-3 py-3.5 text-sm">
+    // Clicking anywhere on the cell explicitly calls `showPicker()` on the
+    // hidden input — historically Chrome opened the native picker on focus
+    // alone, but modern browsers require an explicit call from a user
+    // gesture. `showPicker` isn't in older Safari; fall back to focusing.
+    <div
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      onClick={() => {
+        if (disabled) return;
+        const el = inputRef.current;
+        if (!el) return;
+        if ('showPicker' in el && typeof el.showPicker === 'function') {
+          try {
+            el.showPicker();
+          } catch {
+            el.focus();
+          }
+        } else {
+          el.focus();
+        }
+      }}
+      onKeyDown={(e) => {
+        if (disabled) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          inputRef.current?.focus();
+        }
+      }}
+      className={cn(
+        'flex h-full w-full cursor-pointer items-center px-3 py-3.5 text-sm outline-none',
+        disabled && 'cursor-not-allowed'
+      )}
+    >
       <input
+        ref={inputRef}
         type="date"
         value={dateStr}
         onChange={(e) => onChange(e.target.value || null)}
         disabled={disabled}
-        // Native input is transparent + absolutely sized to cover the cell
-        // so the click target matches the visible pill without showing the
-        // "dd/mm/yyyy" placeholder text.
-        className={cn(
-          'absolute inset-0 h-full w-full cursor-pointer bg-transparent px-3 py-3.5 opacity-0',
-          disabled && 'cursor-not-allowed'
-        )}
+        // Zero-size, positioned behind the visible label — click handling
+        // lives on the wrapper (above) so anywhere in the cell opens the
+        // picker.
+        className="pointer-events-none absolute h-0 w-0 opacity-0"
+        tabIndex={-1}
       />
       <span className={cn(dateStr ? 'text-foreground/90' : 'text-muted-foreground/50')}>
         {display}
       </span>
-    </label>
+    </div>
   );
 }
 

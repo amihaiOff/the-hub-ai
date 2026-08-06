@@ -445,7 +445,14 @@
      column. */
   .database-block tbody tr[data-row-id] > td:not([data-add-column-cell]) {
     background: color-mix(in oklab, var(--muted) 35%, transparent);
-    padding-block: 0.55rem;
+    padding-block: 0.35rem;
+  }
+  /* Belt-and-suspenders: force the narrow add-column filler to stay
+     transparent even under a hovered row so the hover highlight visibly
+     ends at the last real column. */
+  .database-block tbody tr[data-row-id]:hover > td[data-add-column-cell],
+  .database-block tbody tr[data-row-id] > td[data-add-column-cell] {
+    background: transparent !important;
   }
   .database-block tbody tr[data-row-id] > td:not([data-add-column-cell]):first-child {
     border-top-left-radius: 0.9rem;
