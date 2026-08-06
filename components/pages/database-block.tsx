@@ -41,6 +41,9 @@ import {
   type ColumnFilter,
 } from './db-filter';
 import { DatabaseFilterPanel } from './database-filter-panel';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarPicker } from '@/components/ui/calendar';
+import { format, parseISO, isValid } from 'date-fns';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   Dialog,
@@ -1597,7 +1600,7 @@ function CellEditor({
             onChange(Number.isFinite(v as number) || v === null ? v : null);
           }}
           disabled={disabled}
-          className="w-full bg-transparent px-3 py-3.5 text-right text-sm tabular-nums outline-none"
+          className="w-full bg-transparent px-3 py-3.5 text-center text-sm tabular-nums outline-none"
         />
       );
     case 'date':
@@ -1635,67 +1638,47 @@ function DateCell({
   disabled: boolean;
 }) {
   const dateStr = typeof value === 'string' ? value : '';
-  const display = dateStr ? formatDateForDisplay(dateStr) : '—';
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  return (
-    // Clicking anywhere on the cell explicitly calls `showPicker()` on the
-    // hidden input — historically Chrome opened the native picker on focus
-    // alone, but modern browsers require an explicit call from a user
-    // gesture. `showPicker` isn't in older Safari; fall back to focusing.
-    <div
-      role="button"
-      tabIndex={disabled ? -1 : 0}
-      onClick={() => {
-        if (disabled) return;
-        const el = inputRef.current;
-        if (!el) return;
-        if ('showPicker' in el && typeof el.showPicker === 'function') {
-          try {
-            el.showPicker();
-          } catch {
-            el.focus();
-          }
-        } else {
-          el.focus();
-        }
-      }}
-      onKeyDown={(e) => {
-        if (disabled) return;
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          inputRef.current?.focus();
-        }
-      }}
-      className={cn(
-        'flex h-full w-full cursor-pointer items-center px-3 py-3.5 text-sm outline-none',
-        disabled && 'cursor-not-allowed'
-      )}
-    >
-      <input
-        ref={inputRef}
-        type="date"
-        value={dateStr}
-        onChange={(e) => onChange(e.target.value || null)}
-        disabled={disabled}
-        // Zero-size, positioned behind the visible label — click handling
-        // lives on the wrapper (above) so anywhere in the cell opens the
-        // picker.
-        className="pointer-events-none absolute h-0 w-0 opacity-0"
-        tabIndex={-1}
-      />
-      <span className={cn(dateStr ? 'text-foreground/90' : 'text-muted-foreground/50')}>
-        {display}
-      </span>
-    </div>
-  );
-}
+  const parsed = dateStr ? parseISO(dateStr) : undefined;
+  const date = parsed && isValid(parsed) ? parsed : undefined;
+  const display = date ? format(date, 'dd/MM/yyyy') : '—';
+  const [open, setOpen] = useState(false);
 
-function formatDateForDisplay(iso: string): string {
-  // ISO date → dd/mm/yyyy for display. Preserves the raw ISO on the
-  // wire; only the visible label changes.
-  const [y, m, d] = iso.split('-');
-  if (!y || !m || !d) return iso;
-  return `${d}/${m}/${y}`;
+  return (
+    // Uses shadcn Popover + Calendar (same components used elsewhere in
+    // the app) instead of the native <input type="date"> UI — that native
+    // picker was styled by the browser and jarringly out of sync with
+    // the rest of the dark theme.
+    <Popover open={open} onOpenChange={disabled ? undefined : setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          className={cn(
+            'flex h-full w-full items-center justify-center px-3 py-3.5 text-sm outline-none',
+            disabled && 'cursor-not-allowed'
+          )}
+        >
+          <span className={cn(date ? 'text-foreground/90' : 'text-muted-foreground/50')}>
+            {display}
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="center">
+        <CalendarPicker
+          mode="single"
+          selected={date}
+          onSelect={(d) => {
+            onChange(d ? format(d, 'yyyy-MM-dd') : null);
+            setOpen(false);
+          }}
+          captionLayout="dropdown"
+          fromYear={2000}
+          toYear={2100}
+          initialFocus
+        />
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 /**
@@ -1770,7 +1753,7 @@ function SelectCell({
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
         aria-label={`${column.name}: ${selected?.label ?? 'empty'}`}
-        className="flex h-full w-full items-center px-3 py-3.5 text-left text-sm"
+        className="flex h-full w-full items-center justify-center px-3 py-3.5 text-center text-sm"
       >
         {selected && selColor ? (
           // Pill: rounded-full with a leading colored dot, Notion-style.
