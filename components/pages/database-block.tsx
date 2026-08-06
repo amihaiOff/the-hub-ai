@@ -886,7 +886,22 @@ function ColumnHeader({
   // setState inside an effect, so this is the right shape.
   const [editing, setEditing] = useState(() => Boolean(autoStartEdit && editable));
   const [mobileSheet, setMobileSheet] = useState(false);
+  // Clicking the header text toggles a small icon row below it
+  // (chevron / sort / delete). Click outside collapses.
+  const [expanded, setExpanded] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const [name, setName] = useState(column.name);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const onDown = (e: PointerEvent) => {
+      const target = e.target as Node | null;
+      if (rootRef.current?.contains(target)) return;
+      setExpanded(false);
+    };
+    window.addEventListener('pointerdown', onDown);
+    return () => window.removeEventListener('pointerdown', onDown);
+  }, [expanded]);
   // Long-press detection for mobile — 500ms without moving fires the sheet.
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearPress = () => {
@@ -910,106 +925,111 @@ function ColumnHeader({
   const typeMeta = TYPE_META[column.type];
   const TypeIcon = typeMeta.icon;
 
+  const SortIcon = sort === 'asc' ? ArrowUp : sort === 'desc' ? ArrowDown : ArrowUpDown;
+
   return (
-    <div className="group/header relative flex w-full items-stretch">
-      <button
-        type="button"
-        onClick={editable ? onToggleSort : undefined}
-        onTouchStart={editable ? startPress : undefined}
-        onTouchMove={clearPress}
-        onTouchEnd={clearPress}
-        onTouchCancel={clearPress}
-        onContextMenu={
-          // Long-press on desktop also opens the sheet; block the browser menu.
-          editable
-            ? (e) => {
-                e.preventDefault();
-                setMobileSheet(true);
-              }
-            : undefined
-        }
-        title={sort ? `Sorted ${sort}` : 'Click to sort'}
-        className="text-muted-foreground flex min-w-0 flex-1 items-center justify-center gap-2 px-3 py-1.5 text-center text-[0.7rem] font-semibold tracking-[0.08em] uppercase select-none"
-      >
-        {/* Type icon hidden by default — the reference design uses pure
-            uppercase text in the header. Long-press / right-click still
-            opens the column sheet where you can change the type. */}
-        <TypeIcon className={cn('hidden h-3.5 w-3.5 shrink-0', typeMeta.color)} aria-hidden />
-        {editable && editing ? (
-          <input
-            data-col-id={column.id}
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onBlur={() => {
-              if (name.trim() && name !== column.name) onRename(name.trim());
-              else if (!name.trim()) setName(column.name);
-              setEditing(false);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
-              if (e.key === 'Escape') {
-                setName(column.name);
-                (e.currentTarget as HTMLInputElement).blur();
-              }
-            }}
-            onClick={(e) => e.stopPropagation()}
-            // Intrinsic input widths break table sizing (default size=20
-            // ≈ 180px), so we only mount the input while editing. Display
-            // mode uses a <span class="truncate"> that respects min-w-0.
-            size={1}
-            className="text-foreground/85 min-w-0 flex-1 bg-transparent tracking-[0.08em] uppercase outline-none"
-          />
-        ) : (
-          <span
-            onDoubleClick={
-              editable
-                ? (e) => {
-                    e.stopPropagation();
-                    setEditing(true);
-                  }
-                : undefined
+    <div ref={rootRef} className="group/header relative flex w-full flex-col items-center py-1.5">
+      {/* Type icon retained but hidden by default — kept for future opt-in. */}
+      <TypeIcon className={cn('hidden h-3.5 w-3.5 shrink-0', typeMeta.color)} aria-hidden />
+      {editable && editing ? (
+        <input
+          data-col-id={column.id}
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => {
+            if (name.trim() && name !== column.name) onRename(name.trim());
+            else if (!name.trim()) setName(column.name);
+            setEditing(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
+            if (e.key === 'Escape') {
+              setName(column.name);
+              (e.currentTarget as HTMLInputElement).blur();
             }
-            title={editable ? 'Double-click to rename' : undefined}
-            className="text-foreground/85 min-w-0 flex-1 truncate"
-          >
-            {column.name}
-          </span>
-        )}
-        {sort === 'asc' && <ArrowUp className="text-primary h-3.5 w-3.5 shrink-0" />}
-        {sort === 'desc' && <ArrowDown className="text-primary h-3.5 w-3.5 shrink-0" />}
-        {editable && sort === false && (
-          <ArrowUpDown className="text-muted-foreground/40 h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover/header:opacity-100" />
-        )}
-      </button>
-      {/* Desktop only — chevron opens the type/options menu. */}
-      {editable && (
+          }}
+          onClick={(e) => e.stopPropagation()}
+          size={1}
+          className="text-foreground/85 min-w-0 bg-transparent px-3 text-center text-[0.7rem] font-semibold tracking-[0.08em] uppercase outline-none"
+        />
+      ) : (
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setMenuAnchor((cur) => (cur ? null : (e.currentTarget as HTMLButtonElement)));
-          }}
-          aria-label="Column options"
-          className="text-muted-foreground/50 hover:text-foreground hover:bg-muted/40 hidden w-6 shrink-0 items-center justify-center opacity-0 transition-opacity group-hover/header:opacity-100 md:flex"
+          onClick={editable ? () => setExpanded((v) => !v) : undefined}
+          onDoubleClick={
+            editable
+              ? (e) => {
+                  e.stopPropagation();
+                  setEditing(true);
+                }
+              : undefined
+          }
+          onTouchStart={editable ? startPress : undefined}
+          onTouchMove={clearPress}
+          onTouchEnd={clearPress}
+          onTouchCancel={clearPress}
+          onContextMenu={
+            editable
+              ? (e) => {
+                  e.preventDefault();
+                  setMobileSheet(true);
+                }
+              : undefined
+          }
+          title={editable ? 'Click for column actions · double-click to rename' : undefined}
+          className="text-foreground/85 max-w-full min-w-0 truncate px-3 text-center text-[0.7rem] font-semibold tracking-[0.08em] uppercase select-none"
         >
-          <ChevronDown className="h-3.5 w-3.5" />
+          {column.name}
         </button>
       )}
-      {/* Desktop only — quick delete-column X in the top-LEFT corner. */}
-      {editable && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          aria-label="Delete column"
-          title="Delete column"
-          className="text-muted-foreground/70 hover:bg-destructive/15 hover:text-destructive absolute top-0 left-0 hidden h-3.5 w-3.5 items-center justify-center rounded-br-md opacity-0 transition-opacity group-hover/header:opacity-100 md:flex"
-        >
-          <X className="h-3 w-3" />
-        </button>
+
+      {/* Inline action row — chevron, sort, trash. Order per spec:
+          chevron, sort, delete. Shown when the header is clicked. */}
+      {editable && expanded && !editing && (
+        <div className="mt-1 flex items-center gap-1">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuAnchor((cur) => (cur ? null : (e.currentTarget as HTMLButtonElement)));
+            }}
+            aria-label="Column options"
+            title="Column options"
+            className="text-muted-foreground hover:text-foreground hover:bg-muted/40 flex h-6 w-6 items-center justify-center rounded-md transition-colors"
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSort();
+            }}
+            aria-label={sort ? `Sorted ${sort} — cycle` : 'Sort'}
+            title={sort ? `Sorted ${sort}` : 'Sort'}
+            className={cn(
+              'flex h-6 w-6 items-center justify-center rounded-md transition-colors',
+              sort
+                ? 'text-primary hover:bg-primary/10'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+            )}
+          >
+            <SortIcon className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            aria-label="Delete column"
+            title="Delete column"
+            className="text-destructive hover:bg-destructive/15 flex h-6 w-6 items-center justify-center rounded-md transition-colors"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
       )}
 
       {menuOpen && (
