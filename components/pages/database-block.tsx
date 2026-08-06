@@ -931,7 +931,10 @@ function ColumnHeader({
         title={sort ? `Sorted ${sort}` : 'Click to sort'}
         className="text-muted-foreground flex min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left text-[0.7rem] font-semibold tracking-[0.08em] uppercase select-none"
       >
-        <TypeIcon className={cn('h-3.5 w-3.5 shrink-0', typeMeta.color)} />
+        {/* Type icon hidden by default — the reference design uses pure
+            uppercase text in the header. Long-press / right-click still
+            opens the column sheet where you can change the type. */}
+        <TypeIcon className={cn('hidden h-3.5 w-3.5 shrink-0', typeMeta.color)} aria-hidden />
         {editable && editing ? (
           <input
             data-col-id={column.id}

@@ -445,7 +445,7 @@
      column. */
   .database-block tbody tr[data-row-id] > td:not([data-add-column-cell]) {
     background: color-mix(in oklab, var(--muted) 35%, transparent);
-    padding-block: 0.75rem;
+    padding-block: 1rem;
   }
   .database-block tbody tr[data-row-id] > td:not([data-add-column-cell]):first-child {
     border-top-left-radius: 0.9rem;
