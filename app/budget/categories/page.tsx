@@ -636,10 +636,11 @@ function fmtCompactShekel(v: number): string {
 /** Approximate row height used by the bar chart. Must stay in sync with the
  * `ROW` constant in `DistributionBarChart`. */
 const GROUP_ROW = 40;
-/** How far to the left of the category names the group bracket sits. */
-const BRACKET_X = -90;
-/** How far left of the bracket the group label sits (its right edge). */
-const GROUP_LABEL_X = -98;
+/** Fixed width for the wrapped group label. */
+const GROUP_LABEL_WIDTH = 100;
+/** Right edge of the group label column (relative to the tick origin). Sits
+ * a hair left of the category names. */
+const GROUP_LABEL_RIGHT = -14;
 
 /**
  * Custom Y-axis tick for the grouped (by-category) chart. Renders the
@@ -669,55 +670,42 @@ function GroupedYTick(props: {
     }
   }
 
-  const bracketTop = -GROUP_ROW / 2 + 4;
-  const bracketBottom = bracketTop + (groupRows - 1) * GROUP_ROW + (GROUP_ROW - 8);
-  const labelY = bracketTop + (bracketBottom - bracketTop) / 2;
+  // Total vertical span of the group (in tick-local coords). Label sits
+  // centred inside a foreignObject sized to this span so wrapping happens
+  // in HTML land — SVG <text> can't wrap on its own.
+  const spanTop = -GROUP_ROW / 2;
+  const spanHeight = groupRows * GROUP_ROW;
 
   return (
     <g transform={`translate(${x},${y})`}>
       {datum?.isGroupStart && datum.groupName && (
-        <g style={{ color: 'var(--muted-foreground)' }}>
-          {/* Bracket line + subtle end caps, spanning every row in this
-              group. Uses `currentColor` so the whole bracket picks up the
-              muted-foreground token from the wrapping <g>. */}
-          <line
-            x1={BRACKET_X}
-            x2={BRACKET_X}
-            y1={bracketTop}
-            y2={bracketBottom}
-            stroke="var(--border)"
-            strokeWidth={1}
-          />
-          <line
-            x1={BRACKET_X}
-            x2={BRACKET_X + 4}
-            y1={bracketTop}
-            y2={bracketTop}
-            stroke="var(--border)"
-            strokeWidth={1}
-          />
-          <line
-            x1={BRACKET_X}
-            x2={BRACKET_X + 4}
-            y1={bracketBottom}
-            y2={bracketBottom}
-            stroke="var(--border)"
-            strokeWidth={1}
-          />
-          {/* Group name, vertically centred on the bracket span. */}
-          <text
-            x={GROUP_LABEL_X}
-            y={labelY}
-            textAnchor="end"
-            dominantBaseline="central"
-            fontSize={10}
-            letterSpacing="0.12em"
-            fontWeight={600}
-            fill="currentColor"
+        <foreignObject
+          x={GROUP_LABEL_RIGHT - GROUP_LABEL_WIDTH}
+          y={spanTop}
+          width={GROUP_LABEL_WIDTH}
+          height={spanHeight}
+        >
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              color: 'var(--muted-foreground)',
+              fontSize: 10,
+              fontWeight: 600,
+              letterSpacing: '0.12em',
+              lineHeight: 1.25,
+              textTransform: 'uppercase',
+              textAlign: 'right',
+              overflowWrap: 'break-word',
+              wordBreak: 'break-word',
+            }}
           >
-            {datum.groupName.toUpperCase()}
-          </text>
-        </g>
+            {datum.groupName}
+          </div>
+        </foreignObject>
       )}
       <text x={0} y={0} dy={4} textAnchor="end" fontSize={12} fill="var(--foreground)">
         {payload?.value ?? ''}
