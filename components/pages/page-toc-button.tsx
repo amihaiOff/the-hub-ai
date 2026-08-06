@@ -114,9 +114,10 @@ export function PageTocButton({
   return createPortal(
     <div
       data-page-toc=""
-      className="pointer-events-none fixed left-4 z-40 lg:left-[17rem]"
-      // A hair above the tab bar / keyboard, tucked to the left. Clears
-      // the desktop sidebar with `lg:left-[17rem]` (64 + 1rem gutter).
+      className="pointer-events-none fixed right-4 z-40"
+      // A hair above the tab bar / keyboard, tucked to the right so it
+      // sits opposite the desktop sidebar and stays clear of the mobile
+      // hamburger.
       style={{ bottom: `calc(${bottom} + 0.5rem)` }}
     >
       <div className="pointer-events-auto relative">
@@ -145,8 +146,8 @@ export function PageTocButton({
           onPointerEnter={cancelHide}
           onPointerLeave={scheduleHide}
           className={cn(
-            'border-border/60 bg-card/98 absolute bottom-11 left-0 max-w-[26rem] min-w-64 overflow-y-auto rounded-2xl border shadow-xl backdrop-blur',
-            'origin-bottom-left transition-[transform,opacity] duration-150 ease-out',
+            'border-border/60 bg-card/98 absolute right-0 bottom-11 max-w-[26rem] min-w-64 overflow-y-auto rounded-2xl border shadow-xl backdrop-blur',
+            'origin-bottom-right transition-[transform,opacity] duration-150 ease-out',
             open ? 'scale-100 opacity-100' : 'pointer-events-none scale-95 opacity-0'
           )}
           style={{ maxHeight: '70vh' }}
