@@ -637,10 +637,10 @@ function fmtCompactShekel(v: number): string {
  * `ROW` constant in `DistributionBarChart`. */
 const GROUP_ROW = 40;
 /** Fixed width for the wrapped group label. */
-const GROUP_LABEL_WIDTH = 100;
+const GROUP_LABEL_WIDTH = 110;
 /** Right edge of the group label column (relative to the tick origin). Sits
- * a hair left of the category names. */
-const GROUP_LABEL_RIGHT = -14;
+ * well to the left of the category names so long names never overlap. */
+const GROUP_LABEL_RIGHT = -120;
 
 /**
  * Custom Y-axis tick for the grouped (by-category) chart. Renders the
@@ -693,9 +693,9 @@ function GroupedYTick(props: {
               alignItems: 'center',
               justifyContent: 'flex-end',
               color: 'var(--muted-foreground)',
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: 600,
-              letterSpacing: '0.12em',
+              letterSpacing: '0.1em',
               lineHeight: 1.25,
               textTransform: 'uppercase',
               textAlign: 'right',
@@ -766,10 +766,10 @@ function DistributionBarChart({
             dataKey="name"
             axisLine={false}
             tickLine={false}
-            // Widened to hold the group brackets + labels drawn to the
-            // left of each category name (see GroupedYTick). In the flat
+            // Widened to hold the group label column drawn to the left of
+            // each category name (see GroupedYTick). In the flat
             // (non-grouped) mode the extra space just sits empty.
-            width={grouped ? 220 : 130}
+            width={grouped ? 250 : 130}
             // Render every tick so a group's first-category heading is never
             // thinned away by Recharts' overlap avoidance.
             interval={0}
