@@ -931,7 +931,14 @@ function ColumnHeader({
   const SortIcon = sort === 'asc' ? ArrowUp : sort === 'desc' ? ArrowDown : ArrowUpDown;
 
   return (
-    <div ref={rootRef} className="group/header relative flex w-full flex-col items-center py-1.5">
+    <div
+      ref={rootRef}
+      // Fixed min-height keeps the header cell the same size in both
+      // collapsed and expanded states — the label just shifts UP when
+      // the icon row appears (flex-col + justify-center), and the table
+      // rows below don't move.
+      className="group/header relative flex min-h-[3.25rem] w-full flex-col items-center justify-center gap-1 py-1"
+    >
       {/* Type icon retained but hidden by default — kept for future opt-in. */}
       <TypeIcon className={cn('hidden h-3.5 w-3.5 shrink-0', typeMeta.color)} aria-hidden />
       {editable && editing ? (
@@ -990,7 +997,10 @@ function ColumnHeader({
       {/* Inline action row — chevron, sort, trash. Order per spec:
           chevron, sort, delete. Shown when the header is clicked. */}
       {editable && expanded && !editing && (
-        <div className="mt-1 flex items-center gap-1">
+        // Icons carry no colour by default — hovering each one paints the
+        // action semantic tint (chevron → pastel green, sort → primary
+        // pastel blue, trash → pastel red).
+        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={(e) => {
@@ -999,7 +1009,7 @@ function ColumnHeader({
             }}
             aria-label="Column options"
             title="Column options"
-            className="text-muted-foreground hover:text-foreground hover:bg-muted/40 flex h-6 w-6 items-center justify-center rounded-md transition-colors"
+            className="text-muted-foreground flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-emerald-400/10 hover:text-emerald-400"
           >
             <ChevronDown className="h-3.5 w-3.5" />
           </button>
@@ -1011,12 +1021,7 @@ function ColumnHeader({
             }}
             aria-label={sort ? `Sorted ${sort} — cycle` : 'Sort'}
             title={sort ? `Sorted ${sort}` : 'Sort'}
-            className={cn(
-              'flex h-6 w-6 items-center justify-center rounded-md transition-colors',
-              sort
-                ? 'text-primary hover:bg-primary/10'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
-            )}
+            className="text-muted-foreground hover:bg-primary/10 hover:text-primary flex h-6 w-6 items-center justify-center rounded-md transition-colors"
           >
             <SortIcon className="h-3.5 w-3.5" />
           </button>
@@ -1028,7 +1033,7 @@ function ColumnHeader({
             }}
             aria-label="Delete column"
             title="Delete column"
-            className="text-destructive hover:bg-destructive/15 flex h-6 w-6 items-center justify-center rounded-md transition-colors"
+            className="text-muted-foreground hover:bg-destructive/15 hover:text-destructive flex h-6 w-6 items-center justify-center rounded-md transition-colors"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -1041,7 +1046,6 @@ function ColumnHeader({
           column={column}
           onClose={() => setMenuAnchor(null)}
           onChangeType={onChangeType}
-          onDelete={onDelete}
           onSetOptions={onSetOptions}
         />
       )}
@@ -1073,14 +1077,12 @@ function ColumnMenu({
   column,
   onClose,
   onChangeType,
-  onDelete,
   onSetOptions,
 }: {
   anchor: HTMLElement | null;
   column: DatabaseColumn;
   onClose: () => void;
   onChangeType: (type: DatabaseColumnType) => void;
-  onDelete: () => void;
   onSetOptions: (opts: { id: string; label: string; color?: string }[]) => void;
 }) {
   const [newOption, setNewOption] = useState('');
@@ -1246,18 +1248,8 @@ function ColumnMenu({
         </div>
       )}
 
-      <div className="border-border/50 mt-1 border-t pt-1">
-        <button
-          type="button"
-          onClick={() => {
-            onDelete();
-            onClose();
-          }}
-          className="hover:bg-destructive/10 text-destructive flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs"
-        >
-          <Trash2 className="h-3.5 w-3.5" /> Delete column
-        </button>
-      </div>
+      {/* Delete column moved out of this popover — the header's inline
+          action row (trash icon) is the single place to trigger it. */}
     </div>
   );
 
