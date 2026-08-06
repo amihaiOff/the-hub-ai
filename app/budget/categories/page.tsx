@@ -633,11 +633,20 @@ function fmtCompactShekel(v: number): string {
   return v >= 1000 ? `₪${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}k` : `₪${Math.round(v)}`;
 }
 
+/** Approximate row height used by the bar chart. Must stay in sync with the
+ * `ROW` constant in `DistributionBarChart`. */
+const GROUP_ROW = 40;
+/** How far to the left of the category names the group bracket sits. */
+const BRACKET_X = -90;
+/** How far left of the bracket the group label sits (its right edge). */
+const GROUP_LABEL_X = -98;
+
 /**
- * Custom Y-axis tick for the grouped (by-category) chart. Renders the category
- * name and, on the first category of each group, a subtle uppercase group
- * heading above it so groups are easy — but quiet — to pick out. Reads the
- * datum by tick index so duplicate category names stay correct.
+ * Custom Y-axis tick for the grouped (by-category) chart. Renders the
+ * category name at the tick's own y-position and, on the first row of
+ * each group, ALSO renders that group's label + a subtle vertical
+ * bracket spanning every row in the group. The bracket lets the eye
+ * connect each category to its group without a big shouty header.
  */
 function GroupedYTick(props: {
   x?: number;
@@ -646,15 +655,71 @@ function GroupedYTick(props: {
   data: DistributionDatum[];
 }) {
   const { x = 0, y = 0, payload, data } = props;
-  const datum = payload?.index != null ? data[payload.index] : undefined;
+  const idx = payload?.index ?? -1;
+  const datum = idx >= 0 ? data[idx] : undefined;
+
+  // How many consecutive rows share this group — determines the bracket
+  // height. Computed by walking forward until the group changes.
+  let groupRows = 0;
+  if (datum?.isGroupStart) {
+    const g = datum.groupName;
+    for (let i = idx; i < data.length; i++) {
+      if (data[i]?.groupName === g) groupRows++;
+      else break;
+    }
+  }
+
+  const bracketTop = -GROUP_ROW / 2 + 4;
+  const bracketBottom = bracketTop + (groupRows - 1) * GROUP_ROW + (GROUP_ROW - 8);
+  const labelY = bracketTop + (bracketBottom - bracketTop) / 2;
+
   return (
     <g transform={`translate(${x},${y})`}>
       {datum?.isGroupStart && datum.groupName && (
-        <text x={0} y={-15} textAnchor="end" fontSize={9} letterSpacing="0.08em" fill="#8b8b94">
-          {datum.groupName.toUpperCase()}
-        </text>
+        <g style={{ color: 'var(--muted-foreground)' }}>
+          {/* Bracket line + subtle end caps, spanning every row in this
+              group. Uses `currentColor` so the whole bracket picks up the
+              muted-foreground token from the wrapping <g>. */}
+          <line
+            x1={BRACKET_X}
+            x2={BRACKET_X}
+            y1={bracketTop}
+            y2={bracketBottom}
+            stroke="var(--border)"
+            strokeWidth={1}
+          />
+          <line
+            x1={BRACKET_X}
+            x2={BRACKET_X + 4}
+            y1={bracketTop}
+            y2={bracketTop}
+            stroke="var(--border)"
+            strokeWidth={1}
+          />
+          <line
+            x1={BRACKET_X}
+            x2={BRACKET_X + 4}
+            y1={bracketBottom}
+            y2={bracketBottom}
+            stroke="var(--border)"
+            strokeWidth={1}
+          />
+          {/* Group name, vertically centred on the bracket span. */}
+          <text
+            x={GROUP_LABEL_X}
+            y={labelY}
+            textAnchor="end"
+            dominantBaseline="central"
+            fontSize={10}
+            letterSpacing="0.12em"
+            fontWeight={600}
+            fill="currentColor"
+          >
+            {datum.groupName.toUpperCase()}
+          </text>
+        </g>
       )}
-      <text x={0} y={0} dy={4} textAnchor="end" fontSize={12} fill="#a1a1aa">
+      <text x={0} y={0} dy={4} textAnchor="end" fontSize={12} fill="var(--foreground)">
         {payload?.value ?? ''}
       </text>
     </g>
@@ -713,7 +778,10 @@ function DistributionBarChart({
             dataKey="name"
             axisLine={false}
             tickLine={false}
-            width={130}
+            // Widened to hold the group brackets + labels drawn to the
+            // left of each category name (see GroupedYTick). In the flat
+            // (non-grouped) mode the extra space just sits empty.
+            width={grouped ? 220 : 130}
             // Render every tick so a group's first-category heading is never
             // thinned away by Recharts' overlap avoidance.
             interval={0}
