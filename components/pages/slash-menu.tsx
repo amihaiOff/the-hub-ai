@@ -335,11 +335,20 @@ export const SlashMenuExtension = Extension.create({
         char: '/',
         allowSpaces: false,
         startOfLine: false,
-        allow: ({ editor: e, range }) => {
-          // Only trigger on empty-ish blocks so we don't disturb slashes inside prose.
+        allow: ({ editor: e }) => {
+          // Trigger anywhere in prose, Notion-style. Tiptap's Suggestion
+          // plugin already requires the char to be at the start of a word
+          // (start of line or after whitespace), so URLs like "http://"
+          // don't fire it. Skip only where a slash is legitimately literal
+          // content: code blocks and math nodes.
           const { $from } = e.state.selection;
-          const isTopLevel = $from.depth === 1;
-          return isTopLevel && range.from === $from.start();
+          for (let d = $from.depth; d > 0; d--) {
+            const name = $from.node(d).type.name;
+            if (name === 'codeBlock' || name === 'mathInline' || name === 'mathBlock') {
+              return false;
+            }
+          }
+          return true;
         },
         command: ({ editor, range, props }) => {
           (props as SlashItem).command({ editor, range });

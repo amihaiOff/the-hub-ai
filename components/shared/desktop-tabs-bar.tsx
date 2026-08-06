@@ -137,7 +137,13 @@ export function DesktopTabsBar() {
   return (
     <div
       className={cn(
-        'border-border/40 bg-background/95 fixed top-0 right-0 left-64 z-40 hidden h-10 items-center gap-1 border-b px-2 backdrop-blur-lg lg:flex'
+        // Chrome-style tab strip: subtly darker "chrome" bar with the active
+        // tab lifted onto it. `bg-muted/60` reads as the browser chrome;
+        // active tabs use `bg-background` so they connect visually to the
+        // main content area below. Bottom border merges via the active tab
+        // (see the ::after trick isn't needed — the active tab spans the
+        // full height so its bottom rests flush with the content border).
+        'border-border/40 bg-muted/60 fixed top-0 right-0 left-64 z-40 hidden h-10 items-end gap-0.5 border-b px-2 pt-1 backdrop-blur-lg lg:flex'
       )}
       role="tablist"
       aria-label="Open pages"
@@ -213,10 +219,17 @@ function SortableTab({
       aria-selected={isActive}
       onClick={onSelect}
       className={cn(
-        'group flex h-7 max-w-[220px] min-w-0 shrink-0 cursor-pointer items-center gap-2 rounded px-2 text-sm transition-colors',
+        // Chrome-style tab shape: rounded-top, flat bottom that meets the
+        // content border. Active tab uses bg-background so it visually
+        // connects to the content area below (the small pt-1 on the bar
+        // container gives a hairline of chrome above every tab).
+        // `-mb-px` pulls the tab 1px below the container so the active
+        // tab's fill covers the bar's border-b — mimics Chrome's connected
+        // tab / content seam.
+        'group -mb-px flex h-8 max-w-[220px] min-w-0 shrink-0 cursor-pointer items-center gap-2 rounded-t-lg px-3 text-sm transition-colors',
         isActive
-          ? 'bg-muted text-foreground'
-          : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+          ? 'bg-background text-foreground shadow-[0_-1px_2px_rgba(0,0,0,0.08)]'
+          : 'text-muted-foreground hover:bg-background/50 hover:text-foreground'
       )}
       title={tab.title}
     >
