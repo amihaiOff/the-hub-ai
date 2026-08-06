@@ -933,11 +933,11 @@ function ColumnHeader({
   return (
     <div
       ref={rootRef}
-      // Fixed min-height keeps the header cell the same size in both
-      // collapsed and expanded states — the label just shifts UP when
-      // the icon row appears (flex-col + justify-center), and the table
-      // rows below don't move.
-      className="group/header relative flex min-h-[3.25rem] w-full flex-col items-center justify-center gap-1 py-1"
+      // Header cell keeps its compact vertical size. When the label is
+      // clicked, the icon row floats absolutely BELOW the header
+      // (position: absolute + top: 100%) so the table doesn't move.
+      // The label itself lifts a couple pixels as a subtle affordance.
+      className="group/header relative flex w-full flex-col items-center py-1.5"
     >
       {/* Type icon retained but hidden by default — kept for future opt-in. */}
       <TypeIcon className={cn('hidden h-3.5 w-3.5 shrink-0', typeMeta.color)} aria-hidden />
@@ -988,19 +988,23 @@ function ColumnHeader({
               : undefined
           }
           title={editable ? 'Click for column actions · double-click to rename' : undefined}
-          className="text-foreground/85 max-w-full min-w-0 truncate px-3 text-center text-[0.7rem] font-semibold tracking-[0.08em] uppercase select-none"
+          className={cn(
+            'text-foreground/85 max-w-full min-w-0 truncate px-3 text-center text-[0.7rem] font-semibold tracking-[0.08em] uppercase transition-transform select-none',
+            expanded && '-translate-y-1'
+          )}
         >
           {column.name}
         </button>
       )}
 
-      {/* Inline action row — chevron, sort, trash. Order per spec:
-          chevron, sort, delete. Shown when the header is clicked. */}
+      {/* Inline action row — chevron, sort, trash. Absolute so the header
+          cell stays compact; the icon row floats just below the header,
+          overlaying the tiny row-spacing gap without pushing rows down. */}
       {editable && expanded && !editing && (
         // Icons carry no colour by default — hovering each one paints the
         // action semantic tint (chevron → pastel green, sort → primary
         // pastel blue, trash → pastel red).
-        <div className="flex items-center gap-1">
+        <div className="pointer-events-auto absolute top-full left-1/2 z-20 -mt-1 flex -translate-x-1/2 items-center gap-1">
           <button
             type="button"
             onClick={(e) => {
