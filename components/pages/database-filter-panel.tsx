@@ -59,7 +59,12 @@ export function DatabaseFilterPanel({
       ref={ref}
       // max-w accounts for the block's pl-9 (2.25rem) indent plus a small gutter
       // so the panel never spills past the right edge on a ~320px screen.
-      className="border-border bg-card absolute top-full left-0 z-30 mt-1 w-72 max-w-[calc(100vw-4.5rem)] rounded-xl border p-3 shadow-lg"
+      // Mobile: fixed 18rem width capped by viewport so the panel never
+      // spills past the right edge on a ~320px screen. Desktop: fit
+      // content so date-range pairs / wider controls aren't clipped or
+      // horizontally-scrolled. `lg:w-max` + `lg:max-w-[36rem]` gives
+      // room for two side-by-side date inputs without runaway growth.
+      className="border-border bg-card absolute top-full left-0 z-30 mt-1 w-72 max-w-[calc(100vw-4.5rem)] rounded-xl border p-3 shadow-lg lg:w-max lg:max-w-[36rem]"
     >
       <div className="mb-2 flex items-center justify-between">
         <span className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
@@ -76,7 +81,9 @@ export function DatabaseFilterPanel({
         )}
       </div>
 
-      <div className="max-h-[50vh] space-y-3 overflow-y-auto">
+      {/* Vertical scroll only when the mobile viewport gets tight; desktop
+          drops the cap so the panel expands to fit its content. */}
+      <div className="max-h-[50vh] space-y-3 overflow-y-auto lg:max-h-none lg:overflow-visible">
         {columns.map((col) => (
           <div key={col.id} className="space-y-1">
             <label className="text-foreground/80 text-xs font-medium">{col.name}</label>

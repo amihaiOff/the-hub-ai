@@ -477,7 +477,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
         >
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="bg-muted/40">
+              <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   const col = columns.find((c) => c.id === header.column.id);
                   if (!col) return null;

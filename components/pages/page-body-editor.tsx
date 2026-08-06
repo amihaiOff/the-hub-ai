@@ -35,6 +35,7 @@ import { CollapsibleHeading } from './collapsible-heading';
 import { TableFloatingControls } from './table-floating-controls';
 import { DatabaseBlock } from './database-extension';
 import { MobileEditorToolbar } from './mobile-editor-toolbar';
+import { PageTocButton } from './page-toc-button';
 import { AutoCapitalize } from './auto-capitalize';
 import { MathInline, MathBlock } from './math-extension';
 
@@ -226,6 +227,9 @@ export function PageBodyEditor({
       {/* Consolidated floating toolbar for touch users — undo/redo, block
           type, delete/duplicate, outdent. Shown only while editing. */}
       <MobileEditorToolbar editor={editor} hasBottomTabBar={hasBottomTabBar} />
+      {/* Fixed pill at the bottom-left with a heading outline for the
+          current tab. Hover on desktop, tap on mobile. */}
+      <PageTocButton editor={editor} hasBottomTabBar={hasBottomTabBar} />
     </div>
   );
 }
