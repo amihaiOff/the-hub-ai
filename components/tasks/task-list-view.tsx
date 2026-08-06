@@ -120,7 +120,10 @@ function TaskCard({
 }) {
   const setDone = useToggleTaskDone();
   const isDone = task.done;
-  const hasChildren = (task.children?.length ?? 0) > 0;
+  // Preview count reflects OPEN sub-tasks only — checked-off items drop
+  // out of the card the moment they're marked done.
+  const openChildren = (task.children ?? []).filter((c) => !c.done);
+  const hasChildren = openChildren.length > 0;
 
   const { bindRef, consumedClick } = useLongPress(onEnterSelection);
 
@@ -187,7 +190,7 @@ function TaskCard({
           {task.title}
         </button>
         {hasChildren && (
-          <span className="text-muted-foreground text-xs">{task.children!.length} sub</span>
+          <span className="text-muted-foreground text-xs">{openChildren.length} sub</span>
         )}
       </div>
 

@@ -365,7 +365,9 @@ function DraggableKanbanCard({
 }) {
   const onOpen = () => onOpenTask(task.id);
   const [subtasksOpen, setSubtasksOpen] = useState(false);
-  const subtasks = task.children ?? [];
+  // Hide checked-off sub-tasks from the card preview so completed work
+  // doesn't linger visually. Users still see them in the detail sheet.
+  const subtasks = (task.children ?? []).filter((c) => !c.done);
   const subtaskCount = subtasks.length;
   // Dragging stays enabled in selection mode: a tap toggles selection, a drag
   // moves the card.

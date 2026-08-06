@@ -29,6 +29,7 @@ export function TableFloatingControls({ editor }: { editor: Editor }) {
   const [hoveredRowIndex, setHoveredRowIndex] = useState<number | null>(null);
   const [hoveredColIndex, setHoveredColIndex] = useState<number | null>(null);
   const [tableBox, setTableBox] = useState<DOMRect | null>(null);
+  const [hoveredRowBox, setHoveredRowBox] = useState<DOMRect | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -89,7 +90,18 @@ export function TableFloatingControls({ editor }: { editor: Editor }) {
 
   useLayoutEffect(() => {
     if (!hoveredTable) return;
-    const measure = () => setTableBox(hoveredTable.getBoundingClientRect());
+    const measure = () => {
+      setTableBox(hoveredTable.getBoundingClientRect());
+      // Also refresh the current row's rect so the delete-row button stays
+      // aligned as content wraps / rows resize.
+      if (hoveredRowIndex != null) {
+        const rows = hoveredTable.querySelectorAll('tr');
+        const row = rows[hoveredRowIndex] as HTMLTableRowElement | undefined;
+        setHoveredRowBox(row ? row.getBoundingClientRect() : null);
+      } else {
+        setHoveredRowBox(null);
+      }
+    };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(hoveredTable);
@@ -101,7 +113,7 @@ export function TableFloatingControls({ editor }: { editor: Editor }) {
       window.removeEventListener('scroll', measure, true);
       window.removeEventListener('resize', measure);
     };
-  }, [hoveredTable]);
+  }, [hoveredTable, hoveredRowIndex]);
 
   // Keep the menu-open state from unmounting the anchor when the pointer
   // leaves the table momentarily — the Radix portal will handle dismissing
@@ -144,6 +156,30 @@ export function TableFloatingControls({ editor }: { editor: Editor }) {
 
   return createPortal(
     <>
+      {/* Left gutter: trash icon aligned to the currently-hovered row.
+          Mirrors the database block's delete-row affordance so users have
+          a discoverable one-click way to remove a row without having to
+          open the ⋮ menu. Non-header rows only. */}
+      {hoveredRowBox && hoveredRowIndex != null && hoveredRowIndex > 0 && (
+        <button
+          type="button"
+          onClick={deleteRow}
+          aria-label="Delete row"
+          title="Delete row"
+          data-table-controls=""
+          style={{
+            zIndex: 60,
+            position: 'fixed',
+            top: hoveredRowBox.top,
+            height: hoveredRowBox.height,
+            left: tableBox.left - 28,
+          }}
+          className="text-muted-foreground/70 hover:bg-destructive/15 hover:text-destructive flex w-6 items-center justify-center rounded-lg transition-colors"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      )}
+
       {/* Right edge: add column tab. Sits flush against the table edge so
           moving the cursor to it never crosses a big gap. */}
       <button
