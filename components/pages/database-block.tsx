@@ -41,6 +41,9 @@ import {
   type ColumnFilter,
 } from './db-filter';
 import { DatabaseFilterPanel } from './database-filter-panel';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarPicker } from '@/components/ui/calendar';
+import { format, parseISO, isValid } from 'date-fns';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   Dialog,
@@ -886,7 +889,22 @@ function ColumnHeader({
   // setState inside an effect, so this is the right shape.
   const [editing, setEditing] = useState(() => Boolean(autoStartEdit && editable));
   const [mobileSheet, setMobileSheet] = useState(false);
+  // Clicking the header text toggles a small icon row below it
+  // (chevron / sort / delete). Click outside collapses.
+  const [expanded, setExpanded] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const [name, setName] = useState(column.name);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const onDown = (e: PointerEvent) => {
+      const target = e.target as Node | null;
+      if (rootRef.current?.contains(target)) return;
+      setExpanded(false);
+    };
+    window.addEventListener('pointerdown', onDown);
+    return () => window.removeEventListener('pointerdown', onDown);
+  }, [expanded]);
   // Long-press detection for mobile — 500ms without moving fires the sheet.
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearPress = () => {
@@ -910,106 +928,120 @@ function ColumnHeader({
   const typeMeta = TYPE_META[column.type];
   const TypeIcon = typeMeta.icon;
 
+  const SortIcon = sort === 'asc' ? ArrowUp : sort === 'desc' ? ArrowDown : ArrowUpDown;
+
   return (
-    <div className="group/header relative flex w-full items-stretch">
-      <button
-        type="button"
-        onClick={editable ? onToggleSort : undefined}
-        onTouchStart={editable ? startPress : undefined}
-        onTouchMove={clearPress}
-        onTouchEnd={clearPress}
-        onTouchCancel={clearPress}
-        onContextMenu={
-          // Long-press on desktop also opens the sheet; block the browser menu.
-          editable
-            ? (e) => {
-                e.preventDefault();
-                setMobileSheet(true);
-              }
-            : undefined
-        }
-        title={sort ? `Sorted ${sort}` : 'Click to sort'}
-        className="text-muted-foreground flex min-w-0 flex-1 items-center justify-center gap-2 px-3 py-1.5 text-center text-[0.7rem] font-semibold tracking-[0.08em] uppercase select-none"
-      >
-        {/* Type icon hidden by default — the reference design uses pure
-            uppercase text in the header. Long-press / right-click still
-            opens the column sheet where you can change the type. */}
-        <TypeIcon className={cn('hidden h-3.5 w-3.5 shrink-0', typeMeta.color)} aria-hidden />
-        {editable && editing ? (
-          <input
-            data-col-id={column.id}
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onBlur={() => {
-              if (name.trim() && name !== column.name) onRename(name.trim());
-              else if (!name.trim()) setName(column.name);
-              setEditing(false);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
-              if (e.key === 'Escape') {
-                setName(column.name);
-                (e.currentTarget as HTMLInputElement).blur();
-              }
-            }}
-            onClick={(e) => e.stopPropagation()}
-            // Intrinsic input widths break table sizing (default size=20
-            // ≈ 180px), so we only mount the input while editing. Display
-            // mode uses a <span class="truncate"> that respects min-w-0.
-            size={1}
-            className="text-foreground/85 min-w-0 flex-1 bg-transparent tracking-[0.08em] uppercase outline-none"
-          />
-        ) : (
-          <span
-            onDoubleClick={
-              editable
-                ? (e) => {
-                    e.stopPropagation();
-                    setEditing(true);
-                  }
-                : undefined
+    <div
+      ref={rootRef}
+      // Header cell keeps its compact vertical size. When the label is
+      // clicked, the icon row floats absolutely BELOW the header
+      // (position: absolute + top: 100%) so the table doesn't move.
+      // The label itself lifts a couple pixels as a subtle affordance.
+      className="group/header relative flex w-full flex-col items-center py-1.5"
+    >
+      {/* Type icon retained but hidden by default — kept for future opt-in. */}
+      <TypeIcon className={cn('hidden h-3.5 w-3.5 shrink-0', typeMeta.color)} aria-hidden />
+      {editable && editing ? (
+        <input
+          data-col-id={column.id}
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => {
+            if (name.trim() && name !== column.name) onRename(name.trim());
+            else if (!name.trim()) setName(column.name);
+            setEditing(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
+            if (e.key === 'Escape') {
+              setName(column.name);
+              (e.currentTarget as HTMLInputElement).blur();
             }
-            title={editable ? 'Double-click to rename' : undefined}
-            className="text-foreground/85 min-w-0 flex-1 truncate"
-          >
-            {column.name}
-          </span>
-        )}
-        {sort === 'asc' && <ArrowUp className="text-primary h-3.5 w-3.5 shrink-0" />}
-        {sort === 'desc' && <ArrowDown className="text-primary h-3.5 w-3.5 shrink-0" />}
-        {editable && sort === false && (
-          <ArrowUpDown className="text-muted-foreground/40 h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover/header:opacity-100" />
-        )}
-      </button>
-      {/* Desktop only — chevron opens the type/options menu. */}
-      {editable && (
+          }}
+          onClick={(e) => e.stopPropagation()}
+          size={1}
+          className="text-foreground/85 min-w-0 bg-transparent px-3 text-center text-[0.7rem] font-semibold tracking-[0.08em] uppercase outline-none"
+        />
+      ) : (
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setMenuAnchor((cur) => (cur ? null : (e.currentTarget as HTMLButtonElement)));
-          }}
-          aria-label="Column options"
-          className="text-muted-foreground/50 hover:text-foreground hover:bg-muted/40 hidden w-6 shrink-0 items-center justify-center opacity-0 transition-opacity group-hover/header:opacity-100 md:flex"
+          onClick={editable ? () => setExpanded((v) => !v) : undefined}
+          onDoubleClick={
+            editable
+              ? (e) => {
+                  e.stopPropagation();
+                  setEditing(true);
+                }
+              : undefined
+          }
+          onTouchStart={editable ? startPress : undefined}
+          onTouchMove={clearPress}
+          onTouchEnd={clearPress}
+          onTouchCancel={clearPress}
+          onContextMenu={
+            editable
+              ? (e) => {
+                  e.preventDefault();
+                  setMobileSheet(true);
+                }
+              : undefined
+          }
+          title={editable ? 'Click for column actions · double-click to rename' : undefined}
+          className={cn(
+            'text-foreground/85 max-w-full min-w-0 truncate px-3 text-center text-[0.7rem] font-semibold tracking-[0.08em] uppercase transition-transform select-none',
+            expanded && '-translate-y-1'
+          )}
         >
-          <ChevronDown className="h-3.5 w-3.5" />
+          {column.name}
         </button>
       )}
-      {/* Desktop only — quick delete-column X in the top-LEFT corner. */}
-      {editable && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          aria-label="Delete column"
-          title="Delete column"
-          className="text-muted-foreground/70 hover:bg-destructive/15 hover:text-destructive absolute top-0 left-0 hidden h-3.5 w-3.5 items-center justify-center rounded-br-md opacity-0 transition-opacity group-hover/header:opacity-100 md:flex"
-        >
-          <X className="h-3 w-3" />
-        </button>
+
+      {/* Inline action row — chevron, sort, trash. Absolute so the header
+          cell stays compact; the icon row floats just below the header,
+          overlaying the tiny row-spacing gap without pushing rows down. */}
+      {editable && expanded && !editing && (
+        // Icons carry no colour by default — hovering each one paints the
+        // action semantic tint (chevron → pastel green, sort → primary
+        // pastel blue, trash → pastel red).
+        <div className="pointer-events-auto absolute top-full left-1/2 z-20 -mt-1 flex -translate-x-1/2 items-center gap-1">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuAnchor((cur) => (cur ? null : (e.currentTarget as HTMLButtonElement)));
+            }}
+            aria-label="Column options"
+            title="Column options"
+            className="text-muted-foreground flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-emerald-400/10 hover:text-emerald-400"
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSort();
+            }}
+            aria-label={sort ? `Sorted ${sort} — cycle` : 'Sort'}
+            title={sort ? `Sorted ${sort}` : 'Sort'}
+            className="text-muted-foreground hover:bg-primary/10 hover:text-primary flex h-6 w-6 items-center justify-center rounded-md transition-colors"
+          >
+            <SortIcon className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            aria-label="Delete column"
+            title="Delete column"
+            className="text-muted-foreground hover:bg-destructive/15 hover:text-destructive flex h-6 w-6 items-center justify-center rounded-md transition-colors"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
       )}
 
       {menuOpen && (
@@ -1018,7 +1050,6 @@ function ColumnHeader({
           column={column}
           onClose={() => setMenuAnchor(null)}
           onChangeType={onChangeType}
-          onDelete={onDelete}
           onSetOptions={onSetOptions}
         />
       )}
@@ -1050,14 +1081,12 @@ function ColumnMenu({
   column,
   onClose,
   onChangeType,
-  onDelete,
   onSetOptions,
 }: {
   anchor: HTMLElement | null;
   column: DatabaseColumn;
   onClose: () => void;
   onChangeType: (type: DatabaseColumnType) => void;
-  onDelete: () => void;
   onSetOptions: (opts: { id: string; label: string; color?: string }[]) => void;
 }) {
   const [newOption, setNewOption] = useState('');
@@ -1223,18 +1252,8 @@ function ColumnMenu({
         </div>
       )}
 
-      <div className="border-border/50 mt-1 border-t pt-1">
-        <button
-          type="button"
-          onClick={() => {
-            onDelete();
-            onClose();
-          }}
-          className="hover:bg-destructive/10 text-destructive flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs"
-        >
-          <Trash2 className="h-3.5 w-3.5" /> Delete column
-        </button>
-      </div>
+      {/* Delete column moved out of this popover — the header's inline
+          action row (trash icon) is the single place to trigger it. */}
     </div>
   );
 
@@ -1577,7 +1596,7 @@ function CellEditor({
             onChange(Number.isFinite(v as number) || v === null ? v : null);
           }}
           disabled={disabled}
-          className="w-full bg-transparent px-3 py-3.5 text-right text-sm tabular-nums outline-none"
+          className="w-full bg-transparent px-3 py-3.5 text-center text-sm tabular-nums outline-none"
         />
       );
     case 'date':
@@ -1615,67 +1634,47 @@ function DateCell({
   disabled: boolean;
 }) {
   const dateStr = typeof value === 'string' ? value : '';
-  const display = dateStr ? formatDateForDisplay(dateStr) : '—';
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  return (
-    // Clicking anywhere on the cell explicitly calls `showPicker()` on the
-    // hidden input — historically Chrome opened the native picker on focus
-    // alone, but modern browsers require an explicit call from a user
-    // gesture. `showPicker` isn't in older Safari; fall back to focusing.
-    <div
-      role="button"
-      tabIndex={disabled ? -1 : 0}
-      onClick={() => {
-        if (disabled) return;
-        const el = inputRef.current;
-        if (!el) return;
-        if ('showPicker' in el && typeof el.showPicker === 'function') {
-          try {
-            el.showPicker();
-          } catch {
-            el.focus();
-          }
-        } else {
-          el.focus();
-        }
-      }}
-      onKeyDown={(e) => {
-        if (disabled) return;
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          inputRef.current?.focus();
-        }
-      }}
-      className={cn(
-        'flex h-full w-full cursor-pointer items-center px-3 py-3.5 text-sm outline-none',
-        disabled && 'cursor-not-allowed'
-      )}
-    >
-      <input
-        ref={inputRef}
-        type="date"
-        value={dateStr}
-        onChange={(e) => onChange(e.target.value || null)}
-        disabled={disabled}
-        // Zero-size, positioned behind the visible label — click handling
-        // lives on the wrapper (above) so anywhere in the cell opens the
-        // picker.
-        className="pointer-events-none absolute h-0 w-0 opacity-0"
-        tabIndex={-1}
-      />
-      <span className={cn(dateStr ? 'text-foreground/90' : 'text-muted-foreground/50')}>
-        {display}
-      </span>
-    </div>
-  );
-}
+  const parsed = dateStr ? parseISO(dateStr) : undefined;
+  const date = parsed && isValid(parsed) ? parsed : undefined;
+  const display = date ? format(date, 'dd/MM/yyyy') : '—';
+  const [open, setOpen] = useState(false);
 
-function formatDateForDisplay(iso: string): string {
-  // ISO date → dd/mm/yyyy for display. Preserves the raw ISO on the
-  // wire; only the visible label changes.
-  const [y, m, d] = iso.split('-');
-  if (!y || !m || !d) return iso;
-  return `${d}/${m}/${y}`;
+  return (
+    // Uses shadcn Popover + Calendar (same components used elsewhere in
+    // the app) instead of the native <input type="date"> UI — that native
+    // picker was styled by the browser and jarringly out of sync with
+    // the rest of the dark theme.
+    <Popover open={open} onOpenChange={disabled ? undefined : setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          className={cn(
+            'flex h-full w-full items-center justify-center px-3 py-3.5 text-sm outline-none',
+            disabled && 'cursor-not-allowed'
+          )}
+        >
+          <span className={cn(date ? 'text-foreground/90' : 'text-muted-foreground/50')}>
+            {display}
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="center">
+        <CalendarPicker
+          mode="single"
+          selected={date}
+          onSelect={(d) => {
+            onChange(d ? format(d, 'yyyy-MM-dd') : null);
+            setOpen(false);
+          }}
+          captionLayout="dropdown"
+          fromYear={2000}
+          toYear={2100}
+          initialFocus
+        />
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 /**
@@ -1750,7 +1749,7 @@ function SelectCell({
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
         aria-label={`${column.name}: ${selected?.label ?? 'empty'}`}
-        className="flex h-full w-full items-center px-3 py-3.5 text-left text-sm"
+        className="flex h-full w-full items-center justify-center px-3 py-3.5 text-center text-sm"
       >
         {selected && selColor ? (
           // Pill: rounded-full with a leading colored dot, Notion-style.
