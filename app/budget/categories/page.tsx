@@ -542,7 +542,13 @@ function BudgetDistribution({ categoryGroups }: BudgetDistributionProps) {
  * absolute (shekel) readouts. Percent uses the lucide Percent glyph; shekel
  * uses the ₪ character (lucide has no shekel icon).
  */
-function ChartModeToggle({ mode, onChange }: { mode: ChartMode; onChange: (m: ChartMode) => void }) {
+function ChartModeToggle({
+  mode,
+  onChange,
+}: {
+  mode: ChartMode;
+  onChange: (m: ChartMode) => void;
+}) {
   return (
     <div
       role="radiogroup"
@@ -644,14 +650,7 @@ function GroupedYTick(props: {
   return (
     <g transform={`translate(${x},${y})`}>
       {datum?.isGroupStart && datum.groupName && (
-        <text
-          x={0}
-          y={-15}
-          textAnchor="end"
-          fontSize={9}
-          letterSpacing="0.08em"
-          fill="#8b8b94"
-        >
+        <text x={0} y={-15} textAnchor="end" fontSize={9} letterSpacing="0.08em" fill="#8b8b94">
           {datum.groupName.toUpperCase()}
         </text>
       )}

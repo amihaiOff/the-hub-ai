@@ -37,6 +37,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { useDesktopTabs } from '@/lib/hooks/use-desktop-tabs';
 import type { UpdatePageInput } from '@/lib/validations/pages';
 import { EmojiPicker } from './emoji-picker';
 import { PageBodyEditor } from './page-body-editor';
@@ -118,12 +119,13 @@ export function PageEditor({ pageId }: { pageId: string }) {
   }, [flush]);
   useEffect(() => () => flushRef.current(), [pageId]);
 
-  // Reflect the page's title in document.title so browser tabs and the
-  // in-app desktop tab bar (which observes document.title) show the
-  // actual page name — not a generic "Areas" fallback.
+  // Reflect the page's title in the browser tab (document.title) AND in
+  // the in-app desktop tab bar. Direct store write is more reliable than
+  // watching document.title in the tab bar, which Next.js can recreate.
   useEffect(() => {
     if (!title) return;
     document.title = title;
+    useDesktopTabs.getState().setActiveTabTitle(title);
   }, [title]);
 
   const saveTitle = useCallback(

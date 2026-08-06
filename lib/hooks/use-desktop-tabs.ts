@@ -31,6 +31,12 @@ interface DesktopTabsState {
    * so link-clicks stay inside the current tab).
    */
   syncActiveToRoute: (path: string, title: string) => void;
+  /**
+   * Update just the active tab's title. Called by pages that know their
+   * own title (e.g. Areas pages loading a page named "Roadmap"). No-op
+   * when there's no active tab.
+   */
+  setActiveTabTitle: (title: string) => void;
 }
 
 /** Short random-ish id — collision-free enough for a per-browser tab list. */
@@ -118,6 +124,16 @@ export const useDesktopTabs = create<DesktopTabsState>()(
         // navigates that tab, it doesn't spawn a new one.
         set({
           tabs: tabs.map((t) => (t.id === active.id ? { ...t, path, title } : t)),
+        });
+      },
+
+      setActiveTabTitle: (title) => {
+        const { tabs, activeTabId } = get();
+        if (!activeTabId) return;
+        const active = tabs.find((t) => t.id === activeTabId);
+        if (!active || active.title === title) return;
+        set({
+          tabs: tabs.map((t) => (t.id === activeTabId ? { ...t, title } : t)),
         });
       },
     }),
