@@ -445,18 +445,44 @@
      column. */
   .database-block tbody tr[data-row-id] > td:not([data-add-column-cell]) {
     background: color-mix(in oklab, var(--muted) 35%, transparent);
-    padding-block: 0.75rem;
+    padding-block: 0.35rem;
+  }
+  /* Belt-and-suspenders: force the narrow add-column filler to stay
+     transparent even under a hovered row so the hover highlight visibly
+     ends at the last real column. */
+  .database-block tbody tr[data-row-id]:hover > td[data-add-column-cell],
+  .database-block tbody tr[data-row-id] > td[data-add-column-cell] {
+    background: transparent !important;
   }
   .database-block tbody tr[data-row-id] > td:not([data-add-column-cell]):first-child {
     border-top-left-radius: 0.9rem;
     border-bottom-left-radius: 0.9rem;
   }
-  .database-block tbody tr[data-row-id] > td:not([data-add-column-cell]):last-of-type {
+  /* Right-rounded corner belongs to the LAST real data cell in the row —
+     which is `:last-child` when the add-column filler is absent, and the
+     one immediately before the filler when it's present. `:has()` picks
+     that up cleanly. */
+  .database-block tbody tr[data-row-id] > td:not([data-add-column-cell]):last-child,
+  .database-block
+    tbody
+    tr[data-row-id]
+    > td:not([data-add-column-cell]):has(+ td[data-add-column-cell]) {
     border-top-right-radius: 0.9rem;
     border-bottom-right-radius: 0.9rem;
   }
   .database-block tbody tr[data-row-id] > td[data-add-column-cell] {
     background: transparent;
+  }
+  /* Kill the page-body's default column dividers and header fill inside
+     the database block — the row-card layout doesn't need them and the
+     inherited rules leave a filled header bar + vertical grid. */
+  .database-block th,
+  .database-block td {
+    border-left: none !important;
+  }
+  .database-block thead th {
+    background: transparent !important;
+    color: color-mix(in oklab, var(--muted-foreground) 70%, var(--foreground)) !important;
   }
   /* On mobile, break out of the page-body's left padding and the shell's
      horizontal padding so the grid spans (nearly) the full screen width and
