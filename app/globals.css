@@ -454,6 +454,14 @@
   .database-block tbody tr[data-row-id] > td[data-add-column-cell] {
     background: transparent !important;
   }
+  /* The inherited `.page-body tbody tr:hover` rule paints the ENTIRE row
+     element (not just its cells), which then shows through the transparent
+     add-column filler as a ghost rectangle to the right of the last real
+     column. Cancel it here — row-hover highlighting lives on the td cells
+     via the row-card rule above. */
+  .database-block tbody tr:hover {
+    background: transparent !important;
+  }
   .database-block tbody tr[data-row-id] > td:not([data-add-column-cell]):first-child {
     border-top-left-radius: 0.9rem;
     border-bottom-left-radius: 0.9rem;
