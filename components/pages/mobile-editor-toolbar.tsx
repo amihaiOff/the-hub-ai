@@ -188,17 +188,20 @@ export function MobileEditorToolbar({
               <IconButton label="Duplicate block" onClick={duplicateBlock}>
                 <Copy className="h-5 w-5" />
               </IconButton>
-              {inList && (
-                <>
-                  <IconButton label="Outdent" onClick={outdent} disabled={!canOutdent}>
-                    <IndentDecrease className="h-5 w-5" />
-                  </IconButton>
-                  <IconButton label="Indent" onClick={indent}>
-                    <IndentIncrease className="h-5 w-5" />
-                  </IconButton>
-                </>
-              )}
             </div>
+            {/* Contextual controls that stay reachable even while the bar is
+                collapsed. Indent/outdent surface whenever the cursor is in a
+                list — the moment they're actually useful. */}
+            {inList && (
+              <>
+                <IconButton label="Outdent" onClick={outdent} disabled={!canOutdent}>
+                  <IndentDecrease className="h-5 w-5" />
+                </IconButton>
+                <IconButton label="Indent" onClick={indent}>
+                  <IndentIncrease className="h-5 w-5" />
+                </IconButton>
+              </>
+            )}
             {/* Contextual: turn the current text selection into a link. Sits
                 outside the collapsible section so it's reachable even while the
                 bar is collapsed — selecting text is exactly when you want it. */}
