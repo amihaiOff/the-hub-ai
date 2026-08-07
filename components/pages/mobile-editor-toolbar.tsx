@@ -10,6 +10,7 @@ import {
   Copy,
   IndentDecrease,
   IndentIncrease,
+  Link2,
   Plus,
   Redo2,
   Trash2,
@@ -92,6 +93,17 @@ export function MobileEditorToolbar({
   const canOutdent = canOutdentWithinList(editor);
   const canUndo = editor.can().undo();
   const canRedo = editor.can().redo();
+  // A non-empty text selection unlocks the "make link" action.
+  const hasSelection = !editor.state.selection.empty;
+
+  const setLink = () => {
+    const prev = editor.getAttributes('link').href as string | undefined;
+    const url = window.prompt('Link URL', prev ?? 'https://');
+    if (url === null) return; // cancelled
+    const chain = editor.chain().focus().extendMarkRange('link');
+    if (url.trim() === '') chain.unsetLink().run();
+    else chain.setLink({ href: url.trim() }).run();
+  };
 
   const openSheet = () => setSheetOpen(true);
   const deleteBlock = () => {
@@ -121,10 +133,9 @@ export function MobileEditorToolbar({
       {createPortal(
         <div
           className={cn(
-            'pointer-events-none fixed inset-x-0 z-40 flex px-2 lg:hidden',
-            // Centered when expanded so the row breathes evenly; anchored
-            // right when collapsed so it visually parks against the edge.
-            collapsed ? 'justify-end' : 'justify-center'
+            // Anchored bottom-left: the bar parks against the left edge whether
+            // collapsed (shrunk into the chevron) or expanded.
+            'pointer-events-none fixed inset-x-0 z-40 flex justify-start px-2 lg:hidden'
           )}
           // Small extra gap so the toolbar isn't flush with the tab bar.
           style={{ bottom: `calc(${floatingControlBottom(hasBottomTabBar, inset)} + 0.5rem)` }}
@@ -188,14 +199,22 @@ export function MobileEditorToolbar({
                 </>
               )}
             </div>
+            {/* Contextual: turn the current text selection into a link. Sits
+                outside the collapsible section so it's reachable even while the
+                bar is collapsed — selecting text is exactly when you want it. */}
+            {hasSelection && (
+              <IconButton label="Add link" onClick={setLink}>
+                <Link2 className="h-5 w-5" />
+              </IconButton>
+            )}
             <IconButton
               label={collapsed ? 'Expand toolbar' : 'Collapse toolbar'}
               onClick={() => setCollapsed((c) => !c)}
             >
               {collapsed ? (
-                <ChevronLeft className="h-5 w-5" />
-              ) : (
                 <ChevronRight className="h-5 w-5" />
+              ) : (
+                <ChevronLeft className="h-5 w-5" />
               )}
             </IconButton>
           </div>
@@ -244,21 +263,19 @@ function Divider() {
   return <span className="bg-border/70 mx-0.5 h-5 w-px shrink-0" aria-hidden />;
 }
 
-/** Human-readable label for the block containing the cursor. */
+/** Abbreviated label for the block containing the cursor — kept short so the
+ *  block-type button stays compact on narrow screens. */
 function currentBlockLabel(editor: Editor): string {
-  if (editor.isActive('heading', { level: 1 })) return 'Heading 1';
-  if (editor.isActive('heading', { level: 2 })) return 'Heading 2';
-  if (editor.isActive('heading', { level: 3 })) return 'Heading 3';
-  if (editor.isActive('heading', { level: 4 })) return 'Heading 4';
-  if (editor.isActive('heading', { level: 5 })) return 'Heading 5';
-  if (editor.isActive('heading', { level: 6 })) return 'Heading 6';
-  if (editor.isActive('taskList') || editor.isActive('taskItem')) return 'To-do list';
-  if (editor.isActive('bulletList')) return 'Bulleted list';
-  if (editor.isActive('orderedList')) return 'Numbered list';
-  if (editor.isActive('codeBlock')) return 'Code block';
-  if (editor.isActive('blockquote')) return 'Blockquote';
+  for (let level = 1; level <= 6; level++) {
+    if (editor.isActive('heading', { level })) return `H${level}`;
+  }
+  if (editor.isActive('taskList') || editor.isActive('taskItem')) return 'To-do';
+  if (editor.isActive('bulletList')) return 'Bullets';
+  if (editor.isActive('orderedList')) return 'Numbers';
+  if (editor.isActive('codeBlock')) return 'Code';
+  if (editor.isActive('blockquote')) return 'Quote';
   if (editor.isActive('table')) return 'Table';
-  return 'Paragraph';
+  return 'Text';
 }
 
 /** Start position of the top-level block that contains the current selection. */
