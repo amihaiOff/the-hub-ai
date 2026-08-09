@@ -35,12 +35,29 @@ export function TableFloatingControls({ editor }: { editor: Editor }) {
   useEffect(() => {
     const dom = editor.view.dom as HTMLElement;
     const parent = dom.closest('div') ?? dom;
+    // Grace-timer: pointerleave doesn't fire with a helpful relatedTarget
+    // when the pointer crosses the empty gap between the table and a
+    // portalled control (e.g. the trash icon 28px to the left of the
+    // table). Delay the clear so a document-level pointermove into the
+    // control cancels it.
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
+    const cancelHide = () => {
+      if (hideTimer != null) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+    };
 
     const clearAll = () => {
+      cancelHide();
       setHoveredTable(null);
       setHoveredRowIndex(null);
       setHoveredColIndex(null);
       setTableBox(null);
+    };
+    const scheduleClear = () => {
+      cancelHide();
+      hideTimer = setTimeout(clearAll, 300);
     };
 
     const onMove = (e: PointerEvent) => {
@@ -48,15 +65,18 @@ export function TableFloatingControls({ editor }: { editor: Editor }) {
       // Keep state alive when the pointer is on any control — the buttons
       // are portalled to <body>, so moving to them would otherwise fire
       // pointerleave and unmount the button before the click lands.
-      if (target?.closest('[data-table-controls]')) return;
+      if (target?.closest('[data-table-controls]')) {
+        cancelHide();
+        return;
+      }
 
       const table = target?.closest('table') as HTMLTableElement | null;
       // Database blocks render their own <table> but have their own edge
       // + tabs, delete-row gutter, and column menu — don't overlay them.
       if (!table || !dom.contains(table) || table.closest('.database-block')) {
-        clearAll();
-        return;
+        return; // handled by onLeave / document-level pointermove below
       }
+      cancelHide();
       const cell = target?.closest('td, th') as HTMLTableCellElement | null;
       const row = cell?.closest('tr') as HTMLTableRowElement | null;
       const rows = Array.from(table.querySelectorAll('tr')) as HTMLTableRowElement[];
@@ -69,22 +89,33 @@ export function TableFloatingControls({ editor }: { editor: Editor }) {
     };
 
     const onLeave = (e: PointerEvent) => {
-      // relatedTarget is what we're moving TO. When it's one of our controls
-      // (portalled outside `parent`), pointerleave on `parent` still fires
-      // even though the user's intent is to reach the button, not leave.
       const rel = e.relatedTarget as Element | null;
+      // Moving directly to a portalled control or Radix menu — keep state.
       if (rel?.closest('[data-table-controls]')) return;
-      // Radix opens dropdown content in a portal too; keep state while the
-      // menu is up so clicks inside don't cause the anchor to unmount.
       if (rel?.closest('[data-radix-popper-content-wrapper]')) return;
-      clearAll();
+      // Otherwise schedule the clear; a document-level pointermove that
+      // lands on our control (e.g. the fixed trash icon 28px to the left
+      // of the table) cancels it before it fires.
+      scheduleClear();
+    };
+
+    // Document-level fallback: crossing empty space between the table and
+    // the fixed-positioned control means pointerleave already fired on
+    // `parent` with a useless relatedTarget. Watch pointermove on the doc
+    // so entering the control cancels the scheduled clear.
+    const onDocMove = (e: PointerEvent) => {
+      const t = e.target as Element | null;
+      if (t?.closest('[data-table-controls]')) cancelHide();
     };
 
     parent.addEventListener('pointermove', onMove);
     parent.addEventListener('pointerleave', onLeave);
+    document.addEventListener('pointermove', onDocMove);
     return () => {
+      cancelHide();
       parent.removeEventListener('pointermove', onMove);
       parent.removeEventListener('pointerleave', onLeave);
+      document.removeEventListener('pointermove', onDocMove);
     };
   }, [editor]);
 
