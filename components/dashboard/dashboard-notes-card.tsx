@@ -21,8 +21,8 @@ import { WikiMarkdown } from '@/components/wiki/wiki-markdown';
  * notes. Two modes:
  *   - view: renders `body` as markdown. Click to edit.
  *   - edit: raw textarea, autosaves debounced. Blur to return to view.
- * Empty state (no notes yet) opens directly into edit mode with a
- * placeholder so the box is discoverable.
+ * Always starts in view mode; an empty note shows a "click to start"
+ * prompt so the box stays discoverable without auto-opening the editor.
  */
 
 const AUTOSAVE_MS = 800;
@@ -127,7 +127,10 @@ export function DashboardNotesCard() {
 function Editor({ initial }: { initial: string }) {
   const qc = useQueryClient();
   const [value, setValue] = useState(initial);
-  const [editing, setEditing] = useState(initial.trim().length === 0);
+  // Always start in view mode — even when empty. (An empty note renders a
+  // "click to start" prompt below, so the box stays discoverable without
+  // forcing the user into edit mode + popping the keyboard on page load.)
+  const [editing, setEditing] = useState(false);
   const savedRef = useRef(initial);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
