@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, StickyNote, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -111,6 +111,9 @@ function NotesCardBody({ initial }: { initial: string }) {
   // Last value the server has; a debounced save only fires when the draft
   // actually diverges from it.
   const savedRef = useRef(initial);
+  // Mirror of `draft` for closures that outlive a render — namely the
+  // unmount cleanup, which must flush the *latest* text.
+  const draftRef = useRef(initial);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const save = useMutation({
@@ -130,20 +133,33 @@ function NotesCardBody({ initial }: { initial: string }) {
 
   const handleChange = (md: string) => {
     setDraft(md);
+    draftRef.current = md;
     scheduleSave(md);
   };
 
   const flush = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (draft !== savedRef.current) save.mutate(draft);
+    if (draftRef.current !== savedRef.current) save.mutate(draftRef.current);
   };
 
   const clearAll = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
     setDraft('');
+    draftRef.current = '';
     save.mutate('');
     setConfirmClear(false);
   };
+
+  // On unmount (navigating away), cancel the pending debounce and flush the
+  // latest edit so a change made within the autosave window isn't lost.
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (draftRef.current !== savedRef.current) save.mutate(draftRef.current);
+    };
+    // Fire exactly once, on unmount. save.mutate is stable across renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const hasNotes = draft.trim().length > 0;
 
