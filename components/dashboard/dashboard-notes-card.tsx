@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, StickyNote, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,16 +13,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { WikiMarkdown } from '@/components/wiki/wiki-markdown';
+import { NotesEditor } from '@/components/tasks/notes-editor';
 
 /**
- * Dashboard scratchpad — a household-shared markdown block for one-off
- * notes. Two modes:
- *   - view: renders `body` as markdown. Click to edit.
- *   - edit: raw textarea, autosaves debounced. Blur to return to view.
- * Always starts in view mode; an empty note shows a "click to start"
- * prompt so the box stays discoverable without auto-opening the editor.
+ * Dashboard scratchpad — a household-shared block of notes. A lightweight
+ * WYSIWYG (markdown-backed) editor supporting headings and lists, so it reads
+ * and edits like the Areas pages without the full block machinery. Autosaves
+ * on a debounce; the value is stored as markdown so older plain-text notes
+ * load unchanged.
  */
 
 const AUTOSAVE_MS = 800;
@@ -31,9 +29,18 @@ interface NotesResponse {
   notes: string;
 }
 
+async function putNotes(notes: string): Promise<NotesResponse> {
+  const res = await fetch('/api/dashboard/notes', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ notes }),
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error);
+  return json.data as NotesResponse;
+}
+
 export function DashboardNotesCard() {
-  const qc = useQueryClient();
-  const [confirmClear, setConfirmClear] = useState(false);
   const query = useQuery({
     queryKey: ['dashboard', 'notes'],
     queryFn: async () => {
@@ -44,57 +51,113 @@ export function DashboardNotesCard() {
     },
   });
 
-  const clearAll = useMutation({
-    mutationFn: async () => {
-      const res = await fetch('/api/dashboard/notes', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes: '' }),
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error);
-      return json.data as NotesResponse;
-    },
+  return (
+    <Card>
+      {query.isLoading ? (
+        <>
+          <NotesCardHeader hasNotes={false} onClear={() => {}} />
+          <CardContent className="pt-0">
+            <div className="text-muted-foreground flex items-center gap-2 text-xs">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
+            </div>
+          </CardContent>
+        </>
+      ) : query.error ? (
+        <>
+          <NotesCardHeader hasNotes={false} onClear={() => {}} />
+          <CardContent className="pt-0">
+            <div className="text-destructive text-xs">{(query.error as Error).message}</div>
+          </CardContent>
+        </>
+      ) : (
+        <NotesCardBody initial={query.data?.notes ?? ''} />
+      )}
+    </Card>
+  );
+}
+
+function NotesCardHeader({ hasNotes, onClear }: { hasNotes: boolean; onClear: () => void }) {
+  return (
+    <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+      <CardTitle className="flex items-center gap-2 text-base">
+        <StickyNote className="text-muted-foreground h-4 w-4" />
+        Notes
+      </CardTitle>
+      {hasNotes && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClear}
+          aria-label="Clear all notes"
+          title="Clear all notes"
+          className="text-muted-foreground hover:text-destructive h-7 px-2"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      )}
+    </CardHeader>
+  );
+}
+
+/**
+ * The loaded card — owns the editor's draft (markdown) plus debounced
+ * autosave. Mounted once the notes have loaded, so it never remounts on our
+ * own saves (which is what used to yank focus mid-typing).
+ */
+function NotesCardBody({ initial }: { initial: string }) {
+  const qc = useQueryClient();
+  const [draft, setDraft] = useState(initial);
+  const [confirmClear, setConfirmClear] = useState(false);
+  // Last value the server has; a debounced save only fires when the draft
+  // actually diverges from it.
+  const savedRef = useRef(initial);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const save = useMutation({
+    mutationFn: putNotes,
     onSuccess: (data) => {
-      // setQueryData bumps dataUpdatedAt → Editor is re-keyed and remounts
-      // with the fresh empty value, dropping any in-progress unsaved edits.
+      savedRef.current = data.notes;
       qc.setQueryData(['dashboard', 'notes'], data);
-      setConfirmClear(false);
     },
   });
 
-  const hasNotes = (query.data?.notes ?? '').trim().length > 0;
+  const scheduleSave = (md: string) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      if (md !== savedRef.current) save.mutate(md);
+    }, AUTOSAVE_MS);
+  };
+
+  const handleChange = (md: string) => {
+    setDraft(md);
+    scheduleSave(md);
+  };
+
+  const flush = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (draft !== savedRef.current) save.mutate(draft);
+  };
+
+  const clearAll = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setDraft('');
+    save.mutate('');
+    setConfirmClear(false);
+  };
+
+  const hasNotes = draft.trim().length > 0;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <StickyNote className="text-muted-foreground h-4 w-4" />
-          Notes
-        </CardTitle>
-        {hasNotes && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setConfirmClear(true)}
-            aria-label="Clear all notes"
-            title="Clear all notes"
-            className="text-muted-foreground hover:text-destructive h-7 px-2"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        )}
-      </CardHeader>
+    <>
+      <NotesCardHeader hasNotes={hasNotes} onClear={() => setConfirmClear(true)} />
       <CardContent className="pt-0">
-        {query.isLoading ? (
-          <div className="text-muted-foreground flex items-center gap-2 text-xs">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
-          </div>
-        ) : query.error ? (
-          <div className="text-destructive text-xs">{(query.error as Error).message}</div>
-        ) : (
-          <Editor key={query.dataUpdatedAt} initial={query.data?.notes ?? ''} />
-        )}
+        <NotesEditor
+          value={draft}
+          onChange={handleChange}
+          onBlur={flush}
+          showHeadings
+          placeholder="Jot down anything for later — thoughts, tasks, links to convert into wiki sources…"
+        />
       </CardContent>
 
       <Dialog open={confirmClear} onOpenChange={setConfirmClear}>
@@ -109,108 +172,13 @@ export function DashboardNotesCard() {
             <Button variant="outline" onClick={() => setConfirmClear(false)}>
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={() => clearAll.mutate()}
-              disabled={clearAll.isPending}
-            >
-              {clearAll.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button variant="destructive" onClick={clearAll} disabled={save.isPending}>
+              {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Clear all
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
-  );
-}
-
-function Editor({ initial }: { initial: string }) {
-  const qc = useQueryClient();
-  const [value, setValue] = useState(initial);
-  // Always start in view mode — even when empty. (An empty note renders a
-  // "click to start" prompt below, so the box stays discoverable without
-  // forcing the user into edit mode + popping the keyboard on page load.)
-  const [editing, setEditing] = useState(false);
-  const savedRef = useRef(initial);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const save = useMutation({
-    mutationFn: async (notes: string) => {
-      const res = await fetch('/api/dashboard/notes', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes }),
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error);
-      return json.data as NotesResponse;
-    },
-    onSuccess: (data) => {
-      savedRef.current = data.notes;
-      qc.setQueryData(['dashboard', 'notes'], data);
-    },
-  });
-
-  // Debounced autosave. Cleared on unmount so a rapid page-nav doesn't fire.
-  useEffect(() => {
-    if (value === savedRef.current) return;
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => save.mutate(value), AUTOSAVE_MS);
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-    // save.mutate is stable across renders — safe to omit from deps.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
-
-  // Flush any pending debounced write when leaving edit mode. Otherwise
-  // clicking out too fast could re-render the view with the last-saved
-  // (stale) markdown and the newest keystrokes would only land ~800ms later.
-  const flushAndClose = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    if (value !== savedRef.current) save.mutate(value);
-    setEditing(false);
-  };
-
-  const openEdit = () => setEditing(true);
-
-  if (editing) {
-    return (
-      <Textarea
-        autoFocus
-        dir="auto"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onBlur={flushAndClose}
-        placeholder="Jot down anything for later — thoughts, tasks, links to convert into wiki sources…"
-        className="min-h-[100px] resize-y font-mono text-xs"
-      />
-    );
-  }
-
-  // View mode.
-  if (!value.trim()) {
-    // Shouldn't normally happen (empty note opens directly into edit mode),
-    // but if the user cleared everything and blurred, offer a re-entry.
-    return (
-      <button
-        type="button"
-        onClick={openEdit}
-        className="text-muted-foreground hover:text-foreground w-full py-4 text-left text-xs"
-      >
-        Jot down anything for later — click to start.
-      </button>
-    );
-  }
-  return (
-    <button
-      type="button"
-      onClick={openEdit}
-      aria-label="Edit notes"
-      title="Click to edit"
-      className="hover:bg-muted/30 -mx-2 w-full cursor-text rounded px-2 py-1 text-left transition-colors"
-    >
-      <WikiMarkdown source={value} />
-    </button>
+    </>
   );
 }

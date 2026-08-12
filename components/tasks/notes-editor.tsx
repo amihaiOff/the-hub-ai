@@ -6,7 +6,17 @@ import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import { Markdown } from 'tiptap-markdown';
 import { AutoCapitalize } from '@/components/pages/auto-capitalize';
-import { Bold, Italic, Link2, List, ListOrdered, Strikethrough, Type } from 'lucide-react';
+import {
+  Bold,
+  Heading1,
+  Heading2,
+  Italic,
+  Link2,
+  List,
+  ListOrdered,
+  Strikethrough,
+  Type,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NotesEditorProps {
@@ -20,6 +30,8 @@ interface NotesEditorProps {
   /** Fired when the editor loses focus — used to flush pending saves. */
   onBlur?: () => void;
   placeholder?: string;
+  /** Show heading (H1/H2) toggles in the toolbar. Off by default. */
+  showHeadings?: boolean;
 }
 
 /**
@@ -28,7 +40,13 @@ interface NotesEditorProps {
  * toolbar buttons trigger real Tiptap commands (bold, italic, lists,
  * link) — no more decorative-only icons.
  */
-export function NotesEditor({ value, onChange, onBlur, placeholder }: NotesEditorProps) {
+export function NotesEditor({
+  value,
+  onChange,
+  onBlur,
+  placeholder,
+  showHeadings = false,
+}: NotesEditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -65,6 +83,8 @@ export function NotesEditor({ value, onChange, onBlur, placeholder }: NotesEdito
         // .ProseMirror`. The parent .notes-editor class enables them.
         class: cn('min-h-[9rem] px-4 py-3 text-sm focus:outline-none'),
         'data-placeholder': placeholder ?? '',
+        // Auto-direct the whole note (Hebrew ↔ English) like the old textarea.
+        dir: 'auto',
       },
     },
     immediatelyRender: false,
@@ -84,13 +104,13 @@ export function NotesEditor({ value, onChange, onBlur, placeholder }: NotesEdito
 
   return (
     <div className="notes-editor bg-muted/40 rounded-2xl">
-      <NotesToolbar editor={editor} />
+      <NotesToolbar editor={editor} showHeadings={showHeadings} />
       <EditorContent editor={editor} />
     </div>
   );
 }
 
-function NotesToolbar({ editor }: { editor: Editor | null }) {
+function NotesToolbar({ editor, showHeadings }: { editor: Editor | null; showHeadings: boolean }) {
   // `hovered` is the transient hover state; `pinned` sticks the toolbar
   // open after a click so touch users (no hover) still get access.
   const [hovered, setHovered] = useState(false);
@@ -100,6 +120,22 @@ function NotesToolbar({ editor }: { editor: Editor | null }) {
   if (!editor) return null;
 
   const buttons = [
+    ...(showHeadings
+      ? [
+          {
+            icon: Heading1,
+            label: 'Heading 1',
+            onClick: () => editor.chain().focus().toggleHeading({ level: 1 }).run(),
+            isActive: () => editor.isActive('heading', { level: 1 }),
+          },
+          {
+            icon: Heading2,
+            label: 'Heading 2',
+            onClick: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
+            isActive: () => editor.isActive('heading', { level: 2 }),
+          },
+        ]
+      : []),
     {
       icon: Bold,
       label: 'Bold',
