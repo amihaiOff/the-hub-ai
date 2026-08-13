@@ -73,6 +73,21 @@ export function PageEditor({ pageId }: { pageId: string }) {
     }
   }, []);
 
+  // Broadcast full-width to the AppShell via a body data attribute so
+  // globals.css can drop the shell's `max-w-7xl` cap on the main content
+  // wrapper. Without this the shell caps the layout at 80rem and
+  // "full width" still looks centred with visible side margins on wide
+  // monitors. Cleared on unmount so navigating away from an Areas page
+  // instantly restores the normal centred cap.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (fullWidth) document.body.dataset.pageFullWidth = '1';
+    else delete document.body.dataset.pageFullWidth;
+    return () => {
+      if (typeof document !== 'undefined') delete document.body.dataset.pageFullWidth;
+    };
+  }, [fullWidth]);
+
   // Seed local title + the active tab when the page loads / changes (tracked by
   // id so switching pages re-seeds without fighting in-flight edits). React's
   // "adjust state during render" pattern.
