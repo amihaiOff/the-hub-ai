@@ -429,7 +429,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
     <NodeViewWrapper as="div" className="database-block group/db relative my-4 pl-9">
       {/* Filter toolbar — per-column filters held in ephemeral view state. */}
       {columns.length > 0 && (
-        <div className="relative mb-1.5 flex flex-wrap items-center gap-1.5">
+        <div className="relative mb-[3px] flex flex-wrap items-center gap-1.5">
           <button
             ref={filterBtnRef}
             type="button"
