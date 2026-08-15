@@ -11,7 +11,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreVertical, Pencil, Trash2, Split, ChevronsUpDown, Check, X } from 'lucide-react';
+import {
+  MoreVertical,
+  Pencil,
+  Trash2,
+  Split,
+  ChevronsUpDown,
+  Check,
+  X,
+  Tag as TagIcon,
+} from 'lucide-react';
 import { CategoryPickerSheet } from './category-picker-sheet';
 import { CategorySelect } from './category-select';
 import { cn } from '@/lib/utils';
@@ -211,7 +220,7 @@ function SuggestionBar({
   );
 }
 
-function TagDot({ tag }: { tag: BudgetTag }) {
+function TagMark({ tag }: { tag: BudgetTag }) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -230,14 +239,16 @@ function TagDot({ tag }: { tag: BudgetTag }) {
       <TooltipTrigger asChild>
         <button
           type="button"
-          className="-m-1.5 inline-flex h-2.5 w-2.5 shrink-0 items-center justify-center rounded-full p-1.5"
-          style={{ backgroundColor: tag.color }}
+          className="inline-flex h-4 w-4 shrink-0 items-center justify-center"
           onClick={(e) => {
             e.stopPropagation();
             setOpen((prev) => !prev);
           }}
           aria-label={tag.name}
-        />
+        >
+          {/* A tag icon tinted with the tag's own colour (stroke = currentColor). */}
+          <TagIcon className="h-3.5 w-3.5" style={{ color: tag.color }} />
+        </button>
       </TooltipTrigger>
       <TooltipContent>{tag.name}</TooltipContent>
     </Tooltip>
@@ -517,9 +528,13 @@ export function TransactionRowMobile({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">{payeeName}</span>
-          {transactionTags.map((tag) => (
-            <TagDot key={tag.id} tag={tag} />
-          ))}
+          {transactionTags.length > 0 && (
+            <span className="ml-1 flex shrink-0 items-center gap-1.5">
+              {transactionTags.map((tag) => (
+                <TagMark key={tag.id} tag={tag} />
+              ))}
+            </span>
+          )}
         </div>
         <div className="mt-0.5 flex items-center gap-2">
           <span
