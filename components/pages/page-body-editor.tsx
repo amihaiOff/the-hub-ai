@@ -40,16 +40,35 @@ import { AutoCapitalize } from './auto-capitalize';
 import { MathInline, MathBlock } from './math-extension';
 
 /**
- * Keeps Shift-Tab (outdent) from lifting a top-level list item out of the
- * list into a plain paragraph. Nested items still outdent one level toward
- * their parent; a top-level item's Shift-Tab is swallowed so the item stays
- * in the list. Higher priority than StarterKit's listItem so this runs first.
+ * List Tab / Shift-Tab handling:
+ *
+ * - Shift-Tab: outdents nested list items one level; a top-level item's
+ *   Shift-Tab is swallowed so it can't be lifted out of the list into a
+ *   plain paragraph.
+ * - Tab: tries to sink the current list item into the previous sibling.
+ *   Whether sinkListItem succeeds or not, we CONSUME the event so the
+ *   browser doesn't fall through to its native tab-focus cycling — that
+ *   was the "Tab jumps to the next chevron / button on the page" bug for
+ *   list items where sinkListItem returns false (e.g. items whose
+ *   previous sibling already has a nested list, or other structural
+ *   edge cases).
+ *
+ * Higher priority than StarterKit's listItem so this runs first.
  */
 const ListOutdentGuard = Extension.create({
   name: 'listOutdentGuard',
   priority: 1000,
   addKeyboardShortcuts() {
     return {
+      Tab: ({ editor }) => {
+        const inList = editor.isActive('listItem') || editor.isActive('taskItem');
+        if (!inList) return false; // Not in a list — let default handling run.
+        // Try to sink; swallow the event either way so focus can't escape
+        // to browser tab-cycling on edge cases where sinkListItem no-ops.
+        editor.chain().focus().sinkListItem('listItem').run() ||
+          editor.chain().focus().sinkListItem('taskItem').run();
+        return true;
+      },
       'Shift-Tab': ({ editor }) => {
         const inList = editor.isActive('listItem') || editor.isActive('taskItem');
         if (!inList) return false; // Not in a list — let default handling run.
