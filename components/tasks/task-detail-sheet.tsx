@@ -15,6 +15,14 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useBackToClose } from '@/lib/hooks/use-back-to-close';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -158,6 +166,7 @@ function TaskDetailBody({
 }) {
   const update = useUpdateTask();
   const del = useDeleteTask();
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const createTask = useCreateTask();
   const setSubtaskDone = useToggleTaskDone();
   // Only top-level tasks can host sub-tasks (schema invariant: one level deep).
@@ -426,11 +435,46 @@ function TaskDetailBody({
           aria-label="Delete task"
           title="Delete task"
           className="text-destructive hover:bg-destructive/10 h-9 w-9 rounded-xl"
-          onClick={() => del.mutate(task.id, { onSuccess: onDeleted })}
+          onClick={() => setConfirmDelete(true)}
         >
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
+
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent className="rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Delete this task?</DialogTitle>
+            <DialogDescription>
+              “{task.title || 'Untitled task'}” will be permanently deleted
+              {canHaveSubtasks && subtasks.length > 0
+                ? `, along with its ${subtasks.length} sub-task${subtasks.length === 1 ? '' : 's'}`
+                : ''}
+              . This can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={del.isPending}
+              onClick={() =>
+                del.mutate(task.id, {
+                  onSuccess: () => {
+                    setConfirmDelete(false);
+                    onDeleted();
+                  },
+                })
+              }
+            >
+              {del.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
