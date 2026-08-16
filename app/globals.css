@@ -326,24 +326,27 @@
   /* Two-column layout blocks. Side-by-side on wide screens, stacked on mobile.
      `--left-ratio` (0..1) is set inline by the NodeView and drives the
      flex-basis of both columns so the split can be dragged. Falls back to
-     0.5 when the attribute is missing (legacy content). */
+     0.5 when the attribute is missing (legacy content).
+
+     The NodeView wraps the two columns in an inner `.page-columns-content`
+     element (from Tiptap's NodeViewContent). We put the flex layout on
+     THAT wrapper — putting it on the outer wrapper with `display: contents`
+     on the inner one was flaky across browsers and broke the layout back
+     to a single stacked column. */
   .page-columns {
     --left-ratio: 0.5;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
     margin: 0.6rem 0;
     position: relative;
   }
+  .page-columns > .page-columns-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
   @media (min-width: 640px) {
-    .page-columns {
+    .page-columns > .page-columns-content {
       flex-direction: row;
     }
-  }
-  /* The inner NodeViewContent wrapper — needs to behave like the flex
-     row so its children (the two columns) participate in the split. */
-  .page-columns > .page-columns-content {
-    display: contents;
   }
   .page-column {
     flex: 1 1 0;
@@ -353,10 +356,10 @@
   /* Ratio-driven flex-basis kicks in only when the layout is side-by-side
      (>=640px); stacked mobile keeps 100% each. */
   @media (min-width: 640px) {
-    .page-column:nth-child(1) {
+    .page-columns > .page-columns-content > .page-column:nth-child(1) {
       flex: 0 0 calc(var(--left-ratio) * 100%);
     }
-    .page-column:nth-child(2) {
+    .page-columns > .page-columns-content > .page-column:nth-child(2) {
       flex: 0 0 calc((1 - var(--left-ratio)) * 100%);
     }
     .page-column + .page-column {

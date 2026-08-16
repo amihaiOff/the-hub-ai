@@ -71,6 +71,11 @@ export function ColumnBlockView(props: NodeViewProps) {
       data-type="column-block"
       style={{ ['--left-ratio' as string]: String(ratio) }}
     >
+      {/* The NodeViewContent wrapper is the actual flex row. Doing this
+          via `display: contents` on an outer wrapper was flaky (Safari)
+          and broke the two-column layout back to a single stacked column;
+          making the content wrapper itself the flex container is
+          unambiguous across browsers. */}
       <NodeViewContent className="page-columns-content" as="div" />
       {props.editor.isEditable && (
         <button
@@ -82,6 +87,12 @@ export function ColumnBlockView(props: NodeViewProps) {
           // handle as text content — otherwise typing near it can push
           // characters into a weird position.
           contentEditable={false}
+          // tabIndex=-1 keeps the button OUT of the keyboard tab order:
+          // otherwise pressing Tab inside a list item stole focus into
+          // this handle (native browser behaviour) BEFORE ProseMirror's
+          // sinkListItem keymap could fire, silently breaking list
+          // indentation across the entire editor.
+          tabIndex={-1}
           className="page-column-resize-handle"
           style={{ left: `calc(${ratio * 100}% - 6px)` }}
         />
