@@ -123,7 +123,12 @@ export function PageBodyEditor({
           // extension only opens a link when openOnClick is on) — links open in a
           // new tab. Editing a link still works via the toolbar Link button.
           openOnClick: true,
-          autolink: true,
+          // Autolinking is off: users complained that any "word.word"
+          // substring (e.g. sentence.end, file.ts, npm.js) was silently
+          // turned into a link. Links are now only created when the user
+          // explicitly asks via the Link toolbar button.
+          autolink: false,
+          linkOnPaste: false,
           HTMLAttributes: {
             class: 'text-primary underline underline-offset-2',
             target: '_blank',
