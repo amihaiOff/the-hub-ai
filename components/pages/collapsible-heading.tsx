@@ -65,6 +65,12 @@ function HeadingNodeView({ node, updateAttributes, editor }: NodeViewProps) {
         // toggle. contentEditable=false ensures the chevron isn't part of
         // the editable text.
         contentEditable={false}
+        // tabIndex=-1 keeps this button OUT of the keyboard tab order.
+        // Otherwise pressing Tab from inside a list item steals focus
+        // to the nearest chevron button (native browser behaviour)
+        // BEFORE ProseMirror's Tab keymap (sinkListItem) can fire —
+        // the caret leaves the editor and list-indent silently no-ops.
+        tabIndex={-1}
         onClick={toggle}
         aria-label={collapsed ? 'Expand section' : 'Collapse section'}
         aria-expanded={!collapsed}
