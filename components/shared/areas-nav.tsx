@@ -103,10 +103,12 @@ export function AreasNav({
           avoidCollisions={!isMobile}
           className={cn(
             'relative rounded-2xl border p-1 shadow-xl',
-            // Desktop: fit content, capped so 3+ sections still wrap
-            // (max width scales with 3× section card ~180px + gaps).
-            // Mobile: fixed to a width that fits after the LEFT shift.
-            isMobile ? 'w-[70vw]' : 'w-max max-w-[720px] min-w-[240px]'
+            // Desktop: fixed 600px so the inner grid gets three
+            // 180px columns side-by-side. Using `w-max` sized the
+            // popup to a single grid cell (auto-fit with a min-content
+            // container collapsed to 1 column). Mobile: 70vw fits
+            // inside the viewport after the LEFT shift.
+            isMobile ? 'w-[70vw]' : 'w-[600px] max-w-[92vw]'
           )}
         >
           {/* Top-right gear — anchored above the content so it stays
@@ -212,7 +214,7 @@ function DesktopGroupedList({
   // fixed min-width so the popup grows in 3-column blocks and doesn't
   // stretch a single tall section across a wide popup.
   return (
-    <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
+    <div className="grid grid-cols-3 gap-3">
       {grouped.map((g) => {
         const label = g.section?.name ?? 'Unsorted';
         const key = g.section?.id ?? '__unsorted__';
