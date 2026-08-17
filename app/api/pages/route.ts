@@ -25,6 +25,7 @@ export async function GET() {
       title: true,
       emoji: true,
       sortOrder: true,
+      sectionId: true,
       createdAt: true,
       updatedAt: true,
     },

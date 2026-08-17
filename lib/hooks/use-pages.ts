@@ -6,6 +6,8 @@ import type {
   UpdatePageInput,
   CreatePageTabInput,
   UpdatePageTabInput,
+  CreatePageSectionInput,
+  UpdatePageSectionInput,
 } from '@/lib/validations/pages';
 
 // ─── Types the UI consumes ──────────────────────────────────────────────
@@ -16,8 +18,16 @@ export interface PageListRow {
   title: string;
   emoji: string | null;
   sortOrder: number;
+  sectionId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** A page section — a grouping of pages within a household. */
+export interface PageSectionRow {
+  id: string;
+  name: string;
+  sortOrder: number;
 }
 
 /** One tab within a page — its own title + Tiptap JSON content. */
@@ -34,6 +44,7 @@ export interface PageRow extends PageListRow {
   ownerId: string;
   householdId: string;
   autoCapitalize: boolean;
+  sectionId: string | null;
   tabs: PageTabRow[];
 }
 
@@ -45,6 +56,7 @@ export const pageKeys = {
   list: () => [...pageKeys.lists()] as const,
   details: () => [...pageKeys.all, 'detail'] as const,
   detail: (id: string) => [...pageKeys.details(), id] as const,
+  sections: () => ['page-sections'] as const,
 };
 
 // ─── Fetch helper ───────────────────────────────────────────────────────
@@ -205,6 +217,52 @@ export function useDeletePageTab() {
       fetchJson<{ ok: true }>(`/api/pages/${pageId}/tabs/${tabId}`, { method: 'DELETE' }),
     onSuccess: (_d, { pageId, tabId }) =>
       setTabs(qc, pageId, (tabs) => tabs.filter((t) => t.id !== tabId)),
+  });
+}
+
+// ─── Sections ───────────────────────────────────────────────────────────
+
+export function useSections() {
+  return useQuery({
+    queryKey: pageKeys.sections(),
+    queryFn: () => fetchJson<PageSectionRow[]>('/api/pages/sections'),
+  });
+}
+
+export function useCreateSection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreatePageSectionInput) =>
+      fetchJson<PageSectionRow>('/api/pages/sections', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: pageKeys.sections() }),
+  });
+}
+
+export function useUpdateSection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: UpdatePageSectionInput }) =>
+      fetchJson<PageSectionRow>(`/api/pages/sections/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: pageKeys.sections() }),
+  });
+}
+
+export function useDeleteSection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      fetchJson<{ ok: true }>(`/api/pages/sections/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      // Deleting a section nulls pages.sectionId, so the pages list needs a refetch too.
+      qc.invalidateQueries({ queryKey: pageKeys.sections() });
+      qc.invalidateQueries({ queryKey: pageKeys.lists() });
+    },
   });
 }
 

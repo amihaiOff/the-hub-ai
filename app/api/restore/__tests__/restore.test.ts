@@ -87,6 +87,8 @@ const mockPrisma = {
   householdInvite: createMockFns('householdInvite'),
   marketRate: createMockFns('marketRate'),
   moneytorTransaction: createMockFns('moneytorTransaction'),
+  // Tables added to the restore round-trip in schema version 2.8.
+  pageSection: createMockFns('pageSection'),
 };
 
 jest.mock('@/lib/db', () => ({

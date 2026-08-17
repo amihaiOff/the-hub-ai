@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
       '2.5',
       '2.6',
       '2.7',
+      '2.8',
     ];
     if (!supportedVersions.includes(metadata.schemaVersion)) {
       return NextResponse.json(
@@ -177,6 +178,8 @@ export async function POST(request: NextRequest) {
     const pages = await parseFile<Record<string, unknown>>('pages.json');
     // Schema version 2.4+ (empty for older backups).
     const pageTabs = await parseFile<Record<string, unknown>>('page_tabs.json');
+    // Schema version 2.8+ (empty for older backups).
+    const pageSections = await parseFile<Record<string, unknown>>('page_sections.json');
     // Wiki module — schema version 2.5+ (empty for older backups).
     const wikiConcepts = await parseFile<Record<string, unknown>>('wiki_concepts.json');
     const wikiConceptProjects = await parseFile<Record<string, unknown>>(
@@ -206,8 +209,12 @@ export async function POST(request: NextRequest) {
     await prisma.taskTag.deleteMany();
     await prisma.taskCategory.deleteMany();
     // Pages (Areas documents) — tabs are children, delete them first.
+    // page_sections is referenced by pages via a nullable FK (ON DELETE SET
+    // NULL), so we could delete either first; wipe tabs → pages → sections
+    // to keep the order deterministic.
     await prisma.pageTab.deleteMany();
     await prisma.page.deleteMany();
+    await prisma.pageSection.deleteMany();
     // Wiki module — children (attempts, memberships, questions) before concepts.
     await prisma.wikiQuestionAttempt.deleteMany();
     await prisma.wikiConceptProject.deleteMany();
@@ -1158,8 +1165,27 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 45. Pages (Areas documents — after users + households)
+    // 44b. Page Sections (before pages so page.sectionId FKs resolve)
+    // Pages restored from a section that isn't in the backup keep sectionId
+    // = null via the nullable FK.
+    const pageSectionIds = new Set(pageSections.map((s) => s.id as string));
+    for (const ps of pageSections) {
+      await prisma.pageSection.create({
+        data: {
+          id: ps.id as string,
+          name: ps.name as string,
+          sortOrder: (ps.sortOrder as number | undefined) ?? 0,
+          householdId: ps.householdId as string,
+          createdAt: new Date(ps.createdAt as string),
+          updatedAt: new Date(ps.updatedAt as string),
+        },
+      });
+    }
+
+    // 45. Pages (Areas documents — after users + households + page sections)
     for (const pg of pages) {
+      const rawSectionId = (pg.sectionId as string | null | undefined) ?? null;
+      const sectionId = rawSectionId && pageSectionIds.has(rawSectionId) ? rawSectionId : null;
       await prisma.page.create({
         data: {
           id: pg.id as string,
@@ -1170,6 +1196,7 @@ export async function POST(request: NextRequest) {
           autoCapitalize: (pg.autoCapitalize as boolean | undefined) ?? true,
           ownerId: pg.ownerId as string,
           householdId: pg.householdId as string,
+          sectionId,
           createdAt: new Date(pg.createdAt as string),
           updatedAt: new Date(pg.updatedAt as string),
         },

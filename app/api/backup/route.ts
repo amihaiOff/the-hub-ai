@@ -70,6 +70,7 @@ export async function GET() {
       generalLogs,
       pages,
       pageTabs,
+      pageSections,
       wikiConcepts,
       wikiConceptProjects,
       wikiQuestions,
@@ -126,6 +127,7 @@ export async function GET() {
       prisma.generalLog.findMany(),
       prisma.page.findMany(),
       prisma.pageTab.findMany(),
+      prisma.pageSection.findMany(),
       prisma.wikiConcept.findMany(),
       prisma.wikiConceptProject.findMany(),
       prisma.wikiQuestion.findMany(),
@@ -142,7 +144,7 @@ export async function GET() {
     // Create backup metadata
     const metadata = {
       backupDate: new Date().toISOString(),
-      schemaVersion: '2.7',
+      schemaVersion: '2.8',
       createdBy: user.email,
       counts: {
         users: users.length,
@@ -189,6 +191,7 @@ export async function GET() {
         generalLogs: generalLogs.length,
         pages: pages.length,
         pageTabs: pageTabs.length,
+        pageSections: pageSections.length,
         wikiConcepts: wikiConcepts.length,
         wikiConceptProjects: wikiConceptProjects.length,
         wikiQuestions: wikiQuestions.length,
@@ -282,6 +285,7 @@ export async function GET() {
     zip.file('general_logs.json', JSON.stringify(generalLogs, jsonSerializer, 2));
     zip.file('pages.json', JSON.stringify(pages, jsonSerializer, 2));
     zip.file('page_tabs.json', JSON.stringify(pageTabs, jsonSerializer, 2));
+    zip.file('page_sections.json', JSON.stringify(pageSections, jsonSerializer, 2));
     zip.file('wiki_concepts.json', JSON.stringify(wikiConcepts, jsonSerializer, 2));
     zip.file('wiki_concept_projects.json', JSON.stringify(wikiConceptProjects, jsonSerializer, 2));
     zip.file('wiki_questions.json', JSON.stringify(wikiQuestions, jsonSerializer, 2));

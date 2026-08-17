@@ -61,6 +61,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (input.emoji !== undefined) data.emoji = input.emoji;
     if (input.sortOrder !== undefined) data.sortOrder = input.sortOrder;
     if (input.autoCapitalize !== undefined) data.autoCapitalize = input.autoCapitalize;
+    if (input.sectionId !== undefined) {
+      if (input.sectionId === null) {
+        data.section = { disconnect: true };
+      } else {
+        // Ensure the section belongs to the same household.
+        const section = await prisma.pageSection.findFirst({
+          where: { id: input.sectionId, householdId: context.activeHousehold.id },
+          select: { id: true },
+        });
+        if (!section) {
+          return NextResponse.json({ success: false, error: 'Invalid section' }, { status: 400 });
+        }
+        data.section = { connect: { id: input.sectionId } };
+      }
+    }
     if (input.content !== undefined) {
       data.content =
         input.content === null ? Prisma.JsonNull : (input.content as Prisma.InputJsonValue);

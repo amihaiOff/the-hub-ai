@@ -154,6 +154,9 @@ model Household {
   // Pages module (Notion-like documents)
   pages Page[]
 
+  // Page sections (grouping layer over pages)
+  pageSections PageSection[]
+
   // Wiki module (OKF-inspired knowledge bundle)
   wikiConcepts WikiConcept[]
 
@@ -1392,16 +1395,37 @@ model Page {
   autoCapitalize Boolean @default(true) @map("auto_capitalize")
   ownerId     String   @map("owner_id")
   householdId String   @map("household_id")
+  sectionId   String?  @map("section_id")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  owner     User      @relation("PageOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  owner     User         @relation("PageOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  household Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  section   PageSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
   tabs      PageTab[]
 
   @@index([householdId])
   @@index([householdId, sortOrder])
+  @@index([householdId, sectionId])
   @@map("pages")
+}
+
+// PageSection - a household-scoped grouping of pages. A page belongs to at
+// most one section; pages with sectionId = null go into a synthetic
+// "Unsorted" bucket in the UI.
+model PageSection {
+  id          String   @id @default(cuid())
+  name        String
+  sortOrder   Int      @default(0) @map("sort_order")
+  householdId String   @map("household_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  pages     Page[]
+
+  @@index([householdId, sortOrder])
+  @@map("page_sections")
 }
 
 // A tab within a Page. Each tab owns its own Tiptap JSON document; a page
