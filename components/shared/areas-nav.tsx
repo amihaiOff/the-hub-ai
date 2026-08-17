@@ -92,9 +92,19 @@ export function AreasNav({
         <PopoverContent
           side="right"
           align="start"
-          sideOffset={8}
+          // Mobile: push the popup LEFT so it overlaps ~half the sidebar
+          // (mobile menu Sheet is w-72 = 288px, halve it). Desktop:
+          // small gap next to the sidebar.
+          sideOffset={isMobile ? -144 : 8}
           collisionPadding={12}
-          className={cn('rounded-2xl border p-1 shadow-xl', isMobile ? 'w-[85vw]' : 'w-[540px]')}
+          className={cn(
+            'rounded-2xl border p-1 shadow-xl',
+            // Desktop: fit content, capped so 3+ sections still wrap
+            // (max width scales with 3× section card ~180px + gaps).
+            // Mobile: keep the 85vw span; the sideOffset shift above
+            // pulls its left edge back over the sidebar.
+            isMobile ? 'w-[85vw]' : 'w-max max-w-[720px] min-w-[240px]'
+          )}
         >
           <div className="max-h-[60vh] overflow-y-auto p-1">
             {isMobile ? (
@@ -185,39 +195,6 @@ function groupPagesBySection(pages: PageListRow[], sections: PageSectionRow[]): 
   return groups;
 }
 
-function PageChip({
-  page,
-  pathname,
-  onNavigate,
-}: {
-  page: PageListRow;
-  pathname: string;
-  onNavigate: () => void;
-}) {
-  const href = `/areas/${page.id}`;
-  const active = pathname === href;
-  return (
-    <Link
-      href={href}
-      onClick={onNavigate}
-      aria-current={active ? 'page' : undefined}
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all',
-        active
-          ? 'bg-accent text-accent-foreground'
-          : 'bg-muted/40 text-foreground/80 hover:bg-accent/60 hover:text-foreground'
-      )}
-    >
-      {page.emoji ? (
-        <span className="text-sm leading-none">{page.emoji}</span>
-      ) : (
-        <FileText className="h-3 w-3 shrink-0" />
-      )}
-      <span className="max-w-[140px] truncate">{page.title.trim() || 'Untitled'}</span>
-    </Link>
-  );
-}
-
 function DesktopGroupedList({
   grouped,
   pathname,
@@ -227,27 +204,49 @@ function DesktopGroupedList({
   pathname: string;
   onNavigate: () => void;
 }) {
+  // Section grid: label on top, pages listed vertically below. Three
+  // sections per row on desktop; more sections wrap. Each column has a
+  // fixed min-width so the popup grows in 3-column blocks and doesn't
+  // stretch a single tall section across a wide popup.
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
       {grouped.map((g) => {
         const label = g.section?.name ?? 'Unsorted';
         const key = g.section?.id ?? '__unsorted__';
         return (
-          <div key={key} className="flex items-start gap-3 rounded-lg px-1.5 py-1.5">
-            <div className="text-muted-foreground w-[110px] shrink-0 pt-1 text-xs font-semibold tracking-wide uppercase">
+          <div key={key} className="flex min-w-[180px] flex-col gap-1 rounded-lg px-1.5 py-1.5">
+            <div className="text-muted-foreground px-1 pb-1 text-xs font-semibold tracking-wide uppercase">
               {label}
             </div>
-            <div className="flex flex-1 flex-wrap gap-1.5">
-              {g.pages.length === 0 ? (
-                <span className="text-muted-foreground/70 bg-muted/30 rounded-full px-2.5 py-1 text-xs">
-                  No pages
-                </span>
-              ) : (
-                g.pages.map((p) => (
-                  <PageChip key={p.id} page={p} pathname={pathname} onNavigate={onNavigate} />
-                ))
-              )}
-            </div>
+            {g.pages.length === 0 ? (
+              <span className="text-muted-foreground/70 px-2 py-1 text-xs italic">No pages</span>
+            ) : (
+              g.pages.map((p) => {
+                const href = `/areas/${p.id}`;
+                const active = pathname === href;
+                return (
+                  <Link
+                    key={p.id}
+                    href={href}
+                    onClick={onNavigate}
+                    aria-current={active ? 'page' : undefined}
+                    className={cn(
+                      'flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-all',
+                      active
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-foreground/80 hover:bg-accent/60 hover:text-foreground'
+                    )}
+                  >
+                    {p.emoji ? (
+                      <span className="w-4 text-center text-sm leading-none">{p.emoji}</span>
+                    ) : (
+                      <FileText className="h-4 w-4 shrink-0" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate">{p.title.trim() || 'Untitled'}</span>
+                  </Link>
+                );
+              })
+            )}
           </div>
         );
       })}
