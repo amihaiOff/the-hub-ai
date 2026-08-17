@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
-import { getCurrentContext } from '@/lib/auth-utils';
+import { resolvePagesAccess } from '@/lib/auth-pages';
 import { prisma } from '@/lib/db';
 import { createPageTabSchema } from '@/lib/validations/pages';
 import { getFirstZodError } from '@/lib/validations/common';
@@ -15,14 +15,14 @@ interface RouteParams {
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const context = await getCurrentContext();
-    if (!context) {
+    const access = await resolvePagesAccess(request);
+    if (!access) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
     const { id } = await params;
     // Scope to the active household via the parent page.
     const page = await prisma.page.findFirst({
-      where: { id, householdId: context.activeHousehold.id },
+      where: { id, householdId: access.householdId },
       select: { id: true, _count: { select: { tabs: true } } },
     });
     if (!page) {

@@ -14,24 +14,24 @@ jest.mock('@/lib/db', () => ({
   },
 }));
 
-jest.mock('@/lib/auth-utils', () => ({
-  getCurrentContext: jest.fn(),
+jest.mock('@/lib/auth-pages', () => ({
+  resolvePagesAccess: jest.fn(),
 }));
 
 import { prisma } from '@/lib/db';
-import { getCurrentContext } from '@/lib/auth-utils';
+import { resolvePagesAccess } from '@/lib/auth-pages';
 import { GET, POST } from '../route';
 
-const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
+const mockResolveAccess = resolvePagesAccess as jest.MockedFunction<typeof resolvePagesAccess>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 
-const mockContext = {
-  user: { id: 'user-1', email: 't@x.com', name: 'Me' },
-  profile: { id: 'profile-1', name: 'Me', image: null, color: '#3b82f6', userId: 'user-1' },
-  households: [{ id: 'hh-1', name: 'Home', description: null, role: 'owner' as const }],
-  activeHousehold: { id: 'hh-1', name: 'Home', description: null, role: 'owner' as const },
-  householdProfiles: [],
-};
+// resolvePagesAccess collapses both session and token auth to this shape, so the
+// route can't tell them apart — token requests exercise the exact same paths.
+const mockAccess = { householdId: 'hh-1', userId: 'user-1' };
+
+function get() {
+  return new NextRequest('http://localhost/api/pages');
+}
 
 function post(body: unknown) {
   return new NextRequest('http://localhost/api/pages', {
@@ -44,15 +44,15 @@ describe('GET /api/pages', () => {
   beforeEach(() => jest.resetAllMocks());
 
   it('returns 401 when unauthenticated', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(null);
-    const res = await GET();
+    mockResolveAccess.mockResolvedValueOnce(null);
+    const res = await GET(get());
     expect(res.status).toBe(401);
   });
 
   it('lists pages scoped to the active household, ordered for the sidebar', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveAccess.mockResolvedValueOnce(mockAccess);
     (mockPrisma.page.findMany as jest.Mock).mockResolvedValueOnce([]);
-    await GET();
+    await GET(get());
     expect(mockPrisma.page.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { householdId: 'hh-1' },
@@ -66,13 +66,13 @@ describe('POST /api/pages', () => {
   beforeEach(() => jest.resetAllMocks());
 
   it('returns 401 when unauthenticated', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(null);
+    mockResolveAccess.mockResolvedValueOnce(null);
     const res = await POST(post({}));
     expect(res.status).toBe(401);
   });
 
-  it('creates a page owned by the user in the active household, sorted to the top', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+  it('creates a page owned by the acting user in the household, sorted to the top', async () => {
+    mockResolveAccess.mockResolvedValueOnce(mockAccess);
     (mockPrisma.page.findFirst as jest.Mock).mockResolvedValueOnce({ sortOrder: -2 });
     (mockPrisma.page.create as jest.Mock).mockResolvedValueOnce({ id: 'p1' });
     const res = await POST(post({ title: 'Trip', emoji: '✈️' }));
@@ -91,7 +91,7 @@ describe('POST /api/pages', () => {
   });
 
   it('rejects content that exceeds the size cap with 400', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveAccess.mockResolvedValueOnce(mockAccess);
     const huge = { type: 'doc', blob: 'x'.repeat(1_000_001) };
     const res = await POST(post({ content: huge }));
     expect(res.status).toBe(400);

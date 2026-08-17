@@ -18,12 +18,22 @@ jest.mock('@/lib/auth-utils', () => ({
   getCurrentContext: jest.fn(),
 }));
 
+// GET + PATCH authenticate via resolvePagesAccess (session OR scoped token);
+// DELETE stays session-only via getCurrentContext.
+jest.mock('@/lib/auth-pages', () => ({
+  resolvePagesAccess: jest.fn(),
+}));
+
 import { prisma } from '@/lib/db';
 import { getCurrentContext } from '@/lib/auth-utils';
+import { resolvePagesAccess } from '@/lib/auth-pages';
 import { GET, PATCH, DELETE } from '../route';
 
 const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
+const mockResolveAccess = resolvePagesAccess as jest.MockedFunction<typeof resolvePagesAccess>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
+
+const mockAccess = { householdId: 'hh-1', userId: 'user-1' };
 
 const mockContext = {
   user: { id: 'user-1', email: 't@x.com', name: 'Me' },
@@ -39,14 +49,14 @@ describe('GET /api/pages/[id]', () => {
   beforeEach(() => jest.resetAllMocks());
 
   it('404s when the page is not in the active household', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveAccess.mockResolvedValueOnce(mockAccess);
     (mockPrisma.page.findFirst as jest.Mock).mockResolvedValueOnce(null);
     const res = await GET(new NextRequest('http://localhost/api/pages/p1'), params('p1'));
     expect(res.status).toBe(404);
   });
 
   it('returns the page when found', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveAccess.mockResolvedValueOnce(mockAccess);
     (mockPrisma.page.findFirst as jest.Mock).mockResolvedValueOnce({ id: 'p1', title: 'X' });
     const res = await GET(new NextRequest('http://localhost/api/pages/p1'), params('p1'));
     expect(res.status).toBe(200);
@@ -69,7 +79,7 @@ describe('PATCH /api/pages/[id]', () => {
   }
 
   it('404s when the page is not in the active household', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveAccess.mockResolvedValueOnce(mockAccess);
     (mockPrisma.page.findFirst as jest.Mock).mockResolvedValueOnce(null);
     const res = await patch('p1', { title: 'New' });
     expect(res.status).toBe(404);
@@ -77,7 +87,7 @@ describe('PATCH /api/pages/[id]', () => {
   });
 
   it('only writes the keys the client sent', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveAccess.mockResolvedValueOnce(mockAccess);
     (mockPrisma.page.findFirst as jest.Mock).mockResolvedValueOnce({ id: 'p1' });
     (mockPrisma.page.update as jest.Mock).mockResolvedValueOnce({ id: 'p1', title: 'New' });
     const res = await patch('p1', { title: 'New' });
@@ -89,7 +99,7 @@ describe('PATCH /api/pages/[id]', () => {
   });
 
   it('clears emoji when null is sent', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveAccess.mockResolvedValueOnce(mockAccess);
     (mockPrisma.page.findFirst as jest.Mock).mockResolvedValueOnce({ id: 'p1' });
     (mockPrisma.page.update as jest.Mock).mockResolvedValueOnce({ id: 'p1' });
     await patch('p1', { emoji: null });
@@ -118,5 +128,14 @@ describe('DELETE /api/pages/[id]', () => {
     const res = await DELETE(new NextRequest('http://localhost/api/pages/p1'), params('p1'));
     expect(res.status).toBe(200);
     expect(mockPrisma.page.delete).toHaveBeenCalledWith({ where: { id: 'p1' } });
+  });
+
+  it('rejects a token-only request — delete requires a session', async () => {
+    // DELETE never calls resolvePagesAccess, so even a valid scoped token (no
+    // session) resolves to no context and is refused.
+    mockGetCurrentContext.mockResolvedValueOnce(null);
+    const res = await DELETE(new NextRequest('http://localhost/api/pages/p1'), params('p1'));
+    expect(res.status).toBe(401);
+    expect(mockPrisma.page.delete).not.toHaveBeenCalled();
   });
 });

@@ -5,11 +5,19 @@ jest.mock('@/lib/db', () => ({
     household: {
       findFirst: jest.fn(),
     },
+    householdMember: {
+      findFirst: jest.fn(),
+    },
   },
 }));
 
 import { prisma } from '@/lib/db';
-import { getHouseholdIdFromApiKey, getHouseholdIdFromAgentKey } from '@/lib/auth-api-key';
+import {
+  getHouseholdIdFromApiKey,
+  getHouseholdIdFromAgentKey,
+  getPagesHouseholdIdFromToken,
+  resolveHouseholdOwnerUserId,
+} from '@/lib/auth-api-key';
 
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 
@@ -120,6 +128,85 @@ describe('getHouseholdIdFromAgentKey', () => {
 
   it('returns null when no tokens are configured', async () => {
     const result = await getHouseholdIdFromAgentKey(makeRequest('Bearer anything'));
+    expect(result).toBeNull();
+  });
+});
+
+describe('getPagesHouseholdIdFromToken', () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    jest.resetAllMocks();
+    process.env = { ...originalEnv };
+    delete process.env.API_SECRET;
+    delete process.env.UPLOAD_SCRIPT_API_KEY;
+    delete process.env.AGENT_READ_TOKEN;
+    delete process.env.AGENT_PAGES_TOKEN;
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  it('accepts the dedicated pages token', async () => {
+    process.env.AGENT_PAGES_TOKEN = 'pages-token';
+    (mockPrisma.household.findFirst as jest.Mock).mockResolvedValueOnce({ id: 'hh-1' });
+    const result = await getPagesHouseholdIdFromToken(makeRequest('Bearer pages-token'));
+    expect(result).toBe('hh-1');
+  });
+
+  it('also accepts the full-access API secret', async () => {
+    process.env.API_SECRET = 'admin-secret';
+    (mockPrisma.household.findFirst as jest.Mock).mockResolvedValueOnce({ id: 'hh-1' });
+    const result = await getPagesHouseholdIdFromToken(makeRequest('Bearer admin-secret'));
+    expect(result).toBe('hh-1');
+  });
+
+  it('rejects the read-only backlog token (pages token is a separate scope)', async () => {
+    process.env.AGENT_READ_TOKEN = 'read-token';
+    process.env.AGENT_PAGES_TOKEN = 'pages-token';
+    const result = await getPagesHouseholdIdFromToken(makeRequest('Bearer read-token'));
+    expect(result).toBeNull();
+  });
+
+  it('rejects an unknown token', async () => {
+    process.env.AGENT_PAGES_TOKEN = 'pages-token';
+    const result = await getPagesHouseholdIdFromToken(makeRequest('Bearer nope'));
+    expect(result).toBeNull();
+  });
+
+  it('returns null when the token matches but no household exists', async () => {
+    process.env.AGENT_PAGES_TOKEN = 'pages-token';
+    (mockPrisma.household.findFirst as jest.Mock).mockResolvedValueOnce(null);
+    const result = await getPagesHouseholdIdFromToken(makeRequest('Bearer pages-token'));
+    expect(result).toBeNull();
+  });
+
+  it('returns null when no tokens are configured', async () => {
+    const result = await getPagesHouseholdIdFromToken(makeRequest('Bearer anything'));
+    expect(result).toBeNull();
+  });
+});
+
+describe('resolveHouseholdOwnerUserId', () => {
+  beforeEach(() => jest.resetAllMocks());
+
+  it("returns the owner member's linked user id", async () => {
+    (mockPrisma.householdMember.findFirst as jest.Mock).mockResolvedValueOnce({
+      profile: { userId: 'user-1' },
+    });
+    const result = await resolveHouseholdOwnerUserId('hh-1');
+    expect(result).toBe('user-1');
+    // Scopes to an owner member of this household whose profile has a login user.
+    const where = (mockPrisma.householdMember.findFirst as jest.Mock).mock.calls[0][0].where;
+    expect(where.householdId).toBe('hh-1');
+    expect(where.role).toBe('owner');
+    expect(where.profile.userId).toEqual({ not: null });
+  });
+
+  it('returns null when the household has no login owner', async () => {
+    (mockPrisma.householdMember.findFirst as jest.Mock).mockResolvedValueOnce(null);
+    const result = await resolveHouseholdOwnerUserId('hh-1');
     expect(result).toBeNull();
   });
 });

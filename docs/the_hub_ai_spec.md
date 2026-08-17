@@ -628,6 +628,19 @@ and are created with one initial empty tab.
 `POST /api/pages/[id]/tabs`, `PATCH/DELETE /api/pages/[id]/tabs/[tabId]`,
 `POST /api/pages/upload`.
 
+**Agent/token access.** The Pages routes authenticate via either a logged-in
+session **or** a scoped Bearer token, resolved by `resolvePagesAccess`
+(`lib/auth-pages.ts`): a session yields the caller's active household + user; a
+token yields the single household + its owner user (so token-created pages are
+attributed to the owner). The token is **`AGENT_PAGES_TOKEN`** (the full-access
+`API_SECRET` also works), validated in `getPagesHouseholdIdFromToken`
+(`lib/auth-api-key.ts`). Scope is **read + write only** — `GET/POST /api/pages`,
+`GET/PATCH /api/pages/[id]`, `POST /api/pages/[id]/tabs`, and
+`PATCH /api/pages/[id]/tabs/[tabId]` accept the token; the two **DELETE** routes
+stay **session-only**. This lets a headless agent edit pages without a browser
+login while keeping destructive deletes off the token. Example:
+`curl -X PATCH .../api/pages/<id>/tabs/<tabId> -H "Authorization: Bearer $AGENT_PAGES_TOKEN" -H 'Content-Type: application/json' -d '{"content": <tiptap-json>}'`.
+
 # Development & Deployment
 
 ## Code Quality Practices

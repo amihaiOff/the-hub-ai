@@ -46,6 +46,47 @@ export async function getHouseholdIdFromApiKey(request: NextRequest): Promise<st
 }
 
 /**
+ * Validate a key scoped to the Areas Pages API and resolve the household.
+ * Accepts a dedicated `AGENT_PAGES_TOKEN` — safe to hand to a page-editing agent
+ * because it only unlocks the read + write page routes (never delete, never any
+ * other data) — plus the full-access `API_SECRET` / `UPLOAD_SCRIPT_API_KEY` so
+ * an admin token keeps working. Deliberately does NOT honour `AGENT_READ_TOKEN`
+ * (that stays read-only for the backlog endpoint).
+ *
+ * @returns householdId if authenticated, null otherwise
+ */
+export async function getPagesHouseholdIdFromToken(request: NextRequest): Promise<string | null> {
+  const token = bearerToken(request);
+  if (!token) return null;
+  if (
+    !matchesAny(token, [
+      process.env.AGENT_PAGES_TOKEN,
+      process.env.API_SECRET,
+      process.env.UPLOAD_SCRIPT_API_KEY,
+    ])
+  ) {
+    return null;
+  }
+  return firstHouseholdId();
+}
+
+/**
+ * Resolve the user id of a household's owner. Used when a session-less token
+ * request needs an acting user (e.g. `ownerId` on page creation): the token
+ * carries no session user, so writes are attributed to the household owner.
+ * Returns the earliest-joined owner member's linked user, or null if no owner
+ * has a login user.
+ */
+export async function resolveHouseholdOwnerUserId(householdId: string): Promise<string | null> {
+  const owner = await prisma.householdMember.findFirst({
+    where: { householdId, role: 'owner', profile: { userId: { not: null } } },
+    orderBy: { joinedAt: 'asc' },
+    select: { profile: { select: { userId: true } } },
+  });
+  return owner?.profile.userId ?? null;
+}
+
+/**
  * Validate a key for the read-only agent endpoints (`/api/agent/*`) and resolve
  * the household. Accepts a dedicated `AGENT_READ_TOKEN` — safe to hand to a
  * Claude Code agent because it's only honoured by read endpoints — and also the

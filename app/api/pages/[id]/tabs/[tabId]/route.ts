@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { getCurrentContext } from '@/lib/auth-utils';
+import { resolvePagesAccess } from '@/lib/auth-pages';
 import { prisma } from '@/lib/db';
 import { updatePageTabSchema } from '@/lib/validations/pages';
 import { getFirstZodError } from '@/lib/validations/common';
@@ -24,12 +25,12 @@ async function findScopedTab(pageId: string, tabId: string, householdId: string)
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const context = await getCurrentContext();
-    if (!context) {
+    const access = await resolvePagesAccess(request);
+    if (!access) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
     const { id, tabId } = await params;
-    const existing = await findScopedTab(id, tabId, context.activeHousehold.id);
+    const existing = await findScopedTab(id, tabId, access.householdId);
     if (!existing) {
       return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
     }
