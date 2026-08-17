@@ -20,6 +20,7 @@ import {
   Loader2,
   Merge,
   Percent,
+  ChevronDown,
 } from 'lucide-react';
 import {
   useCategoryGroups,
@@ -524,29 +525,139 @@ function BudgetDistribution({ categoryGroups }: BudgetDistributionProps) {
         </Card>
       </section>
 
-      {/* Category Distribution */}
+      {/* Category Distribution — one collapsible card per group, with
+          category rows (name · mini bar · %) tucked inside. Bar length
+          is share of the GROUP; the trailing % is share of the whole
+          budget. Same ChartModeToggle drives whether the trailing
+          readout is % or ₪. */}
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">By category</h2>
           <ChartModeToggle mode={catMode} onChange={setCatMode} />
         </div>
-        <Card>
-          <CardContent className="py-4">
-            <DistributionBarChart
-              mode={catMode}
-              grouped
-              data={categoryRows.map((c) => ({
-                name: c.name,
-                value: c.budget,
-                color: c.color,
-                pct: (c.budget / totalBudget) * 100,
-                groupName: c.groupName,
-                isGroupStart: c.isGroupStart,
-              }))}
-            />
-          </CardContent>
-        </Card>
+        <GroupedCategoryDistribution
+          totalBudget={totalBudget}
+          groupRows={groupRows}
+          categoryRows={categoryRows}
+          mode={catMode}
+        />
       </section>
+    </div>
+  );
+}
+
+/**
+ * Card-per-group layout for the by-category distribution. Each group is
+ * a collapsible card: header (colour dot · name · group total) is a
+ * click target; expanded body renders one row per category with a mini
+ * bar sized to the category's share of THAT GROUP (so the largest
+ * category in each group visually anchors the group), plus a trailing
+ * % or ₪ figure driven by the top-level mode toggle.
+ *
+ * All groups start expanded; the state is per-group so collapsing one
+ * doesn't drag the others with it.
+ */
+function GroupedCategoryDistribution({
+  totalBudget,
+  groupRows,
+  categoryRows,
+  mode,
+}: {
+  totalBudget: number;
+  groupRows: GroupRow[];
+  categoryRows: CategoryRow[];
+  mode: ChartMode;
+}) {
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const toggle = (id: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Categories bucketed by group name for O(N) rendering.
+  const byGroup = useMemo(() => {
+    const map = new Map<string, CategoryRow[]>();
+    for (const c of categoryRows) {
+      const list = map.get(c.groupName);
+      if (list) list.push(c);
+      else map.set(c.groupName, [c]);
+    }
+    return map;
+  }, [categoryRows]);
+
+  return (
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+      {groupRows.map((group) => {
+        const cats = byGroup.get(group.name) ?? [];
+        const groupPct = totalBudget > 0 ? (group.total / totalBudget) * 100 : 0;
+        const isCollapsed = collapsed.has(group.id);
+        return (
+          <Card key={group.id} className="overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggle(group.id)}
+              aria-expanded={!isCollapsed}
+              className="hover:bg-muted/30 flex w-full items-center gap-3 px-4 py-3 text-left transition-colors"
+            >
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: group.color }}
+                aria-hidden
+              />
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold">{group.name}</span>
+              <span className="text-base font-bold tabular-nums">
+                {mode === 'pct' ? `${groupPct.toFixed(1)}%` : formatCurrencyILS(group.total)}
+              </span>
+              <ChevronDown
+                className={cn(
+                  'text-muted-foreground h-4 w-4 shrink-0 transition-transform',
+                  isCollapsed && '-rotate-90'
+                )}
+                aria-hidden
+              />
+            </button>
+            {!isCollapsed && (
+              <CardContent className="space-y-2 border-t px-4 pt-3 pb-4">
+                {cats.length === 0 ? (
+                  <p className="text-muted-foreground text-xs italic">
+                    No budgeted categories in this group.
+                  </p>
+                ) : (
+                  cats.map((c) => {
+                    const shareOfGroup = group.total > 0 ? (c.budget / group.total) * 100 : 0;
+                    const shareOfTotal = totalBudget > 0 ? (c.budget / totalBudget) * 100 : 0;
+                    const readout =
+                      mode === 'pct' ? `${shareOfTotal.toFixed(1)}%` : formatCurrencyILS(c.budget);
+                    return (
+                      <div key={c.id} className="flex items-center gap-3">
+                        <span className="text-muted-foreground w-28 shrink-0 truncate text-xs">
+                          {c.name}
+                        </span>
+                        <div className="bg-muted/40 h-1.5 flex-1 overflow-hidden rounded-full">
+                          <div
+                            className="h-full rounded-full transition-[width] duration-200"
+                            style={{
+                              width: `${Math.max(2, shareOfGroup)}%`,
+                              backgroundColor: c.color,
+                            }}
+                          />
+                        </div>
+                        <span className="w-14 shrink-0 text-right text-xs tabular-nums">
+                          {readout}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </CardContent>
+            )}
+          </Card>
+        );
+      })}
     </div>
   );
 }
