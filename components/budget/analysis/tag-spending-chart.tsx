@@ -1,7 +1,16 @@
 'use client';
 
 import { useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  ResponsiveContainer,
+  Tooltip,
+  Cell,
+  LabelList,
+} from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils/portfolio';
 import type { AnalysisData } from '@/lib/hooks/use-budget';
@@ -64,7 +73,7 @@ export function TagSpendingChart({ data }: TagSpendingChartProps) {
               <YAxis
                 type="category"
                 dataKey="name"
-                axisLine={false}
+                axisLine={{ stroke: '#71717a', strokeOpacity: 0.35 }}
                 tickLine={false}
                 tick={{ fontSize: 11, fill: '#71717a' }}
                 width={90}
@@ -94,6 +103,16 @@ export function TagSpendingChart({ data }: TagSpendingChartProps) {
                 {chartData.map((entry, i) => (
                   <Cell key={i} fill={entry.color} />
                 ))}
+                <LabelList
+                  dataKey="spent"
+                  position="right"
+                  formatter={(raw) => {
+                    const n = Number(raw);
+                    if (!Number.isFinite(n)) return '';
+                    return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n));
+                  }}
+                  style={{ fill: '#a1a1aa', fontSize: 10 }}
+                />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
