@@ -74,10 +74,10 @@ export function ColumnBlockView(props: NodeViewProps) {
       {/* NodeViewContent renders `.page-columns-content`; Tiptap injects a
           single content wrapper inside it that actually holds the two
           columns. The flex row lives on that injected wrapper — see the
-          `.page-columns-content > *` rules in globals.css, which target it
-          structurally rather than by Tiptap's internal attribute name (a
-          caret bump that renamed the attribute previously stacked the
-          columns). */}
+          `.page-columns-content > :first-child` rules in globals.css, which
+          target it structurally rather than by Tiptap's internal attribute
+          name (a caret bump that started injecting this extra wrapper
+          previously pushed the columns a level down and stacked them). */}
       <NodeViewContent className="page-columns-content" as="div" />
       {props.editor.isEditable && (
         <button
