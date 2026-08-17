@@ -93,20 +93,34 @@ export function AreasNav({
           side="right"
           align="start"
           // Mobile: push the popup LEFT so it overlaps ~half the sidebar
-          // (mobile menu Sheet is w-72 = 288px, halve it). Desktop:
-          // small gap next to the sidebar.
+          // Sheet (w-72 = 288px). Radix's default collision avoidance
+          // was cancelling the negative offset and pinning the popup at
+          // the trigger's right edge; `avoidCollisions={false}` lets
+          // the offset stick. Popup width is capped tightly so it
+          // still fits inside the viewport without a right-edge cut.
           sideOffset={isMobile ? -144 : 8}
           collisionPadding={12}
+          avoidCollisions={!isMobile}
           className={cn(
-            'rounded-2xl border p-1 shadow-xl',
+            'relative rounded-2xl border p-1 shadow-xl',
             // Desktop: fit content, capped so 3+ sections still wrap
             // (max width scales with 3× section card ~180px + gaps).
-            // Mobile: keep the 85vw span; the sideOffset shift above
-            // pulls its left edge back over the sidebar.
-            isMobile ? 'w-[85vw]' : 'w-max max-w-[720px] min-w-[240px]'
+            // Mobile: fixed to a width that fits after the LEFT shift.
+            isMobile ? 'w-[70vw]' : 'w-max max-w-[720px] min-w-[240px]'
           )}
         >
-          <div className="max-h-[60vh] overflow-y-auto p-1">
+          {/* Top-right gear — anchored above the content so it stays
+              consistently placed at any popup width. */}
+          <button
+            type="button"
+            onClick={() => setManageOpen(true)}
+            aria-label="Manage sections"
+            title="Manage sections"
+            className="text-muted-foreground hover:bg-accent/60 hover:text-foreground absolute top-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-lg transition-all"
+          >
+            <Settings className="h-4 w-4" />
+          </button>
+          <div className="max-h-[60vh] overflow-y-auto p-1 pt-8">
             {isMobile ? (
               <MobileGroupedList
                 grouped={grouped}
@@ -142,17 +156,6 @@ export function AreasNav({
                 <Plus className="h-4 w-4 shrink-0" />
               )}
               <span>New page</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setManageOpen(true)}
-              aria-label="Manage sections"
-              title="Manage sections"
-              className={cn(
-                'text-muted-foreground hover:bg-accent/60 hover:text-foreground rounded-lg p-2 transition-all'
-              )}
-            >
-              <Settings className="h-4 w-4" />
             </button>
           </div>
         </PopoverContent>
@@ -215,7 +218,15 @@ function DesktopGroupedList({
         const key = g.section?.id ?? '__unsorted__';
         return (
           <div key={key} className="flex min-w-[180px] flex-col gap-1 rounded-lg px-1.5 py-1.5">
-            <div className="text-muted-foreground px-1 pb-1 text-xs font-semibold tracking-wide uppercase">
+            {/* Section label. Dropped `uppercase` because it silently no-ops
+                on Hebrew/RTL scripts while making Latin labels visually
+                bulkier — the two ended up looking like different sizes
+                side-by-side. `dir="auto"` keeps mixed labels aligned to
+                their content's natural direction. */}
+            <div
+              dir="auto"
+              className="text-muted-foreground px-1 pb-1 text-[13px] font-semibold tracking-wide"
+            >
               {label}
             </div>
             {g.pages.length === 0 ? (
@@ -270,7 +281,10 @@ function MobileGroupedList({
         const key = g.section?.id ?? '__unsorted__';
         return (
           <div key={key} className="flex flex-col">
-            <div className="text-muted-foreground px-2 pt-1 pb-1 text-[11px] font-semibold tracking-wide uppercase">
+            <div
+              dir="auto"
+              className="text-muted-foreground px-2 pt-1 pb-1 text-[13px] font-semibold tracking-wide"
+            >
               {label}
             </div>
             <div className="flex flex-col">
