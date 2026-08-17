@@ -13,6 +13,7 @@ import { ChevronDown, ChevronRight, MoreVertical, Pencil, Trash2, Loader2 } from
 import { type BudgetTag, type BudgetPayee, formatCurrencyILS } from '@/lib/utils/budget';
 import { useTransactions, usePayees } from '@/lib/hooks/use-budget';
 import { CategoryTransactionsMini } from './category-transactions-mini';
+import { TagTimeSeriesChart } from './tag-time-series-chart';
 
 interface TagRowProps {
   tag: BudgetTag;
@@ -95,11 +96,16 @@ function TagRow({
               <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
             </div>
           ) : (
-            <CategoryTransactionsMini
-              transactions={transactions}
-              payees={payees}
-              emptyMessage="No transactions with this tag"
-            />
+            <>
+              <CategoryTransactionsMini
+                transactions={transactions}
+                payees={payees}
+                emptyMessage="No transactions with this tag"
+              />
+              {transactions.length > 0 && (
+                <TagTimeSeriesChart transactions={transactions} color={tag.color} />
+              )}
+            </>
           )}
         </div>
       )}

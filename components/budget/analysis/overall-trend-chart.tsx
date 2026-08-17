@@ -92,7 +92,7 @@ export function OverallTrendChart({ data }: OverallTrendChartProps) {
               />
               <YAxis
                 hide={isMobile}
-                axisLine={false}
+                axisLine={{ stroke: '#71717a', strokeOpacity: 0.35 }}
                 tickLine={false}
                 tick={{ fontSize: 10, fill: '#71717a' }}
                 tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}

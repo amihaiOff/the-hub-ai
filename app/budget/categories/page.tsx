@@ -20,6 +20,7 @@ import {
   Loader2,
   Merge,
   Percent,
+  ChevronDown,
 } from 'lucide-react';
 import {
   useCategoryGroups,
@@ -181,183 +182,197 @@ export default function CategoriesPage() {
                 </Button>
               </div>
             ) : (
-              <div className="lg:border-border lg:bg-card overflow-hidden lg:rounded-lg lg:border lg:py-6">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-muted/50 border-b">
-                        <th className="px-2 py-2 text-left text-sm font-medium sm:px-4 sm:py-3">
-                          Name
-                        </th>
-                        <th className="w-16 px-1 py-2 text-center text-sm font-medium sm:w-20 sm:px-2 sm:py-3">
-                          Essential
-                        </th>
-                        <th className="w-24 px-2 py-2 text-right text-sm font-medium sm:w-32 sm:px-4 sm:py-3">
-                          Budget
-                        </th>
-                        <th className="w-8 px-1 py-2 sm:w-10 sm:px-2 sm:py-3"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {categoryGroups.map((group) => (
-                        <Fragment key={group.id}>
-                          {/* Group Row */}
-                          <tr className="bg-muted/30 hover:bg-muted/50 border-b">
-                            <td className="px-2 py-3 sm:px-4 sm:py-4">
-                              <span className="text-sm font-semibold sm:text-base">
-                                {group.name}
-                              </span>
-                              <span className="text-muted-foreground ml-1 text-xs sm:ml-2 sm:text-sm">
-                                ({group.categories.length})
-                              </span>
-                            </td>
-                            <td className="px-1 py-3 sm:px-2 sm:py-4"></td>
-                            <td className="px-2 py-3 text-right sm:px-4 sm:py-4">
-                              <span className="text-muted-foreground text-sm tabular-nums">
-                                {formatCurrencyILS(
-                                  group.categories.reduce((sum, cat) => sum + (cat.budget || 0), 0)
-                                )}
-                              </span>
-                            </td>
-                            <td className="px-1 py-3 text-right sm:px-2 sm:py-4">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    <MoreVertical className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem
-                                    onClick={() => handleAddCategoryToGroup(group.id)}
-                                  >
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    Add Category
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => handleDeleteGroup(group.id, group.name)}
-                                    className="text-destructive"
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete Group
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+              <div className="overflow-x-auto">
+                <table className="w-full border-separate [border-spacing:0_0.5rem]">
+                  <thead>
+                    <tr>
+                      <th className="text-muted-foreground px-2 pb-1 text-left text-xs font-medium tracking-wider uppercase sm:px-4">
+                        Name
+                      </th>
+                      <th className="text-muted-foreground w-16 px-1 pb-1 text-center text-xs font-medium tracking-wider uppercase sm:w-20 sm:px-2">
+                        Essential
+                      </th>
+                      <th className="text-muted-foreground w-24 px-2 pb-1 text-right text-xs font-medium tracking-wider uppercase sm:w-32 sm:px-4">
+                        Budget
+                      </th>
+                      <th className="w-8 pb-1 sm:w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {categoryGroups.map((group, groupIdx) => (
+                      <Fragment key={group.id}>
+                        {/* Group Header Row — non-card, hairline separator above (except first) */}
+                        <tr>
+                          <td
+                            colSpan={2}
+                            className={cn(
+                              'px-2 pt-4 pb-1 sm:px-4',
+                              groupIdx > 0 && 'border-border/40 border-t'
+                            )}
+                          >
+                            <span className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
+                              {group.name}
+                            </span>
+                            <span className="text-muted-foreground/70 ml-2 text-xs">
+                              ({group.categories.length})
+                            </span>
+                          </td>
+                          <td
+                            className={cn(
+                              'px-2 pt-4 pb-1 text-right sm:px-4',
+                              groupIdx > 0 && 'border-border/40 border-t'
+                            )}
+                          >
+                            <span className="text-muted-foreground text-xs tabular-nums">
+                              {formatCurrencyILS(
+                                group.categories.reduce((sum, cat) => sum + (cat.budget || 0), 0)
+                              )}
+                            </span>
+                          </td>
+                          <td
+                            className={cn(
+                              'px-1 pt-4 pb-1 text-right sm:px-2',
+                              groupIdx > 0 && 'border-border/40 border-t'
+                            )}
+                          >
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => handleAddCategoryToGroup(group.id)}
+                                >
+                                  <Plus className="mr-2 h-4 w-4" />
+                                  Add Category
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteGroup(group.id, group.name)}
+                                  className="text-destructive"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete Group
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </tr>
+
+                        {/* Category Rows — subtle card style with rounded outer corners */}
+                        {group.categories.length === 0 ? (
+                          <tr key={`empty-${group.id}`}>
+                            <td
+                              colSpan={4}
+                              className="bg-muted/20 text-muted-foreground rounded-2xl px-4 py-2 text-sm italic sm:px-6"
+                            >
+                              No categories in this group
                             </td>
                           </tr>
+                        ) : (
+                          group.categories.map((category) => {
+                            return (
+                              <tr
+                                key={category.id}
+                                className="[&>td]:bg-muted/35 hover:[&>td]:bg-muted/55 [&>td]:transition-colors"
+                              >
+                                {/* Name */}
+                                <td className="rounded-l-2xl px-2 py-2 sm:px-4 sm:py-3">
+                                  <span className="text-sm font-medium">{category.name}</span>
+                                </td>
 
-                          {/* Category Rows */}
-                          {group.categories.length === 0 ? (
-                            <tr key={`empty-${group.id}`} className="border-b">
-                              <td colSpan={4} className="px-2 py-2 pl-6 sm:px-4 sm:py-3 sm:pl-8">
-                                <p className="text-muted-foreground text-sm italic">
-                                  No categories in this group
-                                </p>
-                              </td>
-                            </tr>
-                          ) : (
-                            group.categories.map((category) => {
-                              return (
-                                <tr
-                                  key={category.id}
-                                  className="hover:bg-muted/30 border-b transition-colors"
+                                {/* Essential */}
+                                <td className="px-1 py-2 text-center sm:px-2 sm:py-3">
+                                  <Checkbox
+                                    checked={category.isMust}
+                                    onCheckedChange={() =>
+                                      handleToggleEssential(category.id, category.isMust)
+                                    }
+                                    className="border-muted-foreground"
+                                  />
+                                </td>
+
+                                {/* Budget */}
+                                <td
+                                  className="w-24 px-2 py-2 text-right sm:w-32 sm:px-4 sm:py-3"
+                                  onClick={() => {
+                                    if (editingBudgetId !== category.id) {
+                                      setEditingBudgetId(category.id);
+                                      setEditingBudgetValue(
+                                        category.budget ? String(category.budget) : ''
+                                      );
+                                    }
+                                  }}
                                 >
-                                  {/* Name */}
-                                  <td className="px-2 py-2 pl-6 sm:px-4 sm:py-3 sm:pl-8">
-                                    <span className="text-sm font-medium">{category.name}</span>
-                                  </td>
-
-                                  {/* Essential */}
-                                  <td className="px-1 py-2 text-center sm:px-2 sm:py-3">
-                                    <Checkbox
-                                      checked={category.isMust}
-                                      onCheckedChange={() =>
-                                        handleToggleEssential(category.id, category.isMust)
-                                      }
-                                      className="border-muted-foreground"
+                                  {editingBudgetId === category.id ? (
+                                    <input
+                                      ref={budgetInputRef}
+                                      type="number"
+                                      value={editingBudgetValue}
+                                      onChange={(e) => setEditingBudgetValue(e.target.value)}
+                                      onBlur={() => handleBudgetSave(category.id)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') e.currentTarget.blur();
+                                        if (e.key === 'Escape') {
+                                          cancelledRef.current = true;
+                                          setEditingBudgetId(null);
+                                        }
+                                      }}
+                                      className="w-full [appearance:textfield] bg-transparent text-right text-sm tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                     />
-                                  </td>
+                                  ) : category.budget ? (
+                                    <span className="text-muted-foreground cursor-pointer text-sm tabular-nums hover:underline">
+                                      {formatCurrencyILS(category.budget)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground/50 cursor-pointer text-sm hover:underline">
+                                      —
+                                    </span>
+                                  )}
+                                </td>
 
-                                  {/* Budget */}
-                                  <td
-                                    className="w-24 px-2 py-2 text-right sm:w-32 sm:px-4 sm:py-3"
-                                    onClick={() => {
-                                      if (editingBudgetId !== category.id) {
-                                        setEditingBudgetId(category.id);
-                                        setEditingBudgetValue(
-                                          category.budget ? String(category.budget) : ''
-                                        );
-                                      }
-                                    }}
-                                  >
-                                    {editingBudgetId === category.id ? (
-                                      <input
-                                        ref={budgetInputRef}
-                                        type="number"
-                                        value={editingBudgetValue}
-                                        onChange={(e) => setEditingBudgetValue(e.target.value)}
-                                        onBlur={() => handleBudgetSave(category.id)}
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter') e.currentTarget.blur();
-                                          if (e.key === 'Escape') {
-                                            cancelledRef.current = true;
-                                            setEditingBudgetId(null);
-                                          }
-                                        }}
-                                        className="w-full [appearance:textfield] bg-transparent text-right text-sm tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                      />
-                                    ) : category.budget ? (
-                                      <span className="text-muted-foreground cursor-pointer text-sm tabular-nums hover:underline">
-                                        {formatCurrencyILS(category.budget)}
-                                      </span>
-                                    ) : (
-                                      <span className="text-muted-foreground/50 cursor-pointer text-sm hover:underline">
-                                        —
-                                      </span>
-                                    )}
-                                  </td>
-
-                                  {/* Actions */}
-                                  <td className="px-1 py-2 text-right sm:px-2 sm:py-3">
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                          <MoreVertical className="h-4 w-4" />
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end">
-                                        <DropdownMenuItem
-                                          onClick={() => setEditingCategory(category)}
-                                        >
-                                          <Pencil className="mr-2 h-4 w-4" />
-                                          Edit
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          onClick={() => setMergingCategory(category)}
-                                        >
-                                          <Merge className="mr-2 h-4 w-4" />
-                                          Merge into...
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          onClick={() =>
-                                            handleDeleteCategory(category.id, category.name)
-                                          }
-                                          className="text-destructive"
-                                        >
-                                          <Trash2 className="mr-2 h-4 w-4" />
-                                          Delete
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  </td>
-                                </tr>
-                              );
-                            })
-                          )}
-                        </Fragment>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                                {/* Actions */}
+                                <td className="rounded-r-2xl px-1 py-2 text-right sm:px-2 sm:py-3">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <MoreVertical className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem
+                                        onClick={() => setEditingCategory(category)}
+                                      >
+                                        <Pencil className="mr-2 h-4 w-4" />
+                                        Edit
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() => setMergingCategory(category)}
+                                      >
+                                        <Merge className="mr-2 h-4 w-4" />
+                                        Merge into...
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          handleDeleteCategory(category.id, category.name)
+                                        }
+                                        className="text-destructive"
+                                      >
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Delete
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </Fragment>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </TabsContent>
@@ -510,29 +525,145 @@ function BudgetDistribution({ categoryGroups }: BudgetDistributionProps) {
         </Card>
       </section>
 
-      {/* Category Distribution */}
+      {/* Category Distribution — one collapsible card per group, with
+          category rows (name · mini bar · %) tucked inside. Bar length
+          is share of the GROUP; the trailing % is share of the whole
+          budget. Same ChartModeToggle drives whether the trailing
+          readout is % or ₪. */}
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">By category</h2>
           <ChartModeToggle mode={catMode} onChange={setCatMode} />
         </div>
-        <Card>
-          <CardContent className="py-4">
-            <DistributionBarChart
-              mode={catMode}
-              grouped
-              data={categoryRows.map((c) => ({
-                name: c.name,
-                value: c.budget,
-                color: c.color,
-                pct: (c.budget / totalBudget) * 100,
-                groupName: c.groupName,
-                isGroupStart: c.isGroupStart,
-              }))}
-            />
-          </CardContent>
-        </Card>
+        <GroupedCategoryDistribution
+          totalBudget={totalBudget}
+          groupRows={groupRows}
+          categoryRows={categoryRows}
+          mode={catMode}
+        />
       </section>
+    </div>
+  );
+}
+
+/**
+ * Card-per-group layout for the by-category distribution. Each group is
+ * a collapsible card: header (colour dot · name · group total) is a
+ * click target; expanded body renders one row per category with a mini
+ * bar sized to the category's share of THAT GROUP (so the largest
+ * category in each group visually anchors the group), plus a trailing
+ * % or ₪ figure driven by the top-level mode toggle.
+ *
+ * All groups start expanded; the state is per-group so collapsing one
+ * doesn't drag the others with it.
+ */
+function GroupedCategoryDistribution({
+  totalBudget,
+  groupRows,
+  categoryRows,
+  mode,
+}: {
+  totalBudget: number;
+  groupRows: GroupRow[];
+  categoryRows: CategoryRow[];
+  mode: ChartMode;
+}) {
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const toggle = (id: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Categories bucketed by group name for O(N) rendering.
+  const byGroup = useMemo(() => {
+    const map = new Map<string, CategoryRow[]>();
+    for (const c of categoryRows) {
+      const list = map.get(c.groupName);
+      if (list) list.push(c);
+      else map.set(c.groupName, [c]);
+    }
+    return map;
+  }, [categoryRows]);
+
+  return (
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+      {groupRows.map((group) => {
+        const cats = byGroup.get(group.name) ?? [];
+        const groupPct = totalBudget > 0 ? (group.total / totalBudget) * 100 : 0;
+        const isCollapsed = collapsed.has(group.id);
+        return (
+          <Card key={group.id} className="overflow-hidden">
+            {/* Header is a click-target only on mobile — desktop is
+                always-expanded and the chevron is hidden. `lg:pointer-
+                events-none` + `lg:hover:bg-transparent` short-circuits
+                the interaction at the ≥lg breakpoint without duplicating
+                the JSX. */}
+            <button
+              type="button"
+              onClick={() => toggle(group.id)}
+              aria-expanded={!isCollapsed}
+              className="hover:bg-muted/30 flex w-full items-center gap-3 px-4 py-3 text-left transition-colors lg:pointer-events-none lg:hover:bg-transparent"
+            >
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: group.color }}
+                aria-hidden
+              />
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold">{group.name}</span>
+              <span className="text-base font-bold tabular-nums">
+                {mode === 'pct' ? `${groupPct.toFixed(1)}%` : formatCurrencyILS(group.total)}
+              </span>
+              <ChevronDown
+                className={cn(
+                  'text-muted-foreground h-4 w-4 shrink-0 transition-transform lg:hidden',
+                  isCollapsed && '-rotate-90'
+                )}
+                aria-hidden
+              />
+            </button>
+            {/* Body hidden below lg when collapsed; always visible at lg+. */}
+            <div className={cn(isCollapsed && 'hidden lg:block')}>
+              <CardContent className="space-y-2 border-t px-4 pt-3 pb-4">
+                {cats.length === 0 ? (
+                  <p className="text-muted-foreground text-xs italic">
+                    No budgeted categories in this group.
+                  </p>
+                ) : (
+                  cats.map((c) => {
+                    const shareOfGroup = group.total > 0 ? (c.budget / group.total) * 100 : 0;
+                    const shareOfTotal = totalBudget > 0 ? (c.budget / totalBudget) * 100 : 0;
+                    const readout =
+                      mode === 'pct' ? `${shareOfTotal.toFixed(1)}%` : formatCurrencyILS(c.budget);
+                    return (
+                      <div key={c.id} className="flex items-center gap-3">
+                        <span className="text-muted-foreground w-28 shrink-0 truncate text-xs">
+                          {c.name}
+                        </span>
+                        <div className="bg-muted/40 h-1.5 flex-1 overflow-hidden rounded-full">
+                          <div
+                            className="h-full rounded-full transition-[width] duration-200"
+                            style={{
+                              width: `${Math.max(2, shareOfGroup)}%`,
+                              backgroundColor: c.color,
+                            }}
+                          />
+                        </div>
+                        <span className="w-14 shrink-0 text-right text-xs tabular-nums">
+                          {readout}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </CardContent>
+            </div>
+          </Card>
+        );
+      })}
     </div>
   );
 }

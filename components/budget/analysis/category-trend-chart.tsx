@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, LabelList } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -118,7 +118,7 @@ export function CategoryTrendChart({ data }: CategoryTrendChartProps) {
                 />
                 <YAxis
                   hide={isMobile}
-                  axisLine={false}
+                  axisLine={{ stroke: '#71717a', strokeOpacity: 0.35 }}
                   tickLine={false}
                   tick={{ fontSize: 10, fill: '#71717a' }}
                   tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v))}
@@ -137,7 +137,18 @@ export function CategoryTrendChart({ data }: CategoryTrendChartProps) {
                     );
                   }}
                 />
-                <Bar dataKey="spent" fill="#3B82F6" radius={[2, 2, 0, 0]} />
+                <Bar dataKey="spent" fill="#3B82F6" radius={[2, 2, 0, 0]}>
+                  <LabelList
+                    dataKey="spent"
+                    position="top"
+                    formatter={(raw) => {
+                      const n = Number(raw);
+                      if (!Number.isFinite(n)) return '';
+                      return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n));
+                    }}
+                    style={{ fill: '#a1a1aa', fontSize: 10 }}
+                  />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>

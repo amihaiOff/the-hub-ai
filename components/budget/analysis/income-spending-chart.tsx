@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
   Tooltip,
   Cell,
+  LabelList,
   ReferenceLine,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -109,7 +110,7 @@ export function IncomeSpendingChart({ data }: IncomeSpendingChartProps) {
               />
               <YAxis
                 hide={isMobile}
-                axisLine={false}
+                axisLine={{ stroke: '#71717a', strokeOpacity: 0.35 }}
                 tickLine={false}
                 tick={{ fontSize: 10, fill: '#71717a' }}
                 tickFormatter={(v) =>
@@ -136,6 +137,18 @@ export function IncomeSpendingChart({ data }: IncomeSpendingChartProps) {
                   chartData.map((entry, i) => (
                     <Cell key={i} fill={entry.net >= 0 ? '#10B981' : '#EF4444'} />
                   ))}
+                <LabelList
+                  dataKey={dataKey}
+                  position="top"
+                  formatter={(raw) => {
+                    const n = Number(raw);
+                    if (!Number.isFinite(n)) return '';
+                    return Math.abs(n) >= 1000
+                      ? `${(n / 1000).toFixed(1)}k`
+                      : String(Math.round(n));
+                  }}
+                  style={{ fill: '#a1a1aa', fontSize: 10 }}
+                />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
