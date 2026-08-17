@@ -6,7 +6,6 @@ import { InstitutionBreakdown } from '@/components/budget/analysis/institution-b
 import { IncomeSpendingChart } from '@/components/budget/analysis/income-spending-chart';
 import { CategoryTrendChart } from '@/components/budget/analysis/category-trend-chart';
 import { GroupTrendChart } from '@/components/budget/analysis/group-trend-chart';
-import { TagSpendingOverviewChart } from '@/components/budget/analysis/tag-spending-overview-chart';
 
 export default function AnalysisOverallPage() {
   const { data, isLoading, error } = useAnalysisContext();
@@ -22,7 +21,6 @@ export default function AnalysisOverallPage() {
           ))}
         </div>
         <div className="bg-muted h-72 animate-pulse rounded-lg" />
-        <div className="bg-muted h-64 animate-pulse rounded-lg" />
         <div className="bg-muted h-64 animate-pulse rounded-lg" />
         <div className="bg-muted h-64 animate-pulse rounded-lg" />
       </div>
@@ -44,7 +42,6 @@ export default function AnalysisOverallPage() {
       <IncomeSpendingChart data={data} />
       <CategoryTrendChart data={data} />
       <GroupTrendChart data={data} />
-      <TagSpendingOverviewChart data={data} />
     </div>
   );
 }
