@@ -597,11 +597,16 @@ function GroupedCategoryDistribution({
         const isCollapsed = collapsed.has(group.id);
         return (
           <Card key={group.id} className="overflow-hidden">
+            {/* Header is a click-target only on mobile — desktop is
+                always-expanded and the chevron is hidden. `lg:pointer-
+                events-none` + `lg:hover:bg-transparent` short-circuits
+                the interaction at the ≥lg breakpoint without duplicating
+                the JSX. */}
             <button
               type="button"
               onClick={() => toggle(group.id)}
               aria-expanded={!isCollapsed}
-              className="hover:bg-muted/30 flex w-full items-center gap-3 px-4 py-3 text-left transition-colors"
+              className="hover:bg-muted/30 flex w-full items-center gap-3 px-4 py-3 text-left transition-colors lg:pointer-events-none lg:hover:bg-transparent"
             >
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -614,13 +619,14 @@ function GroupedCategoryDistribution({
               </span>
               <ChevronDown
                 className={cn(
-                  'text-muted-foreground h-4 w-4 shrink-0 transition-transform',
+                  'text-muted-foreground h-4 w-4 shrink-0 transition-transform lg:hidden',
                   isCollapsed && '-rotate-90'
                 )}
                 aria-hidden
               />
             </button>
-            {!isCollapsed && (
+            {/* Body hidden below lg when collapsed; always visible at lg+. */}
+            <div className={cn(isCollapsed && 'hidden lg:block')}>
               <CardContent className="space-y-2 border-t px-4 pt-3 pb-4">
                 {cats.length === 0 ? (
                   <p className="text-muted-foreground text-xs italic">
@@ -654,7 +660,7 @@ function GroupedCategoryDistribution({
                   })
                 )}
               </CardContent>
-            )}
+            </div>
           </Card>
         );
       })}

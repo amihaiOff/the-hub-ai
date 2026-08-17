@@ -71,11 +71,13 @@ export function ColumnBlockView(props: NodeViewProps) {
       data-type="column-block"
       style={{ ['--left-ratio' as string]: String(ratio) }}
     >
-      {/* The NodeViewContent wrapper is the actual flex row. Doing this
-          via `display: contents` on an outer wrapper was flaky (Safari)
-          and broke the two-column layout back to a single stacked column;
-          making the content wrapper itself the flex container is
-          unambiguous across browsers. */}
+      {/* NodeViewContent renders `.page-columns-content`; Tiptap injects a
+          single content wrapper inside it that actually holds the two
+          columns. The flex row lives on that injected wrapper — see the
+          `.page-columns-content > *` rules in globals.css, which target it
+          structurally rather than by Tiptap's internal attribute name (a
+          caret bump that renamed the attribute previously stacked the
+          columns). */}
       <NodeViewContent className="page-columns-content" as="div" />
       {props.editor.isEditable && (
         <button
