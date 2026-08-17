@@ -21,9 +21,13 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PageTabRow } from '@/lib/hooks/use-pages';
 
-/** Visible label for a tab — falls back to "Tab N" when the title is empty. */
+/**
+ * Visible label for a pane — falls back to "Pane N" when the title is empty.
+ * ("Pane" is the user-facing word for a PageTab row; app-level tabs live in
+ * the desktop tab bar.)
+ */
 export function tabLabel(tab: Pick<PageTabRow, 'title'>, index: number): string {
-  return tab.title.trim() || `Tab ${index + 1}`;
+  return tab.title.trim() || `Pane ${index + 1}`;
 }
 
 interface PageTabBarProps {
@@ -75,7 +79,7 @@ export function PageTabBar({ tabs, activeTabId, onSelect, onRename, onReorder }:
   // document is always defined here.
   return createPortal(
     <nav
-      aria-label="Page tabs"
+      aria-label="Page panes"
       // Bottom clearance adapts to browser vs installed-PWA — see
       // `.page-tab-bar-pb` in globals.css.
       className="page-tab-bar-pb border-border/30 bg-background/95 fixed right-0 bottom-0 left-0 z-50 border-t backdrop-blur-lg lg:left-64"
@@ -106,7 +110,7 @@ export function PageTabBar({ tabs, activeTabId, onSelect, onRename, onReorder }:
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}
-          aria-label={collapsed ? 'Expand tab bar' : 'Collapse tab bar'}
+          aria-label={collapsed ? 'Expand pane bar' : 'Collapse pane bar'}
           className="text-muted-foreground hover:text-foreground hover:bg-muted/40 ml-auto flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-lg transition-colors"
         >
           {collapsed ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
