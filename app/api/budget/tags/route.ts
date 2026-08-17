@@ -17,13 +17,27 @@ export async function GET() {
 
     const householdId = context.activeHousehold.id;
 
+    // Only count transactionTags whose transaction is visible to the user —
+    // i.e. not soft-deleted, and either has no payee OR whose payee isn't
+    // blacklisted. The transactions API applies the same filter, so if we
+    // count deleted/blacklisted rows here the tag row shows a totalSpent
+    // and count that the expanded transaction list can't back up (that was
+    // the "ATM tag has amount but no transactions" bug).
+    const visibleTxnFilter = {
+      transaction: {
+        isDeleted: false,
+        OR: [{ payeeId: null }, { payee: { isBlacklisted: false } }],
+      },
+    };
+
     const tags = await prisma.budgetTag.findMany({
       where: { householdId },
       include: {
         _count: {
-          select: { transactionTags: true },
+          select: { transactionTags: { where: visibleTxnFilter } },
         },
         transactionTags: {
+          where: visibleTxnFilter,
           select: {
             transaction: {
               select: { amountIls: true, type: true },
@@ -210,14 +224,22 @@ export async function PUT(request: NextRequest) {
       });
     }
 
-    // Fetch updated target tag
+    // Fetch updated target tag. Same visible-transaction filter as GET so
+    // the merged tag's totals reflect what the transactions list will show.
+    const visibleTxnFilter = {
+      transaction: {
+        isDeleted: false,
+        OR: [{ payeeId: null }, { payee: { isBlacklisted: false } }],
+      },
+    };
     const updatedTag = await prisma.budgetTag.findUnique({
       where: { id: targetTagId },
       include: {
         _count: {
-          select: { transactionTags: true },
+          select: { transactionTags: { where: visibleTxnFilter } },
         },
         transactionTags: {
+          where: visibleTxnFilter,
           select: {
             transaction: {
               select: { amountIls: true, type: true },
