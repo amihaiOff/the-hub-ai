@@ -95,7 +95,11 @@ export function PageEditor({ pageId }: { pageId: string }) {
   if (page && seededId !== page.id) {
     setSeededId(page.id);
     setTitle(page.title);
-    setActiveTabId(page.tabs[0]?.id ?? null);
+    // Restore the last-active pane for this page from localStorage so
+    // switching to another app tab and coming back lands on the same
+    // pane the user was on. Falls back to the first pane if the stored
+    // id is stale (pane deleted) or storage is unavailable.
+    setActiveTabId(readStoredActivePane(page.id, page.tabs) ?? page.tabs[0]?.id ?? null);
   }
 
   const tabs = page?.tabs ?? [];
@@ -186,6 +190,12 @@ export function PageEditor({ pageId }: { pageId: string }) {
   }, [flushTab]);
   useEffect(() => () => flushTabRef.current(), [pageId, activeTabIdResolved]);
 
+  // Persist the current pane whenever it (or the page) changes, so app-tab
+  // switches restore the exact pane the user was on when they come back.
+  useEffect(() => {
+    if (page && activeTabIdResolved) writeStoredActivePane(page.id, activeTabIdResolved);
+  }, [page, activeTabIdResolved]);
+
   const selectTab = useCallback(
     (tabId: string) => {
       flushTab();
@@ -270,11 +280,11 @@ export function PageEditor({ pageId }: { pageId: string }) {
               disabled={createTab.isPending}
             >
               <Plus className="mr-2 h-4 w-4" />
-              Add tab
+              Add pane
             </DropdownMenuItem>
             <DropdownMenuItem className="rounded-lg text-sm" onSelect={() => setManageOpen(true)}>
               <ListTree className="mr-2 h-4 w-4" />
-              Manage tabs
+              Manage panes
             </DropdownMenuItem>
             {/* Toggle sentence-start auto-capitalization for this page's
                 editors. Preventing default keeps the menu open would be
@@ -422,4 +432,33 @@ export function PageEditor({ pageId }: { pageId: string }) {
       </Dialog>
     </div>
   );
+}
+
+// ─── Active pane persistence ──────────────────────────────────────────
+// A pane (the UI's word for a PageTab row) is remembered per page in
+// localStorage so switching to another app tab and coming back lands on
+// the same pane. Stored value is the pane's id; a stale id (pane
+// deleted while we were away) safely falls back to the first pane.
+
+const ACTIVE_PANE_KEY_PREFIX = 'pages:active-pane:';
+
+function readStoredActivePane(pageId: string, tabs: PageTabRow[]): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = window.localStorage.getItem(ACTIVE_PANE_KEY_PREFIX + pageId);
+    if (!stored) return null;
+    return tabs.some((t) => t.id === stored) ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredActivePane(pageId: string, paneId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(ACTIVE_PANE_KEY_PREFIX + pageId, paneId);
+  } catch {
+    // localStorage full or blocked — pane just won't survive an app-tab
+    // round-trip; not a correctness issue.
+  }
 }

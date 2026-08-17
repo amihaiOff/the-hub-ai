@@ -86,9 +86,9 @@ export function ManageTabsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-hidden rounded-3xl">
         <DialogHeader>
-          <DialogTitle>Manage tabs</DialogTitle>
+          <DialogTitle>Manage panes</DialogTitle>
           <DialogDescription>
-            Rename, reorder, add or remove this page&apos;s tabs.
+            Rename, reorder, add or remove this page&apos;s panes.
           </DialogDescription>
         </DialogHeader>
 
@@ -97,7 +97,7 @@ export function ManageTabsDialog({
             <div key={tab.id} className="flex items-center gap-2">
               <Input
                 defaultValue={tab.title}
-                placeholder={`Tab ${i + 1}`}
+                placeholder={`Pane ${i + 1}`}
                 onBlur={(e) => rename(tab, e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
@@ -131,7 +131,7 @@ export function ManageTabsDialog({
                 variant="ghost"
                 size="icon"
                 className="text-muted-foreground hover:text-destructive h-8 w-8 shrink-0"
-                aria-label="Delete tab"
+                aria-label="Delete pane"
                 disabled={tabs.length <= 1 || deleteTab.isPending}
                 onClick={() => remove(tab)}
               >
@@ -149,7 +149,7 @@ export function ManageTabsDialog({
           className="w-full"
         >
           <Plus className="mr-1.5 h-4 w-4" />
-          Add tab
+          Add pane
         </Button>
       </DialogContent>
     </Dialog>
