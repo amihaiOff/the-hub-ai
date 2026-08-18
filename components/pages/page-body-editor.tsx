@@ -237,8 +237,12 @@ export function PageBodyEditor({
         }}
         className="hidden md:block"
       >
+        {/* Shift the handle further left via `-translate-x-5` (-1.25rem) so
+            it sits in the outer part of the `.page-body` left gutter,
+            clear of the heading chevron (`-left-6` on the heading) and
+            list-item bullets. Without this the handle overlaps both. */}
         <div
-          className="text-muted-foreground/60 hover:text-foreground flex h-6 w-4 cursor-grab items-center justify-center active:cursor-grabbing"
+          className="text-muted-foreground/60 hover:text-foreground flex h-6 w-4 -translate-x-5 cursor-grab items-center justify-center active:cursor-grabbing"
           aria-label="Drag block"
         >
           <GripVertical className="h-4 w-4" />

@@ -301,6 +301,8 @@ NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY="..."  # Stack Auth client key
 STACK_SECRET_SERVER_KEY="..."            # Stack Auth server key
 ALLOWED_EMAILS="email1@example.com,email2@example.com"  # Comma-separated allowlist
 ALPHA_VANTAGE_API_KEY="..."
+AGENT_READ_TOKEN="..."                   # Read-only token for /api/agent/* (backlog)
+AGENT_PAGES_TOKEN="..."                  # Scoped token: read+write the Areas Pages API (no delete)
 SKIP_AUTH="true"                         # DEV ONLY - bypasses OAuth for local development
 ```
 
@@ -352,6 +354,18 @@ The project uses Neon PostgreSQL with database branches that mirror Git branches
 ## CRITICAL: Database Safety Rules
 
 **PRODUCTION DATABASE IS READ-ONLY FOR CLAUDE. NEVER WRITE, DELETE, OR SEED.**
+
+This rule is about **direct database access** — raw SQL, Prisma writes/seeds/
+resets, `deleteMany`, bulk mutations. It does **not** forbid writes made through
+the app's own authenticated HTTP API. In particular, editing the **Areas Pages**
+via the app API with the scoped **`AGENT_PAGES_TOKEN`** (`Bearer` token on
+`/api/pages/*`) is an intended, sanctioned path: it goes through the same zod
+validation and household scoping the editor uses, and the token grants **read +
+write only** (list/read/create pages+tabs and update their content) — never
+delete (deletes stay session-only), never any non-pages data. So: do not run raw
+DB writes against production, but you _may_ use the pages token to read/write
+pages when the user asks. Auth wiring: `lib/auth-api-key.ts`
+(`getPagesHouseholdIdFromToken`) + `lib/auth-pages.ts` (`resolvePagesAccess`).
 
 ### Database Identification
 

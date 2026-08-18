@@ -27,13 +27,23 @@ jest.mock('@/lib/auth-utils', () => ({
   getCurrentContext: jest.fn(),
 }));
 
+// POST (create tab) + PATCH (update tab) authenticate via resolvePagesAccess
+// (session OR scoped token); DELETE stays session-only via getCurrentContext.
+jest.mock('@/lib/auth-pages', () => ({
+  resolvePagesAccess: jest.fn(),
+}));
+
 import { prisma } from '@/lib/db';
 import { getCurrentContext } from '@/lib/auth-utils';
+import { resolvePagesAccess } from '@/lib/auth-pages';
 import { POST } from '../route';
 import { PATCH, DELETE } from '../[tabId]/route';
 
 const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
+const mockResolveAccess = resolvePagesAccess as jest.MockedFunction<typeof resolvePagesAccess>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
+
+const mockAccess = { householdId: 'hh-1', userId: 'user-1' };
 
 const mockContext = {
   user: { id: 'user-1', email: 't@x.com', name: 'Me' },
@@ -60,14 +70,14 @@ describe('POST /api/pages/[id]/tabs', () => {
   }
 
   it('401s when unauthenticated', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(null);
+    mockResolveAccess.mockResolvedValueOnce(null);
     const res = await post('p1', {});
     expect(res.status).toBe(401);
     expect(mockPrisma.pageTab.create).not.toHaveBeenCalled();
   });
 
   it('404s when the page is not in the active household', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveAccess.mockResolvedValueOnce(mockAccess);
     (mockPrisma.page.findFirst as jest.Mock).mockResolvedValueOnce(null);
     const res = await post('p1', {});
     expect(res.status).toBe(404);
@@ -75,7 +85,7 @@ describe('POST /api/pages/[id]/tabs', () => {
   });
 
   it('creates a tab at the end with a default title', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveAccess.mockResolvedValueOnce(mockAccess);
     (mockPrisma.page.findFirst as jest.Mock).mockResolvedValueOnce({
       id: 'p1',
       _count: { tabs: 2 },
@@ -96,7 +106,7 @@ describe('POST /api/pages/[id]/tabs', () => {
   });
 
   it('uses sortOrder 0 for the first tab when none exist', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveAccess.mockResolvedValueOnce(mockAccess);
     (mockPrisma.page.findFirst as jest.Mock).mockResolvedValueOnce({
       id: 'p1',
       _count: { tabs: 0 },
@@ -115,7 +125,7 @@ describe('POST /api/pages/[id]/tabs', () => {
   });
 
   it('honours a caller-supplied title', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveAccess.mockResolvedValueOnce(mockAccess);
     (mockPrisma.page.findFirst as jest.Mock).mockResolvedValueOnce({
       id: 'p1',
       _count: { tabs: 1 },
@@ -147,7 +157,7 @@ describe('PATCH /api/pages/[id]/tabs/[tabId]', () => {
   }
 
   it('404s when the tab is not in the active household', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveAccess.mockResolvedValueOnce(mockAccess);
     (mockPrisma.pageTab.findFirst as jest.Mock).mockResolvedValueOnce(null);
     const res = await patch('p1', 't1', { title: 'New' });
     expect(res.status).toBe(404);
@@ -155,7 +165,7 @@ describe('PATCH /api/pages/[id]/tabs/[tabId]', () => {
   });
 
   it('only writes the keys the client sent (rename)', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveAccess.mockResolvedValueOnce(mockAccess);
     (mockPrisma.pageTab.findFirst as jest.Mock).mockResolvedValueOnce({ id: 't1', pageId: 'p1' });
     (mockPrisma.pageTab.update as jest.Mock).mockResolvedValueOnce({ id: 't1', title: 'New' });
     const res = await patch('p1', 't1', { title: 'New' });
@@ -168,7 +178,7 @@ describe('PATCH /api/pages/[id]/tabs/[tabId]', () => {
   });
 
   it('reorders via sortOrder without touching the title', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveAccess.mockResolvedValueOnce(mockAccess);
     (mockPrisma.pageTab.findFirst as jest.Mock).mockResolvedValueOnce({ id: 't1', pageId: 'p1' });
     (mockPrisma.pageTab.update as jest.Mock).mockResolvedValueOnce({ id: 't1', sortOrder: 3 });
     await patch('p1', 't1', { sortOrder: 3 });
@@ -180,7 +190,7 @@ describe('PATCH /api/pages/[id]/tabs/[tabId]', () => {
   });
 
   it('clears content when null is sent', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveAccess.mockResolvedValueOnce(mockAccess);
     (mockPrisma.pageTab.findFirst as jest.Mock).mockResolvedValueOnce({ id: 't1', pageId: 'p1' });
     (mockPrisma.pageTab.update as jest.Mock).mockResolvedValueOnce({ id: 't1' });
     await patch('p1', 't1', { content: null });
@@ -229,5 +239,13 @@ describe('DELETE /api/pages/[id]/tabs/[tabId]', () => {
     expect(call.where.pageId).toBe('p1');
     // Guard clause: only deletes when a sibling tab (id != t1) still exists.
     expect(call.where.page.tabs.some.id.not).toBe('t1');
+  });
+
+  it('rejects a token-only request — tab delete requires a session', async () => {
+    // DELETE never calls resolvePagesAccess, so a scoped token (no session) is refused.
+    mockGetCurrentContext.mockResolvedValueOnce(null);
+    const res = await del('p1', 't1');
+    expect(res.status).toBe(401);
+    expect(mockPrisma.pageTab.deleteMany).not.toHaveBeenCalled();
   });
 });

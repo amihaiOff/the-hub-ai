@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
-import { getCurrentContext } from '@/lib/auth-utils';
+import { resolvePagesAccess } from '@/lib/auth-pages';
 import { prisma } from '@/lib/db';
 import { createPageSchema } from '@/lib/validations/pages';
 import { getFirstZodError } from '@/lib/validations/common';
@@ -11,20 +11,21 @@ import { getFirstZodError } from '@/lib/validations/common';
  * then most-recently-updated). Content is omitted from the list to keep the
  * payload small — the editor fetches a single page's content separately.
  */
-export async function GET() {
-  const context = await getCurrentContext();
-  if (!context) {
+export async function GET(request: NextRequest) {
+  const access = await resolvePagesAccess(request);
+  if (!access) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
   const pages = await prisma.page.findMany({
-    where: { householdId: context.activeHousehold.id },
+    where: { householdId: access.householdId },
     orderBy: [{ sortOrder: 'asc' }, { updatedAt: 'desc' }],
     select: {
       id: true,
       title: true,
       emoji: true,
       sortOrder: true,
+      sectionId: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -40,8 +41,8 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   try {
-    const context = await getCurrentContext();
-    if (!context) {
+    const access = await resolvePagesAccess(request);
+    if (!access) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
     const body = await request.json();
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     // Place new pages at the top of the list.
     const top = await prisma.page.findFirst({
-      where: { householdId: context.activeHousehold.id },
+      where: { householdId: access.householdId },
       orderBy: { sortOrder: 'asc' },
       select: { sortOrder: true },
     });
@@ -68,8 +69,8 @@ export async function POST(request: NextRequest) {
         title: input.title ?? '',
         emoji: input.emoji ?? null,
         sortOrder: (top?.sortOrder ?? 0) - 1,
-        ownerId: context.user.id,
-        householdId: context.activeHousehold.id,
+        ownerId: access.userId,
+        householdId: access.householdId,
         tabs: {
           create: {
             title: '',

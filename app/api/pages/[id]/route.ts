@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { getCurrentContext } from '@/lib/auth-utils';
+import { resolvePagesAccess } from '@/lib/auth-pages';
 import { prisma } from '@/lib/db';
 import { updatePageSchema } from '@/lib/validations/pages';
 import { getFirstZodError } from '@/lib/validations/common';
@@ -9,14 +10,14 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-export async function GET(_request: NextRequest, { params }: RouteParams) {
-  const context = await getCurrentContext();
-  if (!context) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  const access = await resolvePagesAccess(request);
+  if (!access) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
   const { id } = await params;
   const page = await prisma.page.findFirst({
-    where: { id, householdId: context.activeHousehold.id },
+    where: { id, householdId: access.householdId },
     include: {
       tabs: {
         orderBy: { sortOrder: 'asc' },
@@ -32,13 +33,13 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const context = await getCurrentContext();
-    if (!context) {
+    const access = await resolvePagesAccess(request);
+    if (!access) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
     const { id } = await params;
     const existing = await prisma.page.findFirst({
-      where: { id, householdId: context.activeHousehold.id },
+      where: { id, householdId: access.householdId },
       select: { id: true },
     });
     if (!existing) {
@@ -61,6 +62,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (input.emoji !== undefined) data.emoji = input.emoji;
     if (input.sortOrder !== undefined) data.sortOrder = input.sortOrder;
     if (input.autoCapitalize !== undefined) data.autoCapitalize = input.autoCapitalize;
+    if (input.sectionId !== undefined) {
+      if (input.sectionId === null) {
+        data.section = { disconnect: true };
+      } else {
+        // Ensure the section belongs to the same household.
+        const section = await prisma.pageSection.findFirst({
+          where: { id: input.sectionId, householdId: access.householdId },
+          select: { id: true },
+        });
+        if (!section) {
+          return NextResponse.json({ success: false, error: 'Invalid section' }, { status: 400 });
+        }
+        data.section = { connect: { id: input.sectionId } };
+      }
+    }
     if (input.content !== undefined) {
       data.content =
         input.content === null ? Prisma.JsonNull : (input.content as Prisma.InputJsonValue);

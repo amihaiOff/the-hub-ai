@@ -30,8 +30,22 @@ export const updatePageSchema = z.object({
   content: pageContentSchema.optional().nullable(),
   sortOrder: z.number().int().optional(),
   autoCapitalize: z.boolean().optional(),
+  sectionId: z.string().min(1).nullable().optional(),
 });
 export type UpdatePageInput = z.infer<typeof updatePageSchema>;
+
+// ─── Page sections (grouping of pages) ──────────────────────────────────
+
+export const createPageSectionSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+});
+export type CreatePageSectionInput = z.infer<typeof createPageSectionSchema>;
+
+export const updatePageSectionSchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+  sortOrder: z.number().int().optional(),
+});
+export type UpdatePageSectionInput = z.infer<typeof updatePageSectionSchema>;
 
 /** A tab within a page — its own title + Tiptap content. */
 export const createPageTabSchema = z.object({
