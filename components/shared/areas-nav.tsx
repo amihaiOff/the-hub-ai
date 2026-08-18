@@ -103,12 +103,13 @@ export function AreasNav({
           avoidCollisions={!isMobile}
           className={cn(
             'relative rounded-2xl border p-1 shadow-xl',
-            // Desktop: fixed 600px so the inner grid gets three
-            // 180px columns side-by-side. Using `w-max` sized the
-            // popup to a single grid cell (auto-fit with a min-content
-            // container collapsed to 1 column). Mobile: 70vw fits
-            // inside the viewport after the LEFT shift.
-            isMobile ? 'w-[70vw]' : 'w-[600px] max-w-[92vw]'
+            // Desktop: width sizes to content — the inner grid uses a
+            // fixed column count matching the actual section count
+            // (capped at 3), so `w-max` produces a snug popup with no
+            // empty columns when there are only 1–2 sections. The
+            // earlier `auto-fit` recipe collapsed to a single column
+            // under `w-max`. Mobile: 70vw fits after the LEFT shift.
+            isMobile ? 'w-[70vw]' : 'w-max max-w-[92vw]'
           )}
         >
           {/* Top-right gear — anchored above the content so it stays
@@ -209,12 +210,14 @@ function DesktopGroupedList({
   pathname: string;
   onNavigate: () => void;
 }) {
-  // Section grid: label on top, pages listed vertically below. Three
-  // sections per row on desktop; more sections wrap. Each column has a
-  // fixed min-width so the popup grows in 3-column blocks and doesn't
-  // stretch a single tall section across a wide popup.
+  // Section grid: label on top, pages listed vertically below. Column
+  // count = min(3, groupCount) so the popup width tracks the actual
+  // section count (no empty columns) up to a cap of 3 per row. Extra
+  // sections wrap onto a second row. Each column has a fixed 180px
+  // width so the popup's `w-max` produces a snug intrinsic size.
+  const cols = Math.min(3, Math.max(1, grouped.length));
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${cols}, 180px)` }}>
       {grouped.map((g) => {
         const label = g.section?.name ?? 'Unsorted';
         const key = g.section?.id ?? '__unsorted__';
