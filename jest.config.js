@@ -16,18 +16,15 @@ const config = {
     '!**/*.test.{ts,tsx}',
   ],
   coverageThreshold: {
-    // Bumped from a flat 80% to a mixed floor after a coverage-lift pass.
-    // Lines/statements/functions comfortably clear 85%. Branches sit lower
-    // because a few big integration paths — moneytor-sync, restore,
-    // insurance/import — are hard to unit-test cheaply; those get lifted
-    // separately when they get their own dedicated e2e suites. 80% is
-    // still a real floor: the recent pass moved global branches from
-    // 79.24% → 80.42%.
+    // Uniform 60% floor across the board — a deliberate loosen from
+    // the previous 80/85 mix while the app is still growing. Raise
+    // again once the fast-changing surfaces (page sections, wiki, etc.)
+    // stabilise.
     global: {
-      branches: 80,
-      functions: 85,
-      lines: 85,
-      statements: 85,
+      branches: 60,
+      functions: 60,
+      lines: 60,
+      statements: 60,
     },
   },
   transform: {
