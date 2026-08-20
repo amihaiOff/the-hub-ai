@@ -27,6 +27,12 @@ export interface DatabaseRow {
   id: string;
   /** Cells keyed by column id. Missing keys render as empty. */
   cells: Record<string, DatabaseCellValue>;
+  /**
+   * Optional rich-text body for the row's detail view (a Tiptap JSON doc),
+   * edited in the entry side panel. `undefined` on legacy rows → empty body.
+   * Round-trips inside the block's `data-rows` JSON like the rest of the row.
+   */
+  body?: unknown;
 }
 
 declare module '@tiptap/core' {

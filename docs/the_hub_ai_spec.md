@@ -600,6 +600,21 @@ always lands at the bottom (any active sort is cleared). Deleting a column asks
 for confirmation first. The grid renders borderless (row dividers only) and, on
 mobile, spans the full screen width so it reads as embedded in the page.
 
+**Row detail view (entry as a page):** each row opens as its own detail panel —
+like Notion / the app's Tasks. A small **open icon** at the left of the primary
+(first) cell (hover-revealed on desktop, always visible on mobile) opens it; the
+panel shows the primary column as a title, the remaining columns as per-type
+field controls, and a **rich-text body** below (the full page editor minus the
+database block itself, so a row can't nest another database). On **desktop** it's
+a right-hand side panel and cells stay inline-editable; on **mobile** tapping a
+row opens it **full screen** (cells become read-only so taps fall through), and
+browser Back exits it (`useBackToClose`). The body is stored as Tiptap JSON on
+the row (`DatabaseRow.body`), round-tripping in the block's node attrs like the
+rest of the row (no separate table); body edits commit on a debounce and merge
+against the latest rows so they never clobber a concurrent field edit. Component:
+`components/pages/database-entry-sheet.tsx`; pure row helpers in
+`lib/pages/db-rows.ts` (unit-tested).
+
 **Images** are uploaded to **Vercel Blob** (`POST /api/pages/upload`, requires
 `BLOB_READ_WRITE_TOKEN`) via the toolbar button or by pasting/dropping an image;
 if uploads aren't configured the editor falls back to embedding an image URL.

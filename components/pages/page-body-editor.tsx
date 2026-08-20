@@ -94,6 +94,14 @@ interface PageBodyEditorProps {
   hasBottomTabBar?: boolean;
   /** Auto-capitalize sentence starts. Defaults to true. */
   autoCapitalize?: boolean;
+  /** Whether the document is editable. Defaults to true; false = read-only view. */
+  editable?: boolean;
+  /**
+   * Whether the "database" block can be inserted. Defaults to true. Set false to
+   * omit the extension entirely — used for a database row's own body editor so a
+   * row can't nest another database block inside itself (infinite recursion).
+   */
+  allowDatabaseBlock?: boolean;
 }
 
 /**
@@ -107,9 +115,12 @@ export function PageBodyEditor({
   onChange,
   hasBottomTabBar = false,
   autoCapitalize = true,
+  editable = true,
+  allowDatabaseBlock = true,
 }: PageBodyEditorProps) {
   const editor = useEditor(
     {
+      editable,
       extensions: [
         AutoCapitalize.configure({ enabled: autoCapitalize }),
         MathInline,
@@ -142,7 +153,9 @@ export function PageBodyEditor({
         TableCell,
         ColumnBlock,
         Column,
-        DatabaseBlock,
+        // Omitted for a row's body editor so a database row can't nest another
+        // database block inside itself.
+        ...(allowDatabaseBlock ? [DatabaseBlock] : []),
         SlashMenuExtension,
         ListOutdentGuard,
         AutoTextDirection,
@@ -161,7 +174,7 @@ export function PageBodyEditor({
       // extension configuration immutable, no runtime mutation of Tiptap
       // internals required.
     },
-    [autoCapitalize]
+    [autoCapitalize, editable, allowDatabaseBlock]
   );
 
   // Paste/drop of image files → upload to Blob and insert. Handled at the React

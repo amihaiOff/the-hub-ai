@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import type { Editor } from '@tiptap/core';
 import { GripVertical, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useIsMobileViewport } from '@/lib/hooks/use-is-mobile-viewport';
 import {
   buildDeleteTransaction,
   buildMoveTransaction,
@@ -12,19 +13,6 @@ import {
   topLevelBlocks,
   topLevelPos,
 } from './block-drag';
-
-/** True on narrow (mobile) viewports — mirrors the desktop handle's `md` cutoff. */
-function useIsMobileViewport(): boolean {
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 767px)');
-    const update = () => setIsMobile(mq.matches);
-    update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
-  }, []);
-  return isMobile;
-}
 
 interface Anchor {
   top: number;

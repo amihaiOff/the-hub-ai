@@ -24,6 +24,7 @@ import {
   Filter,
   Hash,
   ListChecks,
+  Maximize2,
   Plus,
   Redo2,
   SquareCheckBig,
@@ -32,6 +33,9 @@ import {
   X,
 } from 'lucide-react';
 import { useKeyboardInset } from '@/lib/hooks/use-keyboard-inset';
+import { useIsMobileViewport } from '@/lib/hooks/use-is-mobile-viewport';
+import { setRowBody } from '@/lib/pages/db-rows';
+import { DatabaseEntrySheet } from './database-entry-sheet';
 import { floatingControlBottom } from './undo-redo-bar';
 import { cn } from '@/lib/utils';
 import {
@@ -146,7 +150,7 @@ export const SELECT_COLORS = [
   },
 ] as const;
 
-function getSelectColor(key: string | undefined) {
+export function getSelectColor(key: string | undefined) {
   return SELECT_COLORS.find((c) => c.key === key) ?? SELECT_COLORS[0];
 }
 
@@ -156,7 +160,7 @@ function getSelectColor(key: string | undefined) {
  * (Todo/Doing/Done) reads as three distinct colors instead of three
  * grey pills.
  */
-function resolveOptionColor(
+export function resolveOptionColor(
   opt: { color?: string } | undefined,
   index: number
 ): (typeof SELECT_COLORS)[number] {
@@ -174,6 +178,14 @@ function resolveOptionColor(
 export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewProps) {
   const columns = (node.attrs.columns ?? []) as DatabaseColumn[];
   const rows = (node.attrs.rows ?? []) as DatabaseRow[];
+
+  // Always-fresh view of rows for DEFERRED writes. The row-detail body commit is
+  // debounced (~400ms) and also flushed on unmount, so a callback that closed
+  // over the render-time `rows` would fire against a stale snapshot and clobber
+  // any cell edit made in the meantime. Reading `rowsRef.current` at call time
+  // makes deferred writes merge into the latest rows instead.
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
 
   const editable = editor.isEditable;
 
@@ -272,12 +284,30 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
 
   const updateCell = useCallback(
     (rowId: string, colId: string, value: DatabaseCellValue) => {
+      // Read the freshest rows (see rowsRef) so this never overwrites a
+      // concurrent body/cell edit.
       setRows(
-        rows.map((r) => (r.id === rowId ? { ...r, cells: { ...r.cells, [colId]: value } } : r))
+        rowsRef.current.map((r) =>
+          r.id === rowId ? { ...r, cells: { ...r.cells, [colId]: value } } : r
+        )
       );
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rows]
+    []
+  );
+
+  // Row detail view (open as a page/card). On mobile, tapping a row opens it
+  // full-screen; on desktop a hover-revealed icon on the primary cell opens a
+  // right-hand side panel.
+  const isMobile = useIsMobileViewport();
+  const [openRowId, setOpenRowId] = useState<string | null>(null);
+  const openRow = openRowId ? (rows.find((r) => r.id === openRowId) ?? null) : null;
+  const updateRowBody = useCallback(
+    // Deferred (debounced/unmount-flush) — read the freshest rows so a late
+    // body commit merges with, rather than reverts, interleaved cell edits.
+    (rowId: string, body: unknown) => setRows(setRowBody(rowsRef.current, rowId, body)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   );
 
   // After add-row / add-column we want to (a) scroll the new cell into
@@ -309,7 +339,10 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
     setRows([...rows, row]);
     setFocusIntent({ kind: 'row', id: row.id });
   };
-  const deleteRow = (rowId: string) => setRows(rows.filter((r) => r.id !== rowId));
+  const deleteRow = (rowId: string) => {
+    setRows(rows.filter((r) => r.id !== rowId));
+    if (openRowId === rowId) setOpenRowId(null);
+  };
 
   const addColumn = () => {
     const col = makeColumn('New column', 'text');
@@ -531,23 +564,69 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
           <tbody ref={tbodyRef}>
             {table.getRowModel().rows.map((tableRow) => {
               const row = tableRow.original;
+              // On mobile, inline cell editing is replaced by the full-screen
+              // detail: tapping the row opens it, and cells render read-only so
+              // taps bubble up to open rather than focusing an input.
+              const cellEditable = editable && !isMobile;
               return (
-                <tr key={row.id} className="group/row" data-row-id={row.id}>
+                <tr
+                  key={row.id}
+                  className={cn('group/row', isMobile && 'cursor-pointer')}
+                  data-row-id={row.id}
+                  onClick={isMobile ? () => setOpenRowId(row.id) : undefined}
+                >
                   {tableRow.getVisibleCells().map((cell, cellIdx) => {
                     const col = columns.find((c) => c.id === cell.column.id);
                     if (!col) return null;
                     // First column reads as the row's primary label — bold it
                     // (Notion-style) so scanning a long table is easy.
                     const isPrimary = cellIdx === 0;
+                    const cellEditor = (
+                      <CellEditor
+                        column={col}
+                        value={row.cells[col.id]}
+                        onChange={(v) => updateCell(row.id, col.id, v)}
+                        editable={cellEditable}
+                        isPrimary={isPrimary}
+                      />
+                    );
                     return (
                       <td key={cell.id} className="p-0 align-top">
-                        <CellEditor
-                          column={col}
-                          value={row.cells[col.id]}
-                          onChange={(v) => updateCell(row.id, col.id, v)}
-                          editable={editable}
-                          isPrimary={isPrimary}
-                        />
+                        {isPrimary ? (
+                          <div className="flex items-start">
+                            {/* Open-entry affordance: hover-revealed on desktop,
+                                always visible on mobile. stopPropagation so it
+                                doesn't double-fire the row's mobile tap. */}
+                            <button
+                              type="button"
+                              draggable={false}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenRowId(row.id);
+                              }}
+                              aria-label="Open entry"
+                              title="Open entry"
+                              className={cn(
+                                'text-muted-foreground/60 hover:bg-muted/60 hover:text-foreground mt-2.5 ml-1 shrink-0 rounded-md p-1 transition-opacity',
+                                isMobile ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'
+                              )}
+                            >
+                              <Maximize2 className="h-3.5 w-3.5" />
+                            </button>
+                            {/* On mobile the cell is read-only and taps must fall
+                                through to the row's open handler — a disabled
+                                input would otherwise swallow the tap. */}
+                            <div
+                              className={cn('min-w-0 flex-1', isMobile && 'pointer-events-none')}
+                            >
+                              {cellEditor}
+                            </div>
+                          </div>
+                        ) : isMobile ? (
+                          <div className="pointer-events-none">{cellEditor}</div>
+                        ) : (
+                          cellEditor
+                        )}
                       </td>
                     );
                   })}
@@ -637,6 +716,16 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DatabaseEntrySheet
+        row={openRow}
+        columns={columns}
+        editable={editable}
+        onUpdateCell={updateCell}
+        onUpdateBody={updateRowBody}
+        onDeleteRow={deleteRow}
+        onOpenChange={(open) => !open && setOpenRowId(null)}
+      />
     </NodeViewWrapper>
   );
 }
@@ -1840,7 +1929,7 @@ function sortByType(col: DatabaseColumn, a: DatabaseCellValue, b: DatabaseCellVa
   }
 }
 
-function coerceValue(raw: DatabaseCellValue, type: DatabaseColumnType): DatabaseCellValue {
+export function coerceValue(raw: DatabaseCellValue, type: DatabaseColumnType): DatabaseCellValue {
   if (raw == null) return type === 'checkbox' ? false : null;
   switch (type) {
     case 'text':

@@ -33,6 +33,12 @@ export interface SlashItem {
   keywords: string[];
   icon: LucideIcon;
   command: (args: { editor: Editor; range: Range }) => void;
+  /**
+   * Optional gate: hide the item when its block isn't registered on this editor
+   * instance (e.g. the "Database" item in a row's body editor, where the
+   * database block is deliberately omitted).
+   */
+  isAvailable?: (editor: Editor) => boolean;
 }
 
 export const SLASH_ITEMS: SlashItem[] = [
@@ -128,6 +134,8 @@ export const SLASH_ITEMS: SlashItem[] = [
     icon: Database,
     command: ({ editor, range }) =>
       editor.chain().focus().deleteRange(range).insertDatabase().run(),
+    isAvailable: (editor) =>
+      typeof (editor.commands as { insertDatabase?: unknown }).insertDatabase === 'function',
   },
   {
     title: 'Two columns',
@@ -174,10 +182,13 @@ export const SLASH_ITEMS: SlashItem[] = [
   },
 ];
 
-function filterItems(query: string): SlashItem[] {
+function filterItems(query: string, editor?: Editor): SlashItem[] {
+  const available = editor
+    ? SLASH_ITEMS.filter((it) => !it.isAvailable || it.isAvailable(editor))
+    : SLASH_ITEMS;
   const q = query.trim().toLowerCase();
-  if (!q) return SLASH_ITEMS;
-  return SLASH_ITEMS.filter(
+  if (!q) return available;
+  return available.filter(
     (it) =>
       it.title.toLowerCase().includes(q) || it.keywords.some((k) => k.toLowerCase().includes(q))
   );
@@ -353,7 +364,7 @@ export const SlashMenuExtension = Extension.create({
         command: ({ editor, range, props }) => {
           (props as SlashItem).command({ editor, range });
         },
-        items: ({ query }) => filterItems(query),
+        items: ({ query, editor }) => filterItems(query, editor),
         render: () => {
           let renderer: ReactRenderer<MenuHandle, MenuProps> | null = null;
 
