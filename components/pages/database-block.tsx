@@ -22,9 +22,9 @@ import {
   Check,
   ChevronDown,
   Filter,
+  FileText,
   Hash,
   ListChecks,
-  Maximize2,
   Plus,
   Redo2,
   SquareCheckBig,
@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import { useKeyboardInset } from '@/lib/hooks/use-keyboard-inset';
 import { useIsMobileViewport } from '@/lib/hooks/use-is-mobile-viewport';
-import { setRowBody } from '@/lib/pages/db-rows';
+import { setRowBody, hasBodyContent } from '@/lib/pages/db-rows';
 import { DatabaseEntrySheet } from './database-entry-sheet';
 import { floatingControlBottom } from './undo-redo-bar';
 import { cn } from '@/lib/utils';
@@ -336,18 +336,19 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
         if (seed !== undefined) row.cells[col.id] = seed;
       }
     }
-    setRows([...rows, row]);
+    // Read the freshest rows (rowsRef) so this can't drop a pending body commit.
+    setRows([...rowsRef.current, row]);
     setFocusIntent({ kind: 'row', id: row.id });
   };
   const deleteRow = (rowId: string) => {
-    setRows(rows.filter((r) => r.id !== rowId));
+    setRows(rowsRef.current.filter((r) => r.id !== rowId));
     if (openRowId === rowId) setOpenRowId(null);
   };
 
   const addColumn = () => {
     const col = makeColumn('New column', 'text');
     setColumns([...columns, col]);
-    setRows(rows.map((r) => ({ ...r, cells: { ...r.cells, [col.id]: null } })));
+    setRows(rowsRef.current.map((r) => ({ ...r, cells: { ...r.cells, [col.id]: null } })));
     setFocusIntent({ kind: 'column', id: col.id });
   };
 
@@ -568,6 +569,9 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
               // detail: tapping the row opens it, and cells render read-only so
               // taps bubble up to open rather than focusing an input.
               const cellEditable = editable && !isMobile;
+              // Keep the open icon always visible when the row has a page
+              // (body content) or on mobile; otherwise reveal it on hover.
+              const rowHasBody = hasBodyContent(row.body);
               return (
                 <tr
                   key={row.id}
@@ -608,10 +612,12 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                               title="Open entry"
                               className={cn(
                                 'text-muted-foreground/60 hover:bg-muted/60 hover:text-foreground mt-2.5 ml-1 shrink-0 rounded-md p-1 transition-opacity',
-                                isMobile ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'
+                                isMobile || rowHasBody
+                                  ? 'opacity-100'
+                                  : 'opacity-0 group-hover/row:opacity-100'
                               )}
                             >
-                              <Maximize2 className="h-3.5 w-3.5" />
+                              <FileText className="h-3.5 w-3.5" />
                             </button>
                             {/* On mobile the cell is read-only and taps must fall
                                 through to the row's open handler — a disabled

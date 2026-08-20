@@ -27,6 +27,22 @@ export function setRowBody(rows: DatabaseRow[], rowId: string, body: unknown): D
 }
 
 /**
+ * Whether a row's body doc holds real content (used to keep the open icon
+ * always visible when there's a page to see). Treats an empty doc or a doc that
+ * is only empty paragraph(s) as no content.
+ */
+export function hasBodyContent(body: unknown): boolean {
+  if (!body || typeof body !== 'object') return false;
+  const content = (body as { content?: unknown[] }).content;
+  if (!Array.isArray(content) || content.length === 0) return false;
+  return content.some((node) => {
+    const n = node as { type?: string; content?: unknown[] };
+    if (n.type !== 'paragraph') return true; // any non-paragraph block = content
+    return Array.isArray(n.content) && n.content.length > 0; // non-empty paragraph
+  });
+}
+
+/**
  * The row's "primary" column — its title in the detail view. Matches the
  * table's bolded first cell (`isPrimary = cellIdx === 0`); returns null for an
  * empty column set. (Intentionally not the backlog's claude-aware heuristic.)

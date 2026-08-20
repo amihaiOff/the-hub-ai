@@ -1,10 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Calendar, CheckSquare, Hash, List, Trash2, Type } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useBackToClose } from '@/lib/hooks/use-back-to-close';
 import { PageBodyEditor } from './page-body-editor';
 import { coerceValue, getSelectColor, resolveOptionColor } from './database-block';
@@ -180,14 +187,20 @@ function EntryBody({
         )}
       </div>
 
-      {/* Body */}
-      <div className="border-border/40 border-t pt-2">
-        <PageBodyEditor
-          initialContent={row.body ?? null}
-          onChange={onBodyChange}
-          editable={editable}
-          allowDatabaseBlock={false}
-        />
+      {/* Body — a distinguished editing surface (tinted card) like the Tasks
+          notes area, so it reads as an input rather than flush page text. */}
+      <div className="space-y-2">
+        <h3 className="text-muted-foreground text-xs font-semibold tracking-[0.15em] uppercase">
+          Notes
+        </h3>
+        <div className="db-entry-body bg-muted/40 rounded-2xl px-3 py-2">
+          <PageBodyEditor
+            initialContent={row.body ?? null}
+            onChange={onBodyChange}
+            editable={editable}
+            allowDatabaseBlock={false}
+          />
+        </div>
       </div>
 
       {/* Delete */}
@@ -235,8 +248,10 @@ function FieldRow({
   );
 }
 
+// Fields read as distinct inputs against the sheet (tinted fill like the Tasks
+// detail's controls), not flush text.
 const FIELD_INPUT =
-  'border-border/60 bg-background/40 focus:border-ring w-full rounded-lg border px-2.5 py-1.5 text-sm outline-none disabled:opacity-60';
+  'border-border/60 bg-muted/40 focus:border-ring w-full rounded-lg border px-2.5 py-1.5 text-sm outline-none disabled:opacity-60';
 
 function FieldControl({
   column,
@@ -300,7 +315,10 @@ function FieldControl({
   }
 }
 
-/** Single-select rendered as color pills; click the active pill to clear it. */
+/** Sentinel for the "no selection" item (Radix Select can't use "" as a value). */
+const SELECT_NONE = '__none__';
+
+/** Single-select rendered as a dropdown, with a color dot per option. */
 function SelectField({
   column,
   value,
@@ -318,26 +336,30 @@ function SelectField({
     return <span className="text-muted-foreground/60 text-sm">No options</span>;
   }
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {options.map((opt, i) => {
-        const c = opt.color ? getSelectColor(opt.color) : resolveOptionColor(opt, i);
-        const active = opt.id === selectedId;
-        return (
-          <button
-            key={opt.id}
-            type="button"
-            disabled={disabled}
-            onClick={() => onChange(active ? null : opt.id)}
-            className={cn(
-              'rounded-full px-2.5 py-1 text-xs ring-1 transition-opacity disabled:opacity-60',
-              c.pill,
-              active ? 'opacity-100' : 'opacity-45 hover:opacity-80'
-            )}
-          >
-            {opt.label}
-          </button>
-        );
-      })}
-    </div>
+    <Select
+      value={selectedId || SELECT_NONE}
+      onValueChange={(v) => onChange(v === SELECT_NONE ? null : v)}
+      disabled={disabled}
+    >
+      <SelectTrigger className="bg-muted/40 border-border/60 w-full rounded-lg">
+        <SelectValue placeholder="—" />
+      </SelectTrigger>
+      <SelectContent className="rounded-2xl">
+        <SelectItem value={SELECT_NONE}>
+          <span className="text-muted-foreground">—</span>
+        </SelectItem>
+        {options.map((opt, i) => {
+          const c = opt.color ? getSelectColor(opt.color) : resolveOptionColor(opt, i);
+          return (
+            <SelectItem key={opt.id} value={opt.id}>
+              <span className="flex items-center gap-2">
+                <span className={cn('h-2 w-2 shrink-0 rounded-full', c.swatch)} />
+                {opt.label}
+              </span>
+            </SelectItem>
+          );
+        })}
+      </SelectContent>
+    </Select>
   );
 }

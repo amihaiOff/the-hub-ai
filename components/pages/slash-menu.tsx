@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { Editor, Range } from '@tiptap/react';
 import { Extension } from '@tiptap/core';
 import Suggestion, { type SuggestionProps, type SuggestionKeyDownProps } from '@tiptap/suggestion';
@@ -230,6 +230,29 @@ export const SlashMenu = forwardRef<MenuHandle, MenuProps>(function SlashMenu(
   };
 
   const containerRef = useRef<HTMLDivElement>(null);
+  // The menu is a `position: fixed` node Tiptap appends to <body>. When the
+  // page is scrolled, Chromium latches wheel gestures to the root document
+  // scroller instead of this detached popup, so the visible scrollbar looks
+  // dead. Drive the scroll manually via a NON-passive native wheel listener
+  // (React's JSX onWheel is passive and can't preventDefault). Same workaround
+  // Radix/Floating-UI use for body-portaled scrollable popovers.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      // Normalise line- and page-based deltas (Firefox uses deltaMode 1/2) to
+      // pixels so the menu scrolls at a sane speed cross-browser.
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientHeight : 1;
+      const before = el.scrollTop;
+      el.scrollTop += e.deltaY * unit;
+      if (el.scrollTop !== before) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
   // Place the menu near the caret, but keep it inside the *visible* viewport:
   // flip above the caret when there isn't room below, clamp horizontally, and
   // cap the height to the available space (so it scrolls instead of running off
@@ -294,7 +317,7 @@ export const SlashMenu = forwardRef<MenuHandle, MenuProps>(function SlashMenu(
           : undefined
       }
       className={cn(
-        'bg-popover text-popover-foreground z-50 w-64 overflow-y-auto overscroll-contain rounded-2xl border p-1 shadow-xl',
+        'themed-scroll bg-popover text-popover-foreground z-50 w-64 overflow-y-auto overscroll-contain rounded-2xl border p-1 shadow-xl',
         !position && 'invisible'
       )}
       role="listbox"

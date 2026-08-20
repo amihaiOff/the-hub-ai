@@ -1,4 +1,4 @@
-import { setRowCell, setRowBody, primaryColumn } from '@/lib/pages/db-rows';
+import { setRowCell, setRowBody, primaryColumn, hasBodyContent } from '@/lib/pages/db-rows';
 import type { DatabaseColumn, DatabaseRow } from '@/components/pages/database-extension';
 
 const rows: DatabaseRow[] = [
@@ -74,6 +74,36 @@ describe('interleaved cell + body edits compose', () => {
     const afterBody = setRowBody(base, 'r1', body);
     const afterCell = setRowCell(afterBody, 'r1', 'c2', 99);
     expect(afterCell[0]).toEqual({ id: 'r1', cells: { c1: 'a', c2: 99 }, body });
+  });
+});
+
+describe('hasBodyContent', () => {
+  it('is false for undefined/null/non-object', () => {
+    expect(hasBodyContent(undefined)).toBe(false);
+    expect(hasBodyContent(null)).toBe(false);
+    expect(hasBodyContent('x')).toBe(false);
+  });
+
+  it('is false for an empty doc or only-empty-paragraph doc', () => {
+    expect(hasBodyContent({ type: 'doc', content: [] })).toBe(false);
+    expect(hasBodyContent({ type: 'doc', content: [{ type: 'paragraph' }] })).toBe(false);
+    expect(hasBodyContent({ type: 'doc', content: [{ type: 'paragraph', content: [] }] })).toBe(
+      false
+    );
+  });
+
+  it('is true for a non-empty paragraph', () => {
+    expect(
+      hasBodyContent({
+        type: 'doc',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'hi' }] }],
+      })
+    ).toBe(true);
+  });
+
+  it('is true for any non-paragraph block (heading, table, image…)', () => {
+    expect(hasBodyContent({ type: 'doc', content: [{ type: 'heading' }] })).toBe(true);
+    expect(hasBodyContent({ type: 'doc', content: [{ type: 'table' }] })).toBe(true);
   });
 });
 
