@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
-import { Calendar, CheckSquare, Hash, List, Trash2, Type } from 'lucide-react';
+import { Calendar, CheckSquare, ChevronDown, Hash, List, Trash2, Type } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
@@ -253,6 +253,21 @@ function FieldRow({
 const FIELD_INPUT =
   'border-border/60 bg-muted/40 focus:border-ring w-full rounded-lg border px-2.5 py-1.5 text-sm outline-none disabled:opacity-60';
 
+// Shared width for the compact dropdown-style controls (select, date, number)
+// so they line up at the same span and don't stretch across the whole card.
+const FIELD_CONTROL_W = 'w-44 max-w-full';
+
+// Pill trigger that visually matches the Radix SelectTrigger (see components/ui
+// /select.tsx) — used by the date field so the two dropdowns read identically.
+const FIELD_TRIGGER =
+  'border-border/60 bg-muted/40 flex h-9 items-center justify-between gap-2 rounded-lg border px-3 text-sm outline-none';
+
+/** ISO `YYYY-MM-DD` → `DD/MM/YYYY` for display (raw ISO stays on the wire). */
+function formatDmy(iso: string): string {
+  const [y, m, d] = iso.split('-');
+  return y && m && d ? `${d}/${m}/${y}` : iso;
+}
+
 function FieldControl({
   column,
   value,
@@ -287,19 +302,11 @@ function FieldControl({
             onChange(e.target.value === '' ? null : coerceValue(e.target.value, 'number'))
           }
           disabled={disabled}
-          className={cn(FIELD_INPUT, 'tabular-nums')}
+          className={cn(FIELD_INPUT, 'tabular-nums', '!w-44 max-w-full')}
         />
       );
     case 'date':
-      return (
-        <input
-          type="date"
-          value={typeof value === 'string' ? value : ''}
-          onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
-          disabled={disabled}
-          className={cn(FIELD_INPUT, 'tabular-nums')}
-        />
-      );
+      return <DateField column={column} value={value} disabled={disabled} onChange={onChange} />;
     case 'checkbox':
       return (
         <input
@@ -313,6 +320,50 @@ function FieldControl({
     case 'select':
       return <SelectField column={column} value={value} disabled={disabled} onChange={onChange} />;
   }
+}
+
+/**
+ * Date field rendered to match the Select dropdown: a tinted pill with a chevron
+ * on the right. A transparent native date input overlays it so tapping opens the
+ * platform date picker while the visible chrome stays consistent with Status.
+ */
+function DateField({
+  column,
+  value,
+  disabled,
+  onChange,
+}: {
+  column: DatabaseColumn;
+  value: DatabaseCellValue;
+  disabled: boolean;
+  onChange: (v: DatabaseCellValue) => void;
+}) {
+  const dateStr = typeof value === 'string' ? value : '';
+  return (
+    <label
+      className={cn(
+        FIELD_TRIGGER,
+        FIELD_CONTROL_W,
+        'relative cursor-pointer',
+        disabled && 'cursor-not-allowed opacity-60'
+      )}
+    >
+      <span className={cn('truncate tabular-nums', !dateStr && 'text-muted-foreground')}>
+        {dateStr ? formatDmy(dateStr) : '—'}
+      </span>
+      <ChevronDown className="size-4 shrink-0 opacity-50" aria-hidden />
+      <input
+        type="date"
+        value={dateStr}
+        onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
+        disabled={disabled}
+        aria-label={column.name}
+        // Transparent overlay covering the pill — opens the native picker on tap
+        // without showing the browser's own (differently-styled) date control.
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+      />
+    </label>
+  );
 }
 
 /** Sentinel for the "no selection" item (Radix Select can't use "" as a value). */
@@ -341,7 +392,7 @@ function SelectField({
       onValueChange={(v) => onChange(v === SELECT_NONE ? null : v)}
       disabled={disabled}
     >
-      <SelectTrigger className="bg-muted/40 border-border/60 w-full rounded-lg">
+      <SelectTrigger className={cn('bg-muted/40 border-border/60 rounded-lg', FIELD_CONTROL_W)}>
         <SelectValue placeholder="—" />
       </SelectTrigger>
       <SelectContent className="rounded-2xl">
