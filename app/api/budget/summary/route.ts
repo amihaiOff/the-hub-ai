@@ -75,6 +75,10 @@ export async function GET(request: NextRequest) {
           payee: {
             select: { id: true, name: true },
           },
+          // Tag count — a tagged transaction is treated as "handled" and kept
+          // out of the Uncategorized bucket (mirrors the uncategorized-count
+          // route's `tags: { none: {} }` rule).
+          _count: { select: { tags: true } },
         },
       }),
     ]);
@@ -97,6 +101,10 @@ export async function GET(request: NextRequest) {
 
     for (const tx of expenseTransactions) {
       const categoryId = tx.categoryId ?? 'uncategorized';
+      // Tagged-but-uncategorized transactions are considered handled, so they
+      // never populate the Uncategorized section (they still count toward the
+      // top-level totalSpent computed above).
+      if (categoryId === 'uncategorized' && tx._count.tags > 0) continue;
       const existing = categorySpendingMap.get(categoryId) ?? { spent: 0, transactions: [] };
       existing.spent += Number(tx.amountIls);
       existing.transactions.push(tx);

@@ -225,6 +225,7 @@ describe('Budget Summary API', () => {
           paymentMethod: 'cash',
           notes: null,
           payee: null,
+          _count: { tags: 0 },
         },
       ];
 
@@ -248,6 +249,72 @@ describe('Budget Summary API', () => {
       expect(uncategorizedGroup.name).toBe('Uncategorized');
       expect(uncategorizedGroup.totalSpent).toBe(100);
       expect(uncategorizedGroup.categories[0].spent).toBe(100);
+    });
+
+    it('excludes tagged-but-uncategorized transactions from the Uncategorized section', async () => {
+      const mockCategoryGroups = [
+        {
+          id: 'group-1',
+          name: 'Essential',
+          sortOrder: 1,
+          householdId: 'household-1',
+          categories: [],
+        },
+      ];
+
+      const mockTransactions = [
+        {
+          // Uncategorized but TAGGED — treated as handled, so it must not appear
+          // under Uncategorized (though it still counts toward totalSpent).
+          id: 'tx-tagged',
+          type: 'expense',
+          transactionDate: new Date('2024-01-15'),
+          amountIls: createDecimal(80),
+          categoryId: null,
+          payeeId: null,
+          paymentMethod: 'cash',
+          notes: null,
+          payee: null,
+          _count: { tags: 1 },
+        },
+        {
+          // Uncategorized and untagged — should still show up.
+          id: 'tx-plain',
+          type: 'expense',
+          transactionDate: new Date('2024-01-16'),
+          amountIls: createDecimal(20),
+          categoryId: null,
+          payeeId: null,
+          paymentMethod: 'cash',
+          notes: null,
+          payee: null,
+          _count: { tags: 0 },
+        },
+      ];
+
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetCategoryGroup.findMany as jest.Mock).mockResolvedValueOnce(
+        mockCategoryGroups
+      );
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce(mockTransactions);
+
+      const request = new NextRequest('http://localhost:3000/api/budget/summary?month=2024-01');
+      const response = await GET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      // Both transactions are real spending.
+      expect(data.data.totalSpent).toBe(100);
+
+      const uncategorizedGroup = data.data.categoryGroups.find(
+        (g: { id: string }) => g.id === 'uncategorized'
+      );
+      expect(uncategorizedGroup).toBeDefined();
+      // Only the untagged transaction (20) lands in Uncategorized; the tagged
+      // one (80) is excluded.
+      expect(uncategorizedGroup.totalSpent).toBe(20);
+      expect(uncategorizedGroup.categories[0].transactions).toHaveLength(1);
+      expect(uncategorizedGroup.categories[0].transactions[0].id).toBe('tx-plain');
     });
 
     it('should handle empty transactions', async () => {
