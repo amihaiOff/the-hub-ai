@@ -891,6 +891,7 @@ export async function forceResyncMoneytorTransactionsForHousehold(
   // existing row with the same (description, date, amount, accountId). Records
   // the link as freshId → oldId so we can later (a) write `replacesMoneytorId`
   // and (b) re-point any budget_transaction.moneytorId from old to fresh.
+  const existingIds = new Set(existingMoneytor.map((e) => e.id));
   const existingByKey = new Map<string, string[]>(); // key → queue of existing ids
   for (const e of existingMoneytor) {
     const k = fuzzyKey({
@@ -905,6 +906,11 @@ export async function forceResyncMoneytorTransactionsForHousehold(
   }
   const freshToOld = new Map<string, string>(); // freshId → oldId
   for (const f of fresh) {
+    // A fresh row whose id already existed is a same-id survivor (handled by the
+    // freshIds preservation path below). It must NOT consume a fuzzy-match queue
+    // slot — otherwise, when duplicate keys exist and Moneytor collapses them,
+    // another row could be re-pointed to this id and double-count.
+    if (existingIds.has(f.id)) continue;
     const k = fuzzyKey({
       description: f.description,
       transactionDate: new Date(`${f.date}T00:00:00Z`),
@@ -969,7 +975,11 @@ export async function forceResyncMoneytorTransactionsForHousehold(
   // corrected its fields (a settling card charge changes date/amount/description
   // while keeping its id). Such rows must be preserved with the user's category,
   // never deleted-and-recreated as uncategorized.
+  // NOTE: this preservation relies on Moneytor ids being stable natural keys —
+  // an id is never reused for a genuinely different transaction. (If it were,
+  // we'd attach the old category to the wrong row.)
   const freshIds = new Set(fresh.map((f) => f.id));
+  const freshById = new Map(fresh.map((f) => [f.id, f]));
 
   // 5. Re-link / delete budget_transactions linked to in-range old moneytor ids.
   //   - Old id still present in fresh (same id, maybe corrected fields) → keep
@@ -980,6 +990,7 @@ export async function forceResyncMoneytorTransactionsForHousehold(
   const inRangeOldIds = existingMoneytor.map((e) => e.id);
   let deletedBudget = 0;
   let relinked = 0;
+  let refreshed = 0;
   if (inRangeOldIds.length > 0) {
     const linkedBudget = await prisma.budgetTransaction.findMany({
       where: { householdId, moneytorId: { in: inRangeOldIds } },
@@ -990,19 +1001,45 @@ export async function forceResyncMoneytorTransactionsForHousehold(
     const oldToFresh = new Map<string, string>();
     for (const [freshId, oldId] of freshToOld) oldToFresh.set(oldId, freshId);
 
-    // Same-id survivors need no work — they're already linked to a fresh row.
-    // Only rows whose id changed get re-pointed; only rows whose id is gone
-    // entirely (no successor) get deleted.
+    // Same-id survivors: keep the row (and the user's category/notes/tags/payee)
+    // but refresh the denormalized financial fields, since Moneytor may have
+    // corrected the amount/date in place (a pending charge settling).
+    const toRefresh = linkedBudget.filter((b) => b.moneytorId && freshIds.has(b.moneytorId));
+    // Changed-id rows get re-pointed; id-gone rows (no successor) get deleted.
     const toRelink = linkedBudget.filter(
       (b) => b.moneytorId && !freshIds.has(b.moneytorId) && oldToFresh.has(b.moneytorId)
     );
     const toDelete = linkedBudget.filter(
-      (b) => !b.moneytorId || (!freshIds.has(b.moneytorId) && !oldToFresh.has(b.moneytorId))
+      (b) => b.moneytorId && !freshIds.has(b.moneytorId) && !oldToFresh.has(b.moneytorId)
     );
+
+    const BATCH_SIZE = 5;
+
+    // Refresh financial fields on same-id survivors (preserve everything else).
+    for (let i = 0; i < toRefresh.length; i += BATCH_SIZE) {
+      const batch = toRefresh.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map((b) => {
+          const f = freshById.get(b.moneytorId!);
+          if (!f) return Promise.resolve();
+          const amount = Number(f.amount);
+          return prisma.budgetTransaction.update({
+            where: { id: b.id },
+            data: {
+              type: amount < 0 ? 'expense' : 'income',
+              amountIls: Math.abs(amount),
+              amountOriginal: Math.abs(amount),
+              currency: f.currency,
+              transactionDate: new Date(`${f.date}T00:00:00Z`),
+            },
+          });
+        })
+      );
+    }
+    refreshed = toRefresh.length;
 
     // Re-link via per-row updates (Neon poolQuery + updateMany don't mix —
     // see CLAUDE.md).
-    const BATCH_SIZE = 5;
     for (let i = 0; i < toRelink.length; i += BATCH_SIZE) {
       const batch = toRelink.slice(i, i + BATCH_SIZE);
       await Promise.all(
@@ -1120,12 +1157,10 @@ export async function forceResyncMoneytorTransactionsForHousehold(
   }
 
   // Edits "preserved" in the new model = the count of budget rows we re-linked
-  // (those still carry the user's category/notes/tags). Same number reported
-  // to the UI for continuity.
-  const editsPreserved = relinked;
-  // matchedOldIds is unused at runtime but kept readable in the summary —
-  // surface as deletedMoneytor delta for now.
-  void matchedOldIds;
+  // (those still carry the user's category/notes/tags): re-linked (changed id)
+  // plus same-id survivors whose financial fields we refreshed in place.
+  const editsPreserved = relinked + refreshed;
+  void matchedOldIds; // retained for readability; not used at runtime
 
   return {
     householdId,

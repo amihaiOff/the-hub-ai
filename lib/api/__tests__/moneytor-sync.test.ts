@@ -405,9 +405,11 @@ describe('forceResyncMoneytorTransactionsForHousehold', () => {
         },
       ]);
 
-    (mockPrisma.budgetTransaction.findMany as jest.Mock)
-      .mockResolvedValueOnce([]) // no linked rows
-      .mockResolvedValueOnce([]); // not yet promoted
+    // Only ONE budgetTransaction.findMany runs here: step 5 (linked rows) is
+    // skipped because there are no existing moneytor rows in range, so only
+    // step 7's "already linked" read fires. Queuing a second once-value would
+    // leak into the next test (clearAllMocks doesn't drain the once-queue).
+    (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]); // not yet promoted
 
     mockFetchTransactions.mockResolvedValue([
       {
@@ -491,14 +493,26 @@ describe('forceResyncMoneytorTransactionsForHousehold', () => {
       to: '2026-06-10',
     });
 
-    // The budget row is neither deleted nor recreated.
+    // The budget row is neither deleted nor recreated — the category survives.
     expect(summary.deletedBudget).toBe(0);
     expect(summary.budgetCreated).toBe(0);
+    expect(summary.editsPreserved).toBe(1);
     expect(mockPrisma.budgetTransaction.deleteMany).not.toHaveBeenCalled();
     expect(mockImportTransactions).not.toHaveBeenCalled();
-    // No re-point needed (same id), so no budget update either.
-    expect(mockPrisma.budgetTransaction.update).not.toHaveBeenCalled();
     // The stale Moneytor id is NOT deleted — it's still live.
     expect(mockPrisma.moneytorTransaction.deleteMany).not.toHaveBeenCalled();
+    // But its denormalized financial fields ARE refreshed to Moneytor's
+    // corrected values (amount -100 → -105, date 06-05 → 06-06), while the
+    // moneytorId (and thus the category) is left intact.
+    expect(mockPrisma.budgetTransaction.update).toHaveBeenCalledWith({
+      where: { id: 'bt-x' },
+      data: {
+        type: 'expense',
+        amountIls: 105,
+        amountOriginal: 105,
+        currency: 'ILS',
+        transactionDate: new Date('2026-06-06T00:00:00Z'),
+      },
+    });
   });
 });
