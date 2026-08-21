@@ -93,6 +93,13 @@ export const DatabaseBlock = Node.create({
         parseHTML: (el) => el.getAttribute('data-block-id'),
         renderHTML: (attrs) => (attrs.id ? { 'data-block-id': attrs.id } : {}),
       },
+      // Optional display title shown above the grid. Persisted so it round-trips
+      // in the document JSON.
+      title: {
+        default: null as string | null,
+        parseHTML: (el) => el.getAttribute('data-title'),
+        renderHTML: (attrs) => (attrs.title ? { 'data-title': attrs.title } : {}),
+      },
       columns: {
         default: null as DatabaseColumn[] | null,
         parseHTML: (el) => tryParseJson(el.getAttribute('data-columns')),

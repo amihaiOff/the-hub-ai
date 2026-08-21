@@ -187,6 +187,8 @@ export function resolveOptionColor(
 export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewProps) {
   const columns = (node.attrs.columns ?? []) as DatabaseColumn[];
   const rows = (node.attrs.rows ?? []) as DatabaseRow[];
+  const title = (node.attrs.title as string | null) ?? '';
+  const setTitle = (next: string) => updateAttributes({ title: next });
 
   // Always-fresh view of rows for DEFERRED writes. The row-detail body commit is
   // debounced (~400ms) and also flushed on unmount, so a callback that closed
@@ -614,45 +616,69 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
 
   return (
     <NodeViewWrapper as="div" className="database-block group/db relative my-4 pl-9">
-      {/* Filter toolbar — per-column filters held in ephemeral view state. */}
+      {/* Header — title on the left, filter on the right. `w-full justify-between`
+          spans the grid: on mobile the block is full-bleed (title at the screen
+          edge, filter at the other), on desktop it matches the table's width
+          (min-w-full), so the title sits at the table's left and the filter at
+          its right. Active-filter chips wrap onto a line below. */}
       {columns.length > 0 && (
-        <div className="relative mb-[3px] flex flex-wrap items-center gap-1.5">
-          <button
-            ref={filterBtnRef}
-            type="button"
-            onClick={() => setFilterPanelOpen((o) => !o)}
-            aria-label="Filter rows"
-            className={cn(
-              'flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs transition-colors',
-              activeFilterColumns.length > 0
-                ? 'border-primary/50 bg-primary/10 text-primary'
-                : 'border-border/60 text-muted-foreground hover:bg-muted/50'
+        <div className="mb-[3px]">
+          <div className="relative flex w-full items-center justify-between gap-3">
+            {editable ? (
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Untitled"
+                dir="auto"
+                aria-label="Database title"
+                className="text-foreground placeholder:text-muted-foreground/40 min-w-0 max-w-[65%] truncate bg-transparent text-sm font-semibold outline-none"
+              />
+            ) : (
+              <span className="text-foreground min-w-0 max-w-[65%] truncate text-sm font-semibold">
+                {title}
+              </span>
             )}
-          >
-            <Filter className="h-3.5 w-3.5" />
-            Filter{activeFilterColumns.length > 0 ? ` (${activeFilterColumns.length})` : ''}
-          </button>
-          {activeFilterColumns.map((col) => (
             <button
-              key={col.id}
+              ref={filterBtnRef}
               type="button"
-              onClick={() => clearColumnFilter(col.id)}
-              title={`Clear filter on ${col.name}`}
-              className="border-primary/40 bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
+              onClick={() => setFilterPanelOpen((o) => !o)}
+              aria-label="Filter rows"
+              className={cn(
+                'flex shrink-0 items-center gap-1.5 rounded-lg border px-2 py-1 text-xs transition-colors',
+                activeFilterColumns.length > 0
+                  ? 'border-primary/50 bg-primary/10 text-primary'
+                  : 'border-border/60 text-muted-foreground hover:bg-muted/50'
+              )}
             >
-              <span className="max-w-[8rem] truncate">{col.name}</span>
-              <X className="h-3 w-3 shrink-0" />
+              <Filter className="h-3.5 w-3.5" />
+              Filter{activeFilterColumns.length > 0 ? ` (${activeFilterColumns.length})` : ''}
             </button>
-          ))}
-          {filterPanelOpen && (
-            <DatabaseFilterPanel
-              columns={columns}
-              filters={filters}
-              anchorEl={filterBtnRef.current}
-              onChange={setColumnFilter}
-              onClearAll={clearAllFilters}
-              onClose={() => setFilterPanelOpen(false)}
-            />
+            {filterPanelOpen && (
+              <DatabaseFilterPanel
+                columns={columns}
+                filters={filters}
+                anchorEl={filterBtnRef.current}
+                onChange={setColumnFilter}
+                onClearAll={clearAllFilters}
+                onClose={() => setFilterPanelOpen(false)}
+              />
+            )}
+          </div>
+          {activeFilterColumns.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {activeFilterColumns.map((col) => (
+                <button
+                  key={col.id}
+                  type="button"
+                  onClick={() => clearColumnFilter(col.id)}
+                  title={`Clear filter on ${col.name}`}
+                  className="border-primary/40 bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
+                >
+                  <span className="max-w-[8rem] truncate">{col.name}</span>
+                  <X className="h-3 w-3 shrink-0" />
+                </button>
+              ))}
+            </div>
           )}
         </div>
       )}
