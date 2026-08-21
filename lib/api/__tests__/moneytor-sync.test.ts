@@ -437,4 +437,68 @@ describe('forceResyncMoneytorTransactionsForHousehold', () => {
     expect(summary.editsPreserved).toBe(0);
     expect(summary.deletedBudget).toBe(0);
   });
+
+  it('preserves a categorized budget row when Moneytor keeps the id but corrects the fields', async () => {
+    // A pending card charge settles: same Moneytor id, but the date/amount/
+    // description all drift. The old snapshot (step 1) has the pending values;
+    // the fresh fetch has the settled ones. The budget row (with the user's
+    // category) must survive untouched — not be deleted + recreated uncategorized.
+    (mockPrisma.moneytorTransaction.findMany as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          id: 'mt-x',
+          description: 'PENDING AUTH',
+          transactionDate: new Date('2026-06-05T00:00:00Z'),
+          amount: -100,
+          accountId: 'CHK-001',
+        },
+      ])
+      // freshMoneytorRows read (step 7) — same id, corrected fields
+      .mockResolvedValueOnce([
+        {
+          id: 'mt-x',
+          transactionDate: new Date('2026-06-06T00:00:00Z'),
+          amount: -105,
+          currency: 'ILS',
+          description: 'MERCHANT XYZ',
+          category: 'DINING',
+          accountId: 'CHK-001',
+          type: 'CARD',
+        },
+      ]);
+
+    (mockPrisma.budgetTransaction.findMany as jest.Mock)
+      // linkedBudget (step 5) — the categorized row still points at mt-x
+      .mockResolvedValueOnce([{ id: 'bt-x', moneytorId: 'mt-x' }])
+      // alreadyLinked (step 7) — still linked because we preserved it
+      .mockResolvedValueOnce([{ moneytorId: 'mt-x' }]);
+
+    mockFetchTransactions.mockResolvedValue([
+      {
+        id: 'mt-x', // same id, drifted fields
+        date: '2026-06-06',
+        amount: -105,
+        currency: 'ILS',
+        description: 'MERCHANT XYZ',
+        category: 'DINING',
+        accountId: 'CHK-001',
+        type: 'CARD',
+      },
+    ]);
+
+    const summary = await forceResyncMoneytorTransactionsForHousehold('household-1', {
+      from: '2026-06-01',
+      to: '2026-06-10',
+    });
+
+    // The budget row is neither deleted nor recreated.
+    expect(summary.deletedBudget).toBe(0);
+    expect(summary.budgetCreated).toBe(0);
+    expect(mockPrisma.budgetTransaction.deleteMany).not.toHaveBeenCalled();
+    expect(mockImportTransactions).not.toHaveBeenCalled();
+    // No re-point needed (same id), so no budget update either.
+    expect(mockPrisma.budgetTransaction.update).not.toHaveBeenCalled();
+    // The stale Moneytor id is NOT deleted — it's still live.
+    expect(mockPrisma.moneytorTransaction.deleteMany).not.toHaveBeenCalled();
+  });
 });

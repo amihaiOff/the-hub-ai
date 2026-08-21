@@ -964,11 +964,19 @@ export async function forceResyncMoneytorTransactionsForHousehold(
     );
   }
 
+  // Fresh Moneytor ids that survived this resync (upserted in step 4). A budget
+  // row still linked to one of these is the SAME transaction — Moneytor merely
+  // corrected its fields (a settling card charge changes date/amount/description
+  // while keeping its id). Such rows must be preserved with the user's category,
+  // never deleted-and-recreated as uncategorized.
+  const freshIds = new Set(fresh.map((f) => f.id));
+
   // 5. Re-link / delete budget_transactions linked to in-range old moneytor ids.
-  //   - Old id had a fresh successor → repoint budget_transaction.moneytorId.
-  //     The budget row is preserved as-is, with all user edits intact.
-  //   - Old id had no successor → delete the budget row (Moneytor no longer
-  //     reports this transaction).
+  //   - Old id still present in fresh (same id, maybe corrected fields) → keep
+  //     the budget row as-is; it stays linked and user edits are preserved.
+  //   - Old id had a fresh successor (id changed) → repoint moneytorId.
+  //   - Old id gone with no successor → delete the budget row (Moneytor no
+  //     longer reports this transaction).
   const inRangeOldIds = existingMoneytor.map((e) => e.id);
   let deletedBudget = 0;
   let relinked = 0;
@@ -982,8 +990,15 @@ export async function forceResyncMoneytorTransactionsForHousehold(
     const oldToFresh = new Map<string, string>();
     for (const [freshId, oldId] of freshToOld) oldToFresh.set(oldId, freshId);
 
-    const toRelink = linkedBudget.filter((b) => b.moneytorId && oldToFresh.has(b.moneytorId));
-    const toDelete = linkedBudget.filter((b) => !b.moneytorId || !oldToFresh.has(b.moneytorId));
+    // Same-id survivors need no work — they're already linked to a fresh row.
+    // Only rows whose id changed get re-pointed; only rows whose id is gone
+    // entirely (no successor) get deleted.
+    const toRelink = linkedBudget.filter(
+      (b) => b.moneytorId && !freshIds.has(b.moneytorId) && oldToFresh.has(b.moneytorId)
+    );
+    const toDelete = linkedBudget.filter(
+      (b) => !b.moneytorId || (!freshIds.has(b.moneytorId) && !oldToFresh.has(b.moneytorId))
+    );
 
     // Re-link via per-row updates (Neon poolQuery + updateMany don't mix —
     // see CLAUDE.md).
@@ -1047,8 +1062,8 @@ export async function forceResyncMoneytorTransactionsForHousehold(
   // whose key wasn't fuzzy-matched. Anything still referenced by a re-linked
   // budget_transaction has been pointed to the fresh row already.
   // We delete every old id that isn't also a fresh id — fresh ones reusing the
-  // same id were already overwritten by the upsert in step 4.
-  const freshIds = new Set(fresh.map((f) => f.id));
+  // same id were already overwritten by the upsert in step 4. (`freshIds`
+  // computed above, before step 5.)
   const oldIdsToDelete = inRangeOldIds.filter((id) => !freshIds.has(id));
   let deletedMoneytor = 0;
   if (oldIdsToDelete.length > 0) {
