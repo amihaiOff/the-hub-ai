@@ -34,6 +34,15 @@ import {
 } from 'lucide-react';
 import { useKeyboardInset } from '@/lib/hooks/use-keyboard-inset';
 import { useIsMobileViewport } from '@/lib/hooks/use-is-mobile-viewport';
+import {
+  moveAxis,
+  isStationary,
+  shouldEngageDeleteSwipe,
+  clampReveal,
+  resolveSwipeEnd,
+  LONG_PRESS_MS,
+  SWIPE_REVEAL_PX,
+} from './db-row-gesture';
 import { setRowBody, hasBodyContent } from '@/lib/pages/db-rows';
 import { DatabaseEntrySheet } from './database-entry-sheet';
 import { floatingControlBottom } from './undo-redo-bar';
@@ -178,6 +187,8 @@ export function resolveOptionColor(
 export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewProps) {
   const columns = (node.attrs.columns ?? []) as DatabaseColumn[];
   const rows = (node.attrs.rows ?? []) as DatabaseRow[];
+  const title = (node.attrs.title as string | null) ?? '';
+  const setTitle = (next: string) => updateAttributes({ title: next });
 
   // Always-fresh view of rows for DEFERRED writes. The row-detail body commit is
   // debounced (~400ms) and also flushed on unmount, so a callback that closed
@@ -345,6 +356,150 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
     if (openRowId === rowId) setOpenRowId(null);
   };
 
+  // ── Mobile row gestures ──────────────────────────────────────────────
+  // tap a cell → edit it (cells are interactive); long-press anywhere → open
+  // the entry card; swipe right while scrolled fully left → reveal a red delete
+  // button. See ./db-row-gesture for the pure decision helpers + tests.
+  const [swipe, setSwipe] = useState<{
+    rowId: string;
+    dx: number;
+    open: boolean;
+    dragging: boolean;
+    top: number;
+    height: number;
+  } | null>(null);
+  const gesture = useRef<{
+    startX: number;
+    startY: number;
+    scrollLeft: number;
+    phase: 'pending' | 'swipe' | 'scroll';
+    moved: boolean;
+    longPress: boolean;
+    /** This touch began while a swipe was open → its job is just to dismiss it. */
+    dismiss: boolean;
+    timer: ReturnType<typeof setTimeout> | null;
+    band: { top: number; height: number };
+  } | null>(null);
+
+  const closeSwipe = useCallback(() => setSwipe(null), []);
+
+  // Clear any pending long-press timer on unmount so it can't fire (and setState)
+  // after the block is gone.
+  useEffect(() => {
+    return () => {
+      if (gesture.current?.timer) clearTimeout(gesture.current.timer);
+    };
+  }, []);
+
+  // A swipe open on one row should close when the table is scrolled or another
+  // row is touched — the touchStart handler covers the latter.
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el || !swipe) return;
+    const onScroll = () => setSwipe(null);
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [swipe?.rowId]);
+
+  const onRowTouchStart = (e: React.TouchEvent, rowId: string) => {
+    if (!isMobile || !editable) return;
+    // Never leave a previous long-press timer pending (multi-touch / re-touch).
+    if (gesture.current?.timer) clearTimeout(gesture.current.timer);
+    // A touch that starts while a swipe is OPEN just dismisses it (and suppresses
+    // the trailing cell tap); it neither long-presses nor edits.
+    const dismiss = !!swipe?.open;
+    if (swipe) setSwipe(null);
+    const t = e.touches[0];
+    if (!t) return;
+    const trRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const wrapRect = wrapperRef.current?.getBoundingClientRect();
+    const band = wrapRect
+      ? {
+          top: trRect.top - wrapRect.top + (wrapperRef.current?.scrollTop ?? 0),
+          height: trRect.height,
+        }
+      : { top: 0, height: trRect.height };
+    gesture.current = {
+      startX: t.clientX,
+      startY: t.clientY,
+      scrollLeft: wrapperRef.current?.scrollLeft ?? 0,
+      phase: 'pending',
+      moved: false,
+      longPress: false,
+      dismiss,
+      // No long-press while dismissing — the first touch just closes the swipe.
+      timer: dismiss
+        ? null
+        : setTimeout(() => {
+            const g = gesture.current;
+            if (g && !g.moved) {
+              g.longPress = true;
+              setSwipe(null);
+              setOpenRowId(rowId);
+            }
+          }, LONG_PRESS_MS),
+      band,
+    };
+  };
+
+  const onRowTouchMove = (e: React.TouchEvent, rowId: string) => {
+    const g = gesture.current;
+    if (!g) return;
+    const t = e.touches[0];
+    if (!t) return;
+    const dx = t.clientX - g.startX;
+    const dy = t.clientY - g.startY;
+    if (!g.moved && !isStationary(dx, dy)) {
+      g.moved = true;
+      if (g.timer) {
+        clearTimeout(g.timer);
+        g.timer = null;
+      }
+    }
+    if (g.phase === 'scroll') return; // let the browser scroll
+    if (g.phase === 'pending') {
+      if (shouldEngageDeleteSwipe(dx, dy, g.scrollLeft <= 0)) g.phase = 'swipe';
+      else if (moveAxis(dx, dy) !== 'none') {
+        g.phase = 'scroll';
+        return;
+      } else return;
+    }
+    // Engaged swipe — reveal the delete button. No preventDefault needed: we
+    // only engage at the left scroll edge, where a rightward drag can't scroll.
+    setSwipe({
+      rowId,
+      dx: clampReveal(dx),
+      open: false,
+      dragging: true,
+      top: g.band.top,
+      height: g.band.height,
+    });
+  };
+
+  const onRowTouchEnd = (e: React.TouchEvent, rowId: string) => {
+    const g = gesture.current;
+    gesture.current = null;
+    if (g?.timer) clearTimeout(g.timer);
+    if (!g) return;
+    // Long-press already opened the card, or this touch dismissed an open swipe:
+    // swallow the synthesized click/focus so the cell under the finger doesn't
+    // also enter edit mode.
+    if (g.longPress || (g.dismiss && !g.moved)) {
+      e.preventDefault();
+      return;
+    }
+    if (g.phase !== 'swipe') return; // a tap → let the cell's own editor handle it
+    setSwipe((s) => {
+      if (!s || s.rowId !== rowId) return null;
+      // Past the threshold → snap open; otherwise animate back to closed (keep
+      // the row mounted at dx:0 so the transition runs instead of jumping).
+      return resolveSwipeEnd(s.dx)
+        ? { ...s, dx: SWIPE_REVEAL_PX, open: true, dragging: false }
+        : { ...s, dx: 0, open: false, dragging: false };
+    });
+  };
+
   const addColumn = () => {
     const col = makeColumn('New column', 'text');
     setColumns([...columns, col]);
@@ -461,45 +616,69 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
 
   return (
     <NodeViewWrapper as="div" className="database-block group/db relative my-4 pl-9">
-      {/* Filter toolbar — per-column filters held in ephemeral view state. */}
+      {/* Header — title on the left, filter on the right. `w-full justify-between`
+          spans the grid: on mobile the block is full-bleed (title at the screen
+          edge, filter at the other), on desktop it matches the table's width
+          (min-w-full), so the title sits at the table's left and the filter at
+          its right. Active-filter chips wrap onto a line below. */}
       {columns.length > 0 && (
-        <div className="relative mb-[3px] flex flex-wrap items-center gap-1.5">
-          <button
-            ref={filterBtnRef}
-            type="button"
-            onClick={() => setFilterPanelOpen((o) => !o)}
-            aria-label="Filter rows"
-            className={cn(
-              'flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs transition-colors',
-              activeFilterColumns.length > 0
-                ? 'border-primary/50 bg-primary/10 text-primary'
-                : 'border-border/60 text-muted-foreground hover:bg-muted/50'
+        <div className="mb-[3px]">
+          <div className="relative flex w-full items-center justify-between gap-3">
+            {editable ? (
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Untitled"
+                dir="auto"
+                aria-label="Database title"
+                className="text-foreground placeholder:text-muted-foreground/40 min-w-0 max-w-[65%] truncate bg-transparent text-sm font-semibold outline-none"
+              />
+            ) : (
+              <span className="text-foreground min-w-0 max-w-[65%] truncate text-sm font-semibold">
+                {title}
+              </span>
             )}
-          >
-            <Filter className="h-3.5 w-3.5" />
-            Filter{activeFilterColumns.length > 0 ? ` (${activeFilterColumns.length})` : ''}
-          </button>
-          {activeFilterColumns.map((col) => (
             <button
-              key={col.id}
+              ref={filterBtnRef}
               type="button"
-              onClick={() => clearColumnFilter(col.id)}
-              title={`Clear filter on ${col.name}`}
-              className="border-primary/40 bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
+              onClick={() => setFilterPanelOpen((o) => !o)}
+              aria-label="Filter rows"
+              className={cn(
+                'flex shrink-0 items-center gap-1.5 rounded-lg border px-2 py-1 text-xs transition-colors',
+                activeFilterColumns.length > 0
+                  ? 'border-primary/50 bg-primary/10 text-primary'
+                  : 'border-border/60 text-muted-foreground hover:bg-muted/50'
+              )}
             >
-              <span className="max-w-[8rem] truncate">{col.name}</span>
-              <X className="h-3 w-3 shrink-0" />
+              <Filter className="h-3.5 w-3.5" />
+              Filter{activeFilterColumns.length > 0 ? ` (${activeFilterColumns.length})` : ''}
             </button>
-          ))}
-          {filterPanelOpen && (
-            <DatabaseFilterPanel
-              columns={columns}
-              filters={filters}
-              anchorEl={filterBtnRef.current}
-              onChange={setColumnFilter}
-              onClearAll={clearAllFilters}
-              onClose={() => setFilterPanelOpen(false)}
-            />
+            {filterPanelOpen && (
+              <DatabaseFilterPanel
+                columns={columns}
+                filters={filters}
+                anchorEl={filterBtnRef.current}
+                onChange={setColumnFilter}
+                onClearAll={clearAllFilters}
+                onClose={() => setFilterPanelOpen(false)}
+              />
+            )}
+          </div>
+          {activeFilterColumns.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {activeFilterColumns.map((col) => (
+                <button
+                  key={col.id}
+                  type="button"
+                  onClick={() => clearColumnFilter(col.id)}
+                  title={`Clear filter on ${col.name}`}
+                  className="border-primary/40 bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
+                >
+                  <span className="max-w-[8rem] truncate">{col.name}</span>
+                  <X className="h-3 w-3 shrink-0" />
+                </button>
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -565,19 +744,35 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
           <tbody ref={tbodyRef}>
             {table.getRowModel().rows.map((tableRow) => {
               const row = tableRow.original;
-              // On mobile, inline cell editing is replaced by the full-screen
-              // detail: tapping the row opens it, and cells render read-only so
-              // taps bubble up to open rather than focusing an input.
-              const cellEditable = editable && !isMobile;
+              // Cells are inline-editable on every viewport now. On mobile the
+              // row also carries gesture handlers: tap a cell = edit it,
+              // long-press = open the entry card, swipe-right-at-left-edge =
+              // reveal delete (see onRowTouch* + the delete overlay below).
+              const cellEditable = editable;
               // Keep the open icon always visible when the row has a page
               // (body content) or on mobile; otherwise reveal it on hover.
               const rowHasBody = hasBodyContent(row.body);
+              const swiped = swipe?.rowId === row.id;
               return (
                 <tr
                   key={row.id}
-                  className={cn('group/row', isMobile && 'cursor-pointer')}
+                  className="group/row"
                   data-row-id={row.id}
-                  onClick={isMobile ? () => setOpenRowId(row.id) : undefined}
+                  style={
+                    swiped
+                      ? {
+                          transform: `translateX(${swipe!.dx}px)`,
+                          transition: swipe!.dragging ? 'none' : 'transform 180ms ease-out',
+                        }
+                      : undefined
+                  }
+                  onTouchStart={
+                    isMobile && editable ? (e) => onRowTouchStart(e, row.id) : undefined
+                  }
+                  onTouchMove={isMobile && editable ? (e) => onRowTouchMove(e, row.id) : undefined}
+                  onTouchEnd={isMobile && editable ? (e) => onRowTouchEnd(e, row.id) : undefined}
+                  onTouchCancel={isMobile && editable ? (e) => onRowTouchEnd(e, row.id) : undefined}
+                  onContextMenu={isMobile && editable ? (e) => e.preventDefault() : undefined}
                 >
                   {tableRow.getVisibleCells().map((cell, cellIdx) => {
                     const col = columns.find((c) => c.id === cell.column.id);
@@ -599,8 +794,8 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                         {isPrimary ? (
                           <div className="flex items-start">
                             {/* Open-entry affordance: hover-revealed on desktop,
-                                always visible on mobile. stopPropagation so it
-                                doesn't double-fire the row's mobile tap. */}
+                                always visible on mobile (long-press also opens).
+                                stopPropagation so it doesn't start a row gesture. */}
                             <button
                               type="button"
                               draggable={false}
@@ -608,6 +803,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                                 e.stopPropagation();
                                 setOpenRowId(row.id);
                               }}
+                              onTouchStart={(e) => e.stopPropagation()}
                               aria-label="Open entry"
                               title="Open entry"
                               className={cn(
@@ -619,17 +815,8 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                             >
                               <FileText className="h-3.5 w-3.5" />
                             </button>
-                            {/* On mobile the cell is read-only and taps must fall
-                                through to the row's open handler — a disabled
-                                input would otherwise swallow the tap. */}
-                            <div
-                              className={cn('min-w-0 flex-1', isMobile && 'pointer-events-none')}
-                            >
-                              {cellEditor}
-                            </div>
+                            <div className="min-w-0 flex-1">{cellEditor}</div>
                           </div>
-                        ) : isMobile ? (
-                          <div className="pointer-events-none">{cellEditor}</div>
                         ) : (
                           cellEditor
                         )}
@@ -683,6 +870,30 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
             )}
           </tbody>
         </table>
+
+        {/* Swipe-reveal delete (mobile). Sits in the gap the row uncovers as it
+            translates right; tap to delete. Positioned over the row's band. */}
+        {isMobile && swipe && (
+          <button
+            type="button"
+            aria-label="Delete row"
+            title="Delete row"
+            onClick={() => {
+              deleteRow(swipe.rowId);
+              closeSwipe();
+            }}
+            style={{
+              position: 'absolute',
+              top: swipe.top,
+              height: swipe.height,
+              left: 0,
+              width: swipe.open ? SWIPE_REVEAL_PX : swipe.dx,
+            }}
+            className="bg-destructive text-destructive-foreground flex items-center justify-center overflow-hidden"
+          >
+            <Trash2 className="h-4 w-4 shrink-0" />
+          </button>
+        )}
       </div>
 
       {editable && <DeleteRowGutter tbodyRef={tbodyRef} rows={rows} onDelete={deleteRow} />}
