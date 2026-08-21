@@ -36,7 +36,10 @@ export function moveAxis(dx: number, dy: number, slop: number = AXIS_SLOP_PX): M
  * the move is a rightward horizontal drag.
  */
 export function shouldEngageDeleteSwipe(dx: number, dy: number, atLeftEdge: boolean): boolean {
-  return atLeftEdge && dx > 0 && moveAxis(dx, dy) === 'horizontal';
+  // Require a clearly-horizontal rightward drag (dx strictly dominant) past the
+  // slop, so a ~45° diagonal falls through to normal scrolling instead of
+  // accidentally revealing delete.
+  return atLeftEdge && dx > AXIS_SLOP_PX && dx > Math.abs(dy);
 }
 
 /** Clamp a drag delta to the visible reveal range [0, max]. */

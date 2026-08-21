@@ -50,6 +50,10 @@ describe('shouldEngageDeleteSwipe', () => {
   it('does not engage within the slop radius', () => {
     expect(shouldEngageDeleteSwipe(3, 2, true)).toBe(false);
   });
+  it('does not engage on a ~45° diagonal (dx not strictly dominant)', () => {
+    expect(shouldEngageDeleteSwipe(20, 20, true)).toBe(false);
+    expect(shouldEngageDeleteSwipe(20, 21, true)).toBe(false);
+  });
 });
 
 describe('clampReveal', () => {

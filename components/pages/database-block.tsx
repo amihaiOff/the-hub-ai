@@ -373,6 +373,8 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
     phase: 'pending' | 'swipe' | 'scroll';
     moved: boolean;
     longPress: boolean;
+    /** This touch began while a swipe was open → its job is just to dismiss it. */
+    dismiss: boolean;
     timer: ReturnType<typeof setTimeout> | null;
     band: { top: number; height: number };
   } | null>(null);
@@ -400,14 +402,21 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
 
   const onRowTouchStart = (e: React.TouchEvent, rowId: string) => {
     if (!isMobile || !editable) return;
-    // Close any other open swipe when a different row is touched.
-    if (swipe && swipe.rowId !== rowId) setSwipe(null);
+    // Never leave a previous long-press timer pending (multi-touch / re-touch).
+    if (gesture.current?.timer) clearTimeout(gesture.current.timer);
+    // A touch that starts while a swipe is OPEN just dismisses it (and suppresses
+    // the trailing cell tap); it neither long-presses nor edits.
+    const dismiss = !!swipe?.open;
+    if (swipe) setSwipe(null);
     const t = e.touches[0];
     if (!t) return;
     const trRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const wrapRect = wrapperRef.current?.getBoundingClientRect();
     const band = wrapRect
-      ? { top: trRect.top - wrapRect.top + (wrapperRef.current?.scrollTop ?? 0), height: trRect.height }
+      ? {
+          top: trRect.top - wrapRect.top + (wrapperRef.current?.scrollTop ?? 0),
+          height: trRect.height,
+        }
       : { top: 0, height: trRect.height };
     gesture.current = {
       startX: t.clientX,
@@ -416,14 +425,18 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
       phase: 'pending',
       moved: false,
       longPress: false,
-      timer: setTimeout(() => {
-        const g = gesture.current;
-        if (g && !g.moved) {
-          g.longPress = true;
-          setSwipe(null);
-          setOpenRowId(rowId);
-        }
-      }, LONG_PRESS_MS),
+      dismiss,
+      // No long-press while dismissing — the first touch just closes the swipe.
+      timer: dismiss
+        ? null
+        : setTimeout(() => {
+            const g = gesture.current;
+            if (g && !g.moved) {
+              g.longPress = true;
+              setSwipe(null);
+              setOpenRowId(rowId);
+            }
+          }, LONG_PRESS_MS),
       band,
     };
   };
@@ -462,16 +475,27 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
     });
   };
 
-  const onRowTouchEnd = (rowId: string) => {
+  const onRowTouchEnd = (e: React.TouchEvent, rowId: string) => {
     const g = gesture.current;
     gesture.current = null;
     if (g?.timer) clearTimeout(g.timer);
-    if (!g || g.phase !== 'swipe') return;
-    setSwipe((s) =>
-      s && s.rowId === rowId && resolveSwipeEnd(s.dx)
+    if (!g) return;
+    // Long-press already opened the card, or this touch dismissed an open swipe:
+    // swallow the synthesized click/focus so the cell under the finger doesn't
+    // also enter edit mode.
+    if (g.longPress || (g.dismiss && !g.moved)) {
+      e.preventDefault();
+      return;
+    }
+    if (g.phase !== 'swipe') return; // a tap → let the cell's own editor handle it
+    setSwipe((s) => {
+      if (!s || s.rowId !== rowId) return null;
+      // Past the threshold → snap open; otherwise animate back to closed (keep
+      // the row mounted at dx:0 so the transition runs instead of jumping).
+      return resolveSwipeEnd(s.dx)
         ? { ...s, dx: SWIPE_REVEAL_PX, open: true, dragging: false }
-        : null
-    );
+        : { ...s, dx: 0, open: false, dragging: false };
+    });
   };
 
   const addColumn = () => {
@@ -720,8 +744,8 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                     isMobile && editable ? (e) => onRowTouchStart(e, row.id) : undefined
                   }
                   onTouchMove={isMobile && editable ? (e) => onRowTouchMove(e, row.id) : undefined}
-                  onTouchEnd={isMobile && editable ? () => onRowTouchEnd(row.id) : undefined}
-                  onTouchCancel={isMobile && editable ? () => onRowTouchEnd(row.id) : undefined}
+                  onTouchEnd={isMobile && editable ? (e) => onRowTouchEnd(e, row.id) : undefined}
+                  onTouchCancel={isMobile && editable ? (e) => onRowTouchEnd(e, row.id) : undefined}
                   onContextMenu={isMobile && editable ? (e) => e.preventDefault() : undefined}
                 >
                   {tableRow.getVisibleCells().map((cell, cellIdx) => {
