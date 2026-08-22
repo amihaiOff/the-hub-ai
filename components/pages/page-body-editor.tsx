@@ -137,6 +137,13 @@ export function PageBodyEditor({
         // ProseMirror prefers text/html when present, so this only upgrades
         // the plain-text case. Content is still stored as Tiptap JSON — the
         // extension only affects paste, not serialization.
+        //
+        // MAINTAINER NOTE: this extension overrides the `setContent` /
+        // `insertContentAt` COMMANDS to parse string input as markdown.
+        // Initial load is safe (Tiptap's constructor applies `content` via
+        // createDocument, bypassing the command) and object input passes
+        // through untouched — but never call `editor.commands.setContent(json)`
+        // with a JSON doc in this editor, or it will be misread as markdown.
         Markdown.configure({ html: false, breaks: true, transformPastedText: true }),
         CollapsibleHeading.configure({ levels: [1, 2, 3] }),
         Link.configure({
