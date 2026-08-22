@@ -923,7 +923,6 @@ export async function forceResyncMoneytorTransactionsForHousehold(
       freshToOld.set(f.id, oldId);
     }
   }
-  const matchedOldIds = new Set(freshToOld.values());
 
   // 4. Insert fresh moneytor rows. New ids get a fresh row; ids that already
   // exist (Moneytor kept the id) get upserted in place. When a fresh row is a
@@ -993,6 +992,10 @@ export async function forceResyncMoneytorTransactionsForHousehold(
   let refreshed = 0;
   let unlinked = 0;
   let adopted = 0;
+  // Ids unlinked in step 5; if one is re-adopted in step 7 it must not be
+  // double-counted in editsPreserved.
+  const unlinkedIds = new Set<string>();
+  let adoptedFromUnlinked = 0;
   if (inRangeOldIds.length > 0) {
     const linkedBudget = await prisma.budgetTransaction.findMany({
       where: { householdId, moneytorId: { in: inRangeOldIds } },
@@ -1076,6 +1079,7 @@ export async function forceResyncMoneytorTransactionsForHousehold(
         )
       );
     }
+    for (const b of toUnlink) unlinkedIds.add(b.id);
     unlinked = toUnlink.length;
 
     if (toDelete.length > 0) {
@@ -1169,12 +1173,21 @@ export async function forceResyncMoneytorTransactionsForHousehold(
         },
         OR: [{ categoryId: { not: null } }, { tags: { some: {} } }],
       },
-      select: { id: true, paymentIdentifier: true, amountIls: true, transactionDate: true },
+      select: {
+        id: true,
+        type: true,
+        paymentIdentifier: true,
+        amountIls: true,
+        transactionDate: true,
+      },
     });
-    // Index candidates by (paymentIdentifier|amount) → queue of {id, date}.
+    // Index candidates by (paymentIdentifier|type|amount) → queue of {id, date}.
+    // The TYPE (sign) is part of the key so a fresh expense can never adopt an
+    // equal-magnitude income row (refund/charge pairs on the same account within
+    // the window) — that would flip the type and destroy a categorized income.
     const candidateIndex = new Map<string, { id: string; date: Date }[]>();
     for (const c of candidates) {
-      const key = `${c.paymentIdentifier ?? ''}|${Number(c.amountIls).toFixed(2)}`;
+      const key = `${c.paymentIdentifier ?? ''}|${c.type}|${Number(c.amountIls).toFixed(2)}`;
       const arr = candidateIndex.get(key) ?? [];
       arr.push({ id: c.id, date: c.transactionDate });
       candidateIndex.set(key, arr);
@@ -1183,7 +1196,8 @@ export async function forceResyncMoneytorTransactionsForHousehold(
     const stillUnpromoted: typeof unpromoted = [];
     for (const mt of unpromoted) {
       const amount = Number(mt.amount);
-      const key = `${mt.accountId.slice(-12)}|${Math.abs(amount).toFixed(2)}`;
+      const freshType = amount < 0 ? 'expense' : 'income';
+      const key = `${mt.accountId.slice(-12)}|${freshType}|${Math.abs(amount).toFixed(2)}`;
       const pool = (candidateIndex.get(key) ?? []).filter((c) => !consumed.has(c.id));
       // Nearest within the date window wins.
       let best: { id: string; date: Date } | null = null;
@@ -1197,11 +1211,12 @@ export async function forceResyncMoneytorTransactionsForHousehold(
       }
       if (best) {
         consumed.add(best.id);
+        if (unlinkedIds.has(best.id)) adoptedFromUnlinked++;
         await prisma.budgetTransaction.update({
           where: { id: best.id },
           data: {
             moneytorId: mt.id,
-            type: amount < 0 ? 'expense' : 'income',
+            type: freshType,
             amountIls: Math.abs(amount),
             amountOriginal: Math.abs(amount),
             currency: mt.currency,
@@ -1251,8 +1266,9 @@ export async function forceResyncMoneytorTransactionsForHousehold(
   // (those still carry the user's category/notes/tags): re-linked (changed id) +
   // same-id survivors refreshed in place + content-adopted rows + edited rows
   // kept as manual (unlinked) rather than deleted.
-  const editsPreserved = relinked + refreshed + adopted + unlinked;
-  void matchedOldIds; // retained for readability; not used at runtime
+  // Subtract rows counted in both `unlinked` (step 5) and `adopted` (step 7)
+  // during the same run so a single preserved row isn't tallied twice.
+  const editsPreserved = relinked + refreshed + adopted + unlinked - adoptedFromUnlinked;
 
   return {
     householdId,

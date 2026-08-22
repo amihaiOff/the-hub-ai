@@ -584,6 +584,7 @@ describe('forceResyncMoneytorTransactionsForHousehold', () => {
       .mockResolvedValueOnce([
         {
           id: 'bt-adopt',
+          type: 'expense',
           paymentIdentifier: 'CHK-999',
           amountIls: 70,
           transactionDate: new Date('2026-06-05T00:00:00Z'),
@@ -616,6 +617,155 @@ describe('forceResyncMoneytorTransactionsForHousehold', () => {
       where: { id: 'bt-adopt' },
       data: {
         moneytorId: 'mt-fresh',
+        type: 'expense',
+        amountIls: 70,
+        amountOriginal: 70,
+        currency: 'ILS',
+        transactionDate: new Date('2026-06-06T00:00:00Z'),
+      },
+    });
+  });
+
+  it('does NOT adopt across type — a fresh expense cannot take over an income row', async () => {
+    // A categorized INCOME row (+70) and a fresh EXPENSE (-70) share the account
+    // and magnitude within the window (a refund/charge pair). Adoption must not
+    // flip the income into an expense; the fresh expense is created fresh.
+    (mockPrisma.moneytorTransaction.findMany as jest.Mock)
+      .mockResolvedValueOnce([]) // step 5 skipped
+      .mockResolvedValueOnce([
+        {
+          id: 'mt-exp',
+          transactionDate: new Date('2026-06-06T00:00:00Z'),
+          amount: -70,
+          currency: 'ILS',
+          description: 'MERCHANT',
+          category: 'DINING',
+          accountId: 'CHK-999',
+          type: 'CARD',
+        },
+      ]);
+
+    (mockPrisma.budgetTransaction.findMany as jest.Mock)
+      .mockResolvedValueOnce([]) // alreadyLinked
+      // candidate is an INCOME row (wrong sign) — must be ignored
+      .mockResolvedValueOnce([
+        {
+          id: 'bt-income',
+          type: 'income',
+          paymentIdentifier: 'CHK-999',
+          amountIls: 70,
+          transactionDate: new Date('2026-06-05T00:00:00Z'),
+        },
+      ]);
+
+    mockFetchTransactions.mockResolvedValue([
+      {
+        id: 'mt-exp',
+        date: '2026-06-06',
+        amount: -70,
+        currency: 'ILS',
+        description: 'MERCHANT',
+        category: 'DINING',
+        accountId: 'CHK-999',
+        type: 'CARD',
+      },
+    ]);
+    mockImportTransactions.mockResolvedValue({
+      created: 1,
+      duplicatesSkipped: 0,
+      payeesCreated: [],
+    });
+
+    const summary = await forceResyncMoneytorTransactionsForHousehold('household-1', {
+      from: '2026-06-01',
+      to: '2026-06-10',
+    });
+
+    // No adoption: the income row is untouched, the expense is promoted fresh.
+    expect(mockPrisma.budgetTransaction.update).not.toHaveBeenCalled();
+    expect(mockImportTransactions).toHaveBeenCalled();
+    expect(summary.budgetCreated).toBe(1);
+    expect(summary.editsPreserved).toBe(0);
+  });
+
+  it('counts an unlink-then-adopt in the same run only once', async () => {
+    // Same run: Moneytor drops mt-old (id changes) → the categorized row is
+    // unlinked in step 5, then re-adopted by content in step 7. editsPreserved
+    // must be 1, not 2.
+    (mockPrisma.moneytorTransaction.findMany as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          id: 'mt-old',
+          description: 'PENDING',
+          transactionDate: new Date('2026-06-05T00:00:00Z'),
+          amount: -70,
+          accountId: 'CHK-999',
+        },
+      ])
+      // freshMoneytorRows (step 7): the new id
+      .mockResolvedValueOnce([
+        {
+          id: 'mt-new',
+          transactionDate: new Date('2026-06-06T00:00:00Z'),
+          amount: -70,
+          currency: 'ILS',
+          description: 'MERCHANT XYZ',
+          category: 'DINING',
+          accountId: 'CHK-999',
+          type: 'CARD',
+        },
+      ]);
+
+    (mockPrisma.budgetTransaction.findMany as jest.Mock)
+      // linkedBudget (step 5): edited row on the old id (no fuzzy successor since
+      // description differs) → gets unlinked
+      .mockResolvedValueOnce([
+        { id: 'bt-1', moneytorId: 'mt-old', categoryId: 'cat-1', _count: { tags: 0 } },
+      ])
+      // alreadyLinked (step 7): mt-new not yet linked
+      .mockResolvedValueOnce([])
+      // adoption candidates: the just-unlinked row
+      .mockResolvedValueOnce([
+        {
+          id: 'bt-1',
+          type: 'expense',
+          paymentIdentifier: 'CHK-999',
+          amountIls: 70,
+          transactionDate: new Date('2026-06-05T00:00:00Z'),
+        },
+      ]);
+
+    mockFetchTransactions.mockResolvedValue([
+      {
+        id: 'mt-new',
+        date: '2026-06-06',
+        amount: -70,
+        currency: 'ILS',
+        description: 'MERCHANT XYZ',
+        category: 'DINING',
+        accountId: 'CHK-999',
+        type: 'CARD',
+      },
+    ]);
+
+    const summary = await forceResyncMoneytorTransactionsForHousehold('household-1', {
+      from: '2026-06-01',
+      to: '2026-06-10',
+    });
+
+    expect(summary.budgetCreated).toBe(0);
+    expect(mockImportTransactions).not.toHaveBeenCalled();
+    // Unlinked (1) then adopted (1) — but it's one row, so editsPreserved is 1.
+    expect(summary.editsPreserved).toBe(1);
+    // bt-1 was unlinked then re-adopted onto the fresh id.
+    expect(mockPrisma.budgetTransaction.update).toHaveBeenCalledWith({
+      where: { id: 'bt-1' },
+      data: { moneytorId: null },
+    });
+    expect(mockPrisma.budgetTransaction.update).toHaveBeenCalledWith({
+      where: { id: 'bt-1' },
+      data: {
+        moneytorId: 'mt-new',
         type: 'expense',
         amountIls: 70,
         amountOriginal: 70,
