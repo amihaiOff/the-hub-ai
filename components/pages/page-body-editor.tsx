@@ -11,6 +11,7 @@ import { TableRow } from '@tiptap/extension-table-row';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { DragHandle } from '@tiptap/extension-drag-handle-react';
+import { Markdown } from 'tiptap-markdown';
 import { GripVertical } from 'lucide-react';
 import {
   Bold,
@@ -128,6 +129,15 @@ export function PageBodyEditor({
         // Our CollapsibleHeading replaces StarterKit's default Heading so
         // headings gain a `collapsed` attribute and the outline-toggle UX.
         StarterKit.configure({ link: false, heading: false }),
+        // Markdown-aware paste: when the clipboard only carries plain text
+        // (e.g. copied from a chat, a terminal, or another markdown note),
+        // parse markdown syntax — bullet/numbered lists, headings, bold,
+        // etc. — into real rich-text nodes instead of pasting the literal
+        // "- item" / "**bold**" characters. Rich HTML pastes are unaffected:
+        // ProseMirror prefers text/html when present, so this only upgrades
+        // the plain-text case. Content is still stored as Tiptap JSON — the
+        // extension only affects paste, not serialization.
+        Markdown.configure({ html: false, breaks: true, transformPastedText: true }),
         CollapsibleHeading.configure({ levels: [1, 2, 3] }),
         Link.configure({
           // Open links on click (the editor is always editable, and the Link
