@@ -356,8 +356,10 @@ function CarouselTaskRow({
           aria-label={`Priority ${prettyPriority(task.priority)}`}
         />
         {/* dir="auto" so Hebrew titles right-align and Latin ones left-align
-            inside the same LTR row — the due label stays on the right. */}
-        <span dir="auto" className="min-w-0 flex-1 truncate text-base">
+            inside the same LTR row — the due label stays on the right.
+            Titles wrap (no truncate); break-words keeps a long unbroken
+            string from overflowing the card. */}
+        <span dir="auto" className="min-w-0 flex-1 text-base break-words">
           {task.title || 'Untitled'}
         </span>
         {/* Across from the title: the work-mode icon, then the due label. */}
