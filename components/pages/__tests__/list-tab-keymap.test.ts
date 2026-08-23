@@ -31,11 +31,15 @@ function makeEditor(content: string): Editor {
   });
 }
 
-/** Put the cursor just inside the first text node containing `text`. */
+/**
+ * Put the cursor just inside the text node whose content is exactly `text`.
+ * Exact, not substring — "parent" contains "a", and a substring match would
+ * silently point a child-item test at the parent.
+ */
 function placeCursorIn(editor: Editor, text: string) {
   let target: number | null = null;
   editor.state.doc.descendants((node, pos) => {
-    if (target === null && node.isText && node.text?.includes(text)) target = pos + 1;
+    if (target === null && node.isText && node.text === text) target = pos + 1;
     return true;
   });
   if (target === null) throw new Error(`text not found: ${text}`);
@@ -61,6 +65,31 @@ function depthOf(editor: Editor, text: string): number {
 
 const TWO_ITEMS = '<ul><li><p>first</p></li><li><p>second</p></li></ul>';
 const NESTED = '<ul><li><p>parent</p><ul><li><p>child</p></li></ul></li></ul>';
+/** parent with three children — the shape that exposed the sibling dragging. */
+const THREE_CHILDREN =
+  '<ul><li><p>parent</p><ul><li><p>a</p></li><li><p>b</p></li><li><p>c</p></li></ul></li></ul>';
+
+/** Indented outline of the document's list structure, one item per line. */
+function outline(editor: Editor): string {
+  const lines: string[] = [];
+  const walk = (node: { forEach: (fn: (child: never) => void) => void }, depth: number) => {
+    node.forEach((child: never) => {
+      const n = child as unknown as {
+        type: { name: string };
+        child: (i: number) => { textContent: string };
+        forEach: (fn: (c: never) => void) => void;
+      };
+      if (n.type.name === 'listItem') {
+        lines.push('  '.repeat(depth) + '- ' + n.child(0).textContent);
+        walk(n, depth + 1);
+      } else if (n.type.name.endsWith('List')) {
+        walk(n, depth);
+      }
+    });
+  };
+  walk(editor.state.doc as never, 0);
+  return lines.join('\n');
+}
 
 describe('ListOutdentGuard — Tab', () => {
   it('indents an item that has a sibling above it', () => {
@@ -101,6 +130,61 @@ describe('ListOutdentGuard — Tab', () => {
     placeCursorIn(editor, 'just a paragraph');
 
     expect(pressTab(editor)).toBe(false);
+    editor.destroy();
+  });
+});
+
+describe('ListOutdentGuard — outdent leaves the items below alone', () => {
+  // ProseMirror's own liftListItem re-parents every following sibling into
+  // the item being lifted. That reads as "the bullets below moved with me",
+  // and afterwards they track the wrong parent — indent it and they indent
+  // too. These cases pin the outliner behaviour instead.
+  it('outdents the first child without taking its siblings along', () => {
+    const editor = makeEditor(THREE_CHILDREN);
+    placeCursorIn(editor, 'a');
+
+    expect(pressTab(editor, { shift: true })).toBe(true);
+    expect(outline(editor)).toBe(['- parent', '  - b', '  - c', '- a'].join('\n'));
+    editor.destroy();
+  });
+
+  it('outdents a middle child without taking the one below it along', () => {
+    const editor = makeEditor(THREE_CHILDREN);
+    placeCursorIn(editor, 'b');
+
+    expect(pressTab(editor, { shift: true })).toBe(true);
+    expect(outline(editor)).toBe(['- parent', '  - a', '  - c', '- b'].join('\n'));
+    editor.destroy();
+  });
+
+  it('carries the item\u2019s own children with it', () => {
+    const editor = makeEditor(
+      '<ul><li><p>parent</p><ul><li><p>x</p><ul><li><p>kid</p></li></ul></li><li><p>y</p></li></ul></li></ul>'
+    );
+    placeCursorIn(editor, 'x');
+
+    expect(pressTab(editor, { shift: true })).toBe(true);
+    expect(outline(editor)).toBe(['- parent', '  - y', '- x', '  - kid'].join('\n'));
+    editor.destroy();
+  });
+
+  it('leaves the caret in the moved item', () => {
+    const editor = makeEditor(THREE_CHILDREN);
+    placeCursorIn(editor, 'b');
+    pressTab(editor, { shift: true });
+
+    expect(editor.state.selection.$from.parent.textContent).toBe('b');
+    editor.destroy();
+  });
+
+  it('round-trips: indent then outdent restores the original shape', () => {
+    const editor = makeEditor(THREE_CHILDREN);
+    const before = outline(editor);
+    placeCursorIn(editor, 'b');
+
+    pressTab(editor);
+    pressTab(editor, { shift: true });
+    expect(outline(editor)).toBe(before);
     editor.destroy();
   });
 });

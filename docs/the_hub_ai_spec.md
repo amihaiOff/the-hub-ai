@@ -573,9 +573,14 @@ the item's own start side (right for Hebrew, left for English), even in mixed an
 nested lists. List gutters use symmetric `padding-inline` and the blockquote bar
 uses `border-inline-start` so both sit correctly regardless of block direction.
 
-**Lists:** indent/outdent via Tab / Shift-Tab or the floating list controls.
+**Lists:** indent/outdent via Tab / Shift-Tab or the toolbar list controls.
 Outdenting stops at the top level — a top-level list item can't be lifted out of
 the list into a plain paragraph (the outdent control disables itself there).
+**Outdenting moves only the item and its own children**: ProseMirror's
+`liftListItem` re-parents every following sibling into the lifted item (their
+indentation is preserved but their parent silently changes, so indenting that
+item later drags them along), so `outdentListItem` cuts the item out of its
+sub-list and re-inserts it after its former parent instead.
 The keymap (`components/pages/list-tab-keymap.ts`, shared with the notes
 editor) **consumes Tab whenever the cursor is in a list**, even when the indent
 is structurally impossible (the first item of a list has nothing to nest
