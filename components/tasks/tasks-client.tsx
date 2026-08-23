@@ -412,15 +412,6 @@ export function TasksClient() {
         <TaskArchive tasks={doneTasks} onOpenTask={setDetailId} />
       )}
 
-      {activeTasks.length > 0 && !selectionMode && (
-        <div className="text-muted-foreground flex items-center justify-between rounded-2xl border px-4 py-2.5 text-xs">
-          <span>
-            Showing {activeTasks.length} active
-            {doneTasks.length > 0 ? ` · ${doneTasks.length} archived` : ''}
-          </span>
-        </div>
-      )}
-
       <TaskDetailSheet
         taskId={detailId}
         fullScreen={detailFullScreen}
