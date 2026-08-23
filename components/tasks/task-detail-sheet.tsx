@@ -55,6 +55,11 @@ interface TaskDetailSheetProps {
   onOpenChange: (open: boolean) => void;
   categories: TaskCategoryRow[];
   tags: TaskTagRow[];
+  /**
+   * Present the same editor edge-to-edge instead of as a side sheet. Used by
+   * the carousel view, where a long press opens the task full-screen.
+   */
+  fullScreen?: boolean;
 }
 
 const NONE = '__none__';
@@ -69,13 +74,25 @@ const PRIORITY_PILL: Record<TaskRow['priority'], string> = {
   LOW: 'bg-teal-500/15 text-teal-300',
 };
 
-export function TaskDetailSheet({ taskId, onOpenChange, categories }: TaskDetailSheetProps) {
+export function TaskDetailSheet({
+  taskId,
+  onOpenChange,
+  categories,
+  fullScreen = false,
+}: TaskDetailSheetProps) {
   const open = !!taskId;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full overflow-y-auto rounded-l-3xl p-6 pt-12 sm:max-w-lg"
+        className={cn(
+          'overflow-y-auto',
+          fullScreen
+            ? // Edge-to-edge: no rounding, no max width, and safe-area padding
+              // so the title clears the notch and the footer the home indicator.
+              'safe-pt safe-pb inset-0 w-full max-w-none rounded-none border-none px-5 [--safe-pb-base:1.25rem] [--safe-pt-base:3rem] sm:max-w-none'
+            : 'w-full rounded-l-3xl p-6 pt-12 sm:max-w-lg'
+        )}
       >
         {taskId && (
           // Keyed by the root taskId so the internal nav stack resets when

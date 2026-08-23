@@ -685,8 +685,22 @@ to anyone the task is explicitly shared with, and nest **one level deep**
 label/value row per field), **Kanban** (drag-drop between columns; the column
 axis is selectable — **Status / Priority / Type / Category** — and dropping a
 card PATCHes that field, including onto the "No type" column to clear it),
-**Table** (inline-edit cells per column), and **Calendar** (week/month; drag an
-archived task onto a day to reschedule + un-archive it).
+**Table** (inline-edit cells per column), **Calendar** (week/month; drag an
+archived task onto a day to reschedule + un-archive it), and **Carousel**.
+
+**Carousel view** (mobile-first): a chip row of every category above a
+horizontally snapping track with **one column per category**, sized so the
+neighbouring columns peek in at both edges. Tapping a chip snaps to that
+category and swiping the track highlights the matching chip; the track's height
+follows the active column so a short category leaves no dead space. Rows are
+compact — done toggle · priority-coloured bar · title (`dir="auto"`, so Hebrew
+titles right-align) · a relative due label (`overdue` / `today` / `tomorrow` /
+`this week` / month). **Tap** a row to expand it in place, revealing status and
+due date on their own lines; **long-press** opens the task **full-screen** (the
+same detail sheet presented edge-to-edge). Because the long press is spent on
+that, this view has no multi-select. Uncategorized gets a column only when a
+task actually has no category. On desktop (≥ lg) the view falls back to the
+category kanban board.
 
 **Creating:** the FAB short-press opens a **quick-add** popover (title +
 category / priority / type / due-date chips); a long-press creates a task and

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CalendarDays,
+  GalleryHorizontalEnd,
   KanbanSquare,
   List as ListIcon,
   Loader2,
@@ -44,6 +45,7 @@ import { useLongPress } from '@/lib/hooks/use-long-press';
 import { TaskTableView } from './task-table-view';
 import { TaskListView } from './task-list-view';
 import { TaskKanbanView, type GroupBy } from './task-kanban-view';
+import { TaskCarouselView } from './task-carousel-view';
 import { TaskCalendarView, type CalendarMode } from './task-calendar-view';
 import { TaskArchive } from './task-archive';
 import { TaskDetailSheet } from './task-detail-sheet';
@@ -53,13 +55,14 @@ import { QuickAddPopover, type QuickAddOptions } from './quick-add-popover';
 import { TaskUndoButton } from './task-undo';
 import type { TaskSort } from './task-filters-bar';
 
-type ViewMode = 'list' | 'kanban' | 'table' | 'calendar';
+type ViewMode = 'list' | 'kanban' | 'table' | 'calendar' | 'carousel';
 
 const VIEW_OPTIONS: ViewOption[] = [
   { id: 'list', label: 'List', icon: ListIcon },
   { id: 'kanban', label: 'Kanban', icon: KanbanSquare },
   { id: 'table', label: 'Table', icon: TableIcon },
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+  { id: 'carousel', label: 'Carousel', icon: GalleryHorizontalEnd },
 ];
 
 // No sort UI; tasks are ordered by urgency (priority), earliest due date breaking ties.
@@ -78,6 +81,13 @@ export function TasksClient() {
   const [groupBy, setGroupBy] = useState<GroupBy>('category');
   const [calendarView, setCalendarView] = useState<CalendarMode>('month');
   const [detailId, setDetailId] = useState<string | null>(null);
+  // The carousel view opens tasks full-screen (long press) instead of in the
+  // side sheet; every other surface keeps the sheet.
+  const [detailFullScreen, setDetailFullScreen] = useState(false);
+  const openTaskFullScreen = useCallback((id: string) => {
+    setDetailFullScreen(true);
+    setDetailId(id);
+  }, []);
 
   // Multi-select (entered by long-pressing a card).
   const [selectionMode, setSelectionMode] = useState(false);
@@ -215,7 +225,10 @@ export function TasksClient() {
   useBackToClose(selectionMode, exitSelection);
 
   const handleDetailOpenChange = useCallback((open: boolean) => {
-    if (!open) setDetailId(null);
+    if (!open) {
+      setDetailId(null);
+      setDetailFullScreen(false);
+    }
   }, []);
 
   const handleDeleteSelected = async () => {
@@ -350,6 +363,33 @@ export function TasksClient() {
           onToggleSelection={toggleSelection}
         />
       )}
+      {/* Carousel is a mobile view: on lg+ it falls back to the category
+          kanban board, which is the same data with room to breathe. Split in
+          CSS rather than a media-query hook so there's no post-hydration flash
+          of the wrong board. */}
+      {activeTasks.length > 0 && view === 'carousel' && (
+        <>
+          <div className="lg:hidden">
+            <TaskCarouselView
+              tasks={activeTasks}
+              categories={categories}
+              onOpenTask={openTaskFullScreen}
+            />
+          </div>
+          <div className="hidden lg:block">
+            <TaskKanbanView
+              tasks={activeTasks}
+              categories={categories}
+              onOpenTask={setDetailId}
+              groupBy="category"
+              selectionMode={selectionMode}
+              selectedIds={selectedIds}
+              onEnterSelection={enterSelection}
+              onToggleSelection={toggleSelection}
+            />
+          </div>
+        </>
+      )}
       {activeTasks.length > 0 && view === 'table' && (
         <TaskTableView
           tasks={activeTasks}
@@ -375,6 +415,7 @@ export function TasksClient() {
 
       <TaskDetailSheet
         taskId={detailId}
+        fullScreen={detailFullScreen}
         onOpenChange={handleDetailOpenChange}
         categories={categories}
         tags={tags}
