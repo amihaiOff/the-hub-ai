@@ -20,6 +20,13 @@ jest.mock('../task-undo', () => ({
   useToggleTaskDone: jest.fn(() => setDone),
 }));
 
+// The column headers' quick-add creates through this hook; mocking it keeps
+// the view free of a QueryClientProvider and makes the payload assertable.
+const createMutate = jest.fn();
+jest.mock('@/lib/hooks/use-tasks', () => ({
+  useCreateTask: jest.fn(() => ({ mutate: createMutate, isPending: false })),
+}));
+
 import { TaskCarouselView, relativeDueLabel, type CarouselGroupBy } from '../task-carousel-view';
 
 const scrollToSpy = jest.fn();
@@ -254,6 +261,55 @@ describe('TaskCarouselView — grouping by type', () => {
     // Grouped by type the column header already carries it.
     setup(tasks, 'type');
     expect(screen.queryByLabelText('Out & about')).not.toBeInTheDocument();
+  });
+});
+
+describe('TaskCarouselView — column quick-add', () => {
+  /** Type the title into the open quick-add popover and submit it. */
+  function submitQuickAdd(title: string) {
+    fireEvent.change(screen.getByPlaceholderText('What needs doing?'), {
+      target: { value: title },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Create task' }));
+  }
+
+  it('gives every column a + that names its group', () => {
+    setup();
+    expect(screen.getByRole('button', { name: 'Add task in Finance' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add task in General' })).toBeInTheDocument();
+  });
+
+  it('pre-fills the column category when grouped by category', () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Add task in General' }));
+    submitQuickAdd('Water the plants');
+
+    expect(createMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Water the plants', categoryId: 'cat-gen' }),
+      expect.anything()
+    );
+  });
+
+  it('pre-fills the column type when grouped by type', () => {
+    setup(tasks, 'type');
+    fireEvent.click(screen.getByRole('button', { name: 'Add task in Deep work' }));
+    submitQuickAdd('Draft the memo');
+
+    expect(createMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Draft the memo', type: 'DEEP_WORK' }),
+      expect.anything()
+    );
+  });
+
+  it('pre-fills nothing from the catch-all column', () => {
+    setup([...tasks, makeTask({ id: 't-orphan', title: 'Loose end', categoryId: null })]);
+    fireEvent.click(screen.getByRole('button', { name: 'Add task in Uncategorized' }));
+    submitQuickAdd('Something');
+
+    expect(createMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Something', categoryId: undefined }),
+      expect.anything()
+    );
   });
 });
 

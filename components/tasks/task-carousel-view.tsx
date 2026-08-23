@@ -1,14 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { LucideIcon } from 'lucide-react';
+import { Plus, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { type TaskCategoryRow, type TaskRow } from '@/lib/hooks/use-tasks';
+import { useCreateTask, type TaskCategoryRow, type TaskRow } from '@/lib/hooks/use-tasks';
 import { useLongPress } from '@/lib/hooks/use-long-press';
 import { TASK_TYPES } from '@/lib/validations/tasks';
 import { useToggleTaskDone } from './task-undo';
 import { DoneToggle, PRIORITY_BORDER, TYPE_META } from './task-list-view';
 import { prettyPriority, prettyStatus, prettyType } from './task-filters-bar';
+import { QuickAddPopover, type QuickAddOptions } from './quick-add-popover';
 
 export const NO_CATEGORY_ID = '__none__';
 export const NO_TYPE = '__notype__';
@@ -48,7 +49,8 @@ interface CarouselColumn {
  * Rows are deliberately compact (done toggle · priority bar · title · relative
  * due) so a whole category reads at a glance. Tapping a row expands it in
  * place to reveal status and due date on their own lines; long-pressing opens
- * the task full-screen. Unlike the list/kanban views there is no multi-select
+ * the task full-screen. Each column header carries a **+** that quick-adds
+ * into that group, pre-filling whichever field the track is grouped by. Unlike the list/kanban views there is no multi-select
  * here — the long press is spent on the full-screen open.
  */
 export function TaskCarouselView({
@@ -196,6 +198,7 @@ export function TaskCarouselView({
               )}
               <span className="flex-1 truncate text-lg font-bold">{col.label}</span>
               <span className="text-muted-foreground text-sm tabular-nums">{col.tasks.length}</span>
+              <ColumnAddButton column={col} groupBy={groupBy} categories={categories} />
             </div>
             <div className="space-y-0.5">
               {col.tasks.map((task) => (
@@ -222,6 +225,70 @@ export function TaskCarouselView({
         ))}
       </div>
     </div>
+  );
+}
+
+// ─── Column quick-add ───────────────────────────────────────────────────
+
+/**
+ * The **+** in a column header. Mirrors the kanban column's quick-add: it
+ * opens the same popover with whichever field the track is grouped by already
+ * filled in, so a task added under "Finance" lands in Finance.
+ */
+function ColumnAddButton({
+  column,
+  groupBy,
+  categories,
+}: {
+  column: CarouselColumn;
+  groupBy: CarouselGroupBy;
+  categories: TaskCategoryRow[];
+}) {
+  const createTask = useCreateTask();
+  const [open, setOpen] = useState(false);
+
+  // The catch-all columns ("Uncategorized" / "No type") pre-fill nothing —
+  // they're exactly the absence of that field.
+  const presetCategoryId =
+    groupBy === 'category' && column.key !== NO_CATEGORY_ID ? column.key : null;
+  const presetType =
+    groupBy === 'type' && column.key !== NO_TYPE ? (column.key as TaskRow['type']) : undefined;
+
+  const handleSubmit = (title: string, opts: QuickAddOptions) => {
+    createTask.mutate(
+      {
+        title,
+        categoryId: opts.categoryId ?? undefined,
+        priority: opts.priority,
+        type: opts.type ?? undefined,
+        dueDate: opts.dueDate ?? undefined,
+      },
+      { onSuccess: () => setOpen(false) }
+    );
+  };
+
+  return (
+    <QuickAddPopover
+      open={open}
+      onOpenChange={setOpen}
+      categories={categories}
+      initialCategoryId={presetCategoryId}
+      initialType={presetType}
+      isSubmitting={createTask.isPending}
+      onSubmit={handleSubmit}
+      side="bottom"
+      align="end"
+    >
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={`Add task in ${column.label}`}
+        title={`Add task in ${column.label}`}
+        className="text-muted-foreground hover:bg-muted/50 hover:text-foreground shrink-0 rounded-lg p-1"
+      >
+        <Plus className="h-4 w-4" />
+      </button>
+    </QuickAddPopover>
   );
 }
 

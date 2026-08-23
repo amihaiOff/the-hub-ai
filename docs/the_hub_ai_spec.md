@@ -711,8 +711,9 @@ view falls back to the kanban board on the same axis.
 
 **Creating:** the FAB short-press opens a **quick-add** popover (title +
 category / priority / type / due-date chips); a long-press creates a task and
-opens the full detail sheet. A kanban column's **+** pre-fills whichever field
-the board is grouped by.
+opens the full detail sheet. A kanban column's — and a carousel column's — **+**
+pre-fills whichever field the board is grouped by (the catch-all
+"Uncategorized" / "No type" columns pre-fill nothing).
 
 **Routes:** `GET/POST /api/tasks` (filters: `status`, `priority`, `type`,
 `categoryId`, `assigneeId`, `tagId`, `parentTaskId`, `search`),
