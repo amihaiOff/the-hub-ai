@@ -1336,6 +1336,18 @@ enum TaskPriority {
   URGENT
 }
 
+// Work-mode of a task — the context it needs rather than how urgent it is
+// ("Calls" batch together, "Deep work" needs a quiet block, etc.). Optional:
+// a task with no type is perfectly valid.
+enum TaskType {
+  CALLS
+  DEEP_WORK
+  OUT_AND_ABOUT
+  BLOCKED
+  DECIDE
+  QUICK
+}
+
 model Task {
   id           String       @id @default(cuid())
   title        String
@@ -1346,6 +1358,8 @@ model Task {
   // Whether the task is completed — drives the card checkmark and Archive.
   done         Boolean      @default(false)
   priority     TaskPriority @default(MEDIUM)
+  // Work-mode select (Calls / Deep work / …). Null = no type chosen.
+  type         TaskType?
   dueDate      DateTime?    @map("due_date")
   // Per-status ordering; used by the Board view to persist card position
   // between drags. Not enforced unique — the routes renumber on collision.

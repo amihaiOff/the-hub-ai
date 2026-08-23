@@ -631,10 +631,10 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                 placeholder="Untitled"
                 dir="auto"
                 aria-label="Database title"
-                className="text-foreground placeholder:text-muted-foreground/40 min-w-0 max-w-[65%] truncate bg-transparent text-sm font-semibold outline-none"
+                className="text-foreground placeholder:text-muted-foreground/40 max-w-[65%] min-w-0 truncate bg-transparent text-sm font-semibold outline-none"
               />
             ) : (
-              <span className="text-foreground min-w-0 max-w-[65%] truncate text-sm font-semibold">
+              <span className="text-foreground max-w-[65%] min-w-0 truncate text-sm font-semibold">
                 {title}
               </span>
             )}

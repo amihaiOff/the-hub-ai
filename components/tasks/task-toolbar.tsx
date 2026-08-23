@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import type { GroupBy } from './task-kanban-view';
 import type { CalendarMode } from './task-calendar-view';
 
-type ViewMode = 'list' | 'kanban' | 'table' | 'calendar';
+type ViewMode = 'list' | 'kanban' | 'table' | 'calendar' | 'carousel';
 
 export interface ViewOption {
   id: ViewMode;
@@ -31,6 +31,7 @@ interface TaskToolbarProps {
 const GROUP_OPTIONS: { id: GroupBy; label: string }[] = [
   { id: 'status', label: 'Status' },
   { id: 'priority', label: 'Priority' },
+  { id: 'type', label: 'Type' },
   { id: 'category', label: 'Category' },
 ];
 

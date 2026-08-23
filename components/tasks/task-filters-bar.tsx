@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { TaskFilters } from '@/lib/validations/tasks';
 import type { TaskCategoryRow, TaskTagRow } from '@/lib/hooks/use-tasks';
-import { TASK_PRIORITIES } from '@/lib/validations/tasks';
+import { TASK_PRIORITIES, TASK_TYPES } from '@/lib/validations/tasks';
 
 export type TaskSort = 'due-asc' | 'due-desc' | 'priority' | 'title' | 'created';
 
@@ -125,6 +125,12 @@ export function TaskFiltersBar({
             value={filters.priority}
             options={TASK_PRIORITIES.map((p) => ({ value: p, label: prettyPriority(p) }))}
             onChange={(v) => setValue('priority', v as TaskFilters['priority'])}
+          />
+          <ChipSelect
+            label="Type"
+            value={filters.type}
+            options={TASK_TYPES.map((t) => ({ value: t, label: prettyType(t) }))}
+            onChange={(v) => setValue('type', v as TaskFilters['type'])}
           />
           <ChipSelect
             label="Category"
@@ -245,6 +251,7 @@ function countActive(filters: TaskFilters): number {
   let n = 0;
   if (filters.status) n++;
   if (filters.priority) n++;
+  if (filters.type) n++;
   if (filters.categoryId) n++;
   if (filters.tagId) n++;
   return n;
@@ -264,6 +271,30 @@ export function prettyStatus(s: string): string {
       return 'Cancelled';
     default:
       return s;
+  }
+}
+
+/**
+ * Display label for a TaskType enum value. Kept as a switch (rather than a
+ * record) so an unknown value coming back from an older client still renders
+ * something instead of `undefined`.
+ */
+export function prettyType(t: string): string {
+  switch (t) {
+    case 'CALLS':
+      return 'Calls';
+    case 'DEEP_WORK':
+      return 'Deep work';
+    case 'OUT_AND_ABOUT':
+      return 'Out & about';
+    case 'BLOCKED':
+      return 'Blocked';
+    case 'DECIDE':
+      return 'Decide';
+    case 'QUICK':
+      return 'Quick';
+    default:
+      return t;
   }
 }
 

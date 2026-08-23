@@ -70,6 +70,7 @@ function makeTask(overrides: Partial<TaskRow> = {}): TaskRow {
     status: 'todo' as TaskRow['status'],
     done: false,
     priority: 'medium' as TaskRow['priority'],
+    type: null,
     dueDate: null,
     sortOrder: 0,
     customFields: null,

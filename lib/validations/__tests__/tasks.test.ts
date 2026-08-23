@@ -28,6 +28,19 @@ describe('createTaskSchema', () => {
     expect(createTaskSchema.safeParse({ title: 'x', priority: 'WHENEVER' }).success).toBe(false);
   });
 
+  it('accepts the TaskType enum values and rejects unknown ones', () => {
+    expect(createTaskSchema.safeParse({ title: 'x', type: 'DEEP_WORK' }).success).toBe(true);
+    expect(createTaskSchema.safeParse({ title: 'x', type: 'OUT_AND_ABOUT' }).success).toBe(true);
+    // Display labels aren't accepted — only the enum keys.
+    expect(createTaskSchema.safeParse({ title: 'x', type: 'Deep work' }).success).toBe(false);
+    expect(createTaskSchema.safeParse({ title: 'x', type: 'ERRANDS' }).success).toBe(false);
+  });
+
+  it('treats type as optional and nullable', () => {
+    expect(createTaskSchema.safeParse({ title: 'x' }).success).toBe(true);
+    expect(createTaskSchema.safeParse({ title: 'x', type: null }).success).toBe(true);
+  });
+
   it('accepts an ISO datetime for dueDate', () => {
     const ok = createTaskSchema.safeParse({ title: 'x', dueDate: '2026-07-10T00:00:00Z' });
     expect(ok.success).toBe(true);
@@ -47,6 +60,12 @@ describe('updateTaskSchema', () => {
       dueDate: null,
     });
     expect(ok.success).toBe(true);
+  });
+
+  it('accepts a type patch, including clearing it back to null', () => {
+    expect(updateTaskSchema.safeParse({ type: 'CALLS' }).success).toBe(true);
+    expect(updateTaskSchema.safeParse({ type: null }).success).toBe(true);
+    expect(updateTaskSchema.safeParse({ type: 'NOPE' }).success).toBe(false);
   });
 
   it('rejects an empty title', () => {
@@ -90,5 +109,10 @@ describe('taskFiltersSchema', () => {
     expect(taskFiltersSchema.safeParse({ parentTaskId: 'clv0abcde12345678901234' }).success).toBe(
       true
     );
+  });
+
+  it('accepts a type filter but rejects an unknown value', () => {
+    expect(taskFiltersSchema.safeParse({ type: 'QUICK' }).success).toBe(true);
+    expect(taskFiltersSchema.safeParse({ type: 'SOMEDAY' }).success).toBe(false);
   });
 });

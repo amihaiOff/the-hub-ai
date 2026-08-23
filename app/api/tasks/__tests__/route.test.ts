@@ -60,18 +60,25 @@ describe('GET /api/tasks', () => {
     );
   });
 
-  it('applies status/priority/category filters', async () => {
+  it('applies status/priority/type/category filters', async () => {
     mockGetCurrentContext.mockResolvedValueOnce(mockContext);
     (mockPrisma.task.findMany as jest.Mock).mockResolvedValueOnce([]);
     await GET(
       new NextRequest(
-        'http://localhost/api/tasks?status=DONE&priority=HIGH&categoryId=clv0abcde12345678901234'
+        'http://localhost/api/tasks?status=DONE&priority=HIGH&type=DEEP_WORK&categoryId=clv0abcde12345678901234'
       )
     );
     const call = (mockPrisma.task.findMany as jest.Mock).mock.calls[0][0];
     expect(call.where.status).toBe('DONE');
     expect(call.where.priority).toBe('HIGH');
+    expect(call.where.type).toBe('DEEP_WORK');
     expect(call.where.categoryId).toBe('clv0abcde12345678901234');
+  });
+
+  it('rejects an unknown type filter with 400', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    const res = await GET(new NextRequest('http://localhost/api/tasks?type=ERRANDS'));
+    expect(res.status).toBe(400);
   });
 
   it('applies assignee/tag/search filters', async () => {
@@ -145,6 +152,7 @@ describe('POST /api/tasks', () => {
           notes: 'note',
           status: 'IN_PROGRESS',
           priority: 'HIGH',
+          type: 'CALLS',
           dueDate: '2026-02-01T00:00:00.000Z',
           categoryId: CUID,
           assigneeId: CUID,
@@ -159,6 +167,7 @@ describe('POST /api/tasks', () => {
     expect(data.notes).toBe('note');
     expect(data.status).toBe('IN_PROGRESS');
     expect(data.priority).toBe('HIGH');
+    expect(data.type).toBe('CALLS');
     expect(data.dueDate).toBeInstanceOf(Date);
     expect(data.categoryId).toBe(CUID);
     expect(data.assigneeId).toBe(CUID);

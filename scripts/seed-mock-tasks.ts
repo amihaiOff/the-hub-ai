@@ -11,12 +11,13 @@
  *   2. Creates 4 task categories (Work, Personal, Side Project, Health)
  *      if they don't already exist.
  *   3. Creates 3 tags (Engineering, Critical, Follow-up).
- *   4. Inserts ~12 tasks spanning every status and priority, some with
- *      sub-tasks, notes, categories, and tags — enough surface area to
- *      exercise the List / Kanban / Table views.
+ *   4. Inserts ~12 tasks spanning every status, priority and work-mode
+ *      type, some with sub-tasks, notes, categories, and tags — enough
+ *      surface area to exercise the List / Kanban / Table views, including
+ *      grouping the board by Type.
  */
 
-import { PrismaClient, TaskPriority } from '@prisma/client';
+import { PrismaClient, TaskPriority, TaskType } from '@prisma/client';
 
 // Old enum-style status values used in the mock data below. Status is now a
 // free-text label + a separate `done` flag, so we map on insert: 'DONE' →
@@ -132,6 +133,8 @@ async function main() {
     notes?: string;
     status: MockStatus;
     priority: TaskPriority;
+    /** Left off some defs on purpose so "No type" / "—" render too. */
+    type?: TaskType;
     dueDate?: Date | null;
     categoryName?: keyof typeof categories | string;
     tagNames?: string[];
@@ -141,6 +144,7 @@ async function main() {
       title: 'Review Q3 Marketing Strategy',
       status: 'TODO',
       priority: 'HIGH',
+      type: 'DEEP_WORK',
       dueDate: daysFromNow(3),
       categoryName: 'Work',
       tagNames: ['Follow-up'],
@@ -151,6 +155,7 @@ async function main() {
       title: 'Database Migration Prep',
       status: 'IN_PROGRESS',
       priority: 'MEDIUM',
+      type: 'DEEP_WORK',
       dueDate: daysFromNow(5),
       categoryName: 'Work',
       tagNames: ['Engineering', 'Critical'],
@@ -174,6 +179,7 @@ async function main() {
       title: 'Q4 Revenue Projections',
       status: 'TODO',
       priority: 'HIGH',
+      type: 'DEEP_WORK',
       dueDate: daysFromNow(7),
       categoryName: 'Work',
       tagNames: ['Critical'],
@@ -183,6 +189,7 @@ async function main() {
       title: 'User Persona Research',
       status: 'TODO',
       priority: 'MEDIUM',
+      type: 'DECIDE',
       dueDate: daysFromNow(10),
       categoryName: 'Side Project',
       notes:
@@ -192,6 +199,7 @@ async function main() {
       title: 'Book annual physical',
       status: 'TODO',
       priority: 'LOW',
+      type: 'CALLS',
       dueDate: daysFromNow(14),
       categoryName: 'Health',
       notes: '[mock] Call the clinic; last visit was a year ago.',
@@ -208,6 +216,7 @@ async function main() {
       title: 'Draft Client Agreement',
       status: 'DONE',
       priority: 'LOW',
+      type: 'QUICK',
       dueDate: daysFromNow(-2),
       categoryName: 'Work',
       notes: '[mock] Sent to legal for redlines. Waiting on their pass.',
@@ -216,6 +225,7 @@ async function main() {
       title: 'Infrastructure Maintenance',
       status: 'BLOCKED',
       priority: 'URGENT',
+      type: 'BLOCKED',
       dueDate: daysFromNow(1),
       categoryName: 'Work',
       tagNames: ['Engineering', 'Critical'],
@@ -235,6 +245,7 @@ async function main() {
       title: 'Plan weekend hike',
       status: 'TODO',
       priority: 'LOW',
+      type: 'OUT_AND_ABOUT',
       dueDate: daysFromNow(4),
       categoryName: 'Personal',
       notes: '[mock] Pick a trail, check the weather, share the plan with the group.',
@@ -243,6 +254,7 @@ async function main() {
       title: 'Q3 Product Strategy Deck',
       status: 'IN_PROGRESS',
       priority: 'HIGH',
+      type: 'DECIDE',
       dueDate: daysFromNow(2),
       categoryName: 'Work',
       tagNames: ['Follow-up'],
@@ -260,6 +272,7 @@ async function main() {
         status: toStatus(def.status),
         done: toDone(def.status),
         priority: def.priority,
+        type: def.type ?? null,
         dueDate: def.dueDate ?? null,
         categoryId: def.categoryName ? (categories[def.categoryName] ?? null) : null,
         ownerId: owner.id,
@@ -280,6 +293,7 @@ async function main() {
           status: toStatus(sub.status ?? 'TODO'),
           done: toDone(sub.status ?? 'TODO'),
           priority: 'MEDIUM',
+          type: def.type ?? null,
           ownerId: owner.id,
           householdId: household.id,
           parentTaskId: parent.id,
