@@ -581,6 +581,11 @@ editor) **consumes Tab whenever the cursor is in a list**, even when the indent
 is structurally impossible (the first item of a list has nothing to nest
 under); otherwise the key falls through and the browser moves focus out of the
 editor. Outside a list Tab is untouched, so it still tabs away normally.
+Indent/outdent themselves go through `components/pages/list-commands.ts`, which
+resolves the list-item node name from the live schema — `sinkListItem` throws
+on a type the schema lacks, and StarterKit ships no `taskItem`, so the old
+`listItem || taskItem` fallback threw on exactly the impossible-indent case and
+took the whole handler down with it.
 
 **Reordering blocks:** on desktop, a six-dot drag handle appears to the left of
 the hovered block (HTML5 drag). On mobile/touch, a six-dot grip appears beside

@@ -1,17 +1,6 @@
-import { Extension, type Editor } from '@tiptap/core';
+import { Extension } from '@tiptap/core';
 import { canOutdentWithinList } from './list-indent-controls';
-
-/** List-item node names we know how to indent, in the order we try them. */
-const LIST_ITEM_NAMES = ['listItem', 'taskItem'] as const;
-
-/**
- * The list-item names this editor's schema actually registers. `sinkListItem`
- * throws on an unknown node type, and not every editor loads the task list —
- * the notes editor runs a plain StarterKit.
- */
-function listItemNames(editor: Editor): string[] {
-  return LIST_ITEM_NAMES.filter((name) => name in editor.schema.nodes);
-}
+import { indentListItem, isInList, outdentListItem } from './list-commands';
 
 /**
  * List Tab / Shift-Tab handling, shared by every Tiptap editor in the app.
@@ -37,19 +26,15 @@ export const ListOutdentGuard = Extension.create({
   addKeyboardShortcuts() {
     return {
       Tab: ({ editor }) => {
-        const names = listItemNames(editor);
-        if (!names.some((name) => editor.isActive(name))) return false; // not in a list
-        // Try to sink; swallow the event either way so focus can't escape
-        // to browser tab-cycling on edge cases where sinkListItem no-ops.
-        names.some((name) => editor.chain().focus().sinkListItem(name).run());
+        if (!isInList(editor)) return false; // not in a list — let Tab move focus
+        // Try to indent; swallow the event either way so focus can't escape to
+        // browser tab-cycling on the cases where the indent is impossible.
+        indentListItem(editor);
         return true;
       },
       'Shift-Tab': ({ editor }) => {
-        const names = listItemNames(editor);
-        if (!names.some((name) => editor.isActive(name))) return false; // not in a list
-        if (canOutdentWithinList(editor)) {
-          return names.some((name) => editor.chain().focus().liftListItem(name).run());
-        }
+        if (!isInList(editor)) return false; // not in a list — let Tab move focus
+        if (canOutdentWithinList(editor)) return outdentListItem(editor);
         // Top-level list item: consume the key so it can't leave the list.
         return true;
       },

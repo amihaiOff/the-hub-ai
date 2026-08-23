@@ -5,15 +5,7 @@ import type { Editor } from '@tiptap/react';
 import { IndentDecrease, IndentIncrease } from 'lucide-react';
 import { useKeyboardInset } from '@/lib/hooks/use-keyboard-inset';
 import { floatingControlBottom } from './undo-redo-bar';
-
-function isInList(editor: Editor): boolean {
-  return (
-    editor.isActive('listItem') ||
-    editor.isActive('taskItem') ||
-    editor.isActive('bulletList') ||
-    editor.isActive('orderedList')
-  );
-}
+import { indentListItem, isInList, outdentListItem } from './list-commands';
 
 /**
  * How many list items are stacked above the cursor. A top-level item has a
@@ -70,15 +62,12 @@ export function ListIndentControls({
 
   if (!inList) return null;
 
-  const indent = () =>
-    editor.chain().focus().sinkListItem('listItem').run() ||
-    editor.chain().focus().sinkListItem('taskItem').run();
+  const indent = () => indentListItem(editor);
   // Only lift when the item is nested inside another list item — never lift a
   // top-level item out of the list into a plain paragraph.
   const outdent = () => {
     if (!canOutdentWithinList(editor)) return;
-    const lifted = editor.chain().focus().liftListItem('listItem').run();
-    if (!lifted) editor.chain().focus().liftListItem('taskItem').run();
+    outdentListItem(editor);
   };
 
   return (

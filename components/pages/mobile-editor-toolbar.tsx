@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { useKeyboardInset } from '@/lib/hooks/use-keyboard-inset';
 import { floatingControlBottom } from './undo-redo-bar';
 import { canOutdentWithinList } from './list-indent-controls';
+import { indentListItem, isInList, outdentListItem } from './list-commands';
 import { InsertBlockSheet } from './insert-block-sheet';
 
 /**
@@ -85,11 +86,7 @@ export function MobileEditorToolbar({
   if (!focused && !sheetOpen) return null;
 
   const label = currentBlockLabel(editor);
-  const inList =
-    editor.isActive('listItem') ||
-    editor.isActive('taskItem') ||
-    editor.isActive('bulletList') ||
-    editor.isActive('orderedList');
+  const inList = isInList(editor);
   const canOutdent = canOutdentWithinList(editor);
   const canUndo = editor.can().undo();
   const canRedo = editor.can().redo();
@@ -120,14 +117,8 @@ export function MobileEditorToolbar({
       .insertContentAt(info.start + info.size, info.node.toJSON())
       .run();
   };
-  const outdent = () => {
-    editor.chain().focus().liftListItem('listItem').run() ||
-      editor.chain().focus().liftListItem('taskItem').run();
-  };
-  const indent = () => {
-    editor.chain().focus().sinkListItem('listItem').run() ||
-      editor.chain().focus().sinkListItem('taskItem').run();
-  };
+  const outdent = () => outdentListItem(editor);
+  const indent = () => indentListItem(editor);
   return (
     <>
       {createPortal(
