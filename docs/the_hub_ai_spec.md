@@ -576,6 +576,11 @@ uses `border-inline-start` so both sit correctly regardless of block direction.
 **Lists:** indent/outdent via Tab / Shift-Tab or the floating list controls.
 Outdenting stops at the top level — a top-level list item can't be lifted out of
 the list into a plain paragraph (the outdent control disables itself there).
+The keymap (`components/pages/list-tab-keymap.ts`, shared with the notes
+editor) **consumes Tab whenever the cursor is in a list**, even when the indent
+is structurally impossible (the first item of a list has nothing to nest
+under); otherwise the key falls through and the browser moves focus out of the
+editor. Outside a list Tab is untouched, so it still tabs away normally.
 
 **Reordering blocks:** on desktop, a six-dot drag handle appears to the left of
 the hovered block (HTML5 drag). On mobile/touch, a six-dot grip appears beside

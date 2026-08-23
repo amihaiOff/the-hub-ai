@@ -6,6 +6,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import { Markdown } from 'tiptap-markdown';
 import { AutoCapitalize } from '@/components/pages/auto-capitalize';
+import { ListOutdentGuard } from '@/components/pages/list-tab-keymap';
 import {
   Bold,
   Heading1,
@@ -67,6 +68,9 @@ export function NotesEditor({
         transformPastedText: true,
       }),
       AutoCapitalize.configure({ enabled: true }),
+      // Tab/Shift-Tab indent inside lists — without it Tab falls through to
+      // the browser and moves focus out of the editor.
+      ListOutdentGuard,
     ],
     content: value,
     onUpdate: ({ editor }) => {

@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback } from 'react';
-import { Extension } from '@tiptap/core';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -28,7 +27,7 @@ import {
 import { cn } from '@/lib/utils';
 import { uploadPageImage } from '@/lib/hooks/use-pages';
 import { Column, ColumnBlock } from './columns-extension';
-import { canOutdentWithinList } from './list-indent-controls';
+import { ListOutdentGuard } from './list-tab-keymap';
 import { MobileBlockDragHandle } from './mobile-block-drag-handle';
 import { AutoTextDirection } from './auto-text-direction';
 import { SlashMenuExtension } from './slash-menu';
@@ -39,52 +38,6 @@ import { MobileEditorToolbar } from './mobile-editor-toolbar';
 import { PageTocButton } from './page-toc-button';
 import { AutoCapitalize } from './auto-capitalize';
 import { MathInline, MathBlock } from './math-extension';
-
-/**
- * List Tab / Shift-Tab handling:
- *
- * - Shift-Tab: outdents nested list items one level; a top-level item's
- *   Shift-Tab is swallowed so it can't be lifted out of the list into a
- *   plain paragraph.
- * - Tab: tries to sink the current list item into the previous sibling.
- *   Whether sinkListItem succeeds or not, we CONSUME the event so the
- *   browser doesn't fall through to its native tab-focus cycling — that
- *   was the "Tab jumps to the next chevron / button on the page" bug for
- *   list items where sinkListItem returns false (e.g. items whose
- *   previous sibling already has a nested list, or other structural
- *   edge cases).
- *
- * Higher priority than StarterKit's listItem so this runs first.
- */
-const ListOutdentGuard = Extension.create({
-  name: 'listOutdentGuard',
-  priority: 1000,
-  addKeyboardShortcuts() {
-    return {
-      Tab: ({ editor }) => {
-        const inList = editor.isActive('listItem') || editor.isActive('taskItem');
-        if (!inList) return false; // Not in a list — let default handling run.
-        // Try to sink; swallow the event either way so focus can't escape
-        // to browser tab-cycling on edge cases where sinkListItem no-ops.
-        editor.chain().focus().sinkListItem('listItem').run() ||
-          editor.chain().focus().sinkListItem('taskItem').run();
-        return true;
-      },
-      'Shift-Tab': ({ editor }) => {
-        const inList = editor.isActive('listItem') || editor.isActive('taskItem');
-        if (!inList) return false; // Not in a list — let default handling run.
-        if (canOutdentWithinList(editor)) {
-          return (
-            editor.chain().focus().liftListItem('listItem').run() ||
-            editor.chain().focus().liftListItem('taskItem').run()
-          );
-        }
-        // Top-level list item: consume the key so it can't leave the list.
-        return true;
-      },
-    };
-  },
-});
 
 interface PageBodyEditorProps {
   /** Initial Tiptap JSON document (or null for an empty page). Read once. */
