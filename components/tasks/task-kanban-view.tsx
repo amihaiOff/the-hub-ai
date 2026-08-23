@@ -23,7 +23,7 @@ import {
 import { useLongPress } from '@/lib/hooks/use-long-press';
 import { CategoryIcon } from './category-icon';
 import { TASK_PRIORITIES, TASK_TYPES } from '@/lib/validations/tasks';
-import { prettyStatus, PRIORITY_BORDER, TYPE_META, DoneToggle } from './task-list-view';
+import { prettyStatus, PRIORITY_BORDER, TYPE_META, TypeOption, DoneToggle } from './task-list-view';
 import { useToggleTaskDone } from './task-undo';
 import { QuickAddPopover, type QuickAddOptions } from './quick-add-popover';
 import { prettyPriority, prettyType } from './task-filters-bar';
@@ -44,7 +44,7 @@ const NO_TYPE = '__notype__';
 
 const PRIORITY_DOT: Record<TaskRow['priority'], string> = {
   URGENT: 'bg-red-500',
-  HIGH: 'bg-orange-500',
+  HIGH: 'bg-red-400',
   MEDIUM: 'bg-muted-foreground/60',
   LOW: 'bg-muted-foreground/40',
 };
@@ -516,7 +516,7 @@ function DraggableKanbanCard({
                   TYPE_META[task.type].pill
                 )}
               >
-                {prettyType(task.type)}
+                <TypeOption type={task.type} />
               </span>
             )}
           </div>

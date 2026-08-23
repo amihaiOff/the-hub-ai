@@ -38,8 +38,8 @@ const dotColor = (t: TaskRow) =>
 // Week chips are coloured by urgency (priority); the category is shown as its
 // icon on the right instead.
 const PRIORITY_COLOR: Record<TaskRow['priority'], string> = {
-  URGENT: '#f5a5a5',
-  HIGH: '#f97316',
+  URGENT: '#ef4444',
+  HIGH: '#f87171',
   MEDIUM: '#94a3b8',
   LOW: '#94a3b8',
 };

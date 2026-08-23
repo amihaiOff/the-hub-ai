@@ -45,7 +45,7 @@ import { useLongPress } from '@/lib/hooks/use-long-press';
 import { TaskTableView } from './task-table-view';
 import { TaskListView } from './task-list-view';
 import { TaskKanbanView, type GroupBy } from './task-kanban-view';
-import { TaskCarouselView } from './task-carousel-view';
+import { TaskCarouselView, type CarouselGroupBy } from './task-carousel-view';
 import { TaskCalendarView, type CalendarMode } from './task-calendar-view';
 import { TaskArchive } from './task-archive';
 import { TaskDetailSheet } from './task-detail-sheet';
@@ -79,6 +79,9 @@ export function TasksClient() {
   const [view, setView] = useState<ViewMode>('kanban');
   const [search, setSearch] = useState('');
   const [groupBy, setGroupBy] = useState<GroupBy>('category');
+  // The carousel groups along its own axis (category or work type) — kept
+  // separate from the kanban's, whose Status/Priority options it can't render.
+  const [carouselGroupBy, setCarouselGroupBy] = useState<CarouselGroupBy>('category');
   const [calendarView, setCalendarView] = useState<CalendarMode>('month');
   const [detailId, setDetailId] = useState<string | null>(null);
   // The carousel view opens tasks full-screen (long press) instead of in the
@@ -295,6 +298,8 @@ export function TasksClient() {
           viewOptions={VIEW_OPTIONS}
           groupBy={groupBy}
           onGroupByChange={setGroupBy}
+          carouselGroupBy={carouselGroupBy}
+          onCarouselGroupByChange={setCarouselGroupBy}
           calendarView={calendarView}
           onCalendarViewChange={setCalendarView}
           onManageCategories={() => setCategoryManagerOpen(true)}
@@ -371,9 +376,12 @@ export function TasksClient() {
         <>
           <div className="lg:hidden">
             <TaskCarouselView
+              // Remount on an axis change so the track starts at column one.
+              key={carouselGroupBy}
               tasks={activeTasks}
               categories={categories}
               onOpenTask={openTaskFullScreen}
+              groupBy={carouselGroupBy}
             />
           </div>
           <div className="hidden lg:block">
@@ -381,7 +389,7 @@ export function TasksClient() {
               tasks={activeTasks}
               categories={categories}
               onOpenTask={setDetailId}
-              groupBy="category"
+              groupBy={carouselGroupBy}
               selectionMode={selectionMode}
               selectedIds={selectedIds}
               onEnterSelection={enterSelection}

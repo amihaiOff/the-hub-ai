@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { TaskCategoryRow, TaskRow } from '@/lib/hooks/use-tasks';
-import { PRIORITY_BORDER, TYPE_META } from './task-list-view';
+import { PRIORITY_BORDER, TYPE_META, TypeOption } from './task-list-view';
 import { TASK_TYPES } from '@/lib/validations/tasks';
 import { prettyType } from './task-filters-bar';
 
@@ -283,10 +283,11 @@ function QuickAddForm({
                   type ? 'text-foreground' : 'text-muted-foreground'
                 )}
               >
-                {type && (
-                  <span className={cn('h-2 w-2 shrink-0 rounded-full', TYPE_META[type].dot)} />
+                {type ? (
+                  <TypeOption type={type} className={TYPE_META[type].text} />
+                ) : (
+                  <span>Type</span>
                 )}
-                <span>{type ? prettyType(type) : 'Type'}</span>
                 <ChevronDown className="h-3 w-3" />
               </button>
             </DropdownMenuTrigger>
@@ -303,8 +304,7 @@ function QuickAddForm({
                   className={cn('gap-2 rounded-lg text-sm', type === t && 'bg-muted font-medium')}
                   onSelect={() => setType(t)}
                 >
-                  <span className={cn('h-2 w-2 rounded-full', TYPE_META[t].dot)} />
-                  {prettyType(t)}
+                  <TypeOption type={t} className={TYPE_META[t].text} />
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>

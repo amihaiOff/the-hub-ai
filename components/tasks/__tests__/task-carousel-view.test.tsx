@@ -20,7 +20,7 @@ jest.mock('../task-undo', () => ({
   useToggleTaskDone: jest.fn(() => setDone),
 }));
 
-import { TaskCarouselView, relativeDueLabel } from '../task-carousel-view';
+import { TaskCarouselView, relativeDueLabel, type CarouselGroupBy } from '../task-carousel-view';
 
 const scrollToSpy = jest.fn();
 class ResizeObserverStub {
@@ -75,13 +75,18 @@ const tasks: TaskRow[] = [
     priority: 'HIGH',
     dueDate: '2026-04-14T00:00:00.000Z',
   }),
-  makeTask({ id: 't-3', title: 'Book the flight', categoryId: 'cat-gen' }),
+  makeTask({ id: 't-3', title: 'Book the flight', categoryId: 'cat-gen', type: 'OUT_AND_ABOUT' }),
 ];
 
-function setup(taskList: TaskRow[] = tasks) {
+function setup(taskList: TaskRow[] = tasks, groupBy: CarouselGroupBy = 'category') {
   const onOpenTask = jest.fn();
   const utils = render(
-    <TaskCarouselView tasks={taskList} categories={categories} onOpenTask={onOpenTask} />
+    <TaskCarouselView
+      tasks={taskList}
+      categories={categories}
+      onOpenTask={onOpenTask}
+      groupBy={groupBy}
+    />
   );
   return { ...utils, onOpenTask };
 }
@@ -217,6 +222,38 @@ describe('TaskCarouselView — row gestures', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: /Mark “File the report” done/ }));
     expect(setDone).toHaveBeenCalledWith(expect.objectContaining({ id: 't-2' }), true);
     expect(row('File the report')).toHaveAttribute('aria-expanded', 'false');
+  });
+});
+
+describe('TaskCarouselView — grouping by type', () => {
+  it('builds a chip and column per work type, in enum order', () => {
+    setup(tasks, 'type');
+    const chips = screen.getAllByRole('tab').map((c) => c.textContent);
+    // Every type gets a column, plus "No type" for the two untyped tasks.
+    expect(chips).toEqual([
+      'Calls',
+      'Deep work',
+      'Out & about',
+      'Blocked',
+      'Decide',
+      'Quick',
+      'No type',
+    ]);
+  });
+
+  it('omits the "No type" column when every task is typed', () => {
+    setup([tasks[2]], 'type');
+    expect(screen.queryByRole('tab', { name: 'No type' })).not.toBeInTheDocument();
+  });
+
+  it('shows the work-type icon on the row, but not when grouped by type', () => {
+    const { unmount } = setup();
+    expect(screen.getByLabelText('Out & about')).toBeInTheDocument();
+    unmount();
+
+    // Grouped by type the column header already carries it.
+    setup(tasks, 'type');
+    expect(screen.queryByLabelText('Out & about')).not.toBeInTheDocument();
   });
 });
 

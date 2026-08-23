@@ -1,36 +1,49 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { type TaskCategoryRow, type TaskRow } from '@/lib/hooks/use-tasks';
 import { useLongPress } from '@/lib/hooks/use-long-press';
+import { TASK_TYPES } from '@/lib/validations/tasks';
 import { useToggleTaskDone } from './task-undo';
-import { DoneToggle, PRIORITY_BORDER } from './task-list-view';
-import { prettyPriority, prettyStatus } from './task-filters-bar';
+import { DoneToggle, PRIORITY_BORDER, TYPE_META } from './task-list-view';
+import { prettyPriority, prettyStatus, prettyType } from './task-filters-bar';
 
 export const NO_CATEGORY_ID = '__none__';
+export const NO_TYPE = '__notype__';
+
+/** The axis the carousel's columns run along. */
+export type CarouselGroupBy = 'category' | 'type';
 
 interface TaskCarouselViewProps {
   tasks: TaskRow[];
   categories: TaskCategoryRow[];
   /** Opens the task full-screen (long press on a row). */
   onOpenTask: (id: string) => void;
+  groupBy: CarouselGroupBy;
 }
 
 interface CarouselColumn {
   key: string;
   label: string;
+  /** Category colour, applied inline to the header dot. */
   color: string | null;
+  /** Work-mode icon, shown instead of the dot when grouping by type. */
+  icon?: LucideIcon;
+  iconClass?: string;
   tasks: TaskRow[];
 }
 
 /**
  * Mobile-first category carousel.
  *
- * One horizontally snapping column per category, sized so the neighbouring
- * columns peek in from both edges. A chip row above mirrors the carousel —
- * tapping a chip snaps to that category, swiping the carousel highlights the
- * matching chip.
+ * One horizontally snapping column per group — category (default) or work
+ * type — sized so the neighbouring columns peek in from both edges. A chip row
+ * above mirrors the carousel: tapping a chip snaps to that column, swiping the
+ * carousel highlights the matching chip. The parent keys this component on
+ * the axis, so switching it remounts back to the first column instead of
+ * landing on whatever happens to sit at the old index.
  *
  * Rows are deliberately compact (done toggle · priority bar · title · relative
  * due) so a whole category reads at a glance. Tapping a row expands it in
@@ -38,7 +51,12 @@ interface CarouselColumn {
  * the task full-screen. Unlike the list/kanban views there is no multi-select
  * here — the long press is spent on the full-screen open.
  */
-export function TaskCarouselView({ tasks, categories, onOpenTask }: TaskCarouselViewProps) {
+export function TaskCarouselView({
+  tasks,
+  categories,
+  onOpenTask,
+  groupBy,
+}: TaskCarouselViewProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const chipsRef = useRef<HTMLDivElement>(null);
   const columnRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -55,7 +73,10 @@ export function TaskCarouselView({ tasks, categories, onOpenTask }: TaskCarousel
   // expands, via the ResizeObserver below).
   const [trackHeight, setTrackHeight] = useState<number | undefined>(undefined);
 
-  const columns = useMemo(() => buildColumns(categories, tasks), [categories, tasks]);
+  const columns = useMemo(
+    () => buildColumns(groupBy, categories, tasks),
+    [groupBy, categories, tasks]
+  );
 
   // Categories can disappear (deleted, or the last uncategorized task just got
   // one) while a later column is active — clamp during render so the chips and
@@ -165,10 +186,14 @@ export function TaskCarouselView({ tasks, categories, onOpenTask }: TaskCarousel
             className="w-[calc(100%-3.5rem)] shrink-0 snap-start"
           >
             <div className="flex items-center gap-2.5 px-1 pb-2">
-              <span
-                className="h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: col.color ?? 'var(--muted-foreground)' }}
-              />
+              {col.icon ? (
+                <col.icon className={cn('h-4 w-4 shrink-0', col.iconClass)} />
+              ) : (
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: col.color ?? 'var(--muted-foreground)' }}
+                />
+              )}
               <span className="flex-1 truncate text-lg font-bold">{col.label}</span>
               <span className="text-muted-foreground text-sm tabular-nums">{col.tasks.length}</span>
             </div>
@@ -177,6 +202,9 @@ export function TaskCarouselView({ tasks, categories, onOpenTask }: TaskCarousel
                 <CarouselTaskRow
                   key={task.id}
                   task={task}
+                  // Grouping by type already puts the icon in the header —
+                  // repeating it on every row would be noise.
+                  showTypeIcon={groupBy !== 'type'}
                   expanded={expandedId === task.id}
                   onToggleExpand={() =>
                     setExpandedId((current) => (current === task.id ? null : task.id))
@@ -201,11 +229,13 @@ export function TaskCarouselView({ tasks, categories, onOpenTask }: TaskCarousel
 
 function CarouselTaskRow({
   task,
+  showTypeIcon,
   expanded,
   onToggleExpand,
   onOpenFullScreen,
 }: {
   task: TaskRow;
+  showTypeIcon: boolean;
   expanded: boolean;
   onToggleExpand: () => void;
   onOpenFullScreen: () => void;
@@ -222,6 +252,8 @@ function CarouselTaskRow({
 
   const due = relativeDueLabel(task.dueDate);
   const status = prettyStatus(task.status);
+  const typeMeta = task.type ? TYPE_META[task.type] : null;
+  const TypeIcon = typeMeta?.icon;
 
   return (
     <div
@@ -261,6 +293,13 @@ function CarouselTaskRow({
         <span dir="auto" className="min-w-0 flex-1 truncate text-base">
           {task.title || 'Untitled'}
         </span>
+        {/* Across from the title: the work-mode icon, then the due label. */}
+        {showTypeIcon && TypeIcon && task.type && (
+          <TypeIcon
+            className={cn('h-4 w-4 shrink-0', typeMeta?.text)}
+            aria-label={prettyType(task.type)}
+          />
+        )}
         {due && (
           <span className="text-muted-foreground shrink-0 text-xs whitespace-nowrap">{due}</span>
         )}
@@ -279,25 +318,46 @@ function CarouselTaskRow({
 
 // ─── Helpers ────────────────────────────────────────────────────────────
 
-function buildColumns(categories: TaskCategoryRow[], tasks: TaskRow[]): CarouselColumn[] {
-  const byCategory = new Map<string, TaskRow[]>();
+function buildColumns(
+  groupBy: CarouselGroupBy,
+  categories: TaskCategoryRow[],
+  tasks: TaskRow[]
+): CarouselColumn[] {
+  const buckets = new Map<string, TaskRow[]>();
   for (const t of tasks) {
-    const key = t.categoryId ?? NO_CATEGORY_ID;
-    const bucket = byCategory.get(key);
+    const key = groupBy === 'type' ? (t.type ?? NO_TYPE) : (t.categoryId ?? NO_CATEGORY_ID);
+    const bucket = buckets.get(key);
     if (bucket) bucket.push(t);
-    else byCategory.set(key, [t]);
+    else buckets.set(key, [t]);
+  }
+
+  if (groupBy === 'type') {
+    const columns: CarouselColumn[] = TASK_TYPES.map((t) => ({
+      key: t,
+      label: prettyType(t),
+      color: null,
+      icon: TYPE_META[t].icon,
+      iconClass: TYPE_META[t].text,
+      tasks: buckets.get(t) ?? [],
+    }));
+    // Same rule as Uncategorized: only worth a swipe when it holds something.
+    const untyped = buckets.get(NO_TYPE);
+    if (untyped?.length) {
+      columns.push({ key: NO_TYPE, label: 'No type', color: null, tasks: untyped });
+    }
+    return columns;
   }
 
   const columns: CarouselColumn[] = categories.map((c) => ({
     key: c.id,
     label: c.name,
     color: c.color,
-    tasks: byCategory.get(c.id) ?? [],
+    tasks: buckets.get(c.id) ?? [],
   }));
 
   // Uncategorized is only worth a column (and a chip) when something lives
   // there — an always-present empty column is just a dead swipe target.
-  const orphans = byCategory.get(NO_CATEGORY_ID);
+  const orphans = buckets.get(NO_CATEGORY_ID);
   if (orphans?.length) {
     columns.push({ key: NO_CATEGORY_ID, label: 'Uncategorized', color: null, tasks: orphans });
   }

@@ -672,7 +672,10 @@ to anyone the task is explicitly shared with, and nest **one level deep**
   **Blocked**, **Decide**, **Quick**. Optional — a task with no type renders
   `—` and the pickers carry an explicit "no type" option that clears it.
   Stored as the `TaskType` enum (`CALLS`, `DEEP_WORK`, `OUT_AND_ABOUT`,
-  `BLOCKED`, `DECIDE`, `QUICK`) on `tasks.type`.
+  `BLOCKED`, `DECIDE`, `QUICK`) on `tasks.type`. Each value carries a
+  semantic icon — phone / brain / footprints / ban / scales / lightning —
+  rendered next to its label in every type picker (detail sheet, quick-add,
+  table cell, kanban pill) and on its own on a carousel row.
 - **Status** — a _free-text_ label (e.g. "In review", "Waiting on bank"). Empty
   means no label; completion is tracked separately.
 - **Priority** — urgency enum: `LOW` / `MEDIUM` / `HIGH` / `URGENT`. Drives the
@@ -688,19 +691,23 @@ card PATCHes that field, including onto the "No type" column to clear it),
 **Table** (inline-edit cells per column), **Calendar** (week/month; drag an
 archived task onto a day to reschedule + un-archive it), and **Carousel**.
 
-**Carousel view** (mobile-first): a chip row of every category above a
-horizontally snapping track with **one column per category**, sized so the
-neighbouring columns peek in at both edges. Tapping a chip snaps to that
-category and swiping the track highlights the matching chip; the track's height
-follows the active column so a short category leaves no dead space. Rows are
-compact — done toggle · priority-coloured bar · title (`dir="auto"`, so Hebrew
-titles right-align) · a relative due label (`overdue` / `today` / `tomorrow` /
-`this week` / month). **Tap** a row to expand it in place, revealing status and
+**Carousel view** (mobile-first): a chip row above a horizontally snapping
+track with **one column per group**, sized so the neighbouring columns peek in
+at both edges. The **group-by control** in the toolbar picks the axis —
+**Category** (default) or **Type**; a type-grouped header shows that type's
+icon in place of the category colour dot, and switching axis resets to the
+first column. Tapping a chip snaps to that column and swiping the track
+highlights the matching chip; the track's height follows the active column so a
+short group leaves no dead space. Rows are compact — done toggle ·
+priority-coloured bar · title (`dir="auto"`, so Hebrew titles right-align) ·
+the **work-type icon** across from the title (suppressed when the columns are
+already grouped by type) · a relative due label (`overdue` / `today` /
+`tomorrow` / `this week` / month). **Tap** a row to expand it in place, revealing status and
 due date on their own lines; **long-press** opens the task **full-screen** (the
 same detail sheet presented edge-to-edge). Because the long press is spent on
 that, this view has no multi-select. Uncategorized gets a column only when a
-task actually has no category. On desktop (≥ lg) the view falls back to the
-category kanban board.
+task actually has no category, and "No type" likewise. On desktop (≥ lg) the
+view falls back to the kanban board on the same axis.
 
 **Creating:** the FAB short-press opens a **quick-add** popover (title +
 category / priority / type / due-date chips); a long-press creates a task and

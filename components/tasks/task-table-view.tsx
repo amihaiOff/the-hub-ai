@@ -27,8 +27,8 @@ import {
 } from '@/lib/hooks/use-tasks';
 import { TASK_PRIORITIES, TASK_TYPES } from '@/lib/validations/tasks';
 import { useToggleTaskDone } from './task-undo';
-import { prettyPriority, prettyType } from './task-filters-bar';
-import { TYPE_META } from './task-list-view';
+import { prettyPriority } from './task-filters-bar';
+import { TYPE_META, TypeOption } from './task-list-view';
 
 interface TaskTableViewProps {
   tasks: TaskRow[];
@@ -349,7 +349,7 @@ function TypeCell({
         <SelectItem value={NONE}>—</SelectItem>
         {TASK_TYPES.map((t) => (
           <SelectItem key={t} value={t}>
-            {prettyType(t)}
+            <TypeOption type={t} />
           </SelectItem>
         ))}
       </SelectContent>

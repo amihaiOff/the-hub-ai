@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { GroupBy } from './task-kanban-view';
 import type { CalendarMode } from './task-calendar-view';
+import type { CarouselGroupBy } from './task-carousel-view';
 
 type ViewMode = 'list' | 'kanban' | 'table' | 'calendar' | 'carousel';
 
@@ -23,6 +24,8 @@ interface TaskToolbarProps {
   viewOptions: ViewOption[];
   groupBy: GroupBy;
   onGroupByChange: (value: GroupBy) => void;
+  carouselGroupBy?: CarouselGroupBy;
+  onCarouselGroupByChange?: (value: CarouselGroupBy) => void;
   calendarView?: CalendarMode;
   onCalendarViewChange?: (value: CalendarMode) => void;
   onManageCategories?: () => void;
@@ -35,12 +38,18 @@ const GROUP_OPTIONS: { id: GroupBy; label: string }[] = [
   { id: 'category', label: 'Category' },
 ];
 
+/** The carousel only has columns for the two axes with a fixed set of values. */
+const CAROUSEL_GROUP_OPTIONS: { id: CarouselGroupBy; label: string }[] = [
+  { id: 'category', label: 'Category' },
+  { id: 'type', label: 'Type' },
+];
+
 const CALENDAR_OPTIONS: { id: CalendarMode; label: string }[] = [
   { id: 'week', label: 'Week' },
   { id: 'month', label: 'Month' },
 ];
 
-type ActiveControl = 'search' | 'group' | 'calendar' | null;
+type ActiveControl = 'search' | 'group' | 'carousel-group' | 'calendar' | null;
 
 /**
  * Toolbar layout: search + view-picker segmented control aligned left,
@@ -55,6 +64,8 @@ export function TaskToolbar({
   viewOptions,
   groupBy,
   onGroupByChange,
+  carouselGroupBy,
+  onCarouselGroupByChange,
   calendarView,
   onCalendarViewChange,
   onManageCategories,
@@ -160,6 +171,30 @@ export function TaskToolbar({
                 wide
                 onClick={() => {
                   onGroupByChange(opt.id);
+                  setActive(null);
+                }}
+              >
+                {opt.label}
+              </OptionButton>
+            ))}
+          </PopoverControl>
+        )}
+
+        {view === 'carousel' && onCarouselGroupByChange && (
+          <PopoverControl
+            open={active === 'carousel-group'}
+            onOpenChange={(open) => setActive(open ? 'carousel-group' : null)}
+            label="Group by"
+            icon={<LayoutGrid className="h-4 w-4" />}
+          >
+            {CAROUSEL_GROUP_OPTIONS.map((opt) => (
+              <OptionButton
+                key={opt.id}
+                active={carouselGroupBy === opt.id}
+                label={opt.label}
+                wide
+                onClick={() => {
+                  onCarouselGroupByChange(opt.id);
                   setActive(null);
                 }}
               >

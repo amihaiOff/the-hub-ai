@@ -34,8 +34,8 @@ interface TaskListViewProps extends SelectionProps {
  * selected state keeps its own primary ring instead. Shared with the kanban cards.
  */
 export const PRIORITY_BORDER: Record<TaskRow['priority'], string> = {
-  URGENT: '#f5a5a5',
-  HIGH: '#f97316',
+  URGENT: '#ef4444',
+  HIGH: '#f87171',
   MEDIUM: '#eab308',
   LOW: '#94a3b8',
 };
@@ -308,10 +308,31 @@ export function TypeBadge({ type }: { type: TaskRow['type'] }) {
   );
 }
 
+/**
+ * Icon + label for a work type — the shared vocabulary every type picker
+ * renders, so the bare icon on a task card stays readable once you've seen it
+ * next to its name in the dropdowns.
+ */
+export function TypeOption({
+  type,
+  className,
+}: {
+  type: NonNullable<TaskRow['type']>;
+  className?: string;
+}) {
+  const Icon = TYPE_META[type].icon;
+  return (
+    <span className={cn('inline-flex items-center gap-1.5', className)}>
+      <Icon className="h-3.5 w-3.5 shrink-0" />
+      {prettyType(type)}
+    </span>
+  );
+}
+
 export function PriorityBadge({ priority }: { priority: TaskRow['priority'] }) {
   const meta = {
     URGENT: { cls: 'text-red-500', icon: TriangleAlert },
-    HIGH: { cls: 'text-red-500', icon: AlertCircle },
+    HIGH: { cls: 'text-red-400', icon: AlertCircle },
     MEDIUM: { cls: 'text-muted-foreground', icon: Minus },
     LOW: { cls: 'text-muted-foreground', icon: ChevronDown },
   }[priority];

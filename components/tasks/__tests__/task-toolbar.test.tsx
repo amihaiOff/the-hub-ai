@@ -134,6 +134,21 @@ describe('TaskToolbar', () => {
     );
   });
 
+  it('offers Category and Type as the carousel axes and fires the carousel callback', () => {
+    const onCarouselGroupByChange = jest.fn();
+    setup({ view: 'carousel', carouselGroupBy: 'category', onCarouselGroupByChange });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Group by' }));
+    const options = screen.getAllByRole('button', { pressed: false });
+    expect(screen.getByRole('button', { name: 'Type' })).toBeInTheDocument();
+    // Category is the active axis, so it reads as pressed.
+    expect(screen.getByRole('button', { name: 'Category', pressed: true })).toBeInTheDocument();
+    expect(options.some((o) => o.textContent === 'Status')).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Type' }));
+    expect(onCarouselGroupByChange).toHaveBeenCalledWith('type');
+  });
+
   it('shows the Calendar view control only for the Calendar view and fires its callback', () => {
     const onCalendarViewChange = jest.fn();
     const { rerender } = setup({ view: 'kanban', onCalendarViewChange });

@@ -46,8 +46,8 @@ import {
   type TaskRow,
 } from '@/lib/hooks/use-tasks';
 import { TASK_PRIORITIES, TASK_TYPES } from '@/lib/validations/tasks';
-import { prettyPriority, prettyType } from './task-filters-bar';
-import { TYPE_META } from './task-list-view';
+import { prettyPriority } from './task-filters-bar';
+import { TYPE_META, TypeOption } from './task-list-view';
 import { useToggleTaskDone } from './task-undo';
 
 interface TaskDetailSheetProps {
@@ -68,8 +68,8 @@ const NONE = '__none__';
 // triggers become tinted chips so the selected value pops without being
 // loud — /15 background + /90 text keeps it soft.
 const PRIORITY_PILL: Record<TaskRow['priority'], string> = {
-  URGENT: 'bg-red-500/15 text-red-300',
-  HIGH: 'bg-orange-500/15 text-orange-300',
+  URGENT: 'bg-red-600/20 text-red-400',
+  HIGH: 'bg-red-400/15 text-red-300',
   MEDIUM: 'bg-yellow-500/15 text-yellow-300',
   LOW: 'bg-teal-500/15 text-teal-300',
 };
@@ -334,7 +334,7 @@ function TaskDetailBody({
               <SelectItem value={NONE}>—</SelectItem>
               {TASK_TYPES.map((t) => (
                 <SelectItem key={t} value={t}>
-                  {prettyType(t)}
+                  <TypeOption type={t} />
                 </SelectItem>
               ))}
             </SelectContent>
