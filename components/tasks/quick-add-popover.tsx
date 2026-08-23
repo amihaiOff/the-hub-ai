@@ -11,14 +11,21 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { TaskCategoryRow, TaskRow } from '@/lib/hooks/use-tasks';
-import { PRIORITY_BORDER } from './task-list-view';
+import { PRIORITY_BORDER, TYPE_META } from './task-list-view';
+import { TASK_TYPES } from '@/lib/validations/tasks';
+import { prettyType } from './task-filters-bar';
 
 type Priority = TaskRow['priority'];
+// Nullable on purpose — unlike the `TaskType` exported from validations, a
+// quick-add task may be created with no type at all.
+type NullableTaskType = TaskRow['type'];
 
 /** Options the quick-add form collects alongside the title. */
 export interface QuickAddOptions {
   categoryId: string | null;
   priority: Priority;
+  /** Work-mode, or null when the user leaves it unset. */
+  type: NullableTaskType;
   /** ISO date-only string (`YYYY-MM-DDT00:00:00.000Z`) or null. */
   dueDate: string | null;
 }
@@ -49,6 +56,8 @@ interface QuickAddPopoverProps {
   initialCategoryId?: string | null;
   /** Pre-select a priority (e.g. when adding from a kanban priority column). */
   initialPriority?: Priority;
+  /** Pre-select a type (e.g. when adding from a kanban type column). */
+  initialType?: NullableTaskType;
   /** Popover placement relative to the anchor. Defaults to the FAB layout. */
   side?: 'top' | 'bottom' | 'left' | 'right';
   align?: 'start' | 'center' | 'end';
@@ -71,6 +80,7 @@ export function QuickAddPopover({
   isSubmitting = false,
   initialCategoryId,
   initialPriority,
+  initialType,
   side = 'top',
   align = 'end',
   children,
@@ -104,6 +114,7 @@ export function QuickAddPopover({
           isSubmitting={isSubmitting}
           initialCategoryId={initialCategoryId ?? null}
           initialPriority={initialPriority ?? 'MEDIUM'}
+          initialType={initialType ?? null}
         />
       </PopoverContent>
     </Popover>
@@ -117,6 +128,7 @@ function QuickAddForm({
   isSubmitting,
   initialCategoryId,
   initialPriority,
+  initialType,
 }: {
   categories: TaskCategoryRow[];
   onSubmit: (title: string, opts: QuickAddOptions) => void;
@@ -124,10 +136,12 @@ function QuickAddForm({
   isSubmitting: boolean;
   initialCategoryId: string | null;
   initialPriority: Priority;
+  initialType: NullableTaskType;
 }) {
   const [title, setTitle] = useState('');
   const [categoryId, setCategoryId] = useState<string | null>(initialCategoryId);
   const [priority, setPriority] = useState<Priority>(initialPriority);
+  const [type, setType] = useState<NullableTaskType>(initialType);
   // Date-only string 'YYYY-MM-DD' from the native picker, or null.
   const [dueDate, setDueDate] = useState<string | null>(null);
   const dateRef = useRef<HTMLInputElement>(null);
@@ -138,6 +152,7 @@ function QuickAddForm({
     onSubmit(trimmed, {
       categoryId,
       priority,
+      type,
       // Store date-only as midnight UTC — matches the detail sheet / calendar.
       dueDate: dueDate ? `${dueDate}T00:00:00.000Z` : null,
     });
@@ -174,8 +189,9 @@ function QuickAddForm({
         )}
       />
 
-      {/* Footer: category / priority / due-date pickers on the left, submit
-          on the right. The pickers wrap on narrow widths; submit stays put. */}
+      {/* Footer: category / priority / type / due-date pickers on the left,
+          submit on the right. The pickers wrap on narrow widths; submit stays
+          put. */}
       <div className="mt-2 flex items-start justify-between gap-2">
         <div className="flex flex-1 flex-wrap items-center gap-1.5">
           {/* Category */}
@@ -250,6 +266,45 @@ function QuickAddForm({
                     style={{ backgroundColor: PRIORITY_BORDER[p.id] }}
                   />
                   {p.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Type (work-mode) — optional, so the list carries a "No type" reset */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Choose type"
+                title={type ? `Type: ${prettyType(type)}` : 'No type'}
+                className={cn(
+                  'border-border/60 hover:bg-muted/60 flex h-8 shrink-0 items-center gap-1 rounded-full border px-2 text-xs transition-colors',
+                  type ? 'text-foreground' : 'text-muted-foreground'
+                )}
+              >
+                {type && (
+                  <span className={cn('h-2 w-2 shrink-0 rounded-full', TYPE_META[type].dot)} />
+                )}
+                <span>{type ? prettyType(type) : 'Type'}</span>
+                <ChevronDown className="h-3 w-3" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="rounded-2xl">
+              <DropdownMenuItem
+                className={cn('rounded-lg text-sm', type === null && 'bg-muted font-medium')}
+                onSelect={() => setType(null)}
+              >
+                No type
+              </DropdownMenuItem>
+              {TASK_TYPES.map((t) => (
+                <DropdownMenuItem
+                  key={t}
+                  className={cn('gap-2 rounded-lg text-sm', type === t && 'bg-muted font-medium')}
+                  onSelect={() => setType(t)}
+                >
+                  <span className={cn('h-2 w-2 rounded-full', TYPE_META[t].dot)} />
+                  {prettyType(t)}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>

@@ -7,6 +7,7 @@ import type {
   TaskFilters,
   TaskStatus,
   TaskPriority,
+  TaskType,
 } from '@/lib/validations/tasks';
 
 // ─── Types the UI consumes ──────────────────────────────────────────────
@@ -47,6 +48,7 @@ export interface TaskRow {
   status: TaskStatus;
   done: boolean;
   priority: TaskPriority;
+  type: TaskType | null;
   dueDate: string | null;
   sortOrder: number;
   customFields: unknown;

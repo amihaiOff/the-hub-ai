@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { type TaskRow } from '@/lib/hooks/use-tasks';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CategoryIcon } from './category-icon';
-import { PriorityBadge } from './task-list-view';
+import { PriorityBadge, TypeBadge } from './task-list-view';
 import { useToggleTaskDone } from './task-undo';
 
 export type CalendarMode = 'month' | 'week';
@@ -535,6 +535,7 @@ function AgendaRow({ task, onOpen }: { task: TaskRow; onOpen: () => void }) {
       >
         {task.title}
       </button>
+      {task.type && <TypeBadge type={task.type} />}
       <PriorityBadge priority={task.priority} />
     </div>
   );

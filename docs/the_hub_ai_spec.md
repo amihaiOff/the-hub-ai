@@ -656,6 +656,48 @@ stay **session-only**. This lets a headless agent edit pages without a browser
 login while keeping destructive deletes off the token. Example:
 `curl -X PATCH .../api/pages/<id>/tabs/<tabId> -H "Authorization: Bearer $AGENT_PAGES_TOKEN" -H 'Content-Type: application/json' -d '{"content": <tiptap-json>}'`.
 
+## Tasks
+
+Household-scoped to-do module at `/tasks`. Tasks are visible to their owner and
+to anyone the task is explicitly shared with, and nest **one level deep**
+(a task may have sub-tasks; a sub-task may not).
+
+**A task has:**
+
+- **Title** and rich **notes** (Tiptap, markdown-backed, debounced autosave).
+- **Category** — a user-managed, household-scoped list (name + colour + icon),
+  edited through the category manager dialog.
+- **Type** — a fixed select describing the _kind of work_ a task needs, so
+  similar work can be batched: **Calls**, **Deep work**, **Out & about**,
+  **Blocked**, **Decide**, **Quick**. Optional — a task with no type renders
+  `—` and the pickers carry an explicit "no type" option that clears it.
+  Stored as the `TaskType` enum (`CALLS`, `DEEP_WORK`, `OUT_AND_ABOUT`,
+  `BLOCKED`, `DECIDE`, `QUICK`) on `tasks.type`.
+- **Status** — a _free-text_ label (e.g. "In review", "Waiting on bank"). Empty
+  means no label; completion is tracked separately.
+- **Priority** — urgency enum: `LOW` / `MEDIUM` / `HIGH` / `URGENT`. Drives the
+  card's left-border accent and the default ordering.
+- **Done** — moves the task into the collapsed **Archive** at the bottom of the
+  page (and back out when un-checked), with a floating **Undo** affordance.
+- **Due date**, **assignee**, **tags**, and **sub-tasks**.
+
+**Views** (segmented picker in the toolbar): **List** (cards with a
+label/value row per field), **Kanban** (drag-drop between columns; the column
+axis is selectable — **Status / Priority / Type / Category** — and dropping a
+card PATCHes that field, including onto the "No type" column to clear it),
+**Table** (inline-edit cells per column), and **Calendar** (week/month; drag an
+archived task onto a day to reschedule + un-archive it).
+
+**Creating:** the FAB short-press opens a **quick-add** popover (title +
+category / priority / type / due-date chips); a long-press creates a task and
+opens the full detail sheet. A kanban column's **+** pre-fills whichever field
+the board is grouped by.
+
+**Routes:** `GET/POST /api/tasks` (filters: `status`, `priority`, `type`,
+`categoryId`, `assigneeId`, `tagId`, `parentTaskId`, `search`),
+`GET/PATCH/DELETE /api/tasks/[id]`, plus `/api/task-categories` and
+`/api/task-tags` CRUD.
+
 # Development & Deployment
 
 ## Code Quality Practices

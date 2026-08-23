@@ -31,6 +31,7 @@ interface TaskToolbarProps {
 const GROUP_OPTIONS: { id: GroupBy; label: string }[] = [
   { id: 'status', label: 'Status' },
   { id: 'priority', label: 'Priority' },
+  { id: 'type', label: 'Type' },
   { id: 'category', label: 'Category' },
 ];
 

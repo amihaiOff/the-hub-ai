@@ -8,6 +8,7 @@ import {
   CircleDot,
   Flag,
   FolderTree,
+  Layers,
   ListTree,
   Loader2,
   Plus,
@@ -44,8 +45,9 @@ import {
   type TaskTagRow,
   type TaskRow,
 } from '@/lib/hooks/use-tasks';
-import { TASK_PRIORITIES } from '@/lib/validations/tasks';
-import { prettyPriority } from './task-filters-bar';
+import { TASK_PRIORITIES, TASK_TYPES } from '@/lib/validations/tasks';
+import { prettyPriority, prettyType } from './task-filters-bar';
+import { TYPE_META } from './task-list-view';
 import { useToggleTaskDone } from './task-undo';
 
 interface TaskDetailSheetProps {
@@ -290,6 +292,32 @@ function TaskDetailBody({
               {categories.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </MetaRow>
+
+        <MetaRow icon={Layers} label="Type" iconClass="text-sky-400/70">
+          {/* Work-mode. Nullable, so the list carries an explicit "—" option
+              that PATCHes the field back to null. */}
+          <Select
+            value={task.type ?? NONE}
+            onValueChange={(v) => patch('type', v === NONE ? null : v)}
+          >
+            <SelectTrigger
+              className={cn(
+                'h-8 w-fit rounded-full border-none px-3 text-xs font-medium',
+                task.type ? TYPE_META[task.type].pill : 'hover:bg-muted/40 bg-transparent'
+              )}
+            >
+              <SelectValue placeholder="—" />
+            </SelectTrigger>
+            <SelectContent className="rounded-2xl">
+              <SelectItem value={NONE}>—</SelectItem>
+              {TASK_TYPES.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {prettyType(t)}
                 </SelectItem>
               ))}
             </SelectContent>

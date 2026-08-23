@@ -22,14 +22,14 @@ import {
 } from '@/lib/hooks/use-tasks';
 import { useLongPress } from '@/lib/hooks/use-long-press';
 import { CategoryIcon } from './category-icon';
-import { TASK_PRIORITIES } from '@/lib/validations/tasks';
-import { prettyStatus, PRIORITY_BORDER, DoneToggle } from './task-list-view';
+import { TASK_PRIORITIES, TASK_TYPES } from '@/lib/validations/tasks';
+import { prettyStatus, PRIORITY_BORDER, TYPE_META, DoneToggle } from './task-list-view';
 import { useToggleTaskDone } from './task-undo';
 import { QuickAddPopover, type QuickAddOptions } from './quick-add-popover';
-import { prettyPriority } from './task-filters-bar';
+import { prettyPriority, prettyType } from './task-filters-bar';
 import type { SelectionProps } from './task-selection';
 
-export type GroupBy = 'status' | 'priority' | 'category';
+export type GroupBy = 'status' | 'priority' | 'type' | 'category';
 
 interface TaskKanbanViewProps extends SelectionProps {
   tasks: TaskRow[];
@@ -40,6 +40,7 @@ interface TaskKanbanViewProps extends SelectionProps {
 
 const NO_CATEGORY_ID = '__none__';
 const NO_STATUS = '__nostatus__';
+const NO_TYPE = '__notype__';
 
 const PRIORITY_DOT: Record<TaskRow['priority'], string> = {
   URGENT: 'bg-red-500',
@@ -50,7 +51,7 @@ const PRIORITY_DOT: Record<TaskRow['priority'], string> = {
 
 /**
  * Kanban view with drag-drop between columns. The column axis (status /
- * priority / category) is user-selectable; dropping a card into another
+ * priority / type / category) is user-selectable; dropping a card into another
  * column PATCHes the corresponding field via useUpdateTask's optimistic
  * update, so the card lands in its new column immediately.
  */
@@ -107,6 +108,12 @@ export function TaskKanbanView({
       const nextPriority = columnKey as TaskRow['priority'];
       if (task.priority !== nextPriority) {
         update.mutate({ id: task.id, patch: { priority: nextPriority } });
+      }
+    } else if (groupBy === 'type') {
+      // The "No type" column is the drop target for clearing the field.
+      const nextType = columnKey === NO_TYPE ? null : (columnKey as TaskRow['type']);
+      if (task.type !== nextType) {
+        update.mutate({ id: task.id, patch: { type: nextType } });
       }
     } else {
       const nextCategoryId = columnKey === NO_CATEGORY_ID ? null : columnKey;
@@ -172,6 +179,17 @@ function buildColumns(groupBy: GroupBy, categories: TaskCategoryRow[], tasks: Ta
       dotClass: PRIORITY_DOT[p],
     }));
   }
+  if (groupBy === 'type') {
+    // Fixed enum order, plus a "No type" column for untyped tasks.
+    return [
+      ...TASK_TYPES.map((t) => ({
+        key: t,
+        label: prettyType(t),
+        dotClass: TYPE_META[t].dot,
+      })),
+      { key: NO_TYPE, label: 'No type', dotClass: 'bg-muted-foreground/40' },
+    ];
+  }
   // category — real categories first, "Uncategorized" pinned to the bottom.
   return [
     ...categories.map((c) => ({
@@ -202,6 +220,7 @@ function groupTasks(
     let key: string;
     if (groupBy === 'status') key = t.status || NO_STATUS;
     else if (groupBy === 'priority') key = t.priority;
+    else if (groupBy === 'type') key = t.type ?? NO_TYPE;
     else key = t.categoryId ?? NO_CATEGORY_ID;
     if (out[key]) out[key].push(t);
   }
@@ -238,12 +257,14 @@ function Column({
 
   // Quick-add from the column header (+). Pre-fills the field this board is
   // grouped by: category → the column's category, priority → the column's
-  // priority, status → stamped on the created task.
+  // priority, type → the column's type, status → stamped on the created task.
   const createTask = useCreateTask();
   const [addOpen, setAddOpen] = useState(false);
   const presetCategoryId =
     groupBy === 'category' ? (column.key === NO_CATEGORY_ID ? null : column.key) : null;
   const presetPriority = groupBy === 'priority' ? (column.key as TaskRow['priority']) : undefined;
+  const presetType =
+    groupBy === 'type' && column.key !== NO_TYPE ? (column.key as TaskRow['type']) : undefined;
 
   const handleAddSubmit = (title: string, opts: QuickAddOptions) => {
     createTask.mutate(
@@ -251,6 +272,7 @@ function Column({
         title,
         categoryId: opts.categoryId ?? undefined,
         priority: opts.priority,
+        type: opts.type ?? undefined,
         dueDate: opts.dueDate ?? undefined,
         status: groupBy === 'status' && column.key !== NO_STATUS ? column.key : undefined,
       },
@@ -300,6 +322,7 @@ function Column({
           categories={categories}
           initialCategoryId={presetCategoryId}
           initialPriority={presetPriority}
+          initialType={presetType}
           isSubmitting={createTask.isPending}
           onSubmit={handleAddSubmit}
           side="bottom"
@@ -474,14 +497,26 @@ function DraggableKanbanCard({
               {task.category.name}
             </span>
           )}
-          {/* Title + status. On mobile they stack (status underneath) so a
-              long title doesn't collide with the pill; on desktop the pill
-              inlines to the right of the title, wrapping if needed. */}
+          {/* Title + status/type pills. On mobile they stack (pills
+              underneath) so a long title doesn't collide with them; on desktop
+              they inline to the right of the title, wrapping if needed. Each
+              pill is suppressed when the board is already grouped by that
+              field — the column header carries it. */}
           <div className="flex flex-col gap-1.5 lg:flex-row lg:flex-wrap lg:items-baseline lg:gap-x-2 lg:gap-y-1">
             <span className="text-sm leading-snug font-semibold break-words">{task.title}</span>
             {task.status && groupBy !== 'status' && (
               <span className="text-muted-foreground bg-muted/60 inline-flex max-w-full items-center truncate rounded-md px-2 py-0.5 text-[11px] font-medium">
                 {prettyStatus(task.status)}
+              </span>
+            )}
+            {task.type && groupBy !== 'type' && (
+              <span
+                className={cn(
+                  'inline-flex max-w-full items-center truncate rounded-md px-2 py-0.5 text-[11px] font-medium',
+                  TYPE_META[task.type].pill
+                )}
+              >
+                {prettyType(task.type)}
               </span>
             )}
           </div>

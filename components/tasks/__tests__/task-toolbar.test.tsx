@@ -111,6 +111,29 @@ describe('TaskToolbar', () => {
     expect(groupButton).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('offers Type as a group-by axis alongside status/priority/category', () => {
+    const { onGroupByChange } = setup({ view: 'kanban' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Group by' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Type' }));
+
+    expect(onGroupByChange).toHaveBeenCalledWith('type');
+  });
+
+  it('marks the active group-by axis when it is Type', () => {
+    setup({ view: 'kanban', groupBy: 'type' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Group by' }));
+
+    // The active option is aria-pressed; the others are not.
+    expect(screen.getByRole('button', { name: 'Type' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Priority' })).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    );
+  });
+
   it('shows the Calendar view control only for the Calendar view and fires its callback', () => {
     const onCalendarViewChange = jest.fn();
     const { rerender } = setup({ view: 'kanban', onCalendarViewChange });

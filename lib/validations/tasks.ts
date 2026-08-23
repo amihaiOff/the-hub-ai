@@ -5,13 +5,29 @@ import { nonEmptyString } from './common';
 export const TASK_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
 
 /**
+ * Work-mode of a task — the context it needs rather than its urgency.
+ * Order here is the order the pickers render in. Optional on a task: no
+ * type is a valid state, so every schema below allows `null`.
+ */
+export const TASK_TYPES = [
+  'CALLS',
+  'DEEP_WORK',
+  'OUT_AND_ABOUT',
+  'BLOCKED',
+  'DECIDE',
+  'QUICK',
+] as const;
+
+/**
  * Status is a free-text label (e.g. "In review"). Completion is tracked
  * separately by the `done` boolean, so status carries no special meaning.
  */
 export const taskStatusSchema = z.string().trim().max(80);
 export const taskPrioritySchema = z.enum(TASK_PRIORITIES);
+export const taskTypeSchema = z.enum(TASK_TYPES);
 export type TaskStatus = z.infer<typeof taskStatusSchema>;
 export type TaskPriority = z.infer<typeof taskPrioritySchema>;
+export type TaskType = z.infer<typeof taskTypeSchema>;
 
 /**
  * customFields is a small user-defined JSON bag rendered only in the detail
@@ -43,6 +59,7 @@ export const createTaskSchema = z.object({
   status: taskStatusSchema.optional(),
   done: z.boolean().optional(),
   priority: taskPrioritySchema.optional(),
+  type: taskTypeSchema.optional().nullable(),
   dueDate: z.string().datetime({ offset: true }).optional().nullable(),
   categoryId: z.string().cuid().optional().nullable(),
   assigneeId: z.string().cuid().optional().nullable(),
@@ -65,6 +82,7 @@ export const updateTaskSchema = z.object({
   status: taskStatusSchema.optional(),
   done: z.boolean().optional(),
   priority: taskPrioritySchema.optional(),
+  type: taskTypeSchema.nullable().optional(),
   dueDate: z.string().datetime({ offset: true }).nullable().optional(),
   sortOrder: z.number().int().optional(),
   categoryId: z.string().cuid().nullable().optional(),
@@ -127,6 +145,7 @@ export const updateTaskTagSchema = createTaskTagSchema.partial();
 export const taskFiltersSchema = z.object({
   status: taskStatusSchema.optional(),
   priority: taskPrioritySchema.optional(),
+  type: taskTypeSchema.optional(),
   categoryId: z.string().cuid().optional(),
   assigneeId: z.string().cuid().optional(),
   tagId: z.string().cuid().optional(),

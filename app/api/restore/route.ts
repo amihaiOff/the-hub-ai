@@ -10,6 +10,7 @@ import {
   TransactionSource,
   PaymentMethod,
   TaskPriority,
+  TaskType,
   Prisma,
 } from '@prisma/client';
 
@@ -1131,6 +1132,7 @@ export async function POST(request: NextRequest) {
           status: (t.status as string) ?? '',
           done: (t.done as boolean) ?? false,
           priority: t.priority as TaskPriority,
+          type: (t.type as TaskType | null) ?? null,
           dueDate: t.dueDate ? new Date(t.dueDate as string) : null,
           sortOrder: t.sortOrder as number,
           customFields: (t.customFields as object) ?? undefined,

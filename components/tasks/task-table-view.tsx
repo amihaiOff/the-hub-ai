@@ -25,9 +25,10 @@ import {
   type TaskCategoryRow,
   type TaskTagRow,
 } from '@/lib/hooks/use-tasks';
-import { TASK_PRIORITIES } from '@/lib/validations/tasks';
+import { TASK_PRIORITIES, TASK_TYPES } from '@/lib/validations/tasks';
 import { useToggleTaskDone } from './task-undo';
-import { prettyPriority } from './task-filters-bar';
+import { prettyPriority, prettyType } from './task-filters-bar';
+import { TYPE_META } from './task-list-view';
 
 interface TaskTableViewProps {
   tasks: TaskRow[];
@@ -59,6 +60,7 @@ export function TaskTableView({ tasks, categories, onOpenTask }: TaskTableViewPr
             <Th className="w-10" />
             <Th className="min-w-[260px]">Task name</Th>
             <Th className="w-[140px]">Category</Th>
+            <Th className="w-[150px]">Type</Th>
             <Th className="w-[140px]">Status</Th>
             <Th className="w-[120px]">Priority</Th>
             <Th className="w-[140px]">Due</Th>
@@ -179,6 +181,13 @@ function TaskRowEls(props: RowProps) {
             categoryId={task.categoryId}
             categories={categories}
             onChange={(id) => update.mutate({ id: task.id, patch: { categoryId: id } })}
+          />
+        </td>
+
+        <td className="px-4 py-3 align-middle">
+          <TypeCell
+            value={task.type}
+            onChange={(v) => update.mutate({ id: task.id, patch: { type: v } })}
           />
         </td>
 
@@ -309,6 +318,38 @@ function CategoryCell({
         {categories.map((c) => (
           <SelectItem key={c.id} value={c.id}>
             {c.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function TypeCell({
+  value,
+  onChange,
+}: {
+  value: TaskRow['type'];
+  onChange: (v: TaskRow['type']) => void;
+}) {
+  return (
+    <Select
+      value={value ?? NONE}
+      onValueChange={(v) => onChange(v === NONE ? null : (v as TaskRow['type']))}
+    >
+      <SelectTrigger
+        className={cn(
+          'h-7 w-fit rounded-full border-none px-3 text-xs',
+          value ? TYPE_META[value].pill : 'bg-transparent'
+        )}
+      >
+        <SelectValue placeholder="—" />
+      </SelectTrigger>
+      <SelectContent className="rounded-2xl">
+        <SelectItem value={NONE}>—</SelectItem>
+        {TASK_TYPES.map((t) => (
+          <SelectItem key={t} value={t}>
+            {prettyType(t)}
           </SelectItem>
         ))}
       </SelectContent>

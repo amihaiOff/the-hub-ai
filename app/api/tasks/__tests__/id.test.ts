@@ -138,6 +138,7 @@ describe('PATCH /api/tasks/[id]', () => {
           notes: 'a note',
           status: 'IN_PROGRESS',
           priority: 'URGENT',
+          type: 'OUT_AND_ABOUT',
           dueDate: '2026-01-01T00:00:00.000Z',
           sortOrder: 5,
           categoryId: CUID,
@@ -154,6 +155,7 @@ describe('PATCH /api/tasks/[id]', () => {
     expect(data.notes).toBe('a note');
     expect(data.status).toBe('IN_PROGRESS');
     expect(data.priority).toBe('URGENT');
+    expect(data.type).toBe('OUT_AND_ABOUT');
     expect(data.dueDate).toBeInstanceOf(Date);
     expect(data.sortOrder).toBe(5);
     expect(data.category).toEqual({ connect: { id: CUID } });
@@ -173,13 +175,15 @@ describe('PATCH /api/tasks/[id]', () => {
     const res = await PATCH(
       new NextRequest('http://localhost/api/tasks/t1', {
         method: 'PATCH',
-        body: JSON.stringify({ dueDate: null, categoryId: null, assigneeId: null }),
+        body: JSON.stringify({ dueDate: null, categoryId: null, assigneeId: null, type: null }),
       }),
       params('t1')
     );
     expect(res.status).toBe(200);
     const { data } = (mockPrisma.task.update as jest.Mock).mock.calls[0][0];
     expect(data.dueDate).toBeNull();
+    // `type` is a scalar enum, so clearing it is a plain null (not a disconnect).
+    expect(data.type).toBeNull();
     expect(data.category).toEqual({ disconnect: true });
     expect(data.assignee).toEqual({ disconnect: true });
   });

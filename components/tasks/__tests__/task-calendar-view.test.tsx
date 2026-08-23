@@ -26,6 +26,7 @@ function makeTask(over: Partial<TaskRow>): TaskRow {
     status: '',
     done: false,
     priority: 'MEDIUM',
+    type: null,
     dueDate: null,
     sortOrder: 0,
     customFields: null,

@@ -1,11 +1,24 @@
 'use client';
 
-import { AlertCircle, Check, ChevronDown, Minus, TriangleAlert } from 'lucide-react';
+import {
+  AlertCircle,
+  Ban,
+  Brain,
+  Check,
+  ChevronDown,
+  Footprints,
+  Minus,
+  Phone,
+  Scale,
+  TriangleAlert,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { type TaskRow } from '@/lib/hooks/use-tasks';
 import { useLongPress } from '@/lib/hooks/use-long-press';
 import { useToggleTaskDone } from './task-undo';
-import { prettyStatus, prettyPriority } from './task-filters-bar';
+import { prettyStatus, prettyPriority, prettyType } from './task-filters-bar';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { SelectionProps } from './task-selection';
 
@@ -25,6 +38,54 @@ export const PRIORITY_BORDER: Record<TaskRow['priority'], string> = {
   HIGH: '#f97316',
   MEDIUM: '#eab308',
   LOW: '#94a3b8',
+};
+
+/**
+ * Per-type icon + accent, shared by every surface that renders a task's
+ * work-mode (list badge, board dot, quick-add chip, detail pill). Colours
+ * are picked to stay distinguishable from the priority palette — priority
+ * answers "how urgent", type answers "what kind of work".
+ */
+export const TYPE_META: Record<
+  NonNullable<TaskRow['type']>,
+  { icon: LucideIcon; text: string; dot: string; pill: string }
+> = {
+  CALLS: {
+    icon: Phone,
+    text: 'text-sky-400',
+    dot: 'bg-sky-400',
+    pill: 'bg-sky-500/15 text-sky-300',
+  },
+  DEEP_WORK: {
+    icon: Brain,
+    text: 'text-violet-400',
+    dot: 'bg-violet-400',
+    pill: 'bg-violet-500/15 text-violet-300',
+  },
+  OUT_AND_ABOUT: {
+    icon: Footprints,
+    text: 'text-amber-400',
+    dot: 'bg-amber-400',
+    pill: 'bg-amber-500/15 text-amber-300',
+  },
+  BLOCKED: {
+    icon: Ban,
+    text: 'text-red-400',
+    dot: 'bg-red-400',
+    pill: 'bg-red-500/15 text-red-300',
+  },
+  DECIDE: {
+    icon: Scale,
+    text: 'text-fuchsia-400',
+    dot: 'bg-fuchsia-400',
+    pill: 'bg-fuchsia-500/15 text-fuchsia-300',
+  },
+  QUICK: {
+    icon: Zap,
+    text: 'text-emerald-400',
+    dot: 'bg-emerald-400',
+    pill: 'bg-emerald-500/15 text-emerald-300',
+  },
 };
 
 /**
@@ -74,7 +135,7 @@ export function DoneToggle({
 
 /**
  * Card-per-row list. Each card is a fixed grid of label/value rows —
- * Category, Status, Priority, Due — with a checkbox at the top-left that
+ * Category, Type, Status, Priority, Due — with a checkbox at the top-left that
  * toggles DONE/TODO and strikes through the title. Long-pressing a card
  * enters selection mode; in selection mode a tap toggles selection.
  */
@@ -197,6 +258,7 @@ function TaskCard({
       {/* Field rows */}
       <div className="mt-3 space-y-2 pl-8">
         <Row label="Category" value={<CategoryValue task={task} />} />
+        <Row label="Type" value={<TypeBadge type={task.type} />} />
         <Row label="Status" value={<StatusBadge status={task.status} />} />
         <Row label="Priority" value={<PriorityBadge priority={task.priority} />} />
         <Row label="Due" value={<DueValue iso={task.dueDate} />} />
@@ -230,6 +292,18 @@ export function StatusBadge({ status }: { status: TaskRow['status'] }) {
       )}
     >
       {label}
+    </span>
+  );
+}
+
+export function TypeBadge({ type }: { type: TaskRow['type'] }) {
+  if (!type) return <span className="text-muted-foreground">—</span>;
+  const meta = TYPE_META[type];
+  const Icon = meta.icon;
+  return (
+    <span className={cn('inline-flex items-center gap-1 text-xs font-medium', meta.text)}>
+      <Icon className="h-3.5 w-3.5" />
+      {prettyType(type)}
     </span>
   );
 }

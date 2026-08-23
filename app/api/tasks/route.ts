@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
   const parsedFilters = taskFiltersSchema.safeParse({
     status: searchParams.get('status') ?? undefined,
     priority: searchParams.get('priority') ?? undefined,
+    type: searchParams.get('type') ?? undefined,
     categoryId: searchParams.get('categoryId') ?? undefined,
     assigneeId: searchParams.get('assigneeId') ?? undefined,
     tagId: searchParams.get('tagId') ?? undefined,
@@ -44,6 +45,7 @@ export async function GET(request: NextRequest) {
   };
   if (f.status) where.status = f.status;
   if (f.priority) where.priority = f.priority;
+  if (f.type) where.type = f.type;
   if (f.categoryId) where.categoryId = f.categoryId;
   if (f.assigneeId) where.assigneeId = f.assigneeId;
   if (f.tagId) where.tags = { some: { id: f.tagId } };
@@ -105,6 +107,7 @@ export async function POST(request: NextRequest) {
         status: input.status ?? '',
         done: input.done ?? false,
         priority: input.priority ?? 'MEDIUM',
+        type: input.type ?? null,
         dueDate: input.dueDate ? new Date(input.dueDate) : null,
         categoryId: input.categoryId ?? null,
         assigneeId: input.assigneeId ?? null,

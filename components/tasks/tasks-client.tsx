@@ -179,6 +179,7 @@ export function TasksClient() {
         title,
         categoryId: opts.categoryId ?? undefined,
         priority: opts.priority,
+        type: opts.type ?? undefined,
         dueDate: opts.dueDate ?? undefined,
       },
       { onSuccess: () => setQuickAddOpen(false) }
