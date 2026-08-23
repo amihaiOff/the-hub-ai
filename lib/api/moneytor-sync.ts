@@ -891,6 +891,7 @@ export async function forceResyncMoneytorTransactionsForHousehold(
   // existing row with the same (description, date, amount, accountId). Records
   // the link as freshId → oldId so we can later (a) write `replacesMoneytorId`
   // and (b) re-point any budget_transaction.moneytorId from old to fresh.
+  const existingIds = new Set(existingMoneytor.map((e) => e.id));
   const existingByKey = new Map<string, string[]>(); // key → queue of existing ids
   for (const e of existingMoneytor) {
     const k = fuzzyKey({
@@ -905,6 +906,11 @@ export async function forceResyncMoneytorTransactionsForHousehold(
   }
   const freshToOld = new Map<string, string>(); // freshId → oldId
   for (const f of fresh) {
+    // A fresh row whose id already existed is a same-id survivor (handled by the
+    // freshIds preservation path below). It must NOT consume a fuzzy-match queue
+    // slot — otherwise, when duplicate keys exist and Moneytor collapses them,
+    // another row could be re-pointed to this id and double-count.
+    if (existingIds.has(f.id)) continue;
     const k = fuzzyKey({
       description: f.description,
       transactionDate: new Date(`${f.date}T00:00:00Z`),
@@ -917,7 +923,6 @@ export async function forceResyncMoneytorTransactionsForHousehold(
       freshToOld.set(f.id, oldId);
     }
   }
-  const matchedOldIds = new Set(freshToOld.values());
 
   // 4. Insert fresh moneytor rows. New ids get a fresh row; ids that already
   // exist (Moneytor kept the id) get upserted in place. When a fresh row is a
@@ -964,30 +969,90 @@ export async function forceResyncMoneytorTransactionsForHousehold(
     );
   }
 
+  // Fresh Moneytor ids that survived this resync (upserted in step 4). A budget
+  // row still linked to one of these is the SAME transaction — Moneytor merely
+  // corrected its fields (a settling card charge changes date/amount/description
+  // while keeping its id). Such rows must be preserved with the user's category,
+  // never deleted-and-recreated as uncategorized.
+  // NOTE: this preservation relies on Moneytor ids being stable natural keys —
+  // an id is never reused for a genuinely different transaction. (If it were,
+  // we'd attach the old category to the wrong row.)
+  const freshIds = new Set(fresh.map((f) => f.id));
+  const freshById = new Map(fresh.map((f) => [f.id, f]));
+
   // 5. Re-link / delete budget_transactions linked to in-range old moneytor ids.
-  //   - Old id had a fresh successor → repoint budget_transaction.moneytorId.
-  //     The budget row is preserved as-is, with all user edits intact.
-  //   - Old id had no successor → delete the budget row (Moneytor no longer
-  //     reports this transaction).
+  //   - Old id still present in fresh (same id, maybe corrected fields) → keep
+  //     the budget row as-is; it stays linked and user edits are preserved.
+  //   - Old id had a fresh successor (id changed) → repoint moneytorId.
+  //   - Old id gone with no successor → delete the budget row (Moneytor no
+  //     longer reports this transaction).
   const inRangeOldIds = existingMoneytor.map((e) => e.id);
   let deletedBudget = 0;
   let relinked = 0;
+  let refreshed = 0;
+  let unlinked = 0;
+  let adopted = 0;
+  // Ids unlinked in step 5; if one is re-adopted in step 7 it must not be
+  // double-counted in editsPreserved.
+  const unlinkedIds = new Set<string>();
+  let adoptedFromUnlinked = 0;
   if (inRangeOldIds.length > 0) {
     const linkedBudget = await prisma.budgetTransaction.findMany({
       where: { householdId, moneytorId: { in: inRangeOldIds } },
-      select: { id: true, moneytorId: true },
+      select: { id: true, moneytorId: true, categoryId: true, _count: { select: { tags: true } } },
     });
+    // A row carries user intent worth preserving if it's categorized or tagged.
+    const hasEdits = (b: { categoryId: string | null; _count: { tags: number } }) =>
+      b.categoryId !== null || b._count.tags > 0;
 
     // Invert the freshToOld map for lookup by oldId.
     const oldToFresh = new Map<string, string>();
     for (const [freshId, oldId] of freshToOld) oldToFresh.set(oldId, freshId);
 
-    const toRelink = linkedBudget.filter((b) => b.moneytorId && oldToFresh.has(b.moneytorId));
-    const toDelete = linkedBudget.filter((b) => !b.moneytorId || !oldToFresh.has(b.moneytorId));
+    // Same-id survivors: keep the row (and the user's category/notes/tags/payee)
+    // but refresh the denormalized financial fields, since Moneytor may have
+    // corrected the amount/date in place (a pending charge settling).
+    const toRefresh = linkedBudget.filter((b) => b.moneytorId && freshIds.has(b.moneytorId));
+    // Changed-id rows with a fuzzy successor get re-pointed.
+    const toRelink = linkedBudget.filter(
+      (b) => b.moneytorId && !freshIds.has(b.moneytorId) && oldToFresh.has(b.moneytorId)
+    );
+    // No successor: an EDITED row is never destroyed — unlink it (keep it as a
+    // manual transaction, category intact) so a later promote can re-adopt it by
+    // content. Only un-edited auto-imported rows are deleted.
+    const noSuccessor = linkedBudget.filter(
+      (b) => b.moneytorId && !freshIds.has(b.moneytorId) && !oldToFresh.has(b.moneytorId)
+    );
+    const toUnlink = noSuccessor.filter(hasEdits);
+    const toDelete = noSuccessor.filter((b) => !hasEdits(b));
+
+    const BATCH_SIZE = 5;
+
+    // Refresh financial fields on same-id survivors (preserve everything else).
+    for (let i = 0; i < toRefresh.length; i += BATCH_SIZE) {
+      const batch = toRefresh.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map((b) => {
+          const f = freshById.get(b.moneytorId!);
+          if (!f) return Promise.resolve();
+          const amount = Number(f.amount);
+          return prisma.budgetTransaction.update({
+            where: { id: b.id },
+            data: {
+              type: amount < 0 ? 'expense' : 'income',
+              amountIls: Math.abs(amount),
+              amountOriginal: Math.abs(amount),
+              currency: f.currency,
+              transactionDate: new Date(`${f.date}T00:00:00Z`),
+            },
+          });
+        })
+      );
+    }
+    refreshed = toRefresh.length;
 
     // Re-link via per-row updates (Neon poolQuery + updateMany don't mix —
     // see CLAUDE.md).
-    const BATCH_SIZE = 5;
     for (let i = 0; i < toRelink.length; i += BATCH_SIZE) {
       const batch = toRelink.slice(i, i + BATCH_SIZE);
       await Promise.all(
@@ -1000,6 +1065,22 @@ export async function forceResyncMoneytorTransactionsForHousehold(
       );
     }
     relinked = toRelink.length;
+
+    // Unlink edited rows whose Moneytor source vanished — they live on as manual
+    // transactions (category preserved) and become adoption candidates below.
+    for (let i = 0; i < toUnlink.length; i += BATCH_SIZE) {
+      const batch = toUnlink.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map((b) =>
+          prisma.budgetTransaction.update({
+            where: { id: b.id },
+            data: { moneytorId: null },
+          })
+        )
+      );
+    }
+    for (const b of toUnlink) unlinkedIds.add(b.id);
+    unlinked = toUnlink.length;
 
     if (toDelete.length > 0) {
       // Before deleting, log the drops so the user can review (or recover) via
@@ -1047,8 +1128,8 @@ export async function forceResyncMoneytorTransactionsForHousehold(
   // whose key wasn't fuzzy-matched. Anything still referenced by a re-linked
   // budget_transaction has been pointed to the fresh row already.
   // We delete every old id that isn't also a fresh id — fresh ones reusing the
-  // same id were already overwritten by the upsert in step 4.
-  const freshIds = new Set(fresh.map((f) => f.id));
+  // same id were already overwritten by the upsert in step 4. (`freshIds`
+  // computed above, before step 5.)
   const oldIdsToDelete = inRangeOldIds.filter((id) => !freshIds.has(id));
   let deletedMoneytor = 0;
   if (oldIdsToDelete.length > 0) {
@@ -1071,7 +1152,84 @@ export async function forceResyncMoneytorTransactionsForHousehold(
     select: { moneytorId: true },
   });
   const linkedSet = new Set(alreadyLinked.map((b) => b.moneytorId).filter((x): x is string => !!x));
-  const unpromoted = freshMoneytorRows.filter((m) => !linkedSet.has(m.id));
+  let unpromoted = freshMoneytorRows.filter((m) => !linkedSet.has(m.id));
+
+  // ── Adoption: re-attach a fresh row to an existing edited-but-unlinked budget
+  // row by CONTENT (account + amount + near date) rather than by Moneytor id, so
+  // a categorized transaction survives even when Moneytor reissues its id. This
+  // is what makes preservation independent of the id. Matched rows adopt the
+  // fresh id + refreshed amount/date and keep their category/notes/tags/payee.
+  const ADOPT_WINDOW_DAYS = 5;
+  const adoptWindowMs = ADOPT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  if (unpromoted.length > 0) {
+    const candidates = await prisma.budgetTransaction.findMany({
+      where: {
+        householdId,
+        moneytorId: null,
+        isDeleted: false,
+        transactionDate: {
+          gte: new Date(fromDate.getTime() - adoptWindowMs),
+          lte: new Date(toDate.getTime() + adoptWindowMs),
+        },
+        OR: [{ categoryId: { not: null } }, { tags: { some: {} } }],
+      },
+      select: {
+        id: true,
+        type: true,
+        paymentIdentifier: true,
+        amountIls: true,
+        transactionDate: true,
+      },
+    });
+    // Index candidates by (paymentIdentifier|type|amount) → queue of {id, date}.
+    // The TYPE (sign) is part of the key so a fresh expense can never adopt an
+    // equal-magnitude income row (refund/charge pairs on the same account within
+    // the window) — that would flip the type and destroy a categorized income.
+    const candidateIndex = new Map<string, { id: string; date: Date }[]>();
+    for (const c of candidates) {
+      const key = `${c.paymentIdentifier ?? ''}|${c.type}|${Number(c.amountIls).toFixed(2)}`;
+      const arr = candidateIndex.get(key) ?? [];
+      arr.push({ id: c.id, date: c.transactionDate });
+      candidateIndex.set(key, arr);
+    }
+    const consumed = new Set<string>();
+    const stillUnpromoted: typeof unpromoted = [];
+    for (const mt of unpromoted) {
+      const amount = Number(mt.amount);
+      const freshType = amount < 0 ? 'expense' : 'income';
+      const key = `${mt.accountId.slice(-12)}|${freshType}|${Math.abs(amount).toFixed(2)}`;
+      const pool = (candidateIndex.get(key) ?? []).filter((c) => !consumed.has(c.id));
+      // Nearest within the date window wins.
+      let best: { id: string; date: Date } | null = null;
+      let bestDelta = Infinity;
+      for (const c of pool) {
+        const delta = Math.abs(c.date.getTime() - mt.transactionDate.getTime());
+        if (delta <= adoptWindowMs && delta < bestDelta) {
+          best = c;
+          bestDelta = delta;
+        }
+      }
+      if (best) {
+        consumed.add(best.id);
+        if (unlinkedIds.has(best.id)) adoptedFromUnlinked++;
+        await prisma.budgetTransaction.update({
+          where: { id: best.id },
+          data: {
+            moneytorId: mt.id,
+            type: freshType,
+            amountIls: Math.abs(amount),
+            amountOriginal: Math.abs(amount),
+            currency: mt.currency,
+            transactionDate: mt.transactionDate,
+          },
+        });
+        adopted++;
+      } else {
+        stillUnpromoted.push(mt);
+      }
+    }
+    unpromoted = stillUnpromoted;
+  }
 
   let budgetCreated = 0;
   if (unpromoted.length > 0) {
@@ -1105,12 +1263,12 @@ export async function forceResyncMoneytorTransactionsForHousehold(
   }
 
   // Edits "preserved" in the new model = the count of budget rows we re-linked
-  // (those still carry the user's category/notes/tags). Same number reported
-  // to the UI for continuity.
-  const editsPreserved = relinked;
-  // matchedOldIds is unused at runtime but kept readable in the summary —
-  // surface as deletedMoneytor delta for now.
-  void matchedOldIds;
+  // (those still carry the user's category/notes/tags): re-linked (changed id) +
+  // same-id survivors refreshed in place + content-adopted rows + edited rows
+  // kept as manual (unlinked) rather than deleted.
+  // Subtract rows counted in both `unlinked` (step 5) and `adopted` (step 7)
+  // during the same run so a single preserved row isn't tallied twice.
+  const editsPreserved = relinked + refreshed + adopted + unlinked - adoptedFromUnlinked;
 
   return {
     householdId,

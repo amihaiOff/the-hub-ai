@@ -20,9 +20,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus, X } from 'lucide-react';
 import {
   useCreateTransaction,
+  useCreatePayee,
   useCategoryGroups,
   usePayees,
   useTags,
@@ -46,6 +47,8 @@ export function AddTransactionDialog({
   const [amount, setAmount] = useState('');
   const [categoryId, setCategoryId] = useState(defaultCategoryId || '');
   const [payeeId, setPayeeId] = useState('');
+  const [newPayeeName, setNewPayeeName] = useState('');
+  const [payeeMode, setPayeeMode] = useState<'existing' | 'new'>('existing');
   const [notes, setNotes] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
@@ -53,6 +56,7 @@ export function AddTransactionDialog({
   const { data: payees = [] } = usePayees();
   const { data: tags = [] } = useTags();
   const createTransaction = useCreateTransaction();
+  const createPayee = useCreatePayee();
 
   const resetForm = () => {
     setType('expense');
@@ -60,6 +64,8 @@ export function AddTransactionDialog({
     setAmount('');
     setCategoryId(defaultCategoryId || '');
     setPayeeId('');
+    setNewPayeeName('');
+    setPayeeMode('existing');
     setNotes('');
     setSelectedTags([]);
   };
@@ -69,12 +75,21 @@ export function AddTransactionDialog({
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum) || amountNum <= 0) return;
 
+    let resolvedPayeeId = payeeId || null;
+    if (payeeMode === 'new' && newPayeeName.trim()) {
+      const created = await createPayee.mutateAsync({
+        name: newPayeeName.trim(),
+        categoryId: categoryId || null,
+      });
+      resolvedPayeeId = created.id;
+    }
+
     await createTransaction.mutateAsync({
       type,
       transactionDate: date,
       amountIls: amountNum,
       categoryId: categoryId || null,
-      payeeId: payeeId || null,
+      payeeId: resolvedPayeeId,
       notes: notes || null,
       tagIds: selectedTags,
     });
@@ -165,19 +180,53 @@ export function AddTransactionDialog({
 
             {/* Payee */}
             <div className="grid gap-2">
-              <Label htmlFor="payee">Payee</Label>
-              <Select value={payeeId} onValueChange={setPayeeId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select payee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {payees.map((payee) => (
-                    <SelectItem key={payee.id} value={payee.id}>
-                      {payee.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="payee">Payee</Label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (payeeMode === 'existing') {
+                      setPayeeMode('new');
+                      setPayeeId('');
+                    } else {
+                      setPayeeMode('existing');
+                      setNewPayeeName('');
+                    }
+                  }}
+                  className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs font-medium"
+                >
+                  {payeeMode === 'existing' ? (
+                    <>
+                      <Plus className="h-3 w-3" /> New payee
+                    </>
+                  ) : (
+                    <>
+                      <X className="h-3 w-3" /> Cancel
+                    </>
+                  )}
+                </button>
+              </div>
+              {payeeMode === 'existing' ? (
+                <Select value={payeeId} onValueChange={setPayeeId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select payee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {payees.map((payee) => (
+                      <SelectItem key={payee.id} value={payee.id}>
+                        {payee.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  id="payee"
+                  placeholder="New payee name"
+                  value={newPayeeName}
+                  onChange={(e) => setNewPayeeName(e.target.value)}
+                />
+              )}
             </div>
 
             {/* Tags */}
@@ -229,8 +278,13 @@ export function AddTransactionDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={createTransaction.isPending || !amount}>
-              {createTransaction.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button
+              type="submit"
+              disabled={createTransaction.isPending || createPayee.isPending || !amount}
+            >
+              {(createTransaction.isPending || createPayee.isPending) && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
               Add Transaction
             </Button>
           </DialogFooter>
