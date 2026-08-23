@@ -158,6 +158,21 @@ describe('TaskCarouselView — columns and chips', () => {
     setup([tasks[0]]);
     expect(screen.getByText('No tasks')).toBeInTheDocument();
   });
+
+  it('sorts empty groups to the end, keeping the rest in category order', () => {
+    // Only General holds a task, so Finance drops behind it.
+    setup([tasks[2]]);
+    expect(screen.getAllByRole('tab').map((c) => c.textContent)).toEqual(['General', 'Finance']);
+
+    // With both populated the user-defined order stands.
+    setup(tasks);
+    expect(screen.getAllByRole('tab').map((c) => c.textContent)).toEqual([
+      'General',
+      'Finance',
+      'Finance',
+      'General',
+    ]);
+  });
 });
 
 describe('TaskCarouselView — row gestures', () => {
@@ -233,18 +248,19 @@ describe('TaskCarouselView — row gestures', () => {
 });
 
 describe('TaskCarouselView — grouping by type', () => {
-  it('builds a chip and column per work type, in enum order', () => {
+  it('builds a chip and column per work type, non-empty ones first', () => {
     setup(tasks, 'type');
     const chips = screen.getAllByRole('tab').map((c) => c.textContent);
-    // Every type gets a column, plus "No type" for the two untyped tasks.
+    // Only "Out & about" holds a task, and "No type" the two untyped ones;
+    // the rest are empty and fall to the end in enum order.
     expect(chips).toEqual([
+      'Out & about',
+      'No type',
       'Calls',
       'Deep work',
-      'Out & about',
       'Blocked',
       'Decide',
       'Quick',
-      'No type',
     ]);
   });
 

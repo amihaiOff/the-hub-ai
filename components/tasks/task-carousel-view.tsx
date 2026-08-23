@@ -412,7 +412,7 @@ function buildColumns(
     if (untyped?.length) {
       columns.push({ key: NO_TYPE, label: 'No type', color: null, tasks: untyped });
     }
-    return columns;
+    return emptyLast(columns);
   }
 
   const columns: CarouselColumn[] = categories.map((c) => ({
@@ -428,7 +428,19 @@ function buildColumns(
   if (orphans?.length) {
     columns.push({ key: NO_CATEGORY_ID, label: 'Uncategorized', color: null, tasks: orphans });
   }
-  return columns;
+  return emptyLast(columns);
+}
+
+/**
+ * Push the empty groups to the end so swiping walks the columns that actually
+ * hold work first. Stable within each half, so categories keep their
+ * user-defined `sortOrder` and types their enum order.
+ */
+function emptyLast(columns: CarouselColumn[]): CarouselColumn[] {
+  return [
+    ...columns.filter((c) => c.tasks.length > 0),
+    ...columns.filter((c) => c.tasks.length === 0),
+  ];
 }
 
 /**

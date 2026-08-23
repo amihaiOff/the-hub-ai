@@ -696,7 +696,9 @@ track with **one column per group**, sized so the neighbouring columns peek in
 at both edges. The **group-by control** in the toolbar picks the axis —
 **Category** (default) or **Type**; a type-grouped header shows that type's
 icon in place of the category colour dot, and switching axis resets to the
-first column. Tapping a chip snaps to that column and swiping the track
+first column. **Empty groups sort to the end** (stably, so the rest keep their
+category `sortOrder` / type enum order) — swiping walks the columns that hold
+work first. Tapping a chip snaps to that column and swiping the track
 highlights the matching chip; the track's height follows the active column so a
 short group leaves no dead space. Rows are compact — done toggle ·
 priority-coloured bar · title (`dir="auto"`, so Hebrew titles right-align) ·
