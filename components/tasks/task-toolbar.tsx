@@ -38,10 +38,11 @@ const GROUP_OPTIONS: { id: GroupBy; label: string }[] = [
   { id: 'category', label: 'Category' },
 ];
 
-/** The carousel only has columns for the two axes with a fixed set of values. */
+/** The carousel groups along an axis with a fixed set of column values. */
 const CAROUSEL_GROUP_OPTIONS: { id: CarouselGroupBy; label: string }[] = [
   { id: 'category', label: 'Category' },
   { id: 'type', label: 'Type' },
+  { id: 'priority', label: 'Priority' },
 ];
 
 const CALENDAR_OPTIONS: { id: CalendarMode; label: string }[] = [

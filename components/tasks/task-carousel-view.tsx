@@ -5,7 +5,7 @@ import { Plus, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCreateTask, type TaskCategoryRow, type TaskRow } from '@/lib/hooks/use-tasks';
 import { useLongPress } from '@/lib/hooks/use-long-press';
-import { TASK_TYPES } from '@/lib/validations/tasks';
+import { TASK_TYPES, TASK_PRIORITIES } from '@/lib/validations/tasks';
 import { useToggleTaskDone } from './task-undo';
 import { DoneToggle, PRIORITY_BORDER, TYPE_META } from './task-list-view';
 import { prettyPriority, prettyStatus, prettyType } from './task-filters-bar';
@@ -15,7 +15,7 @@ export const NO_CATEGORY_ID = '__none__';
 export const NO_TYPE = '__notype__';
 
 /** The axis the carousel's columns run along. */
-export type CarouselGroupBy = 'category' | 'type';
+export type CarouselGroupBy = 'category' | 'type' | 'priority';
 
 interface TaskCarouselViewProps {
   tasks: TaskRow[];
@@ -413,10 +413,28 @@ function buildColumns(
 ): CarouselColumn[] {
   const buckets = new Map<string, TaskRow[]>();
   for (const t of tasks) {
-    const key = groupBy === 'type' ? (t.type ?? NO_TYPE) : (t.categoryId ?? NO_CATEGORY_ID);
+    const key =
+      groupBy === 'type'
+        ? (t.type ?? NO_TYPE)
+        : groupBy === 'priority'
+          ? t.priority
+          : (t.categoryId ?? NO_CATEGORY_ID);
     const bucket = buckets.get(key);
     if (bucket) bucket.push(t);
     else buckets.set(key, [t]);
+  }
+
+  if (groupBy === 'priority') {
+    // Every task has a priority (schema default), so there's no catch-all
+    // column. Order most-urgent first — TASK_PRIORITIES runs low→urgent, so
+    // reverse it — and colour each header dot with the priority accent.
+    const columns: CarouselColumn[] = [...TASK_PRIORITIES].reverse().map((p) => ({
+      key: p,
+      label: prettyPriority(p),
+      color: PRIORITY_BORDER[p],
+      tasks: buckets.get(p) ?? [],
+    }));
+    return emptyLast(columns);
   }
 
   if (groupBy === 'type') {

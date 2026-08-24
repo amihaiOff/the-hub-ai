@@ -76,7 +76,7 @@ const PRIORITY_ORDER: Record<TaskRow['priority'], number> = {
 };
 
 export function TasksClient() {
-  const [view, setView] = useState<ViewMode>('kanban');
+  const [view, setView] = useState<ViewMode>('carousel');
   const [search, setSearch] = useState('');
   const [groupBy, setGroupBy] = useState<GroupBy>('category');
   // The carousel groups along its own axis (category or work type) — kept
@@ -258,141 +258,158 @@ export function TasksClient() {
   };
 
   return (
-    <div className="space-y-5">
-      <h1 className="page-title text-4xl font-bold tracking-tight">Tasks</h1>
-      {/* Selection bar replaces the toolbar while picking multiple tasks. */}
-      {selectionMode ? (
-        <div className="space-y-2">
-          <div className="border-border/60 bg-card flex items-center justify-between gap-3 rounded-2xl border px-3 py-2">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={exitSelection}
-                aria-label="Cancel selection"
-                className="hover:bg-muted/60 flex h-9 w-9 items-center justify-center rounded-xl"
+    // Fill the viewport height so the Archive can be pinned to the bottom: the
+    // flex-1 content region below grows to push the Archive down on a short
+    // page, while the Archive's own `sticky bottom-0` keeps it at the bottom
+    // edge while scrolling a long list. The min-height subtracts an
+    // approximation of the shell chrome (mobile header / desktop top padding).
+    <div className="flex min-h-[calc(100dvh-6rem)] flex-col">
+      <div className="flex-1 space-y-5">
+        <h1 className="page-title text-4xl font-bold tracking-tight">Tasks</h1>
+        {/* Selection bar replaces the toolbar while picking multiple tasks. */}
+        {selectionMode ? (
+          <div className="space-y-2">
+            <div className="border-border/60 bg-card flex items-center justify-between gap-3 rounded-2xl border px-3 py-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={exitSelection}
+                  aria-label="Cancel selection"
+                  className="hover:bg-muted/60 flex h-9 w-9 items-center justify-center rounded-xl"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+                <span className="text-sm font-medium">{selectedIds.size} selected</span>
+              </div>
+              <Button
+                variant="ghost"
+                onClick={() => setConfirmOpen(true)}
+                disabled={selectedIds.size === 0}
+                className="text-destructive hover:bg-destructive/10 h-9 rounded-xl"
               >
-                <X className="h-5 w-5" />
-              </button>
-              <span className="text-sm font-medium">{selectedIds.size} selected</span>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              onClick={() => setConfirmOpen(true)}
-              disabled={selectedIds.size === 0}
-              className="text-destructive hover:bg-destructive/10 h-9 rounded-xl"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </Button>
+            {deleteError && <p className="text-destructive px-1 text-xs">{deleteError}</p>}
           </div>
-          {deleteError && <p className="text-destructive px-1 text-xs">{deleteError}</p>}
-        </div>
-      ) : (
-        /* Collapsible toolbar: search + view type + group by + manage
+        ) : (
+          /* Collapsible toolbar: search + view type + group by + manage
            categories, all aligned on the left. */
-        <TaskToolbar
-          search={search}
-          onSearchChange={setSearch}
-          view={view}
-          onViewChange={setView}
-          viewOptions={VIEW_OPTIONS}
-          groupBy={groupBy}
-          onGroupByChange={setGroupBy}
-          carouselGroupBy={carouselGroupBy}
-          onCarouselGroupByChange={setCarouselGroupBy}
-          calendarView={calendarView}
-          onCalendarViewChange={setCalendarView}
-          onManageCategories={() => setCategoryManagerOpen(true)}
-        />
-      )}
+          <TaskToolbar
+            search={search}
+            onSearchChange={setSearch}
+            view={view}
+            onViewChange={setView}
+            viewOptions={VIEW_OPTIONS}
+            groupBy={groupBy}
+            onGroupByChange={setGroupBy}
+            carouselGroupBy={carouselGroupBy}
+            onCarouselGroupByChange={setCarouselGroupBy}
+            calendarView={calendarView}
+            onCalendarViewChange={setCalendarView}
+            onManageCategories={() => setCategoryManagerOpen(true)}
+          />
+        )}
 
-      {/* Body */}
-      {isLoading && (
-        <div className="text-muted-foreground flex items-center gap-2 text-sm">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading tasks…
-        </div>
-      )}
+        {/* Body */}
+        {isLoading && (
+          <div className="text-muted-foreground flex items-center gap-2 text-sm">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading tasks…
+          </div>
+        )}
 
-      {error && (
-        <div className="border-destructive text-destructive rounded-2xl border px-4 py-3 text-sm">
-          {(error as Error).message}
-        </div>
-      )}
+        {error && (
+          <div className="border-destructive text-destructive rounded-2xl border px-4 py-3 text-sm">
+            {(error as Error).message}
+          </div>
+        )}
 
-      {!isLoading &&
-        activeTasks.length === 0 &&
-        doneTasks.length === 0 &&
-        !error &&
-        view !== 'calendar' && <TaskEmptyState onCreate={handleQuickAdd} />}
+        {!isLoading &&
+          activeTasks.length === 0 &&
+          doneTasks.length === 0 &&
+          !error &&
+          view !== 'calendar' && <TaskEmptyState onCreate={handleQuickAdd} />}
 
-      {/* Calendar renders even with no tasks so days can still be scheduled.
+        {/* Calendar renders even with no tasks so days can still be scheduled.
           Keyed on the mode so switching week/month re-anchors on today.
           Wrapped in a DndContext so archived tasks can be dragged onto a
           day cell to reschedule + un-archive in one gesture. */}
-      {!isLoading && !error && view === 'calendar' && (
-        <DndContext sensors={calendarDndSensors} onDragEnd={handleCalendarDragEnd}>
-          <div className="space-y-4">
-            <TaskCalendarView
-              key={calendarView}
-              mode={calendarView}
-              tasks={activeTasks}
-              onOpenTask={setDetailId}
-              onAddTaskOnDate={handleAddTaskOnDate}
-            />
-            {doneTasks.length > 0 && (
-              <TaskArchive tasks={doneTasks} onOpenTask={setDetailId} draggable />
-            )}
-          </div>
-        </DndContext>
-      )}
+        {!isLoading && !error && view === 'calendar' && (
+          <DndContext sensors={calendarDndSensors} onDragEnd={handleCalendarDragEnd}>
+            <div className="space-y-4">
+              <TaskCalendarView
+                key={calendarView}
+                mode={calendarView}
+                tasks={activeTasks}
+                onOpenTask={setDetailId}
+                onAddTaskOnDate={handleAddTaskOnDate}
+              />
+              {doneTasks.length > 0 && (
+                <TaskArchive tasks={doneTasks} onOpenTask={setDetailId} draggable />
+              )}
+            </div>
+          </DndContext>
+        )}
 
-      {activeTasks.length > 0 && view === 'list' && (
-        <TaskListView
-          tasks={activeTasks}
-          onOpenTask={setDetailId}
-          selectionMode={selectionMode}
-          selectedIds={selectedIds}
-          onEnterSelection={enterSelection}
-          onToggleSelection={toggleSelection}
-        />
-      )}
-      {activeTasks.length > 0 && view === 'kanban' && (
-        <TaskKanbanView
-          tasks={activeTasks}
-          categories={categories}
-          onOpenTask={setDetailId}
-          groupBy={groupBy}
-          selectionMode={selectionMode}
-          selectedIds={selectedIds}
-          onEnterSelection={enterSelection}
-          onToggleSelection={toggleSelection}
-        />
-      )}
-      {/* Carousel view — same component on mobile and desktop. On wide screens
+        {activeTasks.length > 0 && view === 'list' && (
+          <TaskListView
+            tasks={activeTasks}
+            onOpenTask={setDetailId}
+            selectionMode={selectionMode}
+            selectedIds={selectedIds}
+            onEnterSelection={enterSelection}
+            onToggleSelection={toggleSelection}
+          />
+        )}
+        {activeTasks.length > 0 && view === 'kanban' && (
+          <TaskKanbanView
+            tasks={activeTasks}
+            categories={categories}
+            onOpenTask={setDetailId}
+            groupBy={groupBy}
+            selectionMode={selectionMode}
+            selectedIds={selectedIds}
+            onEnterSelection={enterSelection}
+            onToggleSelection={toggleSelection}
+          />
+        )}
+        {/* Carousel view — same component on mobile and desktop. On wide screens
           many columns fit at once (fixed column width in the view); on narrow
           screens one column dominates with the next peeking in. */}
-      {activeTasks.length > 0 && view === 'carousel' && (
-        <TaskCarouselView
-          // Remount on an axis change so the track starts at column one.
-          key={carouselGroupBy}
-          tasks={activeTasks}
-          categories={categories}
-          onOpenTask={openTaskFullScreen}
-          groupBy={carouselGroupBy}
-        />
-      )}
-      {activeTasks.length > 0 && view === 'table' && (
-        <TaskTableView
-          tasks={activeTasks}
-          categories={categories}
-          tags={tags}
-          onOpenTask={setDetailId}
-        />
-      )}
+        {activeTasks.length > 0 && view === 'carousel' && (
+          <TaskCarouselView
+            // Remount on an axis change so the track starts at column one.
+            key={carouselGroupBy}
+            tasks={activeTasks}
+            categories={categories}
+            onOpenTask={openTaskFullScreen}
+            groupBy={carouselGroupBy}
+          />
+        )}
+        {activeTasks.length > 0 && view === 'table' && (
+          <TaskTableView
+            tasks={activeTasks}
+            categories={categories}
+            tags={tags}
+            onOpenTask={setDetailId}
+          />
+        )}
+      </div>
 
-      {/* Archive — done tasks, collapsed at the bottom. */}
+      {/* Archive — done tasks. Pinned to the bottom: on a short page the
+          flex-1 region above pushes it down to the screen bottom instead of
+          leaving it stranded right under the list; on a long page its
+          `sticky bottom-0` keeps it on the bottom edge while scrolling. The
+          translucent backdrop lets content scroll cleanly underneath, and the
+          bottom offset respects the iOS home-indicator safe area. */}
       {doneTasks.length > 0 && !selectionMode && view !== 'calendar' && (
-        <TaskArchive tasks={doneTasks} onOpenTask={setDetailId} />
+        <div
+          className="bg-background/85 sticky z-10 mt-5 pt-1 backdrop-blur"
+          style={{ bottom: 'env(safe-area-inset-bottom)' }}
+        >
+          <TaskArchive tasks={doneTasks} onOpenTask={setDetailId} />
+        </div>
       )}
 
       <TaskDetailSheet
