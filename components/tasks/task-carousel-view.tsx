@@ -224,9 +224,11 @@ export function TaskCarouselView({
                 <CarouselTaskRow
                   key={task.id}
                   task={task}
-                  // Grouping by type already puts the icon in the header —
-                  // repeating it on every row would be noise.
+                  // Grouping by an axis already puts it in the header, so drop
+                  // the per-row repeat: hide the type icon under a type column
+                  // and the priority bar under a priority column.
                   showTypeIcon={groupBy !== 'type'}
+                  showPriorityBar={groupBy !== 'priority'}
                   expanded={expandedId === task.id}
                   onToggleExpand={() =>
                     setExpandedId((current) => (current === task.id ? null : task.id))
@@ -316,12 +318,14 @@ function ColumnAddButton({
 function CarouselTaskRow({
   task,
   showTypeIcon,
+  showPriorityBar,
   expanded,
   onToggleExpand,
   onOpenFullScreen,
 }: {
   task: TaskRow;
   showTypeIcon: boolean;
+  showPriorityBar: boolean;
   expanded: boolean;
   onToggleExpand: () => void;
   onOpenFullScreen: () => void;
@@ -369,11 +373,13 @@ function CarouselTaskRow({
           onToggle={() => setDone(task, !task.done)}
           label={task.done ? `Mark “${task.title}” not done` : `Mark “${task.title}” done`}
         />
-        <span
-          className="h-5 w-1 shrink-0 rounded-full"
-          style={{ backgroundColor: PRIORITY_BORDER[task.priority] }}
-          aria-label={`Priority ${prettyPriority(task.priority)}`}
-        />
+        {showPriorityBar && (
+          <span
+            className="h-5 w-1 shrink-0 rounded-full"
+            style={{ backgroundColor: PRIORITY_BORDER[task.priority] }}
+            aria-label={`Priority ${prettyPriority(task.priority)}`}
+          />
+        )}
         {/* dir="auto" so Hebrew titles right-align and Latin ones left-align
             inside the same LTR row — the due label stays on the right.
             Titles wrap (no truncate); break-words keeps a long unbroken

@@ -54,7 +54,11 @@ export function TaskArchive({
       </button>
 
       {open && (
-        <div className="space-y-2 px-3 pb-3">
+        // Cap the height and scroll internally when pinned (non-draggable) so a
+        // large archive can't grow taller than the viewport and fight the
+        // parent's `sticky bottom-0`. The calendar's draggable archive is left
+        // uncapped — an overflow container would clip a row dragged out of it.
+        <div className={cn('space-y-2 px-3 pb-3', !draggable && 'max-h-[50vh] overflow-y-auto')}>
           {tasks.map((task) =>
             draggable ? (
               <ArchiveDraggableRow
