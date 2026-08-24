@@ -368,35 +368,18 @@ export function TasksClient() {
           onToggleSelection={toggleSelection}
         />
       )}
-      {/* Carousel is a mobile view: on lg+ it falls back to the category
-          kanban board, which is the same data with room to breathe. Split in
-          CSS rather than a media-query hook so there's no post-hydration flash
-          of the wrong board. */}
+      {/* Carousel view — same component on mobile and desktop. On wide screens
+          many columns fit at once (fixed column width in the view); on narrow
+          screens one column dominates with the next peeking in. */}
       {activeTasks.length > 0 && view === 'carousel' && (
-        <>
-          <div className="lg:hidden">
-            <TaskCarouselView
-              // Remount on an axis change so the track starts at column one.
-              key={carouselGroupBy}
-              tasks={activeTasks}
-              categories={categories}
-              onOpenTask={openTaskFullScreen}
-              groupBy={carouselGroupBy}
-            />
-          </div>
-          <div className="hidden lg:block">
-            <TaskKanbanView
-              tasks={activeTasks}
-              categories={categories}
-              onOpenTask={setDetailId}
-              groupBy={carouselGroupBy}
-              selectionMode={selectionMode}
-              selectedIds={selectedIds}
-              onEnterSelection={enterSelection}
-              onToggleSelection={toggleSelection}
-            />
-          </div>
-        </>
+        <TaskCarouselView
+          // Remount on an axis change so the track starts at column one.
+          key={carouselGroupBy}
+          tasks={activeTasks}
+          categories={categories}
+          onOpenTask={openTaskFullScreen}
+          groupBy={carouselGroupBy}
+        />
       )}
       {activeTasks.length > 0 && view === 'table' && (
         <TaskTableView

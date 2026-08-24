@@ -117,11 +117,28 @@ export function TaskCarouselView({
   useEffect(() => {
     const column = columnRefs.current[activeIndex];
     if (!column || typeof ResizeObserver === 'undefined') return;
-    const measure = () => setTrackHeight(column.offsetHeight);
+    // On md+ several columns are visible at once, so pinning the track to the
+    // active column's height would crop the others. Let the flex row grow to
+    // its tallest child instead; we only track a single column's height on
+    // narrow screens where exactly one is dominant.
+    const isNarrow = () => {
+      if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+        // Tests (jsdom) don't ship matchMedia; assume mobile so the existing
+        // height-tracking assertions keep passing.
+        return true;
+      }
+      return window.matchMedia('(max-width: 767px)').matches;
+    };
+    const measure = () => setTrackHeight(isNarrow() ? column.offsetHeight : undefined);
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(column);
-    return () => observer.disconnect();
+    const onResize = () => measure();
+    window.addEventListener('resize', onResize);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', onResize);
+    };
   }, [activeIndex, columns, expandedId]);
 
   // Keep the active chip in view when the carousel is driven by a swipe.
@@ -183,9 +200,11 @@ export function TaskCarouselView({
             ref={(el) => {
               columnRefs.current[i] = el;
             }}
-            // Narrower than the viewport so the next column peeks in on the
-            // right (and the previous one on the left once scrolled).
-            className="w-[calc(100%-3.5rem)] shrink-0 snap-start"
+            // Mobile: narrower than the viewport so the next column peeks in
+            // on both edges. md+: fixed 320px so as many columns as the
+            // viewport can hold sit side by side — on a wide screen the whole
+            // set fits, on a small laptop only part, and the rest scroll.
+            className="w-[calc(100%-3.5rem)] shrink-0 snap-start md:w-80"
           >
             <div className="flex items-center gap-2.5 px-1 pb-2">
               {col.icon ? (
