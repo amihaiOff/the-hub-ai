@@ -5,7 +5,7 @@ import { Plus, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCreateTask, type TaskCategoryRow, type TaskRow } from '@/lib/hooks/use-tasks';
 import { useLongPress } from '@/lib/hooks/use-long-press';
-import { TASK_TYPES } from '@/lib/validations/tasks';
+import { TASK_TYPES, TASK_PRIORITIES } from '@/lib/validations/tasks';
 import { useToggleTaskDone } from './task-undo';
 import { DoneToggle, PRIORITY_BORDER, TYPE_META } from './task-list-view';
 import { prettyPriority, prettyStatus, prettyType } from './task-filters-bar';
@@ -15,7 +15,7 @@ export const NO_CATEGORY_ID = '__none__';
 export const NO_TYPE = '__notype__';
 
 /** The axis the carousel's columns run along. */
-export type CarouselGroupBy = 'category' | 'type';
+export type CarouselGroupBy = 'category' | 'type' | 'priority';
 
 interface TaskCarouselViewProps {
   tasks: TaskRow[];
@@ -224,9 +224,11 @@ export function TaskCarouselView({
                 <CarouselTaskRow
                   key={task.id}
                   task={task}
-                  // Grouping by type already puts the icon in the header —
-                  // repeating it on every row would be noise.
+                  // Grouping by an axis already puts it in the header, so drop
+                  // the per-row repeat: hide the type icon under a type column
+                  // and the priority bar under a priority column.
                   showTypeIcon={groupBy !== 'type'}
+                  showPriorityBar={groupBy !== 'priority'}
                   expanded={expandedId === task.id}
                   onToggleExpand={() =>
                     setExpandedId((current) => (current === task.id ? null : task.id))
@@ -316,12 +318,14 @@ function ColumnAddButton({
 function CarouselTaskRow({
   task,
   showTypeIcon,
+  showPriorityBar,
   expanded,
   onToggleExpand,
   onOpenFullScreen,
 }: {
   task: TaskRow;
   showTypeIcon: boolean;
+  showPriorityBar: boolean;
   expanded: boolean;
   onToggleExpand: () => void;
   onOpenFullScreen: () => void;
@@ -369,11 +373,13 @@ function CarouselTaskRow({
           onToggle={() => setDone(task, !task.done)}
           label={task.done ? `Mark “${task.title}” not done` : `Mark “${task.title}” done`}
         />
-        <span
-          className="h-5 w-1 shrink-0 rounded-full"
-          style={{ backgroundColor: PRIORITY_BORDER[task.priority] }}
-          aria-label={`Priority ${prettyPriority(task.priority)}`}
-        />
+        {showPriorityBar && (
+          <span
+            className="h-5 w-1 shrink-0 rounded-full"
+            style={{ backgroundColor: PRIORITY_BORDER[task.priority] }}
+            aria-label={`Priority ${prettyPriority(task.priority)}`}
+          />
+        )}
         {/* dir="auto" so Hebrew titles right-align and Latin ones left-align
             inside the same LTR row — the due label stays on the right.
             Titles wrap (no truncate); break-words keeps a long unbroken
@@ -413,10 +419,28 @@ function buildColumns(
 ): CarouselColumn[] {
   const buckets = new Map<string, TaskRow[]>();
   for (const t of tasks) {
-    const key = groupBy === 'type' ? (t.type ?? NO_TYPE) : (t.categoryId ?? NO_CATEGORY_ID);
+    const key =
+      groupBy === 'type'
+        ? (t.type ?? NO_TYPE)
+        : groupBy === 'priority'
+          ? t.priority
+          : (t.categoryId ?? NO_CATEGORY_ID);
     const bucket = buckets.get(key);
     if (bucket) bucket.push(t);
     else buckets.set(key, [t]);
+  }
+
+  if (groupBy === 'priority') {
+    // Every task has a priority (schema default), so there's no catch-all
+    // column. Order most-urgent first — TASK_PRIORITIES runs low→urgent, so
+    // reverse it — and colour each header dot with the priority accent.
+    const columns: CarouselColumn[] = [...TASK_PRIORITIES].reverse().map((p) => ({
+      key: p,
+      label: prettyPriority(p),
+      color: PRIORITY_BORDER[p],
+      tasks: buckets.get(p) ?? [],
+    }));
+    return emptyLast(columns);
   }
 
   if (groupBy === 'type') {
