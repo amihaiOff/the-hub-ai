@@ -98,7 +98,14 @@ export function AppShell({ children }: AppShellProps) {
         tabIndex={-1}
         className="safe-px safe-pb overflow-x-clip lg:ml-64 lg:pt-10"
       >
-        <div className="mx-auto max-w-7xl p-4 lg:p-8">{children}</div>
+        {/* Tasks fills the full viewport width on desktop so the carousel
+            can lay out as many columns as fit. Every other route stays
+            capped at max-w-7xl for readable line lengths. */}
+        <div
+          className={pathname.startsWith('/tasks') ? 'p-4 lg:p-8' : 'mx-auto max-w-7xl p-4 lg:p-8'}
+        >
+          {children}
+        </div>
       </main>
     </div>
   );
