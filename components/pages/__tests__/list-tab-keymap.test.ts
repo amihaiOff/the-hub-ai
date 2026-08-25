@@ -134,37 +134,40 @@ describe('ListOutdentGuard — Tab', () => {
   });
 });
 
-describe('ListOutdentGuard — outdent leaves the items below alone', () => {
-  // ProseMirror's own liftListItem re-parents every following sibling into
-  // the item being lifted. That reads as "the bullets below moved with me",
-  // and afterwards they track the wrong parent — indent it and they indent
-  // too. These cases pin the outliner behaviour instead.
-  it('outdents the first child without taking its siblings along', () => {
+describe('ListOutdentGuard — outdent keeps the item in its vertical place', () => {
+  // Standard `liftListItem`: the outdented item stays where it is on screen and
+  // its following siblings nest underneath it. A previous hand-rolled command
+  // instead dropped the item BELOW its former siblings (a jarring reorder —
+  // "unindent moved it to the bottom of the group"); these cases guard against
+  // that regression.
+  it('outdents the first child in place; siblings below nest under it', () => {
     const editor = makeEditor(THREE_CHILDREN);
     placeCursorIn(editor, 'a');
 
     expect(pressTab(editor, { shift: true })).toBe(true);
-    expect(outline(editor)).toBe(['- parent', '  - b', '  - c', '- a'].join('\n'));
+    // 'a' stays second (not dropped below b/c); b and c become its children.
+    expect(outline(editor)).toBe(['- parent', '- a', '  - b', '  - c'].join('\n'));
     editor.destroy();
   });
 
-  it('outdents a middle child without taking the one below it along', () => {
+  it('outdents a middle child in place; the one below nests under it', () => {
     const editor = makeEditor(THREE_CHILDREN);
     placeCursorIn(editor, 'b');
 
     expect(pressTab(editor, { shift: true })).toBe(true);
-    expect(outline(editor)).toBe(['- parent', '  - a', '  - c', '- b'].join('\n'));
+    expect(outline(editor)).toBe(['- parent', '  - a', '- b', '  - c'].join('\n'));
     editor.destroy();
   });
 
-  it('carries the item\u2019s own children with it', () => {
+  it('keeps its own children and adopts following siblings', () => {
     const editor = makeEditor(
       '<ul><li><p>parent</p><ul><li><p>x</p><ul><li><p>kid</p></li></ul></li><li><p>y</p></li></ul></li></ul>'
     );
     placeCursorIn(editor, 'x');
 
     expect(pressTab(editor, { shift: true })).toBe(true);
-    expect(outline(editor)).toBe(['- parent', '  - y', '- x', '  - kid'].join('\n'));
+    // x lifts in place, keeping its own child 'kid' and adopting following 'y'.
+    expect(outline(editor)).toBe(['- parent', '- x', '  - kid', '  - y'].join('\n'));
     editor.destroy();
   });
 

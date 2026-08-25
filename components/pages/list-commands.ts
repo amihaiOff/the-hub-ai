@@ -1,5 +1,4 @@
 import type { Editor } from '@tiptap/core';
-import { TextSelection } from '@tiptap/pm/state';
 
 /**
  * List indent/outdent commands that are safe across editor configurations.
@@ -42,74 +41,19 @@ export function indentListItem(editor: Editor): boolean {
 }
 
 /**
- * Where the cursor's list item sits in the tree, or null when it isn't in one.
+ * Outdent the current list item one level, using ProseMirror's standard
+ * `liftListItem`. This keeps the item **in its vertical place** and re-parents
+ * any following siblings underneath it — the behaviour every outliner (Notion,
+ * Workflowy, Bear) uses and what users expect.
  *
- * `parentItemDepth` is the enclosing list item — present only for a nested
- * item, which is exactly when outdenting is meaningful.
- */
-function locateListItem(editor: Editor) {
-  const names = listItemNames(editor);
-  const { $from } = editor.state.selection;
-
-  let itemDepth = -1;
-  for (let d = $from.depth; d > 0; d--) {
-    if (names.includes($from.node(d).type.name)) {
-      itemDepth = d;
-      break;
-    }
-  }
-  if (itemDepth < 0) return null;
-
-  // listItem → list (ul/ol) → listItem, so the enclosing item is two up.
-  const listDepth = itemDepth - 1;
-  const parentItemDepth = itemDepth - 2;
-  const nested = parentItemDepth >= 1 && names.includes($from.node(parentItemDepth).type.name);
-
-  return { $from, itemDepth, listDepth, parentItemDepth, nested };
-}
-
-/**
- * Lift the current list item out one level, **leaving the items below it
- * where they are**.
- *
- * ProseMirror's own `liftListItem` deliberately re-parents any following
- * siblings into the item being lifted — that keeps their absolute indentation
- * but silently changes who their parent is, which reads to a user as "the
- * bullets below moved with me" (and then track the wrong parent forever
- * after: indent it and they indent too). Every outliner people actually use
- * (Notion, Workflowy, Bear) leaves the siblings under the original parent.
- *
- * So instead of lifting, we move: cut the item out of its sub-list and
- * re-insert it directly after the item that used to contain it. Its own
- * children travel with it, its former siblings don't move at all.
+ * A previous hand-rolled version tried to instead *move* the item after its old
+ * parent so siblings wouldn't re-parent — but that dropped the outdented item
+ * BELOW all its former siblings (a jarring reorder: "unindent moved it to the
+ * bottom of the group"). Standard lifting avoids that. Schema-safe name
+ * resolution (see `listItemNames`) keeps this from throwing on editors without
+ * a task list. The caller only invokes this when nested (see
+ * `canOutdentWithinList`), so a top-level item is never lifted into a paragraph.
  */
 export function outdentListItem(editor: Editor): boolean {
-  const loc = locateListItem(editor);
-  // Top-level items are left alone — outdenting one would drop it out of the
-  // list into a bare paragraph, which is never what the outdent control means.
-  if (!loc || !loc.nested) return false;
-
-  const { $from, itemDepth, listDepth, parentItemDepth } = loc;
-  const item = $from.node(itemDepth);
-  const itemStart = $from.before(itemDepth);
-  const itemEnd = $from.after(itemDepth);
-  const list = $from.node(listDepth);
-  const parentItemEnd = $from.after(parentItemDepth);
-  // Distance from the item's own start, so the caret lands in the same spot
-  // after the move.
-  const caretOffset = $from.pos - itemStart;
-
-  const { tr } = editor.state;
-  // Removing the last child would leave an empty list node behind; drop the
-  // whole list in that case.
-  if (list.childCount === 1) tr.delete($from.before(listDepth), $from.after(listDepth));
-  else tr.delete(itemStart, itemEnd);
-
-  const insertAt = tr.mapping.map(parentItemEnd);
-  tr.insert(insertAt, item);
-  tr.setSelection(TextSelection.near(tr.doc.resolve(insertAt + caretOffset)));
-
-  editor.view.dispatch(tr.scrollIntoView());
-  editor.view.focus();
-  return true;
+  return listItemNames(editor).some((name) => editor.chain().focus().liftListItem(name).run());
 }

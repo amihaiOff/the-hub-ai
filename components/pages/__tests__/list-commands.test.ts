@@ -92,4 +92,35 @@ describe('outdentListItem', () => {
     expect(() => outdentListItem(editor)).not.toThrow();
     editor.destroy();
   });
+
+  it('keeps the outdented first child in place — does not drop it below its siblings', () => {
+    // Regression: outdenting the FIRST child of a multi-item group used to move
+    // it AFTER all its former siblings (a jarring reorder). It must stay put.
+    const editor = makeEditor(
+      '<ul><li><p>group</p><ul>' +
+        '<li><p>a</p></li><li><p>b</p></li><li><p>c</p></li>' +
+        '</ul></li></ul>'
+    );
+    placeCursorIn(editor, 'a');
+    expect(outdentListItem(editor)).toBe(true);
+
+    // Vertical (document) order of item texts must be unchanged.
+    const order: string[] = [];
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === 'listItem') {
+        node.forEach((gc) => {
+          if (gc.type.name === 'paragraph' && !order.includes(gc.textContent)) {
+            order.push(gc.textContent);
+          }
+        });
+      }
+      return true;
+    });
+    expect(order).toEqual(['group', 'a', 'b', 'c']); // NOT group,b,c,a
+    // 'a' lifted to the top level, its former siblings b/c nested under it.
+    expect(editor.getHTML()).toContain(
+      '<li><p>a</p><ul><li><p>b</p></li><li><p>c</p></li></ul></li>'
+    );
+    editor.destroy();
+  });
 });

@@ -117,7 +117,12 @@ export function MobileEditorToolbar({
       .insertContentAt(info.start + info.size, info.node.toJSON())
       .run();
   };
-  const outdent = () => outdentListItem(editor);
+  // Re-check inside the handler (not just the disabled prop) so a stale render
+  // can never lift a top-level item out of the list — parity with ListIndentControls.
+  const outdent = () => {
+    if (!canOutdentWithinList(editor)) return;
+    outdentListItem(editor);
+  };
   const indent = () => indentListItem(editor);
   return (
     <>
