@@ -1,4 +1,5 @@
 import { Extension } from '@tiptap/core';
+import { joinTextblockBackward } from '@tiptap/pm/commands';
 import { canOutdentWithinList } from './list-indent-controls';
 import { indentListItem, isInList, outdentListItem } from './list-commands';
 
@@ -37,6 +38,54 @@ export const ListOutdentGuard = Extension.create({
         if (canOutdentWithinList(editor)) return outdentListItem(editor);
         // Top-level list item: consume the key so it can't leave the list.
         return true;
+      },
+    };
+  },
+});
+
+/**
+ * Backspace at the very start of a list item's first line MERGES it into the
+ * line above (standard editor behaviour), rather than StarterKit's `ListKeymap`
+ * default — which runs `liftListItem` unconditionally and thus *lifts the item
+ * out of the list*, splitting the list, ejecting a bare paragraph, and (for a
+ * bullet with children) promoting all of them. That made "delete a bullet in
+ * the middle of a list" reorganise everything.
+ *
+ * `joinTextblockBackward` gives the intuitive result in every case: a non-empty
+ * item's text merges into the previous line ("a"+"b" → "ab"); an empty item is
+ * removed cleanly (siblings stay adjacent, children re-nest under the previous
+ * item); a bullet after a paragraph merges into that paragraph. At the very
+ * first block of the document it returns false and we fall through to the
+ * default (nothing above to merge into).
+ *
+ * Only fires at the start of a list item's FIRST textblock — a second paragraph
+ * inside an item, or a mid-line caret, is left to default handling. Priority
+ * 1000 so it runs before ListKeymap's Backspace.
+ */
+export const ListBackspaceMerge = Extension.create({
+  name: 'listBackspaceMerge',
+  priority: 1000,
+  addKeyboardShortcuts() {
+    return {
+      Backspace: ({ editor }) => {
+        const { selection } = editor.state;
+        if (!selection.empty) return false; // let ranges delete normally
+        const { $from } = selection;
+        if ($from.parentOffset !== 0) return false; // not at the start of the line
+        // Require the caret to be in the FIRST child (textblock) of a list item.
+        let itemDepth = -1;
+        for (let d = $from.depth; d > 0; d--) {
+          const name = $from.node(d).type.name;
+          if (name === 'listItem' || name === 'taskItem') {
+            itemDepth = d;
+            break;
+          }
+        }
+        if (itemDepth < 0) return false; // not in a list item
+        if ($from.index(itemDepth) !== 0) return false; // 2nd+ block in the item
+        // Merge into the block above; returns false at the doc's first block,
+        // where we fall through to the default handler.
+        return joinTextblockBackward(editor.state, editor.view.dispatch);
       },
     };
   },

@@ -27,7 +27,7 @@ import {
 import { cn } from '@/lib/utils';
 import { uploadPageImage } from '@/lib/hooks/use-pages';
 import { Column, ColumnBlock } from './columns-extension';
-import { ListOutdentGuard } from './list-tab-keymap';
+import { ListOutdentGuard, ListBackspaceMerge } from './list-tab-keymap';
 import { MobileBlockDragHandle } from './mobile-block-drag-handle';
 import { AutoTextDirection } from './auto-text-direction';
 import { SlashMenuExtension } from './slash-menu';
@@ -128,6 +128,7 @@ export function PageBodyEditor({
         ...(allowDatabaseBlock ? [DatabaseBlock] : []),
         SlashMenuExtension,
         ListOutdentGuard,
+        ListBackspaceMerge,
         AutoTextDirection,
       ],
       content: (initialContent as object) ?? '',
