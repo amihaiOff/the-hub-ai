@@ -1837,21 +1837,29 @@ function TextCell({
   disabled: boolean;
   isPrimary?: boolean;
 }) {
+  // A URL-only value shouldn't line-wrap and blow up the row height. Percent-
+  // encoded links (see Hebrew slugs, e.g. `.../%D7%9E...`) can be hundreds of
+  // characters — `break-words` used to shatter them across 3–4 lines. Detect
+  // those and render single-line clipped instead.
+  const isUrlValue = /^https?:\/\/\S+$/.test(value.trim()) && !/\s/.test(value.trim());
+
   // Primary column reads as the row title — bold + full-strength text.
   // Non-primary cells stay in the softer body weight so the "name" column
   // clearly leads the eye, matching Notion.
   const typography = cn(
-    'px-3 py-3.5 text-sm leading-snug break-words whitespace-pre-wrap',
+    'px-3 py-3.5 text-sm leading-snug',
+    isUrlValue ? 'whitespace-nowrap overflow-hidden' : 'break-words whitespace-pre-wrap',
     isPrimary && 'font-semibold text-foreground'
   );
   return (
-    <div className="grid min-w-0">
+    <div className={cn('grid min-w-0', isUrlValue && 'overflow-hidden')}>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         rows={1}
         dir="auto"
+        title={isUrlValue ? value : undefined}
         className={cn(
           typography,
           'col-start-1 row-start-1 w-full resize-none overflow-hidden bg-transparent outline-none'
