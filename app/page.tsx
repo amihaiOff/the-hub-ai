@@ -1,12 +1,17 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { ChevronDown, ChevronRight, Wallet } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useDashboard } from '@/lib/hooks/use-dashboard';
 import { formatCurrency, convertFromILS } from '@/lib/utils/portfolio';
 import { useExchangeRates } from '@/lib/hooks/use-exchange-rates';
-import { NetWorthChart } from '@/components/dashboard/net-worth-chart';
+import { ChartSkeleton } from '@/components/shared/chart-skeleton';
+const NetWorthChart = dynamic(
+  () => import('@/components/dashboard/net-worth-chart').then((m) => m.NetWorthChart),
+  { ssr: false, loading: () => <ChartSkeleton height={256} /> }
+);
 import { CurrencySelector, type DashboardCurrency } from '@/components/dashboard/currency-selector';
 import { MoneytorBalancesCard } from '@/components/dashboard/moneytor-balances-card';
 import { TotalWorthCard } from '@/components/dashboard/total-worth-card';

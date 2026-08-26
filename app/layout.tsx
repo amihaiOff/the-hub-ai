@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from 'next';
 import { Lexend, Playfair_Display } from 'next/font/google';
 import { Suspense } from 'react';
 import './globals.css';
-import 'katex/dist/katex.min.css';
 import { AppShell, ServiceWorkerRegister } from '@/components/shared';
 import { QueryProvider } from '@/lib/providers/query-provider';
 import { SessionProvider } from '@/lib/providers/session-provider';

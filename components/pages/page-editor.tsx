@@ -40,7 +40,7 @@ import { Button } from '@/components/ui/button';
 import { useDesktopTabs } from '@/lib/hooks/use-desktop-tabs';
 import type { UpdatePageInput } from '@/lib/validations/pages';
 import { EmojiPicker } from './emoji-picker';
-import { PageBodyEditor } from './page-body-editor';
+import { PageBodyEditor } from './page-body-editor-lazy';
 import { PageTabBar } from './page-tab-bar';
 import { ManageTabsDialog } from './manage-tabs-dialog';
 

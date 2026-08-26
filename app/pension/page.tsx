@@ -1,13 +1,16 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { Building2 } from 'lucide-react';
 import { usePension } from '@/lib/hooks/use-pension';
-import {
-  AddAccountDialog,
-  AccountCard,
-  MoneytorPensionSection,
-  UploadDepositsDialog,
-} from '@/components/pension';
+import { AddAccountDialog, AccountCard, UploadDepositsDialog } from '@/components/pension';
+import { ChartSkeleton } from '@/components/shared/chart-skeleton';
+
+const MoneytorPensionSection = dynamic(
+  () =>
+    import('@/components/pension/moneytor-pension-section').then((m) => m.MoneytorPensionSection),
+  { ssr: false, loading: () => <ChartSkeleton height={320} /> }
+);
 
 export default function PensionPage() {
   const { data, isLoading, error } = usePension();

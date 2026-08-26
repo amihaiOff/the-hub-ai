@@ -7,6 +7,11 @@ const nextConfig: NextConfig = {
   // html-encoding-sniffer transitive dep pulls in an ESM-only package
   // that Vercel's serverless CJS wrapper couldn't `require`.
   serverExternalPackages: ['pdf-parse'],
+  // Tree-shake barrel imports from these packages so a route only bundles the
+  // icons / helpers it actually uses (cuts the high per-route chunk counts).
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'date-fns', 'recharts'],
+  },
   images: {
     remotePatterns: [
       {

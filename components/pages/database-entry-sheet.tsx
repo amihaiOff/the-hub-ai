@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useBackToClose } from '@/lib/hooks/use-back-to-close';
-import { PageBodyEditor } from './page-body-editor';
+import { PageBodyEditor } from './page-body-editor-lazy';
 import { coerceValue, getSelectColor, resolveOptionColor } from './database-block';
 import type {
   DatabaseCellValue,

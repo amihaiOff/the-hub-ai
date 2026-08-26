@@ -1,20 +1,15 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { TrendingUp, Home, HelpCircle, X } from 'lucide-react';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  Legend,
-  ReferenceLine,
-  CartesianGrid,
-} from 'recharts';
+import { ChartSkeleton } from '@/components/shared/chart-skeleton';
+import type { YearlyDataEntry } from './mortgage-charts';
+
+const MortgageChart = dynamic(() => import('./mortgage-charts').then((m) => m.MortgageChart), {
+  ssr: false,
+  loading: () => <ChartSkeleton height={350} />,
+});
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface ScheduleEntry {
@@ -37,17 +32,6 @@ interface ComparisonEntry {
   newTotalInterest: number;
   baseTotalPaid: number;
   newTotalPaid: number;
-}
-
-interface YearlyDataEntry {
-  year: number;
-  basePayment: number;
-  newPayment: number;
-  baseCumInterest: number;
-  newCumInterest: number;
-  interestSaved: number;
-  investmentValue: number;
-  reinvestedSavings: number;
 }
 
 interface SavingsGrowthEntry {
@@ -165,7 +149,6 @@ function investGrowth(amount: number, annualReturnPct: number, months: number): 
 
 // ─── Formatters ──────────────────────────────────────────────────────
 const fmt = (n: number): string => n.toLocaleString('he-IL', { maximumFractionDigits: 0 });
-const fmtK = (n: number): string => (Math.abs(n) >= 1000 ? (n / 1000).toFixed(0) + 'K' : fmt(n));
 
 // ─── Constants ───────────────────────────────────────────────────────
 const TRACKS: Track[] = [
@@ -830,43 +813,11 @@ export default function MortgageSimulatorPage() {
               <h3 className="text-foreground mb-4 text-sm">
                 Monthly Payment Over Time (All 3 Tracks Combined)
               </h3>
-              <ResponsiveContainer width="100%" height={350}>
-                <LineChart data={results.yearlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis
-                    dataKey="year"
-                    tick={{ fill: '#6b7280', fontSize: 11 }}
-                    label={{
-                      value: 'Year',
-                      fill: '#6b7280',
-                      fontSize: 11,
-                      position: 'bottom',
-                    }}
-                  />
-                  <YAxis
-                    tick={{ fill: '#6b7280', fontSize: 11 }}
-                    tickFormatter={(v) => `₪${fmtK(v)}`}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Line
-                    type="stepAfter"
-                    dataKey="basePayment"
-                    name="Base Payment"
-                    stroke="hsl(var(--muted-foreground))"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                  <Line
-                    type="stepAfter"
-                    dataKey="newPayment"
-                    name="After Lump Sum"
-                    stroke="#a8caff"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <MortgageChart
+                variant="overview"
+                data={results.yearlyData}
+                tooltip={<CustomTooltip />}
+              />
               <div className="text-muted-foreground mt-3 text-xs">
                 The lump sum only pays down the{' '}
                 <span className="text-foreground">{track.name}</span> track. The other two tracks
@@ -881,59 +832,22 @@ export default function MortgageSimulatorPage() {
           {activeTab === 'payments' && (
             <div className={cardClass}>
               <h3 className="text-foreground mb-4 text-sm">Monthly Savings (Base − New)</h3>
-              <ResponsiveContainer width="100%" height={350}>
-                <AreaChart data={results.yearlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="year" tick={{ fill: '#6b7280', fontSize: 11 }} />
-                  <YAxis
-                    tick={{ fill: '#6b7280', fontSize: 11 }}
-                    tickFormatter={(v) => `₪${fmtK(v)}`}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area
-                    type="monotone"
-                    dataKey={(d: YearlyDataEntry) => d.basePayment - d.newPayment}
-                    name="Monthly Savings"
-                    fill="#8fddb033"
-                    stroke="#8fddb0"
-                    strokeWidth={2}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              <MortgageChart
+                variant="payments"
+                data={results.yearlyData}
+                tooltip={<CustomTooltip />}
+              />
             </div>
           )}
 
           {activeTab === 'interest' && (
             <div className={cardClass}>
               <h3 className="text-foreground mb-4 text-sm">Cumulative Interest Paid</h3>
-              <ResponsiveContainer width="100%" height={350}>
-                <AreaChart data={results.yearlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="year" tick={{ fill: '#6b7280', fontSize: 11 }} />
-                  <YAxis
-                    tick={{ fill: '#6b7280', fontSize: 11 }}
-                    tickFormatter={(v) => `₪${fmtK(v)}`}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Area
-                    type="monotone"
-                    dataKey="baseCumInterest"
-                    name="Base Interest"
-                    fill="hsl(var(--muted-foreground) / 0.2)"
-                    stroke="hsl(var(--muted-foreground))"
-                    strokeWidth={2}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="newCumInterest"
-                    name="After Lump Sum"
-                    fill="#a8caff33"
-                    stroke="#a8caff"
-                    strokeWidth={2}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              <MortgageChart
+                variant="interest"
+                data={results.yearlyData}
+                tooltip={<CustomTooltip />}
+              />
             </div>
           )}
 
@@ -942,53 +856,12 @@ export default function MortgageSimulatorPage() {
               <h3 className="text-foreground mb-4 text-sm">
                 Scenario A (Invest Lump) vs Scenario B (Pay Down + Reinvest Freed Rent)
               </h3>
-              <ResponsiveContainer width="100%" height={350}>
-                <LineChart data={results.yearlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis
-                    dataKey="year"
-                    tick={{ fill: '#6b7280', fontSize: 11 }}
-                    label={{
-                      value: 'Year',
-                      fill: '#6b7280',
-                      fontSize: 11,
-                      position: 'bottom',
-                    }}
-                  />
-                  <YAxis
-                    tick={{ fill: '#6b7280', fontSize: 11 }}
-                    tickFormatter={(v) => `₪${fmtK(v)}`}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Line
-                    type="monotone"
-                    dataKey="investmentValue"
-                    name="A: Lump Sum Invested"
-                    stroke="#a8caff"
-                    strokeWidth={2.5}
-                    dot={false}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="reinvestedSavings"
-                    name="B: Reinvested Rent Savings"
-                    stroke="#c9b8f7"
-                    strokeWidth={2.5}
-                    dot={false}
-                  />
-                  <ReferenceLine
-                    y={results.totalLumpCost}
-                    stroke="#f5a5a566"
-                    strokeDasharray="5 5"
-                    label={{
-                      value: `Lump ₪${fmtK(results.totalLumpCost)}`,
-                      fill: '#f5a5a5',
-                      fontSize: 10,
-                    }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <MortgageChart
+                variant="investment"
+                data={results.yearlyData}
+                tooltip={<CustomTooltip />}
+                totalLumpCost={results.totalLumpCost}
+              />
               <div className="text-muted-foreground mt-3 text-xs">
                 Scenario A: ₪{fmt(results.totalLumpCost)} invested at {investReturn}% (
                 {afterTaxLabel}% after tax). Scenario B: monthly payment savings reinvested at same

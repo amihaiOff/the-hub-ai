@@ -10,6 +10,6 @@ export { HoldingsTable } from './holdings-table';
 export { CashBalancesSection } from './cash-balances-section';
 export { AccountCard } from './account-card';
 export { AccountSparkline } from './account-sparkline';
-export { AllocationChart } from './allocation-chart';
+export { AllocationChart } from './allocation-chart-lazy';
 export { CurrencyToggle } from './currency-toggle';
-export { PortfolioGainsChart } from './portfolio-gains-chart';
+export { PortfolioGainsChart } from './portfolio-gains-chart-lazy';

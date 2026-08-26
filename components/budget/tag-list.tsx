@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -13,7 +14,11 @@ import { ChevronDown, ChevronRight, MoreVertical, Pencil, Trash2, Loader2 } from
 import { type BudgetTag, type BudgetPayee, formatCurrencyILS } from '@/lib/utils/budget';
 import { useTransactions, usePayees } from '@/lib/hooks/use-budget';
 import { CategoryTransactionsMini } from './category-transactions-mini';
-import { TagTimeSeriesChart } from './tag-time-series-chart';
+import { ChartSkeleton } from '@/components/shared/chart-skeleton';
+const TagTimeSeriesChart = dynamic(
+  () => import('./tag-time-series-chart').then((m) => m.TagTimeSeriesChart),
+  { ssr: false, loading: () => <ChartSkeleton height={160} /> }
+);
 
 interface TagRowProps {
   tag: BudgetTag;

@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import katex from 'katex';
+// KaTeX styles load with the (lazily-imported) editor, not on every page.
+import 'katex/dist/katex.min.css';
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { cn } from '@/lib/utils';
 

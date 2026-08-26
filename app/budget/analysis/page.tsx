@@ -1,11 +1,25 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useAnalysisContext } from './layout';
 import { AnalysisSummaryCards } from '@/components/budget/analysis/analysis-summary-cards';
 import { InstitutionBreakdown } from '@/components/budget/analysis/institution-breakdown';
-import { IncomeSpendingChart } from '@/components/budget/analysis/income-spending-chart';
-import { CategoryTrendChart } from '@/components/budget/analysis/category-trend-chart';
-import { GroupTrendChart } from '@/components/budget/analysis/group-trend-chart';
+import { ChartSkeleton } from '@/components/shared/chart-skeleton';
+
+const IncomeSpendingChart = dynamic(
+  () =>
+    import('@/components/budget/analysis/income-spending-chart').then((m) => m.IncomeSpendingChart),
+  { ssr: false, loading: () => <ChartSkeleton height={288} /> }
+);
+const CategoryTrendChart = dynamic(
+  () =>
+    import('@/components/budget/analysis/category-trend-chart').then((m) => m.CategoryTrendChart),
+  { ssr: false, loading: () => <ChartSkeleton height={256} /> }
+);
+const GroupTrendChart = dynamic(
+  () => import('@/components/budget/analysis/group-trend-chart').then((m) => m.GroupTrendChart),
+  { ssr: false, loading: () => <ChartSkeleton height={256} /> }
+);
 
 export default function AnalysisOverallPage() {
   const { data, isLoading, error } = useAnalysisContext();
