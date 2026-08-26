@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Mock @stackframe/stack
 const mockUseUser = jest.fn();
@@ -95,8 +96,16 @@ describe('HouseholdContext', () => {
   };
 
   const createWrapper = () => {
+    // Fresh QueryClient per test (context now fetches via TanStack Query).
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
     return function Wrapper({ children }: { children: React.ReactNode }) {
-      return <HouseholdProvider>{children}</HouseholdProvider>;
+      return (
+        <QueryClientProvider client={queryClient}>
+          <HouseholdProvider>{children}</HouseholdProvider>
+        </QueryClientProvider>
+      );
     };
   };
 

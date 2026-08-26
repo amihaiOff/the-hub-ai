@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useUser } from '@/lib/hooks/use-auth';
 
 export interface HouseholdProfile {
@@ -49,142 +50,118 @@ const HouseholdContext = createContext<HouseholdContextValue | null>(null);
 const ACTIVE_HOUSEHOLD_KEY = 'hub-ai-active-household';
 const SELECTED_PROFILES_KEY = 'hub-ai-selected-profiles';
 
+const EMPTY_CONTEXT: HouseholdContextData = {
+  profile: null,
+  households: [],
+  activeHousehold: null,
+  householdProfiles: [],
+};
+
+/**
+ * Fetch the household context. 404 (needs onboarding) and 401 (not
+ * authenticated) resolve to an empty context rather than throwing, so the
+ * onboarding check (`profile === null`) still works.
+ */
+async function fetchContextData(householdId: string | null): Promise<HouseholdContextData> {
+  const url = householdId ? `/api/context?householdId=${householdId}` : '/api/context';
+  const response = await fetch(url);
+  if (!response.ok) {
+    if (response.status === 404 || response.status === 401) return EMPTY_CONTEXT;
+    throw new Error('Failed to fetch context');
+  }
+  const result = await response.json();
+  if (result.success && result.data) {
+    return {
+      profile: result.data.profile,
+      households: result.data.households,
+      activeHousehold: result.data.activeHousehold,
+      householdProfiles: result.data.householdProfiles,
+    };
+  }
+  return EMPTY_CONTEXT;
+}
+
 export function HouseholdProvider({ children }: { children: React.ReactNode }) {
   const user = useUser();
-  const [data, setData] = useState<HouseholdContextData>({
-    profile: null,
-    households: [],
-    activeHousehold: null,
-    householdProfiles: [],
-  });
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
-
-  // Fetch household context from API
-  const fetchContext = useCallback(async () => {
-    // Note: With Stack Auth, user will be null if not authenticated
-    // In dev mode with SKIP_AUTH, API still works without auth
-
+  const userId = (user as { id?: string } | null)?.id ?? 'anon';
+  const [activeHouseholdId, setActiveHouseholdIdState] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? localStorage.getItem(ACTIVE_HOUSEHOLD_KEY) : null
+  );
+  // The user's explicit profile-selection override (null = "no choice yet",
+  // defaults to all profiles). Seeded from localStorage.
+  const [profileOverride, setProfileOverride] = useState<string[] | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const stored = localStorage.getItem(SELECTED_PROFILES_KEY);
+    if (!stored) return null;
     try {
-      setIsLoading(true);
-      setError(null);
-
-      // Get stored active household ID
-      const storedHouseholdId =
-        typeof window !== 'undefined' ? localStorage.getItem(ACTIVE_HOUSEHOLD_KEY) : null;
-
-      const url = storedHouseholdId
-        ? `/api/context?householdId=${storedHouseholdId}`
-        : '/api/context';
-
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          // User needs onboarding
-          setData({
-            profile: null,
-            households: [],
-            activeHousehold: null,
-            householdProfiles: [],
-          });
-          return;
-        }
-        if (response.status === 401) {
-          // Not authenticated (production mode without login)
-          setData({
-            profile: null,
-            households: [],
-            activeHousehold: null,
-            householdProfiles: [],
-          });
-          return;
-        }
-        throw new Error('Failed to fetch context');
-      }
-
-      const result = await response.json();
-
-      if (result.success && result.data) {
-        const contextData: HouseholdContextData = {
-          profile: result.data.profile,
-          households: result.data.households,
-          activeHousehold: result.data.activeHousehold,
-          householdProfiles: result.data.householdProfiles,
-        };
-
-        setData(contextData);
-
-        // Store active household ID
-        if (contextData.activeHousehold) {
-          localStorage.setItem(ACTIVE_HOUSEHOLD_KEY, contextData.activeHousehold.id);
-        }
-
-        // Initialize selected profiles (default: all profiles)
-        const storedProfiles =
-          typeof window !== 'undefined' ? localStorage.getItem(SELECTED_PROFILES_KEY) : null;
-
-        if (storedProfiles) {
-          try {
-            const parsed = JSON.parse(storedProfiles);
-            // Filter to only valid profile IDs
-            const validIds = parsed.filter((id: string) =>
-              contextData.householdProfiles.some((p) => p.id === id)
-            );
-            setSelectedProfileIds(
-              validIds.length > 0 ? validIds : contextData.householdProfiles.map((p) => p.id)
-            );
-          } catch {
-            setSelectedProfileIds(contextData.householdProfiles.map((p) => p.id));
-          }
-        } else {
-          setSelectedProfileIds(contextData.householdProfiles.map((p) => p.id));
-        }
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Unknown error'));
-    } finally {
-      setIsLoading(false);
+      return JSON.parse(stored) as string[];
+    } catch {
+      return null;
     }
-  }, [user]);
+  });
 
-  // Fetch on mount and auth status change
+  // Cached via TanStack Query (keyed by user + active household) so navigating
+  // between pages — or a shell remount — reuses the context instead of
+  // re-fetching it every time (the old raw useEffect fetch re-fired on every
+  // mount, which is what made entering /budget slow).
+  const query = useQuery({
+    queryKey: ['context', userId, activeHouseholdId],
+    queryFn: () => fetchContextData(activeHouseholdId),
+    staleTime: 60 * 1000,
+  });
+
+  const data = query.data ?? EMPTY_CONTEXT;
+  const isLoading = query.isLoading;
+  const error = (query.error as Error | null) ?? null;
+
+  // Persist the resolved active household (side-effect only — no setState, so
+  // it doesn't trip react-hooks/set-state-in-effect).
+  const resolvedHouseholdId = data.activeHousehold?.id;
   useEffect(() => {
-    fetchContext();
-  }, [fetchContext]);
+    if (resolvedHouseholdId) localStorage.setItem(ACTIVE_HOUSEHOLD_KEY, resolvedHouseholdId);
+  }, [resolvedHouseholdId]);
 
-  // Set active household
+  // Effective selection, derived during render: the user's override filtered to
+  // profiles that still exist, defaulting to all profiles. No effect / setState
+  // dance, so cached navigations never clobber the current selection.
+  const selectedProfileIds = useMemo(() => {
+    const allIds = data.householdProfiles.map((p) => p.id);
+    if (!profileOverride) return allIds;
+    const validIds = profileOverride.filter((id) => allIds.includes(id));
+    return validIds.length > 0 ? validIds : allIds;
+  }, [data.householdProfiles, profileOverride]);
+
+  // Set active household — updates the query key, which refetches (and caches)
+  // for that household. Unknown ids are ignored (matches prior behavior).
   const setActiveHouseholdId = useCallback(
     (id: string) => {
-      const household = data.households.find((h) => h.id === id);
-      if (household) {
-        localStorage.setItem(ACTIVE_HOUSEHOLD_KEY, id);
-        // Refetch to get new household profiles
-        fetchContext();
-      }
+      if (!data.households.some((h) => h.id === id)) return;
+      localStorage.setItem(ACTIVE_HOUSEHOLD_KEY, id);
+      setActiveHouseholdIdState(id);
     },
-    [data.households, fetchContext]
+    [data.households]
   );
 
-  // Select all profiles
-  const selectAllProfiles = useCallback(() => {
-    const allIds = data.householdProfiles.map((p) => p.id);
-    setSelectedProfileIds(allIds);
-    localStorage.setItem(SELECTED_PROFILES_KEY, JSON.stringify(allIds));
-  }, [data.householdProfiles]);
-
-  // Update selected profiles with persistence
-  const handleSetSelectedProfileIds = useCallback((ids: string[]) => {
-    setSelectedProfileIds(ids);
+  const setSelectedProfileIds = useCallback((ids: string[]) => {
+    setProfileOverride(ids);
     localStorage.setItem(SELECTED_PROFILES_KEY, JSON.stringify(ids));
   }, []);
 
-  // Check if profile is selected
+  const selectAllProfiles = useCallback(() => {
+    const allIds = data.householdProfiles.map((p) => p.id);
+    setProfileOverride(allIds);
+    localStorage.setItem(SELECTED_PROFILES_KEY, JSON.stringify(allIds));
+  }, [data.householdProfiles]);
+
   const isProfileSelected = useCallback(
     (profileId: string) => selectedProfileIds.includes(profileId),
     [selectedProfileIds]
   );
+
+  const queryRefetch = query.refetch;
+  const refetch = useCallback(async () => {
+    await queryRefetch();
+  }, [queryRefetch]);
 
   const value = useMemo<HouseholdContextValue>(
     () => ({
@@ -193,10 +170,10 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
       error,
       setActiveHouseholdId,
       selectedProfileIds,
-      setSelectedProfileIds: handleSetSelectedProfileIds,
+      setSelectedProfileIds,
       selectAllProfiles,
       isProfileSelected,
-      refetch: fetchContext,
+      refetch,
     }),
     [
       data,
@@ -204,10 +181,10 @@ export function HouseholdProvider({ children }: { children: React.ReactNode }) {
       error,
       setActiveHouseholdId,
       selectedProfileIds,
-      handleSetSelectedProfileIds,
+      setSelectedProfileIds,
       selectAllProfiles,
       isProfileSelected,
-      fetchContext,
+      refetch,
     ]
   );
 
