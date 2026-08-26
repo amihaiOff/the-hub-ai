@@ -172,12 +172,13 @@ function FilterControl({
     );
   }
 
-  if (value.kind === 'select') {
+  if (value.kind === 'select' || value.kind === 'multiselect') {
+    const kind = value.kind;
     const options = column.options ?? [];
     const toggle = (optId: string) => {
       const has = value.optionIds.includes(optId);
       onChange({
-        kind: 'select',
+        kind,
         optionIds: has ? value.optionIds.filter((o) => o !== optId) : [...value.optionIds, optId],
       });
     };

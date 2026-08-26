@@ -10,18 +10,23 @@ import { DatabaseBlockView } from './database-block';
  * document JSON, no external persistence needed.
  */
 
-export type DatabaseColumnType = 'text' | 'number' | 'date' | 'select' | 'checkbox';
+export type DatabaseColumnType = 'text' | 'number' | 'date' | 'select' | 'multiselect' | 'checkbox';
 
 export interface DatabaseColumn {
   /** Stable per-column id. Persisted so referencing the column by name isn't required. */
   id: string;
   name: string;
   type: DatabaseColumnType;
-  /** Present for `select` columns. Each option carries a stable id + label + optional color key (see SELECT_COLORS in database-block). */
+  /** Present for `select` and `multiselect` columns. Each option carries a stable id + label + optional color key (see SELECT_COLORS in database-block). */
   options?: { id: string; label: string; color?: string }[];
 }
 
-export type DatabaseCellValue = string | number | boolean | null;
+/**
+ * A cell value. `string[]` is the `multiselect` shape — an array of the
+ * selected options' ids (empty array = nothing selected). Every other column
+ * type stores a scalar.
+ */
+export type DatabaseCellValue = string | number | boolean | string[] | null;
 
 export interface DatabaseRow {
   id: string;
@@ -154,14 +159,21 @@ function tryParseJson<T>(raw: string | null): T | null {
 
 export function makeColumn(name: string, type: DatabaseColumnType): DatabaseColumn {
   const col: DatabaseColumn = { id: newId('col'), name, type };
-  if (type === 'select') col.options = [];
+  if (type === 'select' || type === 'multiselect') col.options = [];
   return col;
+}
+
+/** Empty (unset) value for a column of the given type. */
+export function emptyCellValue(type: DatabaseColumnType): DatabaseCellValue {
+  if (type === 'checkbox') return false;
+  if (type === 'multiselect') return [];
+  return null;
 }
 
 export function makeRow(cols: DatabaseColumn[]): DatabaseRow {
   return {
     id: newId('row'),
-    cells: Object.fromEntries(cols.map((c) => [c.id, c.type === 'checkbox' ? false : null])),
+    cells: Object.fromEntries(cols.map((c) => [c.id, emptyCellValue(c.type)])),
   };
 }
 

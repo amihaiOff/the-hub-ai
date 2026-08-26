@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
-import { Calendar, CheckSquare, ChevronDown, Hash, List, Trash2, Type } from 'lucide-react';
+import { Calendar, CheckSquare, ChevronDown, Hash, List, Tags, Trash2, Type } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
@@ -32,6 +32,7 @@ const TYPE_ICON: Record<DatabaseColumnType, LucideIcon> = {
   date: Calendar,
   checkbox: CheckSquare,
   select: List,
+  multiselect: Tags,
 };
 
 interface DatabaseEntrySheetProps {
@@ -150,7 +151,11 @@ function EntryBody({
     timer.current = setTimeout(commit, BODY_COMMIT_MS);
   };
 
-  const primaryValue = primary ? ((row.cells[primary.id] as string) ?? '') : '';
+  // Only a text primary column has a meaningful scalar title; a non-text
+  // primary (select/multiselect/etc.) renders through FieldControl below, so
+  // guard the cast so an array value never becomes the sr-only dialog name.
+  const rawPrimary = primary ? row.cells[primary.id] : null;
+  const primaryValue = typeof rawPrimary === 'string' ? rawPrimary : '';
 
   return (
     <div className="space-y-6">
@@ -319,6 +324,10 @@ function FieldControl({
       );
     case 'select':
       return <SelectField column={column} value={value} disabled={disabled} onChange={onChange} />;
+    case 'multiselect':
+      return (
+        <MultiSelectField column={column} value={value} disabled={disabled} onChange={onChange} />
+      );
   }
 }
 
@@ -412,5 +421,64 @@ function SelectField({
         })}
       </SelectContent>
     </Select>
+  );
+}
+
+/**
+ * Multi-select field: the options rendered as toggle pills (wrapping), each
+ * colored and showing a check when selected. Inline (no dropdown) so several
+ * options are visible and tappable at once on mobile — mirrors the filter
+ * panel's multi-toggle. Value is an array of option ids.
+ */
+function MultiSelectField({
+  column,
+  value,
+  disabled,
+  onChange,
+}: {
+  column: DatabaseColumn;
+  value: DatabaseCellValue;
+  disabled: boolean;
+  onChange: (v: DatabaseCellValue) => void;
+}) {
+  const options = column.options ?? [];
+  const selectedIds = Array.isArray(value) ? value : [];
+  if (options.length === 0) {
+    return <span className="text-muted-foreground/60 text-sm">No options</span>;
+  }
+  const toggle = (optId: string) => {
+    if (disabled) return;
+    onChange(
+      selectedIds.includes(optId)
+        ? selectedIds.filter((id) => id !== optId)
+        : [...selectedIds, optId]
+    );
+  };
+  return (
+    <div className="flex flex-wrap gap-1.5 pt-0.5">
+      {options.map((opt, i) => {
+        const c = opt.color ? getSelectColor(opt.color) : resolveOptionColor(opt, i);
+        const on = selectedIds.includes(opt.id);
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => toggle(opt.id)}
+            disabled={disabled}
+            aria-pressed={on}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-opacity disabled:opacity-60',
+              on ? c.pill : 'text-muted-foreground ring-border/60 hover:bg-muted/50'
+            )}
+          >
+            <span
+              className={cn('h-1.5 w-1.5 rounded-full', on ? c.swatch : 'bg-muted-foreground/40')}
+              aria-hidden
+            />
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }

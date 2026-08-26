@@ -11,6 +11,7 @@ export type ColumnFilter =
   | { kind: 'number'; min: number | null; max: number | null }
   | { kind: 'date'; min: string | null; max: string | null }
   | { kind: 'select'; optionIds: string[] }
+  | { kind: 'multiselect'; optionIds: string[] }
   | { kind: 'checkbox'; want: 'checked' | 'unchecked' | 'any' };
 
 /** A fresh, inactive filter for a column of the given type. */
@@ -24,6 +25,8 @@ export function defaultFilterFor(type: DatabaseColumn['type']): ColumnFilter {
       return { kind: 'date', min: null, max: null };
     case 'select':
       return { kind: 'select', optionIds: [] };
+    case 'multiselect':
+      return { kind: 'multiselect', optionIds: [] };
     case 'checkbox':
       return { kind: 'checkbox', want: 'any' };
   }
@@ -39,6 +42,7 @@ export function isColumnFilterActive(f: ColumnFilter): boolean {
     case 'date':
       return !!f.min || !!f.max;
     case 'select':
+    case 'multiselect':
       return f.optionIds.length > 0;
     case 'checkbox':
       return f.want !== 'any';
@@ -63,6 +67,10 @@ export function seedValueForFilter(f: ColumnFilter): DatabaseCellValue | undefin
       return f.min ?? f.max ?? undefined;
     case 'select':
       return f.optionIds[0];
+    case 'multiselect':
+      // The seeded cell is an array; include the chosen option so the new row
+      // passes an ANY-match filter and stays visible.
+      return [f.optionIds[0]];
     case 'checkbox':
       return f.want === 'checked';
   }
@@ -102,6 +110,11 @@ export function cellMatchesFilter(value: DatabaseCellValue, f: ColumnFilter): bo
     case 'select':
       // `value` is a select option id (or null when unset).
       return typeof value === 'string' && f.optionIds.includes(value);
+
+    case 'multiselect':
+      // `value` is an array of option ids. ANY-match: the row passes if it
+      // carries at least one of the chosen options.
+      return Array.isArray(value) && value.some((v) => f.optionIds.includes(v));
 
     case 'checkbox':
       // Checkbox cells are booleans; treat null as unchecked.

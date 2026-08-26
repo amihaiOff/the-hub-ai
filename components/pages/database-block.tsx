@@ -28,6 +28,7 @@ import {
   Plus,
   Redo2,
   SquareCheckBig,
+  Tags,
   Trash2,
   Undo2,
   X,
@@ -120,6 +121,7 @@ const TYPE_META: Record<
   number: { label: 'Number', icon: Hash, color: 'text-blue-400' },
   date: { label: 'Date', icon: Calendar, color: 'text-emerald-400' },
   select: { label: 'Select', icon: ListChecks, color: 'text-violet-400' },
+  multiselect: { label: 'Multi-select', icon: Tags, color: 'text-pink-400' },
   checkbox: { label: 'Checkbox', icon: SquareCheckBig, color: 'text-amber-400' },
 };
 
@@ -555,8 +557,9 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
       columns.map((c) => {
         if (c.id !== colId) return c;
         const next: DatabaseColumn = { ...c, type };
-        if (type === 'select' && !next.options) next.options = [];
-        if (type !== 'select') delete next.options;
+        const hasOptions = type === 'select' || type === 'multiselect';
+        if (hasOptions && !next.options) next.options = [];
+        if (!hasOptions) delete next.options;
         return next;
       })
     );
@@ -1457,9 +1460,9 @@ function ColumnMenu({
             type="button"
             onClick={() => {
               onChangeType(t);
-              // Keep the menu open when switching TO select so the user can
-              // immediately edit options; otherwise close it.
-              if (t !== 'select') onClose();
+              // Keep the menu open when switching TO a select/multiselect so the
+              // user can immediately edit options; otherwise close it.
+              if (t !== 'select' && t !== 'multiselect') onClose();
             }}
             className={cn(
               'hover:bg-muted/60 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs',
@@ -1471,7 +1474,7 @@ function ColumnMenu({
         );
       })}
 
-      {column.type === 'select' && (
+      {(column.type === 'select' || column.type === 'multiselect') && (
         <div className="border-border/50 mt-1 border-t pt-1">
           <p className="text-muted-foreground px-2 pt-1 pb-1 text-[10px] font-semibold tracking-wider uppercase">
             Options
@@ -1700,8 +1703,8 @@ function ColumnMobileSheet({
             })}
           </div>
 
-          {/* Options (select only) */}
-          {column.type === 'select' && (
+          {/* Options (select / multi-select) */}
+          {(column.type === 'select' || column.type === 'multiselect') && (
             <>
               <p className="text-muted-foreground mt-5 mb-2 text-[10px] font-semibold tracking-wider uppercase">
                 Options
@@ -1947,6 +1950,10 @@ function CellEditor({
       );
     case 'select':
       return <SelectCell column={column} value={value} onChange={onChange} disabled={disabled} />;
+    case 'multiselect':
+      return (
+        <MultiSelectCell column={column} value={value} onChange={onChange} disabled={disabled} />
+      );
   }
 }
 
@@ -2147,6 +2154,169 @@ function SelectCell({
   );
 }
 
+/**
+ * Multi-select cell. Like {@link SelectCell} but the value is an array of
+ * option ids, rendered as multiple colored pills. The picker popover toggles
+ * membership and stays open (Notion-style) so several options can be added in
+ * one go; "Clear" empties the array.
+ */
+function MultiSelectCell({
+  column,
+  value,
+  onChange,
+  disabled,
+}: {
+  column: DatabaseColumn;
+  value: DatabaseCellValue;
+  onChange: (v: DatabaseCellValue) => void;
+  disabled: boolean;
+}) {
+  const options = column.options ?? [];
+  const selectedIds = Array.isArray(value) ? value : [];
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const popRef = useRef<HTMLDivElement | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const place = () => {
+      const rect = triggerRef.current!.getBoundingClientRect();
+      const width = Math.max(180, rect.width);
+      const left = Math.min(rect.left, window.innerWidth - width - 8);
+      setPos({ top: rect.bottom + 4, left, width });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node | null;
+      if (!t) return;
+      if (popRef.current?.contains(t)) return;
+      if (triggerRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const toggle = (optId: string) => {
+    onChange(
+      selectedIds.includes(optId)
+        ? selectedIds.filter((id) => id !== optId)
+        : [...selectedIds, optId]
+    );
+  };
+
+  // Render the selected pills in the order the options are declared, so a row's
+  // pills stay stable regardless of the click order that built the set.
+  const selectedOptions = options
+    .map((o, i) => ({ opt: o, i }))
+    .filter(({ opt }) => selectedIds.includes(opt.id));
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => !disabled && setOpen((o) => !o)}
+        disabled={disabled}
+        aria-label={`${column.name}: ${
+          selectedOptions.map(({ opt }) => opt.label).join(', ') || 'empty'
+        }`}
+        className="flex h-full w-full items-center justify-center px-3 py-3.5 text-center text-sm"
+      >
+        {selectedOptions.length > 0 ? (
+          <span className="flex flex-wrap items-center justify-center gap-1">
+            {selectedOptions.map(({ opt, i }) => {
+              const c = resolveOptionColor(opt, i);
+              return (
+                <span
+                  key={opt.id}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium',
+                    c.pill
+                  )}
+                >
+                  <span className={cn('h-1.5 w-1.5 rounded-full', c.swatch)} aria-hidden />
+                  {opt.label}
+                </span>
+              );
+            })}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/40 text-xs">—</span>
+        )}
+      </button>
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            ref={popRef}
+            style={{ position: 'fixed', top: pos.top, left: pos.left, minWidth: pos.width }}
+            className="bg-popover text-popover-foreground z-[100] max-h-64 overflow-y-auto rounded-xl border p-1 shadow-xl"
+          >
+            {selectedIds.length > 0 && (
+              <button
+                type="button"
+                onClick={() => onChange([])}
+                className="hover:bg-muted/60 text-muted-foreground flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs"
+              >
+                <X className="h-3 w-3" /> Clear
+              </button>
+            )}
+            {options.map((opt, i) => {
+              const c = resolveOptionColor(opt, i);
+              const on = selectedIds.includes(opt.id);
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  // Toggle without closing so multiple options can be added.
+                  onClick={() => toggle(opt.id)}
+                  aria-pressed={on}
+                  className="hover:bg-muted/60 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs"
+                >
+                  <span
+                    className={cn(
+                      'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border',
+                      on ? 'border-primary bg-primary text-primary-foreground' : 'border-border/70'
+                    )}
+                    aria-hidden
+                  >
+                    {on && <Check className="h-2.5 w-2.5" />}
+                  </span>
+                  <span className={cn('rounded-md px-1.5 py-0.5 ring-1', c.pill)}>{opt.label}</span>
+                </button>
+              );
+            })}
+            {options.length === 0 && (
+              <p className="text-muted-foreground px-2 py-2 text-xs">
+                No options — add some in the column menu.
+              </p>
+            )}
+          </div>,
+          document.body
+        )}
+    </>
+  );
+}
+
 // ─── Sort + type coercion helpers ────────────────────────────────────────
 
 function sortByType(col: DatabaseColumn, a: DatabaseCellValue, b: DatabaseCellValue): number {
@@ -2165,6 +2335,20 @@ function sortByType(col: DatabaseColumn, a: DatabaseCellValue, b: DatabaseCellVa
       const ib = opts.findIndex((o) => o.id === b);
       return (ia === -1 ? Infinity : ia) - (ib === -1 ? Infinity : ib);
     }
+    case 'multiselect': {
+      // Order by the first selected option's declared index; empty arrays sort
+      // last. (Values are arrays here, so the null-guard above doesn't apply.)
+      const opts = col.options ?? [];
+      const first = (v: DatabaseCellValue) => (Array.isArray(v) && v.length ? v[0] : null);
+      const fa = first(a);
+      const fb = first(b);
+      if (fa == null && fb == null) return 0;
+      if (fa == null) return 1;
+      if (fb == null) return -1;
+      const ia = opts.findIndex((o) => o.id === fa);
+      const ib = opts.findIndex((o) => o.id === fb);
+      return (ia === -1 ? Infinity : ia) - (ib === -1 ? Infinity : ib);
+    }
     case 'date':
     case 'text':
     default:
@@ -2173,19 +2357,26 @@ function sortByType(col: DatabaseColumn, a: DatabaseCellValue, b: DatabaseCellVa
 }
 
 export function coerceValue(raw: DatabaseCellValue, type: DatabaseColumnType): DatabaseCellValue {
-  if (raw == null) return type === 'checkbox' ? false : null;
+  if (raw == null) return type === 'checkbox' ? false : type === 'multiselect' ? [] : null;
   switch (type) {
     case 'text':
-      return String(raw);
+      // From a multiselect, join the raw option ids — we have no options table
+      // here to resolve labels, but this keeps the data rather than "[object]".
+      return Array.isArray(raw) ? raw.join(', ') : String(raw);
     case 'number': {
-      const n = Number(raw);
+      const n = Number(Array.isArray(raw) ? raw[0] : raw);
       return Number.isFinite(n) ? n : null;
     }
     case 'date':
       return typeof raw === 'string' ? raw : null;
     case 'checkbox':
-      return Boolean(raw);
+      return Array.isArray(raw) ? raw.length > 0 : Boolean(raw);
     case 'select':
+      // From a multiselect, keep the first option; otherwise pass a string id.
+      if (Array.isArray(raw)) return typeof raw[0] === 'string' ? raw[0] : null;
       return typeof raw === 'string' ? raw : null;
+    case 'multiselect':
+      if (Array.isArray(raw)) return raw.filter((x): x is string => typeof x === 'string');
+      return typeof raw === 'string' ? [raw] : [];
   }
 }

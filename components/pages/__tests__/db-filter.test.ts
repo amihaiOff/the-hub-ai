@@ -8,7 +8,7 @@ import {
 
 describe('defaultFilterFor / isColumnFilterActive', () => {
   it('creates an inactive filter per type', () => {
-    for (const type of ['text', 'number', 'date', 'select', 'checkbox'] as const) {
+    for (const type of ['text', 'number', 'date', 'select', 'multiselect', 'checkbox'] as const) {
       expect(isColumnFilterActive(defaultFilterFor(type))).toBe(false);
     }
   });
@@ -22,6 +22,8 @@ describe('defaultFilterFor / isColumnFilterActive', () => {
     expect(isColumnFilterActive({ kind: 'date', min: '2026-01-01', max: null })).toBe(true);
     expect(isColumnFilterActive({ kind: 'select', optionIds: [] })).toBe(false);
     expect(isColumnFilterActive({ kind: 'select', optionIds: ['o1'] })).toBe(true);
+    expect(isColumnFilterActive({ kind: 'multiselect', optionIds: [] })).toBe(false);
+    expect(isColumnFilterActive({ kind: 'multiselect', optionIds: ['o1'] })).toBe(true);
     expect(isColumnFilterActive({ kind: 'checkbox', want: 'any' })).toBe(false);
     expect(isColumnFilterActive({ kind: 'checkbox', want: 'checked' })).toBe(true);
   });
@@ -66,6 +68,15 @@ describe('cellMatchesFilter', () => {
     expect(cellMatchesFilter(null, f)).toBe(false);
   });
 
+  it('multiselect: ANY-match — the cell array must share an id with the chosen set', () => {
+    const f: ColumnFilter = { kind: 'multiselect', optionIds: ['o1', 'o3'] };
+    expect(cellMatchesFilter(['o1'], f)).toBe(true);
+    expect(cellMatchesFilter(['o2', 'o3'], f)).toBe(true);
+    expect(cellMatchesFilter(['o2'], f)).toBe(false);
+    expect(cellMatchesFilter([], f)).toBe(false);
+    expect(cellMatchesFilter(null, f)).toBe(false);
+  });
+
   it('checkbox: checked vs unchecked (null == unchecked)', () => {
     expect(cellMatchesFilter(true, { kind: 'checkbox', want: 'checked' })).toBe(true);
     expect(cellMatchesFilter(false, { kind: 'checkbox', want: 'checked' })).toBe(false);
@@ -81,6 +92,7 @@ describe('seedValueForFilter', () => {
     expect(seedValueForFilter({ kind: 'number', min: null, max: null })).toBeUndefined();
     expect(seedValueForFilter({ kind: 'date', min: null, max: null })).toBeUndefined();
     expect(seedValueForFilter({ kind: 'select', optionIds: [] })).toBeUndefined();
+    expect(seedValueForFilter({ kind: 'multiselect', optionIds: [] })).toBeUndefined();
     expect(seedValueForFilter({ kind: 'checkbox', want: 'any' })).toBeUndefined();
   });
 
@@ -92,6 +104,7 @@ describe('seedValueForFilter', () => {
       { kind: 'date', min: '2026-01-01', max: null },
       { kind: 'date', min: null, max: '2026-12-31' },
       { kind: 'select', optionIds: ['o2', 'o3'] },
+      { kind: 'multiselect', optionIds: ['o2', 'o3'] },
       { kind: 'checkbox', want: 'checked' },
       { kind: 'checkbox', want: 'unchecked' },
     ];
@@ -100,12 +113,16 @@ describe('seedValueForFilter', () => {
       expect(seed).not.toBeUndefined();
       // The seeded value must pass the very filter that produced it, so the
       // freshly added row stays visible.
-      expect(cellMatchesFilter(seed as string | number | boolean | null, f)).toBe(true);
+      expect(cellMatchesFilter(seed as string | number | boolean | string[] | null, f)).toBe(true);
     }
   });
 
   it('seeds a select cell with the first chosen option id', () => {
     expect(seedValueForFilter({ kind: 'select', optionIds: ['o7', 'o9'] })).toBe('o7');
+  });
+
+  it('seeds a multiselect cell with an array holding the first chosen option id', () => {
+    expect(seedValueForFilter({ kind: 'multiselect', optionIds: ['o7', 'o9'] })).toEqual(['o7']);
   });
 
   it('seeds checkbox from the desired state', () => {
