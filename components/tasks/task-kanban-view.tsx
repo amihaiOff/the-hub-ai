@@ -12,7 +12,7 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Check, ChevronRight, Plus } from 'lucide-react';
+import { Check, ChevronRight, ListTree, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   useCreateTask,
@@ -560,6 +560,7 @@ function DraggableKanbanCard({
                 <ChevronRight
                   className={cn('h-3.5 w-3.5 transition-transform', subtasksOpen && 'rotate-90')}
                 />
+                <ListTree className="h-3.5 w-3.5" aria-hidden />
                 <span>
                   {subtaskCount} sub-task{subtaskCount === 1 ? '' : 's'}
                 </span>

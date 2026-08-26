@@ -20,6 +20,7 @@ import { useLongPress } from '@/lib/hooks/use-long-press';
 import { useToggleTaskDone } from './task-undo';
 import { prettyStatus, prettyPriority, prettyType } from './task-filters-bar';
 import { Checkbox } from '@/components/ui/checkbox';
+import { SubtaskBadge } from './subtask-badge';
 import type { SelectionProps } from './task-selection';
 
 interface TaskListViewProps extends SelectionProps {
@@ -250,9 +251,7 @@ function TaskCard({
         >
           {task.title}
         </button>
-        {hasChildren && (
-          <span className="text-muted-foreground text-xs">{openChildren.length} sub</span>
-        )}
+        {hasChildren && <SubtaskBadge count={openChildren.length} />}
       </div>
 
       {/* Field rows */}

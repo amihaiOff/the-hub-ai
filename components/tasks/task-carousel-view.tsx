@@ -9,6 +9,7 @@ import { TASK_TYPES, TASK_PRIORITIES } from '@/lib/validations/tasks';
 import { useToggleTaskDone } from './task-undo';
 import { DoneToggle, PRIORITY_BORDER, TYPE_META } from './task-list-view';
 import { prettyPriority, prettyStatus, prettyType } from './task-filters-bar';
+import { SubtaskBadge } from './subtask-badge';
 import { QuickAddPopover, type QuickAddOptions } from './quick-add-popover';
 
 export const NO_CATEGORY_ID = '__none__';
@@ -358,6 +359,10 @@ function CarouselTaskRow({
   const status = prettyStatus(task.status);
   const typeMeta = task.type ? TYPE_META[task.type] : null;
   const TypeIcon = typeMeta?.icon;
+  // Open sub-task count from the list-included children (collapsed indicator).
+  const openSubtaskCount = canHaveSubtasks
+    ? (task.children ?? []).filter((c) => !c.done).length
+    : 0;
 
   return (
     <div
@@ -408,6 +413,7 @@ function CarouselTaskRow({
             aria-label={prettyType(task.type)}
           />
         )}
+        <SubtaskBadge count={openSubtaskCount} />
         {due && (
           <span className="text-muted-foreground shrink-0 text-xs whitespace-nowrap">{due}</span>
         )}
