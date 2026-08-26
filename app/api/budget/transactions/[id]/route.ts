@@ -208,29 +208,6 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       data: updateData,
     });
 
-    // When the user assigns a category to a transaction whose payee has no
-    // default, adopt this category as the payee's default. Otherwise the next
-    // sync creates a new row for the same payee (different amount → not a
-    // dedup hit) and it comes in uncategorized again — exactly the "yesterday
-    // I categorized this, today it's back" behaviour reported for recurring
-    // BIT / transfer payees. `neverDefault` and blacklisted payees are opt-out
-    // signals from the user, so leave those alone.
-    if (data.categoryId) {
-      const payeeId = data.payeeId ?? existingTransaction.payeeId;
-      if (payeeId) {
-        const payee = await prisma.budgetPayee.findFirst({
-          where: { id: payeeId, householdId },
-          select: { categoryId: true, neverDefault: true, isBlacklisted: true },
-        });
-        if (payee && !payee.categoryId && !payee.neverDefault && !payee.isBlacklisted) {
-          await prisma.budgetPayee.update({
-            where: { id: payeeId },
-            data: { categoryId: data.categoryId },
-          });
-        }
-      }
-    }
-
     // Update tags if provided
     if (data.tagIds !== undefined) {
       // Delete existing tags individually (Neon poolQueryViaFetch compatibility)
