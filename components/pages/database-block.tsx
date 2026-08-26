@@ -1837,29 +1837,47 @@ function TextCell({
   disabled: boolean;
   isPrimary?: boolean;
 }) {
-  // A URL-only value shouldn't line-wrap and blow up the row height. Percent-
-  // encoded links (see Hebrew slugs, e.g. `.../%D7%9E...`) can be hundreds of
-  // characters — `break-words` used to shatter them across 3–4 lines. Detect
-  // those and render single-line clipped instead.
-  const isUrlValue = /^https?:\/\/\S+$/.test(value.trim()) && !/\s/.test(value.trim());
+  // A URL-only value renders as a compact "link" affordance — a clickable
+  // blue underlined label — instead of exposing the raw URL. The raw string
+  // stays editable via the row detail view (long-press / open-row on the
+  // primary cell); this keeps the compact table readable when a cell holds
+  // a percent-encoded link that would otherwise blow up the row height.
+  const trimmed = value.trim();
+  const isUrlValue = /^https?:\/\/\S+$/.test(trimmed);
 
   // Primary column reads as the row title — bold + full-strength text.
   // Non-primary cells stay in the softer body weight so the "name" column
   // clearly leads the eye, matching Notion.
   const typography = cn(
-    'px-3 py-3.5 text-sm leading-snug',
-    isUrlValue ? 'whitespace-nowrap overflow-hidden' : 'break-words whitespace-pre-wrap',
+    'px-3 py-3.5 text-sm leading-snug break-words whitespace-pre-wrap',
     isPrimary && 'font-semibold text-foreground'
   );
+
+  if (isUrlValue) {
+    return (
+      <div className="min-w-0 px-3 py-3.5 text-sm leading-snug">
+        <a
+          href={trimmed}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          title={trimmed}
+          className="text-primary hover:text-primary/80 underline underline-offset-2"
+        >
+          link
+        </a>
+      </div>
+    );
+  }
+
   return (
-    <div className={cn('grid min-w-0', isUrlValue && 'overflow-hidden')}>
+    <div className="grid min-w-0">
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         rows={1}
         dir="auto"
-        title={isUrlValue ? value : undefined}
         className={cn(
           typography,
           'col-start-1 row-start-1 w-full resize-none overflow-hidden bg-transparent outline-none'
