@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useIsMobileViewport } from '@/lib/hooks/use-is-mobile-viewport';
 import {
   Dialog,
   DialogContent,
@@ -84,13 +85,17 @@ export function TasksClient() {
   const [carouselGroupBy, setCarouselGroupBy] = useState<CarouselGroupBy>('category');
   const [calendarView, setCalendarView] = useState<CalendarMode>('month');
   const [detailId, setDetailId] = useState<string | null>(null);
-  // The carousel view opens tasks full-screen (long press) instead of in the
-  // side sheet; every other surface keeps the sheet.
+  // The carousel view opens tasks full-screen on MOBILE (long press); on desktop
+  // every surface — including the carousel — opens the third-width side sheet.
+  const isMobile = useIsMobileViewport();
   const [detailFullScreen, setDetailFullScreen] = useState(false);
-  const openTaskFullScreen = useCallback((id: string) => {
-    setDetailFullScreen(true);
-    setDetailId(id);
-  }, []);
+  const openTaskFullScreen = useCallback(
+    (id: string) => {
+      setDetailFullScreen(isMobile);
+      setDetailId(id);
+    },
+    [isMobile]
+  );
 
   // Multi-select (entered by long-pressing a card).
   const [selectionMode, setSelectionMode] = useState(false);

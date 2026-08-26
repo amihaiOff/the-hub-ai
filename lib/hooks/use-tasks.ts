@@ -105,10 +105,11 @@ function toQuery(filters?: TaskFilters): string {
 
 // ─── Task queries ───────────────────────────────────────────────────────
 
-export function useTasks(filters?: TaskFilters) {
+export function useTasks(filters?: TaskFilters, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: taskKeys.list(filters),
     queryFn: () => fetchJson<TaskRow[]>(`/api/tasks${toQuery(filters)}`),
+    enabled: options?.enabled ?? true,
   });
 }
 

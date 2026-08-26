@@ -25,6 +25,8 @@ jest.mock('../task-undo', () => ({
 const createMutate = jest.fn();
 jest.mock('@/lib/hooks/use-tasks', () => ({
   useCreateTask: jest.fn(() => ({ mutate: createMutate, isPending: false })),
+  // Sub-task fetch used by an expanded carousel row (disabled unless expanded).
+  useTasks: jest.fn(() => ({ data: [] })),
 }));
 
 import { TaskCarouselView, relativeDueLabel, type CarouselGroupBy } from '../task-carousel-view';

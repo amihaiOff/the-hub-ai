@@ -91,7 +91,9 @@ export function TaskDetailSheet({
             ? // Edge-to-edge: no rounding, no max width, and safe-area padding
               // so the title clears the notch and the footer the home indicator.
               'safe-pt safe-pb inset-0 w-full max-w-none rounded-none border-none px-5 [--safe-pb-base:1.25rem] [--safe-pt-base:3rem] sm:max-w-none'
-            : 'w-full rounded-l-3xl p-6 pt-12 sm:max-w-lg'
+            : // Full-width on mobile; a third of the screen on desktop (with a
+              // sensible min so it isn't cramped on smaller laptops).
+              'w-full rounded-l-3xl p-6 pt-12 sm:w-1/3 sm:max-w-none sm:min-w-[420px]'
         )}
       >
         {taskId && (
@@ -122,6 +124,10 @@ function SheetInner({
   const [stack, setStack] = useState<string[]>([]);
   const [currentId, setCurrentId] = useState<string>(rootTaskId);
   const { data: task, isLoading } = useTask(currentId);
+  // The immediate parent (top of the stack) — used to label the "back" button.
+  // It's already cached from when we drilled in, so this resolves instantly.
+  const parentId = stack[stack.length - 1];
+  const { data: parentTask } = useTask(parentId ?? '');
 
   const pushChild = useCallback(
     (childId: string) => {
@@ -161,6 +167,7 @@ function SheetInner({
       task={task}
       categories={categories}
       canGoBack={stack.length > 0}
+      parentTitle={parentTask?.title}
       onGoBack={popToParent}
       onOpenSubtask={pushChild}
       onDeleted={popToParent}
@@ -172,6 +179,7 @@ function TaskDetailBody({
   task,
   categories,
   canGoBack,
+  parentTitle,
   onGoBack,
   onOpenSubtask,
   onDeleted,
@@ -179,6 +187,7 @@ function TaskDetailBody({
   task: TaskRow;
   categories: TaskCategoryRow[];
   canGoBack: boolean;
+  parentTitle?: string;
   onGoBack: () => void;
   onOpenSubtask: (id: string) => void;
   onDeleted: () => void;
@@ -264,8 +273,10 @@ function TaskDetailBody({
           onClick={onGoBack}
           className="text-muted-foreground hover:text-foreground -ml-1 flex items-center gap-1.5 text-xs font-medium"
         >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back to parent
+          <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">
+            {parentTitle ? `Back to ${parentTitle}` : 'Back to parent'}
+          </span>
         </button>
       )}
       {/* Title — textarea so a long title wraps on mobile instead of

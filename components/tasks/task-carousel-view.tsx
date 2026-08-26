@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useCreateTask, type TaskCategoryRow, type TaskRow } from '@/lib/hooks/use-tasks';
+import { useCreateTask, useTasks, type TaskCategoryRow, type TaskRow } from '@/lib/hooks/use-tasks';
 import { useLongPress } from '@/lib/hooks/use-long-press';
 import { TASK_TYPES, TASK_PRIORITIES } from '@/lib/validations/tasks';
 import { useToggleTaskDone } from './task-undo';
@@ -234,6 +234,7 @@ export function TaskCarouselView({
                     setExpandedId((current) => (current === task.id ? null : task.id))
                   }
                   onOpenFullScreen={() => onOpenTask(task.id)}
+                  onOpenTask={onOpenTask}
                 />
               ))}
               {col.tasks.length === 0 && (
@@ -322,6 +323,7 @@ function CarouselTaskRow({
   expanded,
   onToggleExpand,
   onOpenFullScreen,
+  onOpenTask,
 }: {
   task: TaskRow;
   showTypeIcon: boolean;
@@ -329,8 +331,20 @@ function CarouselTaskRow({
   expanded: boolean;
   onToggleExpand: () => void;
   onOpenFullScreen: () => void;
+  onOpenTask: (id: string) => void;
 }) {
   const setDone = useToggleTaskDone();
+  // Only top-level tasks host sub-tasks (schema is one level deep). Fetch them
+  // lazily — only while this row is expanded — so the collapsed carousel stays
+  // cheap.
+  const canHaveSubtasks = task.parentTaskId == null;
+  // Truly disabled while collapsed — the `enabled` gate (not just an undefined
+  // arg) stops any fetch, even when a search filter is active on the main list.
+  const subtasksQuery = useTasks(
+    { parentTaskId: task.id },
+    { enabled: expanded && canHaveSubtasks }
+  );
+  const subtasks = subtasksQuery.data ?? [];
   // bindRef (native passive listeners) rather than the synthetic handlers —
   // these rows live in a scroller and React's non-passive delegates stall the
   // first touch scroll on iOS. moveTolerance is small so a horizontal swipe of
@@ -399,11 +413,59 @@ function CarouselTaskRow({
         )}
       </div>
 
-      {/* Expanded: status and due date each get their own line. */}
+      {/* Expanded: status + due date, then any sub-tasks. */}
       {expanded && (
-        <div className="text-muted-foreground mt-1.5 space-y-0.5 pl-11 text-xs">
-          <p>{status ? `Status: ${status}` : 'No status'}</p>
-          <p>{task.dueDate ? `Due ${formatDueDate(task.dueDate)}` : 'No due date'}</p>
+        <div className="mt-1.5 space-y-0.5 pl-11">
+          <p className="text-muted-foreground text-xs">
+            {status ? `Status: ${status}` : 'No status'}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            {task.dueDate ? `Due ${formatDueDate(task.dueDate)}` : 'No due date'}
+          </p>
+          {canHaveSubtasks && subtasks.length > 0 && (
+            <div className="mt-2 space-y-0.5">
+              <p className="text-muted-foreground/60 text-[10px] font-semibold tracking-wider uppercase">
+                Sub-tasks
+              </p>
+              {subtasks.map((sub) => (
+                // role=button (not a real <button>) so the DoneToggle button can
+                // nest legally — mirrors the parent row. stopPropagation so
+                // tapping a sub-task opens it instead of collapsing the parent.
+                <div
+                  key={sub.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenTask(sub.id);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onOpenTask(sub.id);
+                    }
+                  }}
+                  className="hover:bg-muted/40 flex w-full cursor-pointer items-center gap-2 rounded-lg px-1.5 py-1 text-left transition-colors"
+                >
+                  <DoneToggle
+                    done={sub.done}
+                    onToggle={() => setDone(sub, !sub.done)}
+                    label={sub.done ? `Mark “${sub.title}” not done` : `Mark “${sub.title}” done`}
+                  />
+                  <span
+                    dir="auto"
+                    className={cn(
+                      'min-w-0 flex-1 truncate text-sm',
+                      sub.done && 'text-muted-foreground line-through'
+                    )}
+                  >
+                    {sub.title || 'Untitled'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
