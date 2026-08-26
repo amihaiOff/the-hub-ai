@@ -17,6 +17,7 @@ import {
   Columns2,
   Image as ImageIcon,
   Italic,
+  ListChecks,
   Link2,
   Quote,
   Redo2,
@@ -330,6 +331,27 @@ function Toolbar({ editor }: { editor: Editor }) {
       label: 'Quote',
       on: () => editor.chain().focus().toggleBlockquote().run(),
       active: () => editor.isActive('blockquote'),
+    },
+    {
+      icon: ListChecks,
+      label: 'To-do list',
+      // toggleTaskList is provided by StarterKit's TaskList/TaskItem;
+      // safety-guarded here the same way the slash menu does it.
+      on: () => {
+        const anyEditor = editor as unknown as {
+          can: () => { toggleTaskList?: () => boolean };
+        };
+        if (anyEditor.can().toggleTaskList?.()) {
+          (
+            editor.chain().focus() as unknown as {
+              toggleTaskList: () => { run: () => boolean };
+            }
+          )
+            .toggleTaskList()
+            .run();
+        }
+      },
+      active: () => editor.isActive('taskList'),
     },
     { icon: Link2, label: 'Link', on: addLink, active: () => editor.isActive('link') },
     { icon: ImageIcon, label: 'Image', on: openImagePicker, active: () => false },
