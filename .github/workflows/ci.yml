@@ -112,6 +112,10 @@ jobs:
         env:
           DATABASE_URL: 'postgresql://localhost:5432/hub_ai'
 
+      # Hard-fail if client JS grows past the committed budget (perf-budgets.json).
+      - name: Check bundle budget
+        run: node scripts/check-bundle-budget.mjs
+
   migrate:
     name: Deploy Migrations
     runs-on: ubuntu-latest
