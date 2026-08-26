@@ -368,7 +368,14 @@
   .page-columns > .page-columns-content > :first-child {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    /* Row-gap only: mobile stacks the two columns and needs breathing
+       room between them. In desktop row-mode we want zero column-gap so
+       column 2's `border-left` and the drag handle land on the exact
+       same x — previously the 1rem column-gap pushed the border a rem
+       to the right of the handle, so the divider you see and the line
+       you drag disagreed. */
+    column-gap: 0;
+    row-gap: 1rem;
   }
   @media (min-width: 640px) {
     .page-columns > .page-columns-content > :first-child {
