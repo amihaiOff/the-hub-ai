@@ -930,7 +930,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                                 {rowHasBody && (
                                   <AlignLeft
                                     aria-label="Row has notes"
-                                    className="text-muted-foreground/70 ml-4 h-3 w-3 shrink-0"
+                                    className="text-muted-foreground/50 ml-4 h-3 w-3 shrink-0"
                                   />
                                 )}
                                 {/* Bordered Open button — icon + label. Pushed
@@ -1597,7 +1597,7 @@ function ColumnHeader({
       // clicked, the icon row floats absolutely BELOW the header
       // (position: absolute + top: 100%) so the table doesn't move.
       // The label itself lifts a couple pixels as a subtle affordance.
-      className="group/header relative flex w-full items-center gap-1.5 py-2 pr-2 pl-3"
+      className="group/header relative flex w-full items-center gap-1.5 px-3.5 py-2"
     >
       {/* Type icon leads the column name, muted like the label. */}
       <TypeIcon className={cn('h-3.5 w-3.5 shrink-0', typeMeta.color)} aria-hidden />
@@ -1621,7 +1621,7 @@ function ColumnHeader({
           }}
           onClick={(e) => e.stopPropagation()}
           size={1}
-          className="text-muted-foreground min-w-0 flex-1 bg-transparent text-sm font-medium outline-none"
+          className="text-muted-foreground min-w-0 flex-1 bg-transparent text-xs font-medium tracking-wide outline-none"
         />
       ) : (
         <button
@@ -1649,7 +1649,7 @@ function ColumnHeader({
           }
           title={editable ? 'Click for column actions · double-click to rename' : undefined}
           className={cn(
-            'text-muted-foreground min-w-0 flex-1 truncate text-left text-sm font-medium transition-transform select-none',
+            'text-muted-foreground min-w-0 flex-1 truncate text-left text-xs font-medium tracking-wide transition-transform select-none',
             expanded && 'text-foreground'
           )}
         >
@@ -2203,13 +2203,13 @@ function TextCell({
   // Non-primary cells stay in the softer body weight so the "name" column
   // clearly leads the eye, matching Notion.
   const typography = cn(
-    'pl-8 pr-3 py-2 text-sm leading-snug break-words whitespace-pre-wrap',
-    isPrimary && 'font-semibold text-foreground'
+    'px-3.5 py-2 text-[13.5px] leading-snug break-words whitespace-pre-wrap',
+    isPrimary ? 'font-medium text-foreground' : 'text-muted-foreground'
   );
 
   if (isUrlValue) {
     return (
-      <div className="min-w-0 py-2 pr-3 pl-8 text-sm leading-snug">
+      <div className="min-w-0 px-3.5 py-2 text-[13.5px] leading-snug">
         <a
           href={trimmed}
           target="_blank"
@@ -2282,7 +2282,7 @@ function CellEditor({
             onChange(Number.isFinite(v as number) || v === null ? v : null);
           }}
           disabled={disabled}
-          className="w-full bg-transparent py-2 pr-3 pl-8 text-left text-sm tabular-nums outline-none"
+          className="w-full bg-transparent px-3.5 py-2 text-right text-[13.5px] tabular-nums outline-none"
         />
       );
     case 'date':
@@ -2298,13 +2298,13 @@ function CellEditor({
             disabled={disabled}
             onClick={() => !disabled && onChange(!checked)}
             className={cn(
-              'flex h-5 w-5 items-center justify-center rounded-md border transition-colors',
+              'flex h-[17px] w-[17px] items-center justify-center rounded-[4px] border transition-colors',
               checked
                 ? 'bg-primary border-primary text-primary-foreground'
-                : 'border-border/60 bg-background hover:border-primary/50'
+                : 'border-input bg-background hover:border-primary/50'
             )}
           >
-            {checked && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+            {checked && <Check className="h-3 w-3" strokeWidth={3.5} />}
           </button>
         </div>
       );
@@ -2350,7 +2350,7 @@ function DateCell({
           type="button"
           disabled={disabled}
           className={cn(
-            'flex h-full w-full items-center justify-start py-2 pr-3 pl-8 text-sm outline-none',
+            'flex h-full w-full items-center justify-start px-3.5 py-2 text-[13.5px] outline-none',
             disabled && 'cursor-not-allowed'
           )}
         >
@@ -2449,7 +2449,7 @@ function SelectCell({
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
         aria-label={`${column.name}: ${selected?.label ?? 'empty'}`}
-        className="flex h-full w-full items-center justify-start py-2 pr-3 pl-8 text-left text-sm"
+        className="flex h-full w-full items-center justify-start px-3.5 py-2 text-left text-[13.5px]"
       >
         {selected && selColor ? (
           // Pill: rounded-full with a leading colored dot, Notion-style.
@@ -2457,7 +2457,7 @@ function SelectCell({
           // groups by category without reading the label.
           <span
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium',
+              'inline-flex h-[21px] items-center gap-1.5 rounded-[5px] px-2 text-[11.5px] font-medium',
               selColor.pill
             )}
           >
@@ -2600,7 +2600,7 @@ function MultiSelectCell({
         aria-label={`${column.name}: ${
           selectedOptions.map(({ opt }) => opt.label).join(', ') || 'empty'
         }`}
-        className="flex h-full w-full items-center justify-start py-2 pr-3 pl-8 text-left text-sm"
+        className="flex h-full w-full items-center justify-start px-3.5 py-2 text-left text-[13.5px]"
       >
         {selectedOptions.length > 0 ? (
           <span className="flex flex-wrap items-center justify-start gap-1">
@@ -2610,7 +2610,7 @@ function MultiSelectCell({
                 <span
                   key={opt.id}
                   className={cn(
-                    'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium',
+                    'inline-flex h-[21px] items-center gap-1.5 rounded-[5px] px-2 text-[11.5px] font-medium',
                     c.pill
                   )}
                 >

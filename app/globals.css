@@ -536,20 +536,32 @@
   .flex > .page-title {
     margin-bottom: 0;
   }
-  /* Row dividers: a single thin line between rows, no cell dividers. */
+  /* Row dividers: a single thin line between rows, no cell dividers.
+     Row / header heights target the Zyg spec (46px airy row, 42px
+     header). We drive height with a min-height on the cell rather than
+     the tr so `border-collapse: separate` doesn't ignore it. */
   .database-block th,
   .database-block td {
     border-bottom: none;
   }
   .database-block tbody tr[data-row-id] > td {
     border-bottom: 1px solid color-mix(in oklab, var(--border) 30%, transparent);
-    padding-block: 0.15rem;
+  }
+  .database-block tbody tr[data-row-id] {
+    height: 46px;
+  }
+  .database-block thead tr {
+    height: 42px;
   }
   .database-block thead th {
     border-bottom: 1px solid color-mix(in oklab, var(--border) 30%, transparent);
-    /* Subtle contrast strip so the header row reads as separate from the
-       data rows — matches the mock's slightly darker header band. */
+    /* Slightly darker header band so it reads as its own row. */
     background: color-mix(in oklab, var(--muted) 25%, transparent);
+    /* Stick to the top of the scroll container in the fullscreen view;
+       no-op inside a naturally-sized in-page block. */
+    position: sticky;
+    top: 0;
+    z-index: 4;
   }
   /* Cancel the inherited page-body row-hover fill that paints the whole
      tr — we tint cells only, and the add-column filler stays clear so
