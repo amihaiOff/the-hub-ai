@@ -14,24 +14,23 @@ import {
   type ColumnFiltersState,
 } from '@tanstack/react-table';
 import {
+  AlignLeft,
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  ArrowUpRight,
   Baseline,
   Calendar,
   Check,
   ChevronDown,
   ChevronRight,
   Filter,
-  FileText,
   Hash,
-  ListChecks,
+  Menu as MenuIcon,
   Maximize2,
   Plus,
   Redo2,
   Search,
-  SquareCheckBig,
-  Tags,
   Trash2,
   Undo2,
   X,
@@ -116,16 +115,18 @@ function persistFilters(blockId: string | null, filters: Record<string, ColumnFi
   }
 }
 
+// Type icons are drawn muted to match the mock — a monochrome iconography
+// row keeps the eye on the column names, not on chromatic distinctions.
 const TYPE_META: Record<
   DatabaseColumnType,
   { label: string; icon: typeof Baseline; color: string }
 > = {
-  text: { label: 'Text', icon: Baseline, color: 'text-slate-400' },
-  number: { label: 'Number', icon: Hash, color: 'text-blue-400' },
-  date: { label: 'Date', icon: Calendar, color: 'text-emerald-400' },
-  select: { label: 'Select', icon: ListChecks, color: 'text-violet-400' },
-  multiselect: { label: 'Multi-select', icon: Tags, color: 'text-pink-400' },
-  checkbox: { label: 'Checkbox', icon: SquareCheckBig, color: 'text-amber-400' },
+  text: { label: 'Text', icon: Baseline, color: 'text-muted-foreground' },
+  number: { label: 'Number', icon: Hash, color: 'text-muted-foreground' },
+  date: { label: 'Date', icon: Calendar, color: 'text-muted-foreground' },
+  select: { label: 'Select', icon: ChevronDown, color: 'text-muted-foreground' },
+  multiselect: { label: 'Multi-select', icon: MenuIcon, color: 'text-muted-foreground' },
+  checkbox: { label: 'Checkbox', icon: Check, color: 'text-muted-foreground' },
 };
 
 /**
@@ -920,10 +921,22 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                         return (
                           <td key={cell.id} className="p-0 align-top">
                             {isPrimary ? (
-                              <div className="flex items-start">
-                                {/* Open-entry affordance: hover-revealed on desktop,
-                                always visible on mobile (long-press also opens).
-                                stopPropagation so it doesn't start a row gesture. */}
+                              <div className="flex items-center gap-2">
+                                <div className="min-w-0 flex-1">{cellEditor}</div>
+                                {/* Passive "row has notes" indicator — the lines
+                                    icon reads at a glance without demanding a
+                                    click. Mobile-visible; on desktop it stays
+                                    even when the row isn't hovered so scanning
+                                    for annotated rows works vertically. */}
+                                {rowHasBody && (
+                                  <AlignLeft
+                                    aria-label="Row has notes"
+                                    className="text-muted-foreground/70 h-4 w-4 shrink-0"
+                                  />
+                                )}
+                                {/* Bordered Open button — icon + label. Revealed
+                                    on row hover on desktop; always visible on
+                                    mobile since hover doesn't fire there. */}
                                 <button
                                   type="button"
                                   draggable={false}
@@ -935,15 +948,15 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                                   aria-label="Open entry"
                                   title="Open entry"
                                   className={cn(
-                                    'text-muted-foreground/60 hover:bg-muted/60 hover:text-foreground mt-2.5 ml-1 shrink-0 rounded-md p-1 transition-opacity',
-                                    isMobile || rowHasBody
+                                    'border-border/50 text-muted-foreground hover:bg-muted/50 hover:text-foreground mr-2 inline-flex shrink-0 items-center gap-1 rounded-lg border px-2 py-1 text-xs transition-opacity',
+                                    isMobile
                                       ? 'opacity-100'
                                       : 'opacity-0 group-hover/row:opacity-100'
                                   )}
                                 >
-                                  <FileText className="h-3.5 w-3.5" />
+                                  <ArrowUpRight className="h-3.5 w-3.5" />
+                                  Open
                                 </button>
-                                <div className="min-w-0 flex-1">{cellEditor}</div>
                               </div>
                             ) : (
                               cellEditor
@@ -2190,13 +2203,13 @@ function TextCell({
   // Non-primary cells stay in the softer body weight so the "name" column
   // clearly leads the eye, matching Notion.
   const typography = cn(
-    'px-3 py-3.5 text-sm leading-snug break-words whitespace-pre-wrap',
+    'px-3 py-2 text-sm leading-snug break-words whitespace-pre-wrap',
     isPrimary && 'font-semibold text-foreground'
   );
 
   if (isUrlValue) {
     return (
-      <div className="min-w-0 px-3 py-3.5 text-sm leading-snug">
+      <div className="min-w-0 px-3 py-2 text-sm leading-snug">
         <a
           href={trimmed}
           target="_blank"
@@ -2269,7 +2282,7 @@ function CellEditor({
             onChange(Number.isFinite(v as number) || v === null ? v : null);
           }}
           disabled={disabled}
-          className="w-full bg-transparent px-3 py-3.5 text-center text-sm tabular-nums outline-none"
+          className="w-full bg-transparent px-3 py-2 text-center text-sm tabular-nums outline-none"
         />
       );
     case 'date':
@@ -2337,7 +2350,7 @@ function DateCell({
           type="button"
           disabled={disabled}
           className={cn(
-            'flex h-full w-full items-center justify-center px-3 py-3.5 text-sm outline-none',
+            'flex h-full w-full items-center justify-center px-3 py-2 text-sm outline-none',
             disabled && 'cursor-not-allowed'
           )}
         >
@@ -2436,7 +2449,7 @@ function SelectCell({
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
         aria-label={`${column.name}: ${selected?.label ?? 'empty'}`}
-        className="flex h-full w-full items-center justify-center px-3 py-3.5 text-center text-sm"
+        className="flex h-full w-full items-center justify-center px-3 py-2 text-center text-sm"
       >
         {selected && selColor ? (
           // Pill: rounded-full with a leading colored dot, Notion-style.
@@ -2587,7 +2600,7 @@ function MultiSelectCell({
         aria-label={`${column.name}: ${
           selectedOptions.map(({ opt }) => opt.label).join(', ') || 'empty'
         }`}
-        className="flex h-full w-full items-center justify-center px-3 py-3.5 text-center text-sm"
+        className="flex h-full w-full items-center justify-center px-3 py-2 text-center text-sm"
       >
         {selectedOptions.length > 0 ? (
           <span className="flex flex-wrap items-center justify-center gap-1">

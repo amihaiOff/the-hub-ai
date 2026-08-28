@@ -543,7 +543,7 @@
   }
   .database-block tbody tr[data-row-id] > td {
     border-bottom: 1px solid color-mix(in oklab, var(--border) 30%, transparent);
-    padding-block: 0.35rem;
+    padding-block: 0.15rem;
   }
   .database-block thead th {
     border-bottom: 1px solid color-mix(in oklab, var(--border) 30%, transparent);
