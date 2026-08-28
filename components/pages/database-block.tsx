@@ -799,7 +799,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
   );
 
   return (
-    <NodeViewWrapper as="div" className="database-block group/db relative my-4 pl-9">
+    <NodeViewWrapper as="div" className="database-block group/db relative my-4">
       <div className="db-frame">
         {headerNode}
         {collapsed ? null : (
