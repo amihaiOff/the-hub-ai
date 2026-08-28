@@ -547,6 +547,9 @@
   }
   .database-block thead th {
     border-bottom: 1px solid color-mix(in oklab, var(--border) 30%, transparent);
+    /* Subtle contrast strip so the header row reads as separate from the
+       data rows — matches the mock's slightly darker header band. */
+    background: color-mix(in oklab, var(--muted) 25%, transparent);
   }
   /* Cancel the inherited page-body row-hover fill that paints the whole
      tr — we tint cells only, and the add-column filler stays clear so
@@ -566,7 +569,6 @@
     border-left: none !important;
   }
   .database-block thead th {
-    background: transparent !important;
     color: color-mix(in oklab, var(--muted-foreground) 70%, var(--foreground)) !important;
   }
   /* On mobile, break out of the page-body's left padding and the shell's

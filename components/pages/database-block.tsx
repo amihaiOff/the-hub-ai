@@ -921,22 +921,22 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                         return (
                           <td key={cell.id} className="p-0 align-top">
                             {isPrimary ? (
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center">
                                 <div className="min-w-0 flex-1">{cellEditor}</div>
                                 {/* Passive "row has notes" indicator — the lines
                                     icon reads at a glance without demanding a
-                                    click. Mobile-visible; on desktop it stays
-                                    even when the row isn't hovered so scanning
-                                    for annotated rows works vertically. */}
+                                    click. Sits ~1rem away from the title text
+                                    so it doesn't crowd the label. */}
                                 {rowHasBody && (
                                   <AlignLeft
                                     aria-label="Row has notes"
-                                    className="text-muted-foreground/70 h-4 w-4 shrink-0"
+                                    className="text-muted-foreground/70 ml-4 h-3 w-3 shrink-0"
                                   />
                                 )}
-                                {/* Bordered Open button — icon + label. Revealed
-                                    on row hover on desktop; always visible on
-                                    mobile since hover doesn't fire there. */}
+                                {/* Bordered Open button — icon + label. Pushed
+                                    to the right edge of the title column via
+                                    ml-auto so it sits aligned with the column
+                                    boundary rather than trailing the text. */}
                                 <button
                                   type="button"
                                   draggable={false}
@@ -948,7 +948,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                                   aria-label="Open entry"
                                   title="Open entry"
                                   className={cn(
-                                    'border-border/50 text-muted-foreground hover:bg-muted/50 hover:text-foreground mr-2 inline-flex shrink-0 items-center gap-1 rounded-lg border px-2 py-1 text-xs transition-opacity',
+                                    'border-border/50 text-muted-foreground hover:bg-muted/50 hover:text-foreground ml-auto inline-flex shrink-0 items-center gap-1 rounded-lg border px-2 py-1 text-xs transition-opacity',
                                     isMobile
                                       ? 'opacity-100'
                                       : 'opacity-0 group-hover/row:opacity-100'
