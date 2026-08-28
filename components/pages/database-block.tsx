@@ -2203,13 +2203,13 @@ function TextCell({
   // Non-primary cells stay in the softer body weight so the "name" column
   // clearly leads the eye, matching Notion.
   const typography = cn(
-    'px-3 py-2 text-sm leading-snug break-words whitespace-pre-wrap',
+    'pl-8 pr-3 py-2 text-sm leading-snug break-words whitespace-pre-wrap',
     isPrimary && 'font-semibold text-foreground'
   );
 
   if (isUrlValue) {
     return (
-      <div className="min-w-0 px-3 py-2 text-sm leading-snug">
+      <div className="min-w-0 py-2 pr-3 pl-8 text-sm leading-snug">
         <a
           href={trimmed}
           target="_blank"
@@ -2282,7 +2282,7 @@ function CellEditor({
             onChange(Number.isFinite(v as number) || v === null ? v : null);
           }}
           disabled={disabled}
-          className="w-full bg-transparent px-3 py-2 text-center text-sm tabular-nums outline-none"
+          className="w-full bg-transparent py-2 pr-3 pl-8 text-left text-sm tabular-nums outline-none"
         />
       );
     case 'date':
@@ -2350,7 +2350,7 @@ function DateCell({
           type="button"
           disabled={disabled}
           className={cn(
-            'flex h-full w-full items-center justify-center px-3 py-2 text-sm outline-none',
+            'flex h-full w-full items-center justify-start py-2 pr-3 pl-8 text-sm outline-none',
             disabled && 'cursor-not-allowed'
           )}
         >
@@ -2449,7 +2449,7 @@ function SelectCell({
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
         aria-label={`${column.name}: ${selected?.label ?? 'empty'}`}
-        className="flex h-full w-full items-center justify-center px-3 py-2 text-center text-sm"
+        className="flex h-full w-full items-center justify-start py-2 pr-3 pl-8 text-left text-sm"
       >
         {selected && selColor ? (
           // Pill: rounded-full with a leading colored dot, Notion-style.
@@ -2600,10 +2600,10 @@ function MultiSelectCell({
         aria-label={`${column.name}: ${
           selectedOptions.map(({ opt }) => opt.label).join(', ') || 'empty'
         }`}
-        className="flex h-full w-full items-center justify-center px-3 py-2 text-center text-sm"
+        className="flex h-full w-full items-center justify-start py-2 pr-3 pl-8 text-left text-sm"
       >
         {selectedOptions.length > 0 ? (
-          <span className="flex flex-wrap items-center justify-center gap-1">
+          <span className="flex flex-wrap items-center justify-start gap-1">
             {selectedOptions.map(({ opt, i }) => {
               const c = resolveOptionColor(opt, i);
               return (
