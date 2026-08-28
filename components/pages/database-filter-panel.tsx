@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import type { DatabaseColumn } from './database-extension';
 import { defaultFilterFor, isColumnFilterActive, type ColumnFilter } from './db-filter';
@@ -30,6 +31,29 @@ export function DatabaseFilterPanel({
   onClose,
 }: DatabaseFilterPanelProps) {
   const ref = useRef<HTMLDivElement>(null);
+  // Position via portal so the panel isn't clipped by the DB frame's
+  // `overflow: hidden` and lands next to the filter icon regardless of
+  // where in the header markup it sits. Recompute on scroll/resize so it
+  // stays tethered as the user scrolls the page under it.
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!anchorEl) return;
+    const measure = () => {
+      const r = anchorEl.getBoundingClientRect();
+      // Align the panel's right edge to the anchor's right edge so it
+      // opens under the button and never spills past the viewport edge.
+      const panelWidth = Math.min(window.innerWidth - 16, 576);
+      const left = Math.max(8, r.right - panelWidth);
+      queueMicrotask(() => setPos({ top: r.bottom + 6, left }));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    window.addEventListener('scroll', measure, true);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('scroll', measure, true);
+    };
+  }, [anchorEl]);
 
   // Close on outside click / Escape. The trigger button is excluded so its own
   // click toggles the panel closed instead of racing this handler (mousedown
@@ -54,17 +78,18 @@ export function DatabaseFilterPanel({
 
   const anyActive = Object.values(filters).some(isColumnFilterActive);
 
-  return (
+  if (!pos || typeof document === 'undefined') return null;
+
+  return createPortal(
     <div
       ref={ref}
-      // max-w accounts for the block's pl-9 (2.25rem) indent plus a small gutter
-      // so the panel never spills past the right edge on a ~320px screen.
+      style={{ position: 'fixed', top: pos.top, left: pos.left }}
       // Mobile: fixed 18rem width capped by viewport so the panel never
       // spills past the right edge on a ~320px screen. Desktop: fit
       // content so date-range pairs / wider controls aren't clipped or
       // horizontally-scrolled. `lg:w-max` + `lg:max-w-[36rem]` gives
       // room for two side-by-side date inputs without runaway growth.
-      className="border-border bg-card absolute top-full left-0 z-30 mt-1 w-72 max-w-[calc(100vw-4.5rem)] rounded-xl border p-3 shadow-lg lg:w-max lg:max-w-[36rem]"
+      className="border-border bg-card z-[100] w-72 max-w-[calc(100vw-1rem)] rounded-xl border p-3 shadow-lg lg:w-max lg:max-w-[36rem]"
     >
       <div className="mb-2 flex items-center justify-between">
         <span className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
@@ -95,7 +120,8 @@ export function DatabaseFilterPanel({
           </div>
         ))}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
