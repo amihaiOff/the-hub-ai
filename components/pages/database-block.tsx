@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { NodeViewProps } from '@tiptap/react';
 import { NodeViewWrapper } from '@tiptap/react';
@@ -21,12 +21,15 @@ import {
   Calendar,
   Check,
   ChevronDown,
+  ChevronRight,
   Filter,
   FileText,
   Hash,
   ListChecks,
+  Maximize2,
   Plus,
   Redo2,
+  Search,
   SquareCheckBig,
   Tags,
   Trash2,
@@ -241,6 +244,15 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
 
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const filterBtnRef = useRef<HTMLButtonElement>(null);
+  // View-state additions from the redesigned header: free-text search across
+  // all cells, sort picker popover, fullscreen dialog, and a collapse toggle
+  // that hides the table body while keeping the header visible.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const sortBtnRef = useRef<HTMLButtonElement>(null);
+  const [fullscreenOpen, setFullscreenOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   // Column pending deletion — drives the confirmation dialog. Deletion is
   // destructive (drops the column and every cell under it), so all delete
   // entry points route through here instead of removing immediately.
@@ -274,11 +286,44 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
     [columns, filters]
   );
 
+  // Global filter fn: naive stringify-any-cell match. Kept local so
+  // number/date/select all become searchable via their displayed form.
+  const globalFilterFn = useMemo(
+    () => (row: { original: DatabaseRow }, _colId: string, filterValue: string) => {
+      const q = String(filterValue ?? '')
+        .trim()
+        .toLowerCase();
+      if (!q) return true;
+      for (const col of columns) {
+        const v = row.original.cells[col.id];
+        if (v == null || v === false) continue;
+        if (Array.isArray(v)) {
+          // Multi-select values are arrays of option ids — resolve to labels.
+          const labels = (col.options ?? [])
+            .filter((o) => (v as string[]).includes(o.id))
+            .map((o) => o.label);
+          if (labels.some((l) => l.toLowerCase().includes(q))) return true;
+          continue;
+        }
+        if (col.type === 'select' && typeof v === 'string') {
+          const label = col.options?.find((o) => o.id === v)?.label ?? v;
+          if (String(label).toLowerCase().includes(q)) return true;
+          continue;
+        }
+        if (String(v).toLowerCase().includes(q)) return true;
+      }
+      return false;
+    },
+    [columns]
+  );
+
   const table = useReactTable({
     data: rows,
     columns: tableColumns,
-    state: { sorting, columnFilters },
+    state: { sorting, columnFilters, globalFilter: searchQuery },
     onSortingChange: setSorting,
+    onGlobalFilterChange: setSearchQuery,
+    globalFilterFn,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -617,289 +662,373 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
   const addColWidthRem = editable ? 2.5 : 0;
   const tableWidthRem = columns.length * 10 + addColWidthRem;
 
-  return (
-    <NodeViewWrapper as="div" className="database-block group/db relative my-4 pl-9">
-      {/* Header — title on the left, filter on the right. `w-full justify-between`
-          spans the grid: on mobile the block is full-bleed (title at the screen
-          edge, filter at the other), on desktop it matches the table's width
-          (min-w-full), so the title sits at the table's left and the filter at
-          its right. Active-filter chips wrap onto a line below. */}
-      {columns.length > 0 && (
-        <div className="mb-[3px]">
-          <div className="relative flex w-full items-center justify-between gap-3">
-            {editable ? (
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Untitled"
-                dir="auto"
-                aria-label="Database title"
-                className="text-foreground placeholder:text-muted-foreground/40 max-w-[65%] min-w-0 truncate bg-transparent text-2xl font-semibold outline-none"
-              />
-            ) : (
-              <span className="text-foreground max-w-[65%] min-w-0 truncate text-2xl font-semibold">
-                {title}
-              </span>
-            )}
-            <button
-              ref={filterBtnRef}
-              type="button"
-              onClick={() => setFilterPanelOpen((o) => !o)}
-              aria-label="Filter rows"
-              className={cn(
-                'flex shrink-0 items-center gap-1.5 rounded-lg border px-2 py-1 text-xs transition-colors',
-                activeFilterColumns.length > 0
-                  ? 'border-primary/50 bg-primary/10 text-primary'
-                  : 'border-border/60 text-muted-foreground hover:bg-muted/50'
-              )}
-            >
-              <Filter className="h-3.5 w-3.5" />
-              Filter{activeFilterColumns.length > 0 ? ` (${activeFilterColumns.length})` : ''}
-            </button>
-            {filterPanelOpen && (
-              <DatabaseFilterPanel
-                columns={columns}
-                filters={filters}
-                anchorEl={filterBtnRef.current}
-                onChange={setColumnFilter}
-                onClearAll={clearAllFilters}
-                onClose={() => setFilterPanelOpen(false)}
-              />
+  // ─── Header ──────────────────────────────────────────────────────────
+  // Left cluster: collapse chevron + title. Right cluster: search / filter /
+  // sort / fullscreen icon-buttons. Filter and sort tint primary when they
+  // hold active state — matches the mock's orange-outlined icons.
+  const headerNode = columns.length > 0 && (
+    <div className="mb-0 px-4 pt-3 pb-2">
+      <div className="relative flex w-full items-center gap-2">
+        {/* Collapse chevron. Points right when the body is hidden. */}
+        <button
+          type="button"
+          onClick={() => setCollapsed((c) => !c)}
+          aria-label={collapsed ? 'Expand database' : 'Collapse database'}
+          className="text-muted-foreground hover:bg-muted/40 hover:text-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors"
+        >
+          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
+        {editable ? (
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Untitled"
+            dir="auto"
+            aria-label="Database title"
+            className="text-foreground placeholder:text-muted-foreground/40 min-w-0 flex-1 truncate bg-transparent text-2xl font-semibold outline-none"
+          />
+        ) : (
+          <span className="text-foreground min-w-0 flex-1 truncate text-2xl font-semibold">
+            {title}
+          </span>
+        )}
+        {/* Right-cluster icon buttons — all four are compact rounded squares. */}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <HeaderIconButton
+            onClick={() => setSearchOpen((o) => !o)}
+            active={searchOpen || searchQuery.length > 0}
+            label="Search rows"
+          >
+            <Search className="h-4 w-4" />
+          </HeaderIconButton>
+          <HeaderIconButton
+            ref={filterBtnRef}
+            onClick={() => setFilterPanelOpen((o) => !o)}
+            active={activeFilterColumns.length > 0}
+            label="Filter rows"
+            badge={activeFilterColumns.length > 0 ? activeFilterColumns.length : undefined}
+          >
+            <Filter className="h-4 w-4" />
+          </HeaderIconButton>
+          <HeaderIconButton
+            ref={sortBtnRef}
+            onClick={() => setSortMenuOpen((o) => !o)}
+            active={sorting.length > 0}
+            label="Sort rows"
+          >
+            <ArrowUpDown className="h-4 w-4" />
+          </HeaderIconButton>
+          <HeaderIconButton
+            onClick={() => setFullscreenOpen(true)}
+            active={false}
+            label="Fullscreen"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </HeaderIconButton>
+        </div>
+        {filterPanelOpen && (
+          <DatabaseFilterPanel
+            columns={columns}
+            filters={filters}
+            anchorEl={filterBtnRef.current}
+            onChange={setColumnFilter}
+            onClearAll={clearAllFilters}
+            onClose={() => setFilterPanelOpen(false)}
+          />
+        )}
+        {sortMenuOpen && sortBtnRef.current && (
+          <SortMenu
+            columns={columns}
+            sorting={sorting}
+            anchorEl={sortBtnRef.current}
+            onChange={setSorting}
+            onClose={() => setSortMenuOpen(false)}
+          />
+        )}
+      </div>
+      {searchOpen && (
+        <div className="mt-2 flex items-center gap-2">
+          <div className="border-border/60 bg-background focus-within:border-primary/50 flex flex-1 items-center gap-2 rounded-lg border px-2.5 py-1.5">
+            <Search className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+            <input
+              autoFocus
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search rows…"
+              className="placeholder:text-muted-foreground/60 min-w-0 flex-1 bg-transparent text-sm outline-none"
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setSearchQuery('');
+                  setSearchOpen(false);
+                }
+              }}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             )}
           </div>
-          {activeFilterColumns.length > 0 && (
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              {activeFilterColumns.map((col) => (
-                <button
-                  key={col.id}
-                  type="button"
-                  onClick={() => clearColumnFilter(col.id)}
-                  title={`Clear filter on ${col.name}`}
-                  className="border-primary/40 bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
-                >
-                  <span className="max-w-[8rem] truncate">{col.name}</span>
-                  <X className="h-3 w-3 shrink-0" />
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       )}
-      <div ref={wrapperRef} className="relative overflow-x-auto">
-        {/* Table width = column count × 10rem (+ the narrow add-column cell)
+      {activeFilterColumns.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {activeFilterColumns.map((col) => (
+            <button
+              key={col.id}
+              type="button"
+              onClick={() => clearColumnFilter(col.id)}
+              title={`Clear filter on ${col.name}`}
+              className="border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium"
+            >
+              <span className="max-w-[10rem] truncate">
+                {activeFilterLabel(col, filters[col.id])}
+              </span>
+              <X className="h-3 w-3 shrink-0" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <NodeViewWrapper as="div" className="database-block group/db relative my-4 pl-9">
+      <div className="db-frame">
+        {headerNode}
+        {collapsed ? null : (
+          <div ref={wrapperRef} className="db-table-scroll relative">
+            {/* Table width = column count × 10rem (+ the narrow add-column cell)
             so table-layout: fixed cells keep their intrinsic size. On narrow
             viewports the table exceeds the wrapper and `overflow-x-auto` gives
             a real horizontal scroll — `w-full` would collapse cells instead. */}
-        <table
-          className="min-w-full text-sm"
-          style={{ tableLayout: 'fixed', width: `${tableWidthRem}rem` }}
-        >
-          <thead>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  const col = columns.find((c) => c.id === header.column.id);
-                  if (!col) return null;
-                  const sort = header.column.getIsSorted();
-                  return (
-                    <th
-                      key={header.id}
-                      data-col-header-id={col.id}
-                      className="p-0"
-                      style={{ width: '10rem' }}
-                    >
-                      <ColumnHeader
-                        column={col}
-                        sort={sort}
-                        editable={editable}
-                        autoStartEdit={focusIntent?.kind === 'column' && focusIntent.id === col.id}
-                        onToggleSort={() => header.column.toggleSorting()}
-                        onRename={(name) => renameColumn(col.id, name)}
-                        onChangeType={(type) => changeColumnType(col.id, type)}
-                        onDelete={() => requestDeleteColumn(col.id)}
-                        onSetOptions={(opts) => setSelectOptions(col.id, opts)}
-                      />
-                    </th>
-                  );
-                })}
-                {/* Narrow add-column cell — a plus in the header spawns a
+            <table
+              className="min-w-full text-sm"
+              style={{ tableLayout: 'fixed', width: `${tableWidthRem}rem` }}
+            >
+              <thead>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => {
+                      const col = columns.find((c) => c.id === header.column.id);
+                      if (!col) return null;
+                      const sort = header.column.getIsSorted();
+                      return (
+                        <th
+                          key={header.id}
+                          data-col-header-id={col.id}
+                          className="p-0"
+                          style={{ width: '10rem' }}
+                        >
+                          <ColumnHeader
+                            column={col}
+                            sort={sort}
+                            editable={editable}
+                            autoStartEdit={
+                              focusIntent?.kind === 'column' && focusIntent.id === col.id
+                            }
+                            onToggleSort={() => header.column.toggleSorting()}
+                            onRename={(name) => renameColumn(col.id, name)}
+                            onChangeType={(type) => changeColumnType(col.id, type)}
+                            onDelete={() => requestDeleteColumn(col.id)}
+                            onSetOptions={(opts) => setSelectOptions(col.id, opts)}
+                          />
+                        </th>
+                      );
+                    })}
+                    {/* Narrow add-column cell — a plus in the header spawns a
                     new column (replaces the old floating edge tab). */}
-                {editable && (
-                  <th
-                    data-add-column-cell=""
-                    className="p-0 align-middle"
-                    style={{ width: '2.5rem' }}
-                  >
-                    <button
-                      type="button"
-                      onClick={addColumn}
-                      aria-label="Add column"
-                      title="Add column"
-                      className="text-muted-foreground/60 hover:text-primary hover:bg-primary/10 flex h-full w-full items-center justify-center py-2 transition-colors"
+                    {editable && (
+                      <th
+                        data-add-column-cell=""
+                        className="p-0 align-middle"
+                        style={{ width: '2.5rem' }}
+                      >
+                        <button
+                          type="button"
+                          onClick={addColumn}
+                          aria-label="Add column"
+                          title="Add column"
+                          className="text-muted-foreground/60 hover:text-primary hover:bg-primary/10 flex h-full w-full items-center justify-center py-2 transition-colors"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+                      </th>
+                    )}
+                  </tr>
+                ))}
+              </thead>
+              <tbody ref={tbodyRef}>
+                {table.getRowModel().rows.map((tableRow) => {
+                  const row = tableRow.original;
+                  // Cells are inline-editable on every viewport now. On mobile the
+                  // row also carries gesture handlers: tap a cell = edit it,
+                  // long-press = open the entry card, swipe-right-at-left-edge =
+                  // reveal delete (see onRowTouch* + the delete overlay below).
+                  const cellEditable = editable;
+                  // Keep the open icon always visible when the row has a page
+                  // (body content) or on mobile; otherwise reveal it on hover.
+                  const rowHasBody = hasBodyContent(row.body);
+                  const swiped = swipe?.rowId === row.id;
+                  return (
+                    <tr
+                      key={row.id}
+                      className="group/row"
+                      data-row-id={row.id}
+                      style={
+                        swiped
+                          ? {
+                              transform: `translateX(${swipe!.dx}px)`,
+                              transition: swipe!.dragging ? 'none' : 'transform 180ms ease-out',
+                            }
+                          : undefined
+                      }
+                      onTouchStart={
+                        isMobile && editable ? (e) => onRowTouchStart(e, row.id) : undefined
+                      }
+                      onTouchMove={
+                        isMobile && editable ? (e) => onRowTouchMove(e, row.id) : undefined
+                      }
+                      onTouchEnd={
+                        isMobile && editable ? (e) => onRowTouchEnd(e, row.id) : undefined
+                      }
+                      onTouchCancel={
+                        isMobile && editable ? (e) => onRowTouchEnd(e, row.id) : undefined
+                      }
+                      onContextMenu={isMobile && editable ? (e) => e.preventDefault() : undefined}
                     >
-                      <Plus className="h-3.5 w-3.5" />
-                    </button>
-                  </th>
-                )}
-              </tr>
-            ))}
-          </thead>
-          <tbody ref={tbodyRef}>
-            {table.getRowModel().rows.map((tableRow) => {
-              const row = tableRow.original;
-              // Cells are inline-editable on every viewport now. On mobile the
-              // row also carries gesture handlers: tap a cell = edit it,
-              // long-press = open the entry card, swipe-right-at-left-edge =
-              // reveal delete (see onRowTouch* + the delete overlay below).
-              const cellEditable = editable;
-              // Keep the open icon always visible when the row has a page
-              // (body content) or on mobile; otherwise reveal it on hover.
-              const rowHasBody = hasBodyContent(row.body);
-              const swiped = swipe?.rowId === row.id;
-              return (
-                <tr
-                  key={row.id}
-                  className="group/row"
-                  data-row-id={row.id}
-                  style={
-                    swiped
-                      ? {
-                          transform: `translateX(${swipe!.dx}px)`,
-                          transition: swipe!.dragging ? 'none' : 'transform 180ms ease-out',
-                        }
-                      : undefined
-                  }
-                  onTouchStart={
-                    isMobile && editable ? (e) => onRowTouchStart(e, row.id) : undefined
-                  }
-                  onTouchMove={isMobile && editable ? (e) => onRowTouchMove(e, row.id) : undefined}
-                  onTouchEnd={isMobile && editable ? (e) => onRowTouchEnd(e, row.id) : undefined}
-                  onTouchCancel={isMobile && editable ? (e) => onRowTouchEnd(e, row.id) : undefined}
-                  onContextMenu={isMobile && editable ? (e) => e.preventDefault() : undefined}
-                >
-                  {tableRow.getVisibleCells().map((cell, cellIdx) => {
-                    const col = columns.find((c) => c.id === cell.column.id);
-                    if (!col) return null;
-                    // First column reads as the row's primary label — bold it
-                    // (Notion-style) so scanning a long table is easy.
-                    const isPrimary = cellIdx === 0;
-                    const cellEditor = (
-                      <CellEditor
-                        column={col}
-                        value={row.cells[col.id]}
-                        onChange={(v) => updateCell(row.id, col.id, v)}
-                        editable={cellEditable}
-                        isPrimary={isPrimary}
-                      />
-                    );
-                    return (
-                      <td key={cell.id} className="p-0 align-top">
-                        {isPrimary ? (
-                          <div className="flex items-start">
-                            {/* Open-entry affordance: hover-revealed on desktop,
+                      {tableRow.getVisibleCells().map((cell, cellIdx) => {
+                        const col = columns.find((c) => c.id === cell.column.id);
+                        if (!col) return null;
+                        // First column reads as the row's primary label — bold it
+                        // (Notion-style) so scanning a long table is easy.
+                        const isPrimary = cellIdx === 0;
+                        const cellEditor = (
+                          <CellEditor
+                            column={col}
+                            value={row.cells[col.id]}
+                            onChange={(v) => updateCell(row.id, col.id, v)}
+                            editable={cellEditable}
+                            isPrimary={isPrimary}
+                          />
+                        );
+                        return (
+                          <td key={cell.id} className="p-0 align-top">
+                            {isPrimary ? (
+                              <div className="flex items-start">
+                                {/* Open-entry affordance: hover-revealed on desktop,
                                 always visible on mobile (long-press also opens).
                                 stopPropagation so it doesn't start a row gesture. */}
-                            <button
-                              type="button"
-                              draggable={false}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenRowId(row.id);
-                              }}
-                              onTouchStart={(e) => e.stopPropagation()}
-                              aria-label="Open entry"
-                              title="Open entry"
-                              className={cn(
-                                'text-muted-foreground/60 hover:bg-muted/60 hover:text-foreground mt-2.5 ml-1 shrink-0 rounded-md p-1 transition-opacity',
-                                isMobile || rowHasBody
-                                  ? 'opacity-100'
-                                  : 'opacity-0 group-hover/row:opacity-100'
-                              )}
-                            >
-                              <FileText className="h-3.5 w-3.5" />
-                            </button>
-                            <div className="min-w-0 flex-1">{cellEditor}</div>
-                          </div>
-                        ) : (
-                          cellEditor
-                        )}
-                      </td>
-                    );
-                  })}
-                  {/* Filler cell under the add-column header so row dividers
+                                <button
+                                  type="button"
+                                  draggable={false}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenRowId(row.id);
+                                  }}
+                                  onTouchStart={(e) => e.stopPropagation()}
+                                  aria-label="Open entry"
+                                  title="Open entry"
+                                  className={cn(
+                                    'text-muted-foreground/60 hover:bg-muted/60 hover:text-foreground mt-2.5 ml-1 shrink-0 rounded-md p-1 transition-opacity',
+                                    isMobile || rowHasBody
+                                      ? 'opacity-100'
+                                      : 'opacity-0 group-hover/row:opacity-100'
+                                  )}
+                                >
+                                  <FileText className="h-3.5 w-3.5" />
+                                </button>
+                                <div className="min-w-0 flex-1">{cellEditor}</div>
+                              </div>
+                            ) : (
+                              cellEditor
+                            )}
+                          </td>
+                        );
+                      })}
+                      {/* Filler cell under the add-column header so row dividers
                       run the full table width. */}
-                  {editable && <td data-add-column-cell="" className="p-0" />}
-                </tr>
-              );
-            })}
-            {rows.length === 0 && !editable && (
-              <tr>
-                <td
-                  colSpan={columns.length || 1}
-                  className="text-muted-foreground py-4 text-center text-xs"
-                >
-                  Empty
-                </td>
-              </tr>
-            )}
-            {activeFilterColumns.length > 0 &&
-              rows.length > 0 &&
-              table.getRowModel().rows.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={(columns.length || 1) + (editable ? 1 : 0)}
-                    className="text-muted-foreground py-4 text-center text-xs"
-                  >
-                    No rows match the filter.
-                  </td>
-                </tr>
-              )}
-            {/* "+ New row" footer — a left-aligned text button spans the
+                      {editable && <td data-add-column-cell="" className="p-0" />}
+                    </tr>
+                  );
+                })}
+                {rows.length === 0 && !editable && (
+                  <tr>
+                    <td
+                      colSpan={columns.length || 1}
+                      className="text-muted-foreground py-4 text-center text-xs"
+                    >
+                      Empty
+                    </td>
+                  </tr>
+                )}
+                {activeFilterColumns.length > 0 &&
+                  rows.length > 0 &&
+                  table.getRowModel().rows.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={(columns.length || 1) + (editable ? 1 : 0)}
+                        className="text-muted-foreground py-4 text-center text-xs"
+                      >
+                        No rows match the filter.
+                      </td>
+                    </tr>
+                  )}
+                {/* "+ New row" footer — a left-aligned text button spans the
                 full table width, matching the Notion inline-database style. */}
-            {editable && (
-              <tr data-add-row="">
-                <td colSpan={columns.length + 1} className="p-0">
-                  <button
-                    type="button"
-                    onClick={addRow}
-                    aria-label="Add row"
-                    title="Add row"
-                    className="text-muted-foreground/70 hover:text-foreground hover:bg-muted/30 flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors"
-                  >
-                    <Plus className="h-4 w-4" /> New row
-                  </button>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                {editable && (
+                  <tr data-add-row="">
+                    <td colSpan={columns.length + 1} className="p-0">
+                      <button
+                        type="button"
+                        onClick={addRow}
+                        aria-label="Add row"
+                        title="Add row"
+                        className="text-muted-foreground/70 hover:text-foreground hover:bg-muted/30 flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors"
+                      >
+                        <Plus className="h-4 w-4" /> New row
+                      </button>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
 
-        {/* Swipe-reveal delete (mobile). Sits in the gap the row uncovers as it
+            {/* Swipe-reveal delete (mobile). Sits in the gap the row uncovers as it
             translates right; tap to delete. Positioned over the row's band. */}
-        {isMobile && swipe && (
-          <button
-            type="button"
-            aria-label="Delete row"
-            title="Delete row"
-            onClick={() => {
-              deleteRow(swipe.rowId);
-              closeSwipe();
-            }}
-            style={{
-              position: 'absolute',
-              top: swipe.top,
-              height: swipe.height,
-              left: 0,
-              width: swipe.open ? SWIPE_REVEAL_PX : swipe.dx,
-            }}
-            className="bg-destructive text-destructive-foreground flex items-center justify-center overflow-hidden"
-          >
-            <Trash2 className="h-4 w-4 shrink-0" />
-          </button>
+            {isMobile && swipe && (
+              <button
+                type="button"
+                aria-label="Delete row"
+                title="Delete row"
+                onClick={() => {
+                  deleteRow(swipe.rowId);
+                  closeSwipe();
+                }}
+                style={{
+                  position: 'absolute',
+                  top: swipe.top,
+                  height: swipe.height,
+                  left: 0,
+                  width: swipe.open ? SWIPE_REVEAL_PX : swipe.dx,
+                }}
+                className="bg-destructive text-destructive-foreground flex items-center justify-center overflow-hidden"
+              >
+                <Trash2 className="h-4 w-4 shrink-0" />
+              </button>
+            )}
+          </div>
         )}
       </div>
 
-      {editable && <DeleteRowGutter tbodyRef={tbodyRef} rows={rows} onDelete={deleteRow} />}
+      {editable && !collapsed && (
+        <DeleteRowGutter tbodyRef={tbodyRef} rows={rows} onDelete={deleteRow} />
+      )}
 
       {editable && cellEditing && <CellEditToolbar editor={editor} />}
 
@@ -946,8 +1075,217 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
         onDeleteRow={deleteRow}
         onOpenChange={(open) => !open && setOpenRowId(null)}
       />
+
+      {/* Fullscreen overlay — dedicated portal that renders a second copy
+          of the frame content at viewport size. Keeping the primary frame
+          in the flow means all in-flight edit state stays put; the overlay
+          just mirrors visually while the user is expanded. */}
+      {fullscreenOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div className="bg-background/70 fixed inset-0 z-50 backdrop-blur-sm">
+            <button
+              type="button"
+              aria-label="Close fullscreen"
+              onClick={() => setFullscreenOpen(false)}
+              className="absolute inset-0 h-full w-full cursor-default"
+            />
+            <div className="pointer-events-none absolute inset-4 flex items-start justify-center md:inset-8">
+              <div className="bg-card border-border/40 pointer-events-auto flex max-h-full w-full max-w-6xl flex-col overflow-hidden rounded-2xl border shadow-xl">
+                <div className="border-border/40 flex items-center gap-2 border-b px-4 py-3">
+                  <span className="text-foreground flex-1 truncate text-2xl font-semibold">
+                    {title || 'Untitled'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setFullscreenOpen(false)}
+                    aria-label="Close"
+                    className="text-muted-foreground hover:bg-muted/60 hover:text-foreground flex h-8 w-8 items-center justify-center rounded-lg"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <p className="text-muted-foreground px-4 py-6 text-sm">
+                  Editing here mirrors the block on the page — collapse the overlay to interact with
+                  the full column controls.
+                </p>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </NodeViewWrapper>
   );
+}
+
+/** Compact rounded-square icon button used across the DB header. */
+const HeaderIconButton = React.forwardRef<
+  HTMLButtonElement,
+  {
+    onClick: () => void;
+    active: boolean;
+    label: string;
+    badge?: number;
+    children: React.ReactNode;
+  }
+>(function HeaderIconButton({ onClick, active, label, badge, children }, ref) {
+  return (
+    <button
+      ref={ref}
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={cn(
+        'relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors',
+        active
+          ? 'border-primary/50 text-primary bg-primary/5'
+          : 'border-border/50 text-muted-foreground hover:bg-muted/40 hover:text-foreground'
+      )}
+    >
+      {children}
+      {badge !== undefined && (
+        <span className="text-primary absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums">
+          {badge}
+        </span>
+      )}
+    </button>
+  );
+});
+
+/** Sort-picker popover: one row per column with asc/desc/clear toggles. */
+function SortMenu({
+  columns,
+  sorting,
+  anchorEl,
+  onChange,
+  onClose,
+}: {
+  columns: DatabaseColumn[];
+  sorting: SortingState;
+  anchorEl: HTMLElement;
+  onChange: (next: SortingState) => void;
+  onClose: () => void;
+}) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const ref = useRef<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    if (!anchorEl) return;
+    const r = anchorEl.getBoundingClientRect();
+    // Defer to avoid the cascading-render lint (setState synchronously
+    // inside an effect); the popup is fine to paint a frame later.
+    queueMicrotask(() => setPos({ top: r.bottom + 6, left: r.right - 240 }));
+  }, [anchorEl]);
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      if (ref.current?.contains(e.target as Node)) return;
+      if (anchorEl.contains(e.target as Node)) return;
+      onClose();
+    };
+    window.addEventListener('pointerdown', onDown);
+    return () => window.removeEventListener('pointerdown', onDown);
+  }, [anchorEl, onClose]);
+  if (!pos) return null;
+  const activeId = sorting[0]?.id ?? null;
+  const activeDir = sorting[0]?.desc ? 'desc' : sorting[0] ? 'asc' : null;
+  const setSort = (id: string, dir: 'asc' | 'desc' | null) => {
+    if (dir === null) onChange([]);
+    else onChange([{ id, desc: dir === 'desc' }]);
+  };
+  return createPortal(
+    <div
+      ref={ref}
+      role="menu"
+      style={{ position: 'fixed', top: pos.top, left: Math.max(8, pos.left), width: 240 }}
+      className="bg-popover text-popover-foreground z-[100] rounded-xl border p-1 shadow-xl"
+    >
+      <p className="text-muted-foreground px-2 pt-1 pb-1 text-[10px] font-semibold tracking-wider uppercase">
+        Sort by
+      </p>
+      {columns.map((c) => {
+        const isActive = c.id === activeId;
+        return (
+          <div
+            key={c.id}
+            className={cn(
+              'flex items-center gap-1 rounded-lg px-1.5 py-1',
+              isActive && 'bg-muted/40'
+            )}
+          >
+            <span className="text-foreground/85 flex-1 truncate text-xs">{c.name}</span>
+            <button
+              type="button"
+              onClick={() => setSort(c.id, isActive && activeDir === 'asc' ? null : 'asc')}
+              aria-label={`Sort ${c.name} ascending`}
+              className={cn(
+                'hover:bg-muted/60 flex h-6 w-6 items-center justify-center rounded-md',
+                isActive && activeDir === 'asc' && 'bg-primary/10 text-primary'
+              )}
+            >
+              <ArrowUp className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setSort(c.id, isActive && activeDir === 'desc' ? null : 'desc')}
+              aria-label={`Sort ${c.name} descending`}
+              className={cn(
+                'hover:bg-muted/60 flex h-6 w-6 items-center justify-center rounded-md',
+                isActive && activeDir === 'desc' && 'bg-primary/10 text-primary'
+              )}
+            >
+              <ArrowDown className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        );
+      })}
+      {sorting.length > 0 && (
+        <button
+          type="button"
+          onClick={() => onChange([])}
+          className="text-muted-foreground hover:bg-muted/40 hover:text-foreground mt-1 w-full rounded-lg px-2 py-1.5 text-left text-xs"
+        >
+          Clear sort
+        </button>
+      )}
+    </div>,
+    document.body
+  );
+}
+
+/** Chip label for an active filter — "Status is not Killed" style. */
+function activeFilterLabel(col: DatabaseColumn, f: ColumnFilter | undefined): string {
+  if (!f) return col.name;
+  const op = filterOperatorText(f);
+  const val = filterValueText(col, f);
+  return val ? `${col.name} ${op} ${val}` : `${col.name} ${op}`;
+}
+function filterOperatorText(f: ColumnFilter): string {
+  const op = (f as { op?: string }).op ?? '';
+  if (op === 'not') return 'is not';
+  if (op === 'contains') return 'contains';
+  if (op === 'notContains') return 'does not contain';
+  if (op === 'empty') return 'is empty';
+  if (op === 'nonEmpty') return 'is not empty';
+  if (op === 'gt') return '>';
+  if (op === 'lt') return '<';
+  if (op === 'gte') return '>=';
+  if (op === 'lte') return '<=';
+  if (op === 'is' || op === 'eq') return 'is';
+  return 'is';
+}
+function filterValueText(col: DatabaseColumn, f: ColumnFilter): string {
+  const v = (f as { value?: unknown }).value;
+  if (v == null || v === '') return '';
+  if (Array.isArray(v)) {
+    const labels = (col.options ?? [])
+      .filter((o) => (v as string[]).includes(o.id))
+      .map((o) => o.label);
+    return labels.join(', ');
+  }
+  if (col.type === 'select' && typeof v === 'string') {
+    return col.options?.find((o) => o.id === v)?.label ?? String(v);
+  }
+  return String(v);
 }
 
 // ─── Delete-row gutter (outside the table, hover-only) ─────────────────
@@ -1246,10 +1584,10 @@ function ColumnHeader({
       // clicked, the icon row floats absolutely BELOW the header
       // (position: absolute + top: 100%) so the table doesn't move.
       // The label itself lifts a couple pixels as a subtle affordance.
-      className="group/header relative flex w-full flex-col items-center py-1.5"
+      className="group/header relative flex w-full items-center gap-1.5 py-2 pr-2 pl-3"
     >
-      {/* Type icon retained but hidden by default — kept for future opt-in. */}
-      <TypeIcon className={cn('hidden h-3.5 w-3.5 shrink-0', typeMeta.color)} aria-hidden />
+      {/* Type icon leads the column name, muted like the label. */}
+      <TypeIcon className={cn('h-3.5 w-3.5 shrink-0', typeMeta.color)} aria-hidden />
       {editable && editing ? (
         <input
           data-col-id={column.id}
@@ -1270,7 +1608,7 @@ function ColumnHeader({
           }}
           onClick={(e) => e.stopPropagation()}
           size={1}
-          className="text-foreground/85 min-w-0 bg-transparent px-3 text-center text-[0.7rem] font-semibold tracking-[0.08em] uppercase outline-none"
+          className="text-muted-foreground min-w-0 flex-1 bg-transparent text-sm font-medium outline-none"
         />
       ) : (
         <button
@@ -1298,8 +1636,8 @@ function ColumnHeader({
           }
           title={editable ? 'Click for column actions · double-click to rename' : undefined}
           className={cn(
-            'text-foreground/85 max-w-full min-w-0 truncate px-3 text-center text-[0.7rem] font-semibold tracking-[0.08em] uppercase transition-transform select-none',
-            expanded && '-translate-y-1'
+            'text-muted-foreground min-w-0 flex-1 truncate text-left text-sm font-medium transition-transform select-none',
+            expanded && 'text-foreground'
           )}
         >
           {column.name}
@@ -1313,7 +1651,7 @@ function ColumnHeader({
         // Icons carry no colour by default — hovering each one paints the
         // action semantic tint (chevron → pastel green, sort → primary
         // pastel blue, trash → pastel red).
-        <div className="pointer-events-auto absolute top-full left-1/2 z-20 -mt-1 flex -translate-x-1/2 items-center gap-1">
+        <div className="pointer-events-auto absolute top-full left-3 z-20 -mt-1 flex items-center gap-1">
           <button
             type="button"
             onClick={(e) => {
@@ -1936,18 +2274,28 @@ function CellEditor({
       );
     case 'date':
       return <DateCell value={value} onChange={onChange} disabled={disabled} />;
-    case 'checkbox':
+    case 'checkbox': {
+      const checked = Boolean(value);
       return (
         <div className="flex h-full items-center justify-center py-2">
-          <input
-            type="checkbox"
-            checked={Boolean(value)}
-            onChange={(e) => onChange(e.target.checked)}
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={checked}
             disabled={disabled}
-            className="h-4 w-4"
-          />
+            onClick={() => !disabled && onChange(!checked)}
+            className={cn(
+              'flex h-5 w-5 items-center justify-center rounded-md border transition-colors',
+              checked
+                ? 'bg-primary border-primary text-primary-foreground'
+                : 'border-border/60 bg-background hover:border-primary/50'
+            )}
+          >
+            {checked && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+          </button>
         </div>
       );
+    }
     case 'select':
       return <SelectCell column={column} value={value} onChange={onChange} disabled={disabled} />;
     case 'multiselect':

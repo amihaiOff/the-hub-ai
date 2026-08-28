@@ -504,20 +504,26 @@
      small-caps treatment. */
   .database-block table {
     border-collapse: separate;
-    /* Row cards are separated visually by a small vertical gap — the
-       gap plus rounded corners on each row's first/last cells gives the
-       Notion-like list-of-cards look (no cell dividers, no outer frame). */
-    border-spacing: 0 0.5rem;
+    border-spacing: 0;
     width: 100%;
     background: transparent;
     border: none;
     border-radius: 0;
     overflow: visible;
   }
-  .database-block > .overflow-x-auto {
-    /* No outer frame — rows carry the visual weight themselves. */
-    border: none;
-    border-radius: 0;
+  /* Outer frame: the whole DB sits inside one rounded card. The horizontal
+     scroller lives inside the frame so a wide table scrolls without
+     escaping the border. */
+  .database-block > .db-frame {
+    border: 1px solid color-mix(in oklab, var(--border) 40%, transparent);
+    border-radius: 1rem;
+    background: color-mix(in oklab, var(--card) 40%, transparent);
+    /* Frame stays put; the inner table wrapper handles horizontal scroll
+       so a wide table doesn't push the header off screen. */
+    overflow: hidden;
+  }
+  .database-block .db-frame > .db-table-scroll {
+    overflow-x: auto;
     overflow-y: visible;
   }
   /* Breathing room between a page title and the content below it. */
@@ -530,52 +536,27 @@
   .flex > .page-title {
     margin-bottom: 0;
   }
-  /* No cell dividers — rows are cards, not table rows with lines. */
+  /* Row dividers: a single thin line between rows, no cell dividers. */
   .database-block th,
   .database-block td {
     border-bottom: none;
   }
-  /* Row-card look: every data-row cell gets a subtle muted fill, with
-     rounded corners at the row's outer edges. The narrow add-column filler
-     stays transparent so it doesn't extend the card past the last data
-     column. */
-  .database-block tbody tr[data-row-id] > td:not([data-add-column-cell]) {
-    background: color-mix(in oklab, var(--muted) 35%, transparent);
+  .database-block tbody tr[data-row-id] > td {
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 30%, transparent);
     padding-block: 0.35rem;
   }
-  /* Belt-and-suspenders: force the narrow add-column filler to stay
-     transparent even under a hovered row so the hover highlight visibly
-     ends at the last real column. */
-  .database-block tbody tr[data-row-id]:hover > td[data-add-column-cell],
-  .database-block tbody tr[data-row-id] > td[data-add-column-cell] {
-    background: transparent !important;
+  .database-block thead th {
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 30%, transparent);
   }
-  /* The inherited `.page-body tbody tr:hover` rule paints the ENTIRE row
-     element (not just its cells), which then shows through the transparent
-     add-column filler as a ghost rectangle to the right of the last real
-     column. Cancel it here — row-hover highlighting lives on the td cells
-     via the row-card rule above. */
+  /* Cancel the inherited page-body row-hover fill that paints the whole
+     tr — we tint cells only, and the add-column filler stays clear so
+     hover ends at the last real column. */
   .database-block tbody tr:hover {
     background: transparent !important;
   }
-  .database-block tbody tr[data-row-id] > td:not([data-add-column-cell]):first-child {
-    border-top-left-radius: 0.9rem;
-    border-bottom-left-radius: 0.9rem;
-  }
-  /* Right-rounded corner belongs to the LAST real data cell in the row —
-     which is `:last-child` when the add-column filler is absent, and the
-     one immediately before the filler when it's present. `:has()` picks
-     that up cleanly. */
-  .database-block tbody tr[data-row-id] > td:not([data-add-column-cell]):last-child,
-  .database-block
-    tbody
-    tr[data-row-id]
-    > td:not([data-add-column-cell]):has(+ td[data-add-column-cell]) {
-    border-top-right-radius: 0.9rem;
-    border-bottom-right-radius: 0.9rem;
-  }
+  .database-block tbody tr[data-row-id]:hover > td[data-add-column-cell],
   .database-block tbody tr[data-row-id] > td[data-add-column-cell] {
-    background: transparent;
+    background: transparent !important;
   }
   /* Kill the page-body's default column dividers and header fill inside
      the database block — the row-card layout doesn't need them and the
@@ -604,11 +585,9 @@
       padding-left: 0;
     }
   }
-  /* Row hover: brighten the card fill rather than tinting the whole row
-     background (which would leak through the transparent add-column
-     filler and read as a partial highlight). */
+  /* Row hover: subtle cell tint (skip the add-column filler). */
   .database-block tbody tr[data-row-id]:hover > td:not([data-add-column-cell]) {
-    background: color-mix(in oklab, var(--muted) 55%, transparent);
+    background: color-mix(in oklab, var(--muted) 25%, transparent);
   }
   .database-block input[type='number'] {
     font-variant-numeric: tabular-nums;
