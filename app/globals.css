@@ -515,9 +515,11 @@
      scroller lives inside the frame so a wide table scrolls without
      escaping the border. */
   .database-block > .db-frame {
-    border: 1px solid color-mix(in oklab, var(--border) 40%, transparent);
-    border-radius: 1rem;
-    background: color-mix(in oklab, var(--card) 40%, transparent);
+    /* Notion's collection grid is a near-square, flush, transparent frame —
+       no card fill, no big radius. A subtle 1px edge closes the full grid. */
+    border: 1px solid color-mix(in oklab, var(--border) 45%, transparent);
+    border-radius: 6px;
+    background: transparent;
     /* Frame stays put; the inner table wrapper handles horizontal scroll
        so a wide table doesn't push the header off screen. */
     overflow: hidden;
@@ -547,16 +549,20 @@
   .database-block tbody tr[data-row-id] > td {
     border-bottom: 1px solid color-mix(in oklab, var(--border) 30%, transparent);
   }
+  /* Notion rows are compact — a 32px min height for both body rows and the
+     header, driven by the cell so `border-collapse: separate` respects it. */
   .database-block tbody tr[data-row-id] {
-    height: 46px;
+    height: 32px;
   }
   .database-block thead tr {
-    height: 42px;
+    height: 32px;
   }
   .database-block thead th {
     border-bottom: 1px solid color-mix(in oklab, var(--border) 30%, transparent);
-    /* Slightly darker header band so it reads as its own row. */
-    background: color-mix(in oklab, var(--muted) 25%, transparent);
+    /* No header band — Notion's header sits on the page background (muted
+       label text carries the hierarchy). The page-bg fill is only there to
+       mask body rows scrolling under the sticky header in the fullscreen view. */
+    background: var(--background);
     /* Stick to the top of the scroll container in the fullscreen view;
        no-op inside a naturally-sized in-page block. */
     position: sticky;
@@ -579,6 +585,16 @@
   .database-block th,
   .database-block td {
     border-left: none !important;
+    /* Full grid: Notion draws a light vertical line between every column
+       (paired with the per-row bottom border above → a complete grid). */
+    border-right: 1px solid color-mix(in oklab, var(--border) 30%, transparent);
+  }
+  /* No trailing divider on the last column or the add-column filler — the
+     frame's own edge closes the grid there. */
+  .database-block th:last-child,
+  .database-block td:last-child,
+  .database-block td[data-add-column-cell] {
+    border-right: none;
   }
   .database-block thead th {
     color: color-mix(in oklab, var(--muted-foreground) 70%, var(--foreground)) !important;

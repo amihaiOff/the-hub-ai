@@ -1615,7 +1615,7 @@ function ColumnHeader({
       // clicked, the icon row floats absolutely BELOW the header
       // (position: absolute + top: 100%) so the table doesn't move.
       // The label itself lifts a couple pixels as a subtle affordance.
-      className="group/header relative flex w-full items-center gap-1.5 px-3.5 py-2"
+      className="group/header relative flex w-full items-center gap-1.5 px-2 py-1.5"
     >
       {/* Type icon leads the column name, muted like the label. */}
       <TypeIcon className={cn('h-3.5 w-3.5 shrink-0', typeMeta.color)} aria-hidden />
@@ -1639,7 +1639,7 @@ function ColumnHeader({
           }}
           onClick={(e) => e.stopPropagation()}
           size={1}
-          className="text-muted-foreground min-w-0 flex-1 bg-transparent text-xs font-medium tracking-wide outline-none"
+          className="text-muted-foreground min-w-0 flex-1 bg-transparent text-[13px] font-medium outline-none"
         />
       ) : (
         <button
@@ -1667,7 +1667,7 @@ function ColumnHeader({
           }
           title={editable ? 'Click for column actions · double-click to rename' : undefined}
           className={cn(
-            'text-muted-foreground min-w-0 flex-1 truncate text-left text-xs font-medium tracking-wide transition-transform select-none',
+            'text-muted-foreground min-w-0 flex-1 truncate text-left text-[13px] font-medium transition-transform select-none',
             expanded && 'text-foreground'
           )}
         >
@@ -2221,13 +2221,13 @@ function TextCell({
   // Non-primary cells stay in the softer body weight so the "name" column
   // clearly leads the eye, matching Notion.
   const typography = cn(
-    'px-3.5 py-2 text-[13.5px] leading-snug break-words whitespace-pre-wrap',
+    'px-2 py-1.5 text-[13.5px] leading-snug break-words whitespace-pre-wrap',
     isPrimary ? 'font-medium text-foreground' : 'text-muted-foreground'
   );
 
   if (isUrlValue) {
     return (
-      <div className="min-w-0 px-3.5 py-2 text-[13.5px] leading-snug">
+      <div className="min-w-0 px-2 py-1.5 text-[13.5px] leading-snug">
         <a
           href={trimmed}
           target="_blank"
@@ -2467,19 +2467,16 @@ function SelectCell({
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
         aria-label={`${column.name}: ${selected?.label ?? 'empty'}`}
-        className="flex h-full w-full items-center justify-start px-3.5 py-2 text-left text-[13.5px]"
+        className="flex h-full w-full items-center justify-start px-2 py-1.5 text-left text-[13.5px]"
       >
         {selected && selColor ? (
-          // Pill: rounded-full with a leading colored dot, Notion-style.
-          // The dot is the same color family as the pill so a quick glance
-          // groups by category without reading the label.
+          // Notion select tag: a flat pastel pill, 3px radius, no ring or dot.
           <span
             className={cn(
-              'inline-flex h-[21px] items-center gap-1.5 rounded-[5px] px-2 text-[11.5px] font-medium',
+              'inline-flex h-[20px] items-center rounded-[3px] px-1.5 text-[12px] font-medium',
               selColor.pill
             )}
           >
-            <span className={cn('h-1.5 w-1.5 rounded-full', selColor.swatch)} aria-hidden />
             {selected.label}
           </span>
         ) : (
@@ -2618,7 +2615,7 @@ function MultiSelectCell({
         aria-label={`${column.name}: ${
           selectedOptions.map(({ opt }) => opt.label).join(', ') || 'empty'
         }`}
-        className="flex h-full w-full items-center justify-start px-3.5 py-2 text-left text-[13.5px]"
+        className="flex h-full w-full items-center justify-start px-2 py-1.5 text-left text-[13.5px]"
       >
         {selectedOptions.length > 0 ? (
           <span className="flex flex-wrap items-center justify-start gap-1">
@@ -2628,11 +2625,10 @@ function MultiSelectCell({
                 <span
                   key={opt.id}
                   className={cn(
-                    'inline-flex h-[21px] items-center gap-1.5 rounded-[5px] px-2 text-[11.5px] font-medium',
+                    'inline-flex h-[20px] items-center rounded-[3px] px-1.5 text-[12px] font-medium',
                     c.pill
                   )}
                 >
-                  <span className={cn('h-1.5 w-1.5 rounded-full', c.swatch)} aria-hidden />
                   {opt.label}
                 </span>
               );
