@@ -660,8 +660,14 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
 
   // A narrow trailing "add column" cell (2.5rem) lives in the header when
   // editable; include its width so table-layout: fixed leaves room for it.
+  // Primary (first) column gets extra width per the spec (280px vs 160px
+  // for the rest) since it usually carries the row title.
   const addColWidthRem = editable ? 2.5 : 0;
-  const tableWidthRem = columns.length * 10 + addColWidthRem;
+  const PRIMARY_COL_REM = 17.5;
+  const OTHER_COL_REM = 10;
+  const tableWidthRem =
+    (columns.length > 0 ? PRIMARY_COL_REM + (columns.length - 1) * OTHER_COL_REM : 0) +
+    addColWidthRem;
 
   // ─── Header ──────────────────────────────────────────────────────────
   // Left cluster: collapse chevron + title. Right cluster: search / filter /
@@ -749,7 +755,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
       </div>
       {searchOpen && (
         <div className="mt-2 flex items-center gap-2">
-          <div className="border-border/60 bg-background focus-within:border-primary/50 flex flex-1 items-center gap-2 rounded-lg border px-2.5 py-1.5">
+          <div className="border-border/60 bg-background focus-within:border-primary/50 flex h-[34px] w-[268px] max-w-full items-center gap-2 rounded-lg border px-2.5">
             <Search className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
             <input
               autoFocus
@@ -815,7 +821,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
               <thead>
                 {table.getHeaderGroups().map((headerGroup) => (
                   <tr key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => {
+                    {headerGroup.headers.map((header, hIdx) => {
                       const col = columns.find((c) => c.id === header.column.id);
                       if (!col) return null;
                       const sort = header.column.getIsSorted();
@@ -824,7 +830,9 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                           key={header.id}
                           data-col-header-id={col.id}
                           className="p-0"
-                          style={{ width: '10rem' }}
+                          style={{
+                            width: hIdx === 0 ? `${PRIMARY_COL_REM}rem` : `${OTHER_COL_REM}rem`,
+                          }}
                         >
                           <ColumnHeader
                             column={col}
@@ -879,7 +887,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                   return (
                     <tr
                       key={row.id}
-                      className="group/row"
+                      className={cn('group/row', openRowId === row.id && 'db-row-open')}
                       data-row-id={row.id}
                       style={
                         swiped
@@ -1187,7 +1195,7 @@ function SortMenu({
     const r = anchorEl.getBoundingClientRect();
     // Defer to avoid the cascading-render lint (setState synchronously
     // inside an effect); the popup is fine to paint a frame later.
-    queueMicrotask(() => setPos({ top: r.bottom + 6, left: r.right - 240 }));
+    queueMicrotask(() => setPos({ top: r.bottom + 6, left: r.right - 360 }));
   }, [anchorEl]);
   useEffect(() => {
     const onDown = (e: PointerEvent) => {
@@ -1205,52 +1213,62 @@ function SortMenu({
     if (dir === null) onChange([]);
     else onChange([{ id, desc: dir === 'desc' }]);
   };
+  const selectedCol = columns.find((c) => c.id === activeId) ?? columns[0];
+  const selectedDir: 'asc' | 'desc' = activeDir ?? 'asc';
   return createPortal(
     <div
       ref={ref}
       role="menu"
-      style={{ position: 'fixed', top: pos.top, left: Math.max(8, pos.left), width: 240 }}
-      className="bg-popover text-popover-foreground z-[100] rounded-xl border p-1 shadow-xl"
+      style={{ position: 'fixed', top: pos.top, left: Math.max(8, pos.left), width: 360 }}
+      className="bg-popover text-popover-foreground z-[100] rounded-xl border p-3 shadow-xl"
     >
-      <p className="text-muted-foreground px-2 pt-1 pb-1 text-[10px] font-semibold tracking-wider uppercase">
+      <p className="text-muted-foreground pb-2 text-[10px] font-semibold tracking-wider uppercase">
         Sort by
       </p>
-      {columns.map((c) => {
-        const isActive = c.id === activeId;
-        return (
-          <div
-            key={c.id}
+      {/* Field select + segmented Asc/Desc — the spec's 360px sort popover
+          layout. Picking a field starts an ascending sort; the segmented
+          control flips direction. */}
+      <div className="flex items-center gap-2">
+        <select
+          value={activeId ?? selectedCol?.id ?? ''}
+          onChange={(e) => setSort(e.target.value, selectedDir)}
+          className="border-border/60 bg-background focus:ring-primary/40 h-8 flex-1 rounded-lg border px-2 text-xs outline-none focus:ring-2"
+        >
+          {columns.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        <div className="bg-muted/40 inline-flex h-8 items-center rounded-lg p-0.5">
+          <button
+            type="button"
+            onClick={() => setSort(activeId ?? selectedCol?.id ?? '', 'asc')}
+            aria-label="Ascending"
             className={cn(
-              'flex items-center gap-1 rounded-lg px-1.5 py-1',
-              isActive && 'bg-muted/40'
+              'flex h-7 w-9 items-center justify-center rounded-md transition-colors',
+              activeId && selectedDir === 'asc'
+                ? 'bg-background text-primary shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            <span className="text-foreground/85 flex-1 truncate text-xs">{c.name}</span>
-            <button
-              type="button"
-              onClick={() => setSort(c.id, isActive && activeDir === 'asc' ? null : 'asc')}
-              aria-label={`Sort ${c.name} ascending`}
-              className={cn(
-                'hover:bg-muted/60 flex h-6 w-6 items-center justify-center rounded-md',
-                isActive && activeDir === 'asc' && 'bg-primary/10 text-primary'
-              )}
-            >
-              <ArrowUp className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setSort(c.id, isActive && activeDir === 'desc' ? null : 'desc')}
-              aria-label={`Sort ${c.name} descending`}
-              className={cn(
-                'hover:bg-muted/60 flex h-6 w-6 items-center justify-center rounded-md',
-                isActive && activeDir === 'desc' && 'bg-primary/10 text-primary'
-              )}
-            >
-              <ArrowDown className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        );
-      })}
+            <ArrowUp className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setSort(activeId ?? selectedCol?.id ?? '', 'desc')}
+            aria-label="Descending"
+            className={cn(
+              'flex h-7 w-9 items-center justify-center rounded-md transition-colors',
+              activeId && selectedDir === 'desc'
+                ? 'bg-background text-primary shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <ArrowDown className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
       {sorting.length > 0 && (
         <button
           type="button"

@@ -603,6 +603,19 @@
   .database-block tbody tr[data-row-id]:hover > td:not([data-add-column-cell]) {
     background: color-mix(in oklab, var(--muted) 25%, transparent);
   }
+  /* Row currently open in the entry sheet gets a persistent primary tint
+     — the spec's "selected row" state, remapped to our token. */
+  .database-block tbody tr.db-row-open > td:not([data-add-column-cell]) {
+    background: color-mix(in oklab, var(--primary) 10%, transparent);
+  }
+  /* Editing-cell affordance: any focused input/textarea/button inside a
+     data cell gets a subtle inset primary ring — matches the spec's
+     spreadsheet-style selection ring, colored with our primary token. */
+  .database-block tbody td :is(input, textarea, button):focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px var(--primary);
+    border-radius: 6px;
+  }
   .database-block input[type='number'] {
     font-variant-numeric: tabular-nums;
   }
