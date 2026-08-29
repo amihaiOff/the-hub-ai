@@ -134,33 +134,36 @@ const TYPE_META: Record<
  * `color` field so the swatch survives reload. Anything unknown falls
  * back to `slate` at render time — see `getSelectColor`.
  */
+// Notion dark-mode tags read as solid-ish muted chips, not faint washes —
+// so the fills sit at /30 with light (-200) text. The `ring-*` fragment is
+// unused by the flat in-cell pill but kept for the color-picker swatches.
 export const SELECT_COLORS = [
   {
     key: 'slate',
-    pill: 'bg-slate-500/15 text-slate-300 ring-slate-400/30',
+    pill: 'bg-slate-500/30 text-slate-200 ring-slate-400/30',
     swatch: 'bg-slate-400',
   },
-  { key: 'blue', pill: 'bg-blue-500/20 text-blue-200 ring-blue-400/30', swatch: 'bg-blue-400' },
+  { key: 'blue', pill: 'bg-blue-500/30 text-blue-200 ring-blue-400/30', swatch: 'bg-blue-400' },
   {
     key: 'emerald',
-    pill: 'bg-emerald-500/20 text-emerald-200 ring-emerald-400/30',
+    pill: 'bg-emerald-500/30 text-emerald-200 ring-emerald-400/30',
     swatch: 'bg-emerald-400',
   },
   {
     key: 'amber',
-    pill: 'bg-amber-500/20 text-amber-200 ring-amber-400/30',
+    pill: 'bg-amber-500/30 text-amber-200 ring-amber-400/30',
     swatch: 'bg-amber-400',
   },
-  { key: 'rose', pill: 'bg-rose-500/20 text-rose-200 ring-rose-400/30', swatch: 'bg-rose-400' },
+  { key: 'rose', pill: 'bg-rose-500/30 text-rose-200 ring-rose-400/30', swatch: 'bg-rose-400' },
   {
     key: 'violet',
-    pill: 'bg-violet-500/20 text-violet-200 ring-violet-400/30',
+    pill: 'bg-violet-500/30 text-violet-200 ring-violet-400/30',
     swatch: 'bg-violet-400',
   },
-  { key: 'pink', pill: 'bg-pink-500/20 text-pink-200 ring-pink-400/30', swatch: 'bg-pink-400' },
+  { key: 'pink', pill: 'bg-pink-500/30 text-pink-200 ring-pink-400/30', swatch: 'bg-pink-400' },
   {
     key: 'orange',
-    pill: 'bg-orange-500/20 text-orange-200 ring-orange-400/30',
+    pill: 'bg-orange-500/30 text-orange-200 ring-orange-400/30',
     swatch: 'bg-orange-400',
   },
 ] as const;
@@ -956,7 +959,10 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                                   aria-label="Open entry"
                                   title="Open entry"
                                   className={cn(
-                                    'border-border/50 text-muted-foreground hover:bg-muted/50 hover:text-foreground ml-auto inline-flex shrink-0 items-center gap-1 rounded-lg border px-2 py-1 text-xs transition-opacity',
+                                    // Borderless ghost control like Notion's
+                                    // hover "⤢ Open" peek — faint hover fill,
+                                    // no button chrome.
+                                    'text-muted-foreground hover:bg-muted/50 hover:text-foreground ml-auto inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs transition-opacity',
                                     isMobile
                                       ? 'opacity-100'
                                       : 'opacity-0 group-hover/row:opacity-100'
@@ -1010,9 +1016,9 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                         onClick={addRow}
                         aria-label="Add row"
                         title="Add row"
-                        className="text-muted-foreground/70 hover:text-foreground hover:bg-muted/30 flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors"
+                        className="text-muted-foreground/70 hover:text-foreground hover:bg-muted/30 flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-[13px] transition-colors"
                       >
-                        <Plus className="h-4 w-4" /> New row
+                        <Plus className="h-3.5 w-3.5" /> New row
                       </button>
                     </td>
                   </tr>
@@ -2300,7 +2306,7 @@ function CellEditor({
             onChange(Number.isFinite(v as number) || v === null ? v : null);
           }}
           disabled={disabled}
-          className="w-full bg-transparent px-3.5 py-2 text-right text-[13.5px] tabular-nums outline-none"
+          className="w-full bg-transparent px-2 py-1.5 text-left text-[13.5px] tabular-nums outline-none"
         />
       );
     case 'date':
@@ -2308,7 +2314,7 @@ function CellEditor({
     case 'checkbox': {
       const checked = Boolean(value);
       return (
-        <div className="flex h-full items-center justify-center py-2">
+        <div className="flex h-full items-center justify-start px-2 py-1.5">
           <button
             type="button"
             role="checkbox"
@@ -2354,7 +2360,8 @@ function DateCell({
   const dateStr = typeof value === 'string' ? value : '';
   const parsed = dateStr ? parseISO(dateStr) : undefined;
   const date = parsed && isValid(parsed) ? parsed : undefined;
-  const display = date ? format(date, 'dd/MM/yyyy') : '—';
+  // Notion leaves empty date cells blank (no placeholder dash).
+  const display = date ? format(date, 'dd/MM/yyyy') : '';
   const [open, setOpen] = useState(false);
 
   return (
@@ -2368,7 +2375,7 @@ function DateCell({
           type="button"
           disabled={disabled}
           className={cn(
-            'flex h-full w-full items-center justify-start px-3.5 py-2 text-[13.5px] outline-none',
+            'flex h-full w-full items-center justify-start px-2 py-1.5 text-[13.5px] outline-none',
             disabled && 'cursor-not-allowed'
           )}
         >
@@ -2480,7 +2487,7 @@ function SelectCell({
             {selected.label}
           </span>
         ) : (
-          <span className="text-muted-foreground/40 text-xs">—</span>
+          <span className="sr-only">empty</span>
         )}
       </button>
       {open &&
@@ -2635,7 +2642,7 @@ function MultiSelectCell({
             })}
           </span>
         ) : (
-          <span className="text-muted-foreground/40 text-xs">—</span>
+          <span className="sr-only">empty</span>
         )}
       </button>
       {open &&

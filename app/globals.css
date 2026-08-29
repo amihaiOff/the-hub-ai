@@ -547,7 +547,7 @@
     border-bottom: none;
   }
   .database-block tbody tr[data-row-id] > td {
-    border-bottom: 1px solid color-mix(in oklab, var(--border) 30%, transparent);
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 35%, transparent);
   }
   /* Notion rows are compact — a 32px min height for both body rows and the
      header, driven by the cell so `border-collapse: separate` respects it. */
@@ -558,11 +558,11 @@
     height: 32px;
   }
   .database-block thead th {
-    border-bottom: 1px solid color-mix(in oklab, var(--border) 30%, transparent);
-    /* No header band — Notion's header sits on the page background (muted
-       label text carries the hierarchy). The page-bg fill is only there to
-       mask body rows scrolling under the sticky header in the fullscreen view. */
-    background: var(--background);
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 35%, transparent);
+    /* No header band — Notion's header sits on whatever surface hosts the
+       block (page background, or the row entry sheet's card). Transparent so
+       it never paints a mismatched strip when nested on a lighter surface. */
+    background: transparent;
     /* Stick to the top of the scroll container in the fullscreen view;
        no-op inside a naturally-sized in-page block. */
     position: sticky;
@@ -587,7 +587,7 @@
     border-left: none !important;
     /* Full grid: Notion draws a light vertical line between every column
        (paired with the per-row bottom border above → a complete grid). */
-    border-right: 1px solid color-mix(in oklab, var(--border) 30%, transparent);
+    border-right: 1px solid color-mix(in oklab, var(--border) 35%, transparent);
   }
   /* No trailing divider on the last column or the add-column filler — the
      frame's own edge closes the grid there. */
@@ -596,8 +596,10 @@
   .database-block td[data-add-column-cell] {
     border-right: none;
   }
+  /* Notion column labels are dimmer than the cell values, not brighter —
+     use the plain muted token (don't mix toward foreground). */
   .database-block thead th {
-    color: color-mix(in oklab, var(--muted-foreground) 70%, var(--foreground)) !important;
+    color: var(--muted-foreground) !important;
   }
   /* On mobile, break out of the page-body's left padding and the shell's
      horizontal padding so the grid spans (nearly) the full screen width and
@@ -629,8 +631,10 @@
      spreadsheet-style selection ring, colored with our primary token. */
   .database-block tbody td :is(input, textarea, button):focus-visible {
     outline: none;
+    /* Notion's cell selection is a flush, near-square outline — keep the
+       ring tight to the grid rather than a rounded chip inside it. */
     box-shadow: inset 0 0 0 2px var(--primary);
-    border-radius: 6px;
+    border-radius: 2px;
   }
   .database-block input[type='number'] {
     font-variant-numeric: tabular-nums;
