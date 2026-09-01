@@ -498,6 +498,32 @@
     cursor: col-resize;
   }
 
+  /* Warm near-black surface + amber accent, scoped to the database block
+     only. Remapping the semantic tokens here re-tints every token-driven
+     class inside the block (text-foreground, bg-card, border-border,
+     text-primary, bg-muted, …) without touching the rest of the app's cool
+     slate + blue theme. */
+  .database-block,
+  .db-fullscreen {
+    --background: #100d0b;
+    --card: #17130f;
+    --card-foreground: #f4efe9;
+    --popover: #1b1611;
+    --popover-foreground: #f4efe9;
+    --foreground: #f4efe9;
+    --muted: #241d17;
+    --muted-foreground: #a99b8b;
+    --accent: #241d17;
+    --accent-foreground: #f4efe9;
+    --secondary: #241d17;
+    --secondary-foreground: #f4efe9;
+    --border: #322a22;
+    --input: #322a22;
+    --primary: #f5a524;
+    --primary-foreground: #1a140d;
+    --ring: #f5a524;
+  }
+
   /* Database block — the typed grid uses its own scoped styling so
      the inline table rules above don't apply. Numeric cells get
      right-aligned tabular-nums, headers pick up the same uppercase
@@ -515,11 +541,12 @@
      scroller lives inside the frame so a wide table scrolls without
      escaping the border. */
   .database-block > .db-frame {
-    /* Notion's collection grid is a near-square, flush, transparent frame —
-       no card fill, no big radius. A subtle 1px edge closes the full grid. */
-    border: 1px solid color-mix(in oklab, var(--border) 45%, transparent);
-    border-radius: 6px;
-    background: transparent;
+    /* Flat filled card: a warm near-black surface with a thin edge, small
+       radius, and a whisper of shadow — no big elevation. */
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
     /* Frame stays put; the inner table wrapper handles horizontal scroll
        so a wide table doesn't push the header off screen. */
     overflow: hidden;
@@ -549,13 +576,14 @@
   .database-block tbody tr[data-row-id] > td {
     border-bottom: 1px solid color-mix(in oklab, var(--border) 35%, transparent);
   }
-  /* Notion rows are compact — a 32px min height for both body rows and the
-     header, driven by the cell so `border-collapse: separate` respects it. */
+  /* Rows — a compact-but-legible min height, driven by the cell so
+     `border-collapse: separate` respects it. Cells align-top so wrapped
+     multi-line values grow the row cleanly. */
   .database-block tbody tr[data-row-id] {
-    height: 32px;
+    height: 40px;
   }
   .database-block thead tr {
-    height: 32px;
+    height: 42px;
   }
   .database-block thead th {
     border-bottom: 1px solid color-mix(in oklab, var(--border) 35%, transparent);

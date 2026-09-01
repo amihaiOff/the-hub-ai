@@ -147,7 +147,14 @@ function TransactionActions({
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onDelete} className="text-destructive">
+        <DropdownMenuItem
+          // Defer past the menu-close: Radix restores focus to the trigger as
+          // the item's onClick fires, and window.confirm() inside that focus
+          // handoff can be dismissed by the browser before it renders. One
+          // macrotask later, focus has settled and the dialog appears.
+          onSelect={() => window.setTimeout(onDelete, 0)}
+          className="text-destructive"
+        >
           <Trash2 className="mr-2 h-4 w-4" />
           Delete
         </DropdownMenuItem>

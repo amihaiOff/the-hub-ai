@@ -115,6 +115,92 @@ function persistFilters(blockId: string | null, filters: Record<string, ColumnFi
   }
 }
 
+/**
+ * Per-column footer aggregation. Like filters, this is per-viewer view state
+ * persisted to localStorage keyed by block id (never written to the shared
+ * document).
+ */
+export type DbAggType = 'none' | 'count' | 'sum' | 'avg' | 'min' | 'max';
+
+const AGG_STORAGE_PREFIX = 'hubai:db-aggs:';
+
+/** Short prefix shown before the column name in a footer segment. Sum reads
+ * as just the column name (no prefix), matching the Notion/target style. */
+const AGG_PREFIX: Record<Exclude<DbAggType, 'none' | 'sum'>, string> = {
+  count: 'Count',
+  avg: 'Avg',
+  min: 'Min',
+  max: 'Max',
+};
+
+const AGG_OPTIONS: { type: DbAggType; label: string }[] = [
+  { type: 'none', label: 'None' },
+  { type: 'sum', label: 'Sum' },
+  { type: 'avg', label: 'Average' },
+  { type: 'min', label: 'Min' },
+  { type: 'max', label: 'Max' },
+  { type: 'count', label: 'Count' },
+];
+
+function loadPersistedAggs(blockId: string | null): Record<string, DbAggType> {
+  if (!blockId || typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(AGG_STORAGE_PREFIX + blockId);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, DbAggType>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistAggs(blockId: string | null, aggs: Record<string, DbAggType>) {
+  if (!blockId || typeof window === 'undefined') return;
+  try {
+    const key = AGG_STORAGE_PREFIX + blockId;
+    const active = Object.fromEntries(Object.entries(aggs).filter(([, t]) => t && t !== 'none'));
+    if (Object.keys(active).length === 0) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, JSON.stringify(active));
+  } catch {
+    // Best-effort persistence.
+  }
+}
+
+/** The default aggregation for a column that has no explicit choice yet —
+ * number columns sum out of the box, everything else stays hidden. */
+function defaultAgg(colType: string): DbAggType {
+  return colType === 'number' ? 'sum' : 'none';
+}
+
+function formatAggNumber(n: number): string {
+  return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+/** Compute a column's footer aggregate over the given (already filtered) rows.
+ * Returns a display string, or null when there's nothing to show. */
+function computeAggregate(type: DbAggType, colId: string, rows: DatabaseRow[]): string | null {
+  if (type === 'none') return null;
+  const raw = rows.map((r) => r.cells[colId]);
+  if (type === 'count') {
+    const filled = raw.filter((v) => v !== null && v !== undefined && v !== '').length;
+    return String(filled);
+  }
+  const nums = raw.filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+  if (nums.length === 0) return '—';
+  switch (type) {
+    case 'sum':
+      return formatAggNumber(nums.reduce((a, b) => a + b, 0));
+    case 'avg':
+      return formatAggNumber(nums.reduce((a, b) => a + b, 0) / nums.length);
+    case 'min':
+      return formatAggNumber(Math.min(...nums));
+    case 'max':
+      return formatAggNumber(Math.max(...nums));
+    default:
+      return null;
+  }
+}
+
 // Type icons are drawn muted to match the mock — a monochrome iconography
 // row keeps the eye on the column names, not on chromatic distinctions.
 const TYPE_META: Record<
@@ -245,6 +331,21 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
   useEffect(() => {
     persistFilters(blockId, filters);
   }, [blockId, filters]);
+
+  // Per-column footer aggregations — same per-viewer, localStorage-persisted
+  // model as filters. Hydrated for the backfilled id, then mirrored to storage.
+  const [aggs, setAggs] = useState<Record<string, DbAggType>>(() => loadPersistedAggs(blockId));
+  const aggsHydratedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (blockId && aggsHydratedFor.current !== blockId) {
+      aggsHydratedFor.current = blockId;
+      const stored = loadPersistedAggs(blockId);
+      if (Object.keys(stored).length) setAggs(stored);
+    }
+  }, [blockId]);
+  useEffect(() => {
+    persistAggs(blockId, aggs);
+  }, [blockId, aggs]);
 
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const filterBtnRef = useRef<HTMLButtonElement>(null);
@@ -672,10 +773,19 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
     (columns.length > 0 ? PRIMARY_COL_REM + (columns.length - 1) * OTHER_COL_REM : 0) +
     addColWidthRem;
 
+  // Row counts for the title subtitle + footer. Filtered = rows currently
+  // visible after search/filters; total = all rows in the block.
+  const totalRowCount = rows.length;
+  const filteredRowCount = table.getRowModel().rows.length;
+  const rowCountLabel =
+    filteredRowCount === totalRowCount
+      ? `${totalRowCount} ${totalRowCount === 1 ? 'row' : 'rows'}`
+      : `${filteredRowCount} of ${totalRowCount} rows`;
+
   // ─── Header ──────────────────────────────────────────────────────────
-  // Left cluster: collapse chevron + title. Right cluster: search / filter /
-  // sort / fullscreen icon-buttons. Filter and sort tint primary when they
-  // hold active state — matches the mock's orange-outlined icons.
+  // Left cluster: collapse chevron + title + row-count. Right cluster: search
+  // / filter / sort / fullscreen bordered icon-buttons. Filter and sort tint
+  // amber (remapped primary) when they hold active state.
   const headerNode = columns.length > 0 && (
     <div className="mb-0 px-4 pt-3 pb-2">
       <div className="relative flex w-full items-center gap-2">
@@ -688,21 +798,28 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </button>
-        {editable ? (
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Untitled"
-            dir="auto"
-            aria-label="Database title"
-            className="text-foreground placeholder:text-muted-foreground/40 min-w-0 flex-1 truncate bg-transparent text-2xl font-semibold outline-none"
-          />
-        ) : (
-          <span className="text-foreground min-w-0 flex-1 truncate text-2xl font-semibold">
-            {title}
-          </span>
-        )}
-        {/* Right-cluster icon buttons — all four are compact rounded squares. */}
+        {/* Title + row-count subtitle grouped on the left; the count hugs the
+            title text and stays visible while the title truncates. */}
+        <div className="flex min-w-0 flex-1 items-baseline gap-2.5">
+          {editable ? (
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Untitled"
+              dir="auto"
+              aria-label="Database title"
+              className="text-foreground placeholder:text-muted-foreground/40 min-w-0 flex-1 truncate bg-transparent text-2xl font-bold outline-none"
+            />
+          ) : (
+            <span className="text-foreground min-w-0 truncate text-2xl font-bold">{title}</span>
+          )}
+          {totalRowCount > 0 && (
+            <span className="text-muted-foreground shrink-0 text-sm tabular-nums">
+              {rowCountLabel}
+            </span>
+          )}
+        </div>
+        {/* Right-cluster icon buttons — bordered rounded-square icons. */}
         <div className="flex shrink-0 items-center gap-1.5">
           <HeaderIconButton
             onClick={() => setSearchOpen((o) => !o)}
@@ -807,249 +924,278 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
     </div>
   );
 
+  // ─── Footer ──────────────────────────────────────────────────────────
+  // A left-aligned strip: the row-count, then one segment per column that
+  // carries an aggregation (number columns sum by default). Each segment is a
+  // click-to-change picker (Sum / Average / Min / Max / Count / None).
+  const footerRows = table.getRowModel().rows.map((r) => r.original);
+  const footerNode = columns.length > 0 && (
+    <div className="db-footer border-border/70 text-muted-foreground flex flex-wrap items-stretch border-t text-[12px]">
+      <span className="flex items-center px-3 py-2 tabular-nums">{rowCountLabel}</span>
+      {columns.map((col) => {
+        const type = aggs[col.id] ?? defaultAgg(col.type);
+        const value = computeAggregate(type, col.id, footerRows);
+        if (type === 'none' || value === null) return null;
+        return (
+          <AggFooterCell
+            key={col.id}
+            colName={col.name}
+            type={type}
+            value={value}
+            editable={editable}
+            onChange={(t) => setAggs((cur) => ({ ...cur, [col.id]: t }))}
+          />
+        );
+      })}
+    </div>
+  );
+
   return (
     <NodeViewWrapper as="div" className="database-block group/db relative my-4">
       <div className="db-frame">
         {headerNode}
         {collapsed ? null : (
-          <div ref={wrapperRef} className="db-table-scroll relative">
-            {/* Table width = column count × 10rem (+ the narrow add-column cell)
+          <>
+            <div ref={wrapperRef} className="db-table-scroll relative">
+              {/* Table width = column count × 10rem (+ the narrow add-column cell)
             so table-layout: fixed cells keep their intrinsic size. On narrow
             viewports the table exceeds the wrapper and `overflow-x-auto` gives
             a real horizontal scroll — `w-full` would collapse cells instead. */}
-            <table
-              className="min-w-full text-sm"
-              style={{ tableLayout: 'fixed', width: `${tableWidthRem}rem` }}
-            >
-              <thead>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <tr key={headerGroup.id}>
-                    {headerGroup.headers.map((header, hIdx) => {
-                      const col = columns.find((c) => c.id === header.column.id);
-                      if (!col) return null;
-                      const sort = header.column.getIsSorted();
-                      return (
-                        <th
-                          key={header.id}
-                          data-col-header-id={col.id}
-                          className="p-0"
-                          style={{
-                            width: hIdx === 0 ? `${PRIMARY_COL_REM}rem` : `${OTHER_COL_REM}rem`,
-                          }}
-                        >
-                          <ColumnHeader
-                            column={col}
-                            sort={sort}
-                            editable={editable}
-                            autoStartEdit={
-                              focusIntent?.kind === 'column' && focusIntent.id === col.id
-                            }
-                            onToggleSort={() => header.column.toggleSorting()}
-                            onRename={(name) => renameColumn(col.id, name)}
-                            onChangeType={(type) => changeColumnType(col.id, type)}
-                            onDelete={() => requestDeleteColumn(col.id)}
-                            onSetOptions={(opts) => setSelectOptions(col.id, opts)}
-                          />
-                        </th>
-                      );
-                    })}
-                    {/* Narrow add-column cell — a plus in the header spawns a
-                    new column (replaces the old floating edge tab). */}
-                    {editable && (
-                      <th
-                        data-add-column-cell=""
-                        className="p-0 align-middle"
-                        style={{ width: '2.5rem' }}
-                      >
-                        <button
-                          type="button"
-                          onClick={addColumn}
-                          aria-label="Add column"
-                          title="Add column"
-                          className="text-muted-foreground/60 hover:text-primary hover:bg-primary/10 flex h-full w-full items-center justify-center py-2 transition-colors"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                        </button>
-                      </th>
-                    )}
-                  </tr>
-                ))}
-              </thead>
-              <tbody ref={tbodyRef}>
-                {table.getRowModel().rows.map((tableRow) => {
-                  const row = tableRow.original;
-                  // Cells are inline-editable on every viewport now. On mobile the
-                  // row also carries gesture handlers: tap a cell = edit it,
-                  // long-press = open the entry card, swipe-right-at-left-edge =
-                  // reveal delete (see onRowTouch* + the delete overlay below).
-                  const cellEditable = editable;
-                  // Keep the open icon always visible when the row has a page
-                  // (body content) or on mobile; otherwise reveal it on hover.
-                  const rowHasBody = hasBodyContent(row.body);
-                  const swiped = swipe?.rowId === row.id;
-                  return (
-                    <tr
-                      key={row.id}
-                      className={cn('group/row', openRowId === row.id && 'db-row-open')}
-                      data-row-id={row.id}
-                      style={
-                        swiped
-                          ? {
-                              transform: `translateX(${swipe!.dx}px)`,
-                              transition: swipe!.dragging ? 'none' : 'transform 180ms ease-out',
-                            }
-                          : undefined
-                      }
-                      onTouchStart={
-                        isMobile && editable ? (e) => onRowTouchStart(e, row.id) : undefined
-                      }
-                      onTouchMove={
-                        isMobile && editable ? (e) => onRowTouchMove(e, row.id) : undefined
-                      }
-                      onTouchEnd={
-                        isMobile && editable ? (e) => onRowTouchEnd(e, row.id) : undefined
-                      }
-                      onTouchCancel={
-                        isMobile && editable ? (e) => onRowTouchEnd(e, row.id) : undefined
-                      }
-                      onContextMenu={isMobile && editable ? (e) => e.preventDefault() : undefined}
-                    >
-                      {tableRow.getVisibleCells().map((cell, cellIdx) => {
-                        const col = columns.find((c) => c.id === cell.column.id);
+              <table
+                className="min-w-full text-sm"
+                style={{ tableLayout: 'fixed', width: `${tableWidthRem}rem` }}
+              >
+                <thead>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <tr key={headerGroup.id}>
+                      {headerGroup.headers.map((header, hIdx) => {
+                        const col = columns.find((c) => c.id === header.column.id);
                         if (!col) return null;
-                        // First column reads as the row's primary label — bold it
-                        // (Notion-style) so scanning a long table is easy.
-                        const isPrimary = cellIdx === 0;
-                        const cellEditor = (
-                          <CellEditor
-                            column={col}
-                            value={row.cells[col.id]}
-                            onChange={(v) => updateCell(row.id, col.id, v)}
-                            editable={cellEditable}
-                            isPrimary={isPrimary}
-                          />
-                        );
+                        const sort = header.column.getIsSorted();
                         return (
-                          <td key={cell.id} className="p-0 align-top">
-                            {isPrimary ? (
-                              <div className="flex items-center">
-                                <div className="min-w-0 flex-1">{cellEditor}</div>
-                                {/* Passive "row has notes" indicator — the lines
+                          <th
+                            key={header.id}
+                            data-col-header-id={col.id}
+                            className="p-0"
+                            style={{
+                              width: hIdx === 0 ? `${PRIMARY_COL_REM}rem` : `${OTHER_COL_REM}rem`,
+                            }}
+                          >
+                            <ColumnHeader
+                              column={col}
+                              sort={sort}
+                              editable={editable}
+                              autoStartEdit={
+                                focusIntent?.kind === 'column' && focusIntent.id === col.id
+                              }
+                              onToggleSort={() => header.column.toggleSorting()}
+                              onRename={(name) => renameColumn(col.id, name)}
+                              onChangeType={(type) => changeColumnType(col.id, type)}
+                              onDelete={() => requestDeleteColumn(col.id)}
+                              onSetOptions={(opts) => setSelectOptions(col.id, opts)}
+                            />
+                          </th>
+                        );
+                      })}
+                      {/* Narrow add-column cell — a plus in the header spawns a
+                    new column (replaces the old floating edge tab). */}
+                      {editable && (
+                        <th
+                          data-add-column-cell=""
+                          className="p-0 align-middle"
+                          style={{ width: '2.5rem' }}
+                        >
+                          <button
+                            type="button"
+                            onClick={addColumn}
+                            aria-label="Add column"
+                            title="Add column"
+                            className="text-muted-foreground/60 hover:text-primary hover:bg-primary/10 flex h-full w-full items-center justify-center py-2 transition-colors"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </button>
+                        </th>
+                      )}
+                    </tr>
+                  ))}
+                </thead>
+                <tbody ref={tbodyRef}>
+                  {table.getRowModel().rows.map((tableRow) => {
+                    const row = tableRow.original;
+                    // Cells are inline-editable on every viewport now. On mobile the
+                    // row also carries gesture handlers: tap a cell = edit it,
+                    // long-press = open the entry card, swipe-right-at-left-edge =
+                    // reveal delete (see onRowTouch* + the delete overlay below).
+                    const cellEditable = editable;
+                    // Keep the open icon always visible when the row has a page
+                    // (body content) or on mobile; otherwise reveal it on hover.
+                    const rowHasBody = hasBodyContent(row.body);
+                    const swiped = swipe?.rowId === row.id;
+                    return (
+                      <tr
+                        key={row.id}
+                        className={cn('group/row', openRowId === row.id && 'db-row-open')}
+                        data-row-id={row.id}
+                        style={
+                          swiped
+                            ? {
+                                transform: `translateX(${swipe!.dx}px)`,
+                                transition: swipe!.dragging ? 'none' : 'transform 180ms ease-out',
+                              }
+                            : undefined
+                        }
+                        onTouchStart={
+                          isMobile && editable ? (e) => onRowTouchStart(e, row.id) : undefined
+                        }
+                        onTouchMove={
+                          isMobile && editable ? (e) => onRowTouchMove(e, row.id) : undefined
+                        }
+                        onTouchEnd={
+                          isMobile && editable ? (e) => onRowTouchEnd(e, row.id) : undefined
+                        }
+                        onTouchCancel={
+                          isMobile && editable ? (e) => onRowTouchEnd(e, row.id) : undefined
+                        }
+                        onContextMenu={isMobile && editable ? (e) => e.preventDefault() : undefined}
+                      >
+                        {tableRow.getVisibleCells().map((cell, cellIdx) => {
+                          const col = columns.find((c) => c.id === cell.column.id);
+                          if (!col) return null;
+                          // First column reads as the row's primary label — bold it
+                          // (Notion-style) so scanning a long table is easy.
+                          const isPrimary = cellIdx === 0;
+                          const cellEditor = (
+                            <CellEditor
+                              column={col}
+                              value={row.cells[col.id]}
+                              onChange={(v) => updateCell(row.id, col.id, v)}
+                              editable={cellEditable}
+                              isPrimary={isPrimary}
+                            />
+                          );
+                          return (
+                            <td key={cell.id} className="p-0 align-top">
+                              {isPrimary ? (
+                                <div className="flex items-center">
+                                  <div className="min-w-0 flex-1">{cellEditor}</div>
+                                  {/* Passive "row has notes" indicator — the lines
                                     icon reads at a glance without demanding a
                                     click. Sits ~1rem away from the title text
                                     so it doesn't crowd the label. */}
-                                {rowHasBody && (
-                                  <AlignLeft
-                                    aria-label="Row has notes"
-                                    className="text-muted-foreground/50 ml-4 h-3 w-3 shrink-0"
-                                  />
-                                )}
-                                {/* Bordered Open button — icon + label. Pushed
+                                  {rowHasBody && (
+                                    <AlignLeft
+                                      aria-label="Row has notes"
+                                      className="text-muted-foreground/50 ml-4 h-3 w-3 shrink-0"
+                                    />
+                                  )}
+                                  {/* Bordered Open button — icon + label. Pushed
                                     to the right edge of the title column via
                                     ml-auto so it sits aligned with the column
                                     boundary rather than trailing the text. */}
-                                <button
-                                  type="button"
-                                  draggable={false}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setOpenRowId(row.id);
-                                  }}
-                                  onTouchStart={(e) => e.stopPropagation()}
-                                  aria-label="Open entry"
-                                  title="Open entry"
-                                  className={cn(
-                                    // Borderless ghost control like Notion's
-                                    // hover "⤢ Open" peek — faint hover fill,
-                                    // no button chrome.
-                                    'text-muted-foreground hover:bg-muted/50 hover:text-foreground ml-auto inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs transition-opacity',
-                                    isMobile
-                                      ? 'opacity-100'
-                                      : 'opacity-0 group-hover/row:opacity-100'
-                                  )}
-                                >
-                                  <ArrowUpRight className="h-3.5 w-3.5" />
-                                  Open
-                                </button>
-                              </div>
-                            ) : (
-                              cellEditor
-                            )}
-                          </td>
-                        );
-                      })}
-                      {/* Filler cell under the add-column header so row dividers
+                                  <button
+                                    type="button"
+                                    draggable={false}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenRowId(row.id);
+                                    }}
+                                    onTouchStart={(e) => e.stopPropagation()}
+                                    aria-label="Open entry"
+                                    title="Open entry"
+                                    className={cn(
+                                      // Borderless ghost control like Notion's
+                                      // hover "⤢ Open" peek — faint hover fill,
+                                      // no button chrome.
+                                      'text-muted-foreground hover:bg-muted/50 hover:text-foreground ml-auto inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs transition-opacity',
+                                      isMobile
+                                        ? 'opacity-100'
+                                        : 'opacity-0 group-hover/row:opacity-100'
+                                    )}
+                                  >
+                                    <ArrowUpRight className="h-3.5 w-3.5" />
+                                    Open
+                                  </button>
+                                </div>
+                              ) : (
+                                cellEditor
+                              )}
+                            </td>
+                          );
+                        })}
+                        {/* Filler cell under the add-column header so row dividers
                       run the full table width. */}
-                      {editable && <td data-add-column-cell="" className="p-0" />}
-                    </tr>
-                  );
-                })}
-                {rows.length === 0 && !editable && (
-                  <tr>
-                    <td
-                      colSpan={columns.length || 1}
-                      className="text-muted-foreground py-4 text-center text-xs"
-                    >
-                      Empty
-                    </td>
-                  </tr>
-                )}
-                {activeFilterColumns.length > 0 &&
-                  rows.length > 0 &&
-                  table.getRowModel().rows.length === 0 && (
+                        {editable && <td data-add-column-cell="" className="p-0" />}
+                      </tr>
+                    );
+                  })}
+                  {rows.length === 0 && !editable && (
                     <tr>
                       <td
-                        colSpan={(columns.length || 1) + (editable ? 1 : 0)}
+                        colSpan={columns.length || 1}
                         className="text-muted-foreground py-4 text-center text-xs"
                       >
-                        No rows match the filter.
+                        Empty
                       </td>
                     </tr>
                   )}
-                {/* "+ New row" footer — a left-aligned text button spans the
+                  {activeFilterColumns.length > 0 &&
+                    rows.length > 0 &&
+                    table.getRowModel().rows.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={(columns.length || 1) + (editable ? 1 : 0)}
+                          className="text-muted-foreground py-4 text-center text-xs"
+                        >
+                          No rows match the filter.
+                        </td>
+                      </tr>
+                    )}
+                  {/* "+ New row" footer — a left-aligned text button spans the
                 full table width, matching the Notion inline-database style. */}
-                {editable && (
-                  <tr data-add-row="">
-                    <td colSpan={columns.length + 1} className="p-0">
-                      <button
-                        type="button"
-                        onClick={addRow}
-                        aria-label="Add row"
-                        title="Add row"
-                        className="text-muted-foreground/70 hover:text-foreground hover:bg-muted/30 flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-[13px] transition-colors"
-                      >
-                        <Plus className="h-3.5 w-3.5" /> New row
-                      </button>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  {editable && (
+                    <tr data-add-row="">
+                      <td colSpan={columns.length + 1} className="p-0">
+                        <button
+                          type="button"
+                          onClick={addRow}
+                          aria-label="Add row"
+                          title="Add row"
+                          className="text-muted-foreground/70 hover:text-foreground hover:bg-muted/30 flex w-full items-center gap-1.5 px-2 py-2 text-left text-[13px] transition-colors"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> New row
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
 
-            {/* Swipe-reveal delete (mobile). Sits in the gap the row uncovers as it
+              {/* Swipe-reveal delete (mobile). Sits in the gap the row uncovers as it
             translates right; tap to delete. Positioned over the row's band. */}
-            {isMobile && swipe && (
-              <button
-                type="button"
-                aria-label="Delete row"
-                title="Delete row"
-                onClick={() => {
-                  deleteRow(swipe.rowId);
-                  closeSwipe();
-                }}
-                style={{
-                  position: 'absolute',
-                  top: swipe.top,
-                  height: swipe.height,
-                  left: 0,
-                  width: swipe.open ? SWIPE_REVEAL_PX : swipe.dx,
-                }}
-                className="bg-destructive text-destructive-foreground flex items-center justify-center overflow-hidden"
-              >
-                <Trash2 className="h-4 w-4 shrink-0" />
-              </button>
-            )}
-          </div>
+              {isMobile && swipe && (
+                <button
+                  type="button"
+                  aria-label="Delete row"
+                  title="Delete row"
+                  onClick={() => {
+                    deleteRow(swipe.rowId);
+                    closeSwipe();
+                  }}
+                  style={{
+                    position: 'absolute',
+                    top: swipe.top,
+                    height: swipe.height,
+                    left: 0,
+                    width: swipe.open ? SWIPE_REVEAL_PX : swipe.dx,
+                  }}
+                  className="bg-destructive text-destructive-foreground flex items-center justify-center overflow-hidden"
+                >
+                  <Trash2 className="h-4 w-4 shrink-0" />
+                </button>
+              )}
+            </div>
+            {footerNode}
+          </>
         )}
       </div>
 
@@ -1118,9 +1264,9 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
               className="absolute inset-0 h-full w-full cursor-default"
             />
             <div className="pointer-events-none absolute inset-4 flex items-start justify-center md:inset-8">
-              <div className="bg-card border-border/40 pointer-events-auto flex max-h-full w-full max-w-6xl flex-col overflow-hidden rounded-2xl border shadow-xl">
+              <div className="db-fullscreen bg-card border-border/40 pointer-events-auto flex max-h-full w-full max-w-6xl flex-col overflow-hidden rounded-2xl border shadow-xl">
                 <div className="border-border/40 flex items-center gap-2 border-b px-4 py-3">
-                  <span className="text-foreground flex-1 truncate text-2xl font-semibold">
+                  <span className="text-foreground flex-1 truncate text-2xl font-bold">
                     {title || 'Untitled'}
                   </span>
                   <button
@@ -1145,7 +1291,9 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
   );
 }
 
-/** Compact rounded-square icon button used across the DB header. */
+/** Bordered rounded-square icon button used across the DB header. Active
+ * state tints amber (the block's remapped `primary`); a `badge` renders the
+ * count inline beside the icon, widening the button into a small pill. */
 const HeaderIconButton = React.forwardRef<
   HTMLButtonElement,
   {
@@ -1164,21 +1312,82 @@ const HeaderIconButton = React.forwardRef<
       aria-label={label}
       title={label}
       className={cn(
-        'relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors',
+        'relative flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg border transition-colors',
+        badge !== undefined ? 'w-auto px-2' : 'w-8',
         active
-          ? 'border-primary/50 text-primary bg-primary/5'
-          : 'border-border/50 text-muted-foreground hover:bg-muted/40 hover:text-foreground'
+          ? 'border-primary/60 text-primary bg-primary/10'
+          : 'border-border/60 text-muted-foreground hover:bg-muted/40 hover:text-foreground'
       )}
     >
       {children}
       {badge !== undefined && (
-        <span className="text-primary absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums">
-          {badge}
-        </span>
+        <span className="text-[12px] font-semibold tabular-nums">{badge}</span>
       )}
     </button>
   );
 });
+
+/** One footer aggregate segment: a click-to-change picker showing
+ * "<prefix?> <colName> <value>". Read-only viewers get a static label. */
+function AggFooterCell({
+  colName,
+  type,
+  value,
+  editable,
+  onChange,
+}: {
+  colName: string;
+  type: DbAggType;
+  value: string;
+  editable: boolean;
+  onChange: (t: DbAggType) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const prefix = type === 'sum' ? '' : `${AGG_PREFIX[type as Exclude<DbAggType, 'none' | 'sum'>]} `;
+  const label = (
+    <span className="flex items-center gap-1.5 whitespace-nowrap">
+      <span className="text-muted-foreground/70">
+        {prefix}
+        {colName}
+      </span>
+      <span className="text-foreground/90 font-medium tabular-nums">{value}</span>
+    </span>
+  );
+  if (!editable) {
+    return <span className="border-border/70 flex items-center border-l px-3 py-2">{label}</span>;
+  }
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="border-border/70 hover:bg-muted/40 flex items-center border-l px-3 py-2 text-left transition-colors"
+        >
+          {label}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-40 p-1">
+        {AGG_OPTIONS.map((o) => (
+          <button
+            key={o.type}
+            type="button"
+            onClick={() => {
+              onChange(o.type);
+              setOpen(false);
+            }}
+            className={cn(
+              'hover:bg-muted/60 flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs',
+              o.type === type ? 'text-primary' : 'text-foreground'
+            )}
+          >
+            {o.label}
+            {o.type === type && <Check className="h-3.5 w-3.5" />}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 /** Sort-picker popover: one row per column with asc/desc/clear toggles. */
 function SortMenu({
@@ -2227,13 +2436,13 @@ function TextCell({
   // Non-primary cells stay in the softer body weight so the "name" column
   // clearly leads the eye, matching Notion.
   const typography = cn(
-    'px-2 py-1.5 text-[13.5px] leading-snug break-words whitespace-pre-wrap',
+    'px-2 py-2 text-[13.5px] leading-snug break-words whitespace-pre-wrap',
     isPrimary ? 'font-medium text-foreground' : 'text-muted-foreground'
   );
 
   if (isUrlValue) {
     return (
-      <div className="min-w-0 px-2 py-1.5 text-[13.5px] leading-snug">
+      <div className="min-w-0 px-2 py-2 text-[13.5px] leading-snug">
         <a
           href={trimmed}
           target="_blank"
@@ -2306,7 +2515,7 @@ function CellEditor({
             onChange(Number.isFinite(v as number) || v === null ? v : null);
           }}
           disabled={disabled}
-          className="w-full bg-transparent px-2 py-1.5 text-left text-[13.5px] tabular-nums outline-none"
+          className="w-full bg-transparent px-2 py-2 text-left text-[13.5px] tabular-nums outline-none"
         />
       );
     case 'date':
@@ -2314,7 +2523,7 @@ function CellEditor({
     case 'checkbox': {
       const checked = Boolean(value);
       return (
-        <div className="flex h-full items-center justify-start px-2 py-1.5">
+        <div className="flex h-full items-center justify-start px-2 py-2">
           <button
             type="button"
             role="checkbox"
@@ -2375,7 +2584,7 @@ function DateCell({
           type="button"
           disabled={disabled}
           className={cn(
-            'flex h-full w-full items-center justify-start px-2 py-1.5 text-[13.5px] outline-none',
+            'flex h-full w-full items-center justify-start px-2 py-2 text-[13.5px] outline-none',
             disabled && 'cursor-not-allowed'
           )}
         >
@@ -2474,10 +2683,10 @@ function SelectCell({
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
         aria-label={`${column.name}: ${selected?.label ?? 'empty'}`}
-        className="flex h-full w-full items-center justify-start px-2 py-1.5 text-left text-[13.5px]"
+        className="flex h-full w-full items-center justify-start px-2 py-2 text-left text-[13.5px]"
       >
         {selected && selColor ? (
-          // Notion select tag: a flat pastel pill, 3px radius, no ring or dot.
+          // Select tag: a flat pastel pill, 3px radius, no ring or dot.
           <span
             className={cn(
               'inline-flex h-[20px] items-center rounded-[3px] px-1.5 text-[12px] font-medium',
@@ -2622,7 +2831,7 @@ function MultiSelectCell({
         aria-label={`${column.name}: ${
           selectedOptions.map(({ opt }) => opt.label).join(', ') || 'empty'
         }`}
-        className="flex h-full w-full items-center justify-start px-2 py-1.5 text-left text-[13.5px]"
+        className="flex h-full w-full items-center justify-start px-2 py-2 text-left text-[13.5px]"
       >
         {selectedOptions.length > 0 ? (
           <span className="flex flex-wrap items-center justify-start gap-1">
