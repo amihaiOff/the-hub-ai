@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Check if code was written during this session (Edit or Write tools used on source files like .ts, .tsx, .js, .jsx, .prisma). If NO code was written, respond: {\"ok\": true}. If code WAS written but tests were not run, respond: {\"ok\": false, \"reason\": \"Tests not run after code changes\"}. Respond ONLY with valid JSON.",
+            "prompt": "Run TWO checks on this session. (1) TESTS: if code was written (Edit/Write on .ts/.tsx/.js/.jsx/.prisma) but tests were not run afterward, that is a failure. (2) DECISIONS: if the session made or uncovered a durable decision the code cannot express — a business rule + its rationale, a deliberately rejected alternative, a threshold/cadence chosen for a reason, a scope exclusion, or non-obvious edge-case handling — AND it was NOT persisted to a memory file or docs/decisions.md this session, that is a failure. Purely mechanical work (renames, styling tweaks, obvious bug fixes, no judgment calls) has no decision to capture and passes. If both checks pass, respond: {\"ok\": true}. If either fails, respond: {\"ok\": false, \"reason\": \"<which check(s) failed and what to do>\"}. Respond ONLY with valid JSON.",
             "timeout": 30
           }
         ]

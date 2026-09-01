@@ -13,7 +13,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 2. **Code** - Implement the fix/feature
 3. **Test** - Use `testing-agent` to verify changes work and don't break existing functionality
 4. **Review** - Use `reviewer-agent` to check code quality, security, and best practices
-5. **Update Spec** (if applicable) - Update `docs/the_hub_ai_spec.md` when features, architecture, or behavior changes
+5. **Capture the "why" (if applicable)** - The code is the spec for _what/how_ the app
+   does things (structure, behavior, calculations, schema) — do not maintain a prose
+   spec that mirrors it. When a task involves a decision the code can't express — a
+   product rule and its rationale, a rejected alternative, a deliberate constraint or
+   scope exclusion — persist that to memory (see **Capturing Decisions** below).
 
 **This workflow is mandatory.** Do not skip the test and review steps after writing code. The agents should be run in parallel when possible to save time.
 
@@ -37,7 +41,21 @@ Example after completing a coding task:
 <Task tool call to reviewer-agent>
 ```
 
-**Spec updates:** When implementing new features or changing existing behavior, update the spec file to reflect the current state of the application. Keep the spec as the source of truth for what the app does.
+**Code is the source of truth (no maintained spec):** There is intentionally no
+prose spec mirroring the app. To learn _what the app does and how_, read the code —
+start with `prisma/schema.prisma` for the data model, `app/` for routes/pages and
+API handlers, and `lib/` for business logic (calculations, hooks, integrations).
+Design tokens live in `docs/design-system.md`. This is faster and never drifts.
+
+**Capturing Decisions (the "why" the code can't hold):** Code answers _what/how_;
+it never answers _why_. When a session makes or uncovers a durable decision — a
+business rule and its rationale, an intentionally rejected alternative, a threshold
+or cadence chosen for a reason, a deliberate scope exclusion, a non-obvious edge-case
+handling — **persist it before ending the session** as a `project`- or `feedback`-type
+memory file (per the Memory instructions), or, if it's better kept in-repo, append it
+to `docs/decisions.md`. A `Stop` hook gates on this: it will block the end of a
+session that made an uncaptured decision. Do not save what the code, schema, or git
+history already records.
 
 **Stop Hook Feedback:** When stop hooks raise issues or feedback, you MUST automatically address them without waiting for user confirmation. This includes:
 

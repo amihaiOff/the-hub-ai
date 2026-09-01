@@ -713,6 +713,11 @@ model BudgetTransaction {
   profileId                 String?           @map("profile_id") // Which household member made the transaction
   householdId               String            @map("household_id")
   moneytorId                String?           @unique @map("moneytor_id") // Set when promoted from moneytor_transactions; natural dedup key for sync
+  // Pending→settled twin merge: when a settled Moneytor row lands next to
+  // a soft-deleted pending "twin" (same payee+amount within ±7 days), we
+  // keep the surviving row and record the merged-away row here so the
+  // edit UI can surface the original date / moneytorId for debugging.
+  mergedFromId              String?           @map("merged_from_id")
   createdAt                 DateTime          @default(now()) @map("created_at")
   updatedAt                 DateTime          @updatedAt @map("updated_at")
 
@@ -725,6 +730,9 @@ model BudgetTransaction {
   // Self-relation for split transactions
   originalTransaction BudgetTransaction?     @relation("SplitTransactions", fields: [originalTransactionId], references: [id], onDelete: Cascade)
   splitChildren       BudgetTransaction[]    @relation("SplitTransactions")
+  // Self-relation for merged twins (the surviving row -> the deleted twin).
+  mergedFrom          BudgetTransaction?     @relation("MergedTwins", fields: [mergedFromId], references: [id], onDelete: SetNull)
+  mergedInto          BudgetTransaction[]    @relation("MergedTwins")
 
   @@index([householdId])
   @@index([householdId, isDeleted])
