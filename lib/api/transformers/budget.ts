@@ -40,11 +40,22 @@ export interface BudgetTransactionRow {
   householdId: string;
   createdAt: Date;
   updatedAt: Date;
+  mergedFromId?: string | null;
   tags?: { tag: { id: string } }[];
   category?: { id: string; name: string } | null;
   suggestedCategory?: { id: string; name: string } | null;
   payee?: { id: string; name: string } | null;
   profile?: { id: string; name: string } | null;
+  mergedFrom?: {
+    id: string;
+    transactionDate: Date;
+    amountIls: Prisma.Decimal;
+    moneytorId: string | null;
+    source: string;
+    notes: string | null;
+    categoryId: string | null;
+    isDeleted: boolean;
+  } | null;
 }
 
 /**
@@ -96,5 +107,18 @@ export function transformTransaction(tx: BudgetTransactionRow) {
     tagIds: tx.tags?.map((t) => t.tag.id) ?? [],
     createdAt: tx.createdAt.toISOString(),
     updatedAt: tx.updatedAt.toISOString(),
+    mergedFromId: tx.mergedFromId ?? null,
+    mergedFrom: tx.mergedFrom
+      ? {
+          id: tx.mergedFrom.id,
+          transactionDate: tx.mergedFrom.transactionDate.toISOString().split('T')[0],
+          amountIls: Number(tx.mergedFrom.amountIls),
+          moneytorId: tx.mergedFrom.moneytorId,
+          source: tx.mergedFrom.source,
+          notes: tx.mergedFrom.notes,
+          categoryId: tx.mergedFrom.categoryId,
+          isDeleted: tx.mergedFrom.isDeleted,
+        }
+      : null,
   };
 }

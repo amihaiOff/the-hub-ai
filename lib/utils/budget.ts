@@ -35,6 +35,20 @@ export interface BudgetTransaction {
   tagIds: string[];
   createdAt: string;
   updatedAt: string;
+  // Pending→settled twin merge audit — set when this row absorbed a
+  // soft-deleted duplicate. The client uses it to render a "merged from"
+  // note in the edit dialog for debugging.
+  mergedFromId?: string | null;
+  mergedFrom?: {
+    id: string;
+    transactionDate: string;
+    amountIls: number;
+    moneytorId: string | null;
+    source: string;
+    notes: string | null;
+    categoryId: string | null;
+    isDeleted: boolean;
+  } | null;
 }
 
 export interface BudgetCategory {

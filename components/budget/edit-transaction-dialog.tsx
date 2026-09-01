@@ -182,6 +182,34 @@ function EditTransactionForm({
             rows={2}
           />
         </div>
+
+        {/* Merged-from audit — visible only when this row absorbed a
+            pending→settled duplicate. Read-only debugging surface. */}
+        {transaction.mergedFrom && (
+          <div className="border-border/50 bg-muted/30 grid gap-1 rounded-md border p-3 text-xs">
+            <div className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
+              Merged from duplicate
+            </div>
+            <div className="text-muted-foreground">
+              Original date:{' '}
+              <span className="text-foreground tabular-nums">
+                {transaction.mergedFrom.transactionDate}
+              </span>
+            </div>
+            {transaction.mergedFrom.moneytorId && (
+              <div className="text-muted-foreground">
+                Original Moneytor id:{' '}
+                <span className="text-foreground font-mono">
+                  {transaction.mergedFrom.moneytorId}
+                </span>
+              </div>
+            )}
+            <div className="text-muted-foreground/70">
+              The duplicate row was soft-deleted; its id is{' '}
+              <span className="font-mono">{transaction.mergedFrom.id}</span>.
+            </div>
+          </div>
+        )}
       </div>
 
       <DialogFooter>

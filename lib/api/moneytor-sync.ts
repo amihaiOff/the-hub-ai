@@ -11,6 +11,7 @@ import {
   type MoneytorShareAsset,
 } from './moneytor';
 import { importTransactions } from '@/lib/utils/import-transactions';
+import { dedupeMoneytorTwinsForHousehold } from '@/lib/utils/dedupe-moneytor-twins';
 import type { ImportTransactionInput } from '@/lib/validations/budget';
 import { mapMoneytorTypeToPaymentMethod } from '@/lib/utils/moneytor-mapping';
 import {
@@ -330,6 +331,16 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
     const result = await importTransactions(householdId, inputs);
     budgetCreated = result.created;
     budgetSkipped = result.duplicatesSkipped;
+
+    // Collapse any pending→settled twin pairs the fresh import might have
+    // just brought together (or that were already sitting there). Runs
+    // silently; the merge policy is conservative enough to leave recurring
+    // same-amount purchases (each carrying its own moneytorId) alone.
+    try {
+      await dedupeMoneytorTwinsForHousehold(householdId);
+    } catch (err) {
+      console.warn('[moneytor-sync] twin dedupe failed:', err);
+    }
   }
 
   // ----- Bank + debt accounts (via shared reconciler) -----
@@ -1260,6 +1271,16 @@ export async function forceResyncMoneytorTransactionsForHousehold(
     });
     const result = await importTransactions(householdId, inputs);
     budgetCreated = result.created;
+
+    // Same twin dedupe as the regular sync path — force-resync is when
+    // Moneytor's pending→settled fix retroactively lands the settled row at
+    // the pending date, so the surviving pending in budget_transactions can
+    // finally get merged with its now-orphaned settled twin.
+    try {
+      await dedupeMoneytorTwinsForHousehold(householdId);
+    } catch (err) {
+      console.warn('[moneytor-force-resync] twin dedupe failed:', err);
+    }
   }
 
   // Edits "preserved" in the new model = the count of budget rows we re-linked

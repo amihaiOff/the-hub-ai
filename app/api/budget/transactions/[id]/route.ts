@@ -43,6 +43,22 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             },
           },
         },
+        // Pending→settled twin merge audit — surfaces the soft-deleted twin
+        // in the edit UI so a user who sees a "wrong" date/moneytorId can
+        // see which row was collapsed. Bypasses the isDeleted filter on
+        // purpose (that's exactly what makes it debug info).
+        mergedFrom: {
+          select: {
+            id: true,
+            transactionDate: true,
+            amountIls: true,
+            moneytorId: true,
+            source: true,
+            notes: true,
+            categoryId: true,
+            isDeleted: true,
+          },
+        },
         splitChildren: {
           where: { isDeleted: false },
           include: {

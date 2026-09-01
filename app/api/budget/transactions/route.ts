@@ -144,6 +144,18 @@ export async function GET(request: NextRequest) {
               },
             },
           },
+          mergedFrom: {
+            select: {
+              id: true,
+              transactionDate: true,
+              amountIls: true,
+              moneytorId: true,
+              source: true,
+              notes: true,
+              categoryId: true,
+              isDeleted: true,
+            },
+          },
         },
         orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
         take: filters.limit,

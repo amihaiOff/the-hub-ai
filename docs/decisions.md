@@ -127,3 +127,24 @@ _Seeded 2026-09-01 by salvaging `docs/the_hub_ai_spec.md` before deleting it._
 
 - **The service worker deliberately never caches `/api/*` or auth routes** — a conservative
   policy appropriate for a financial app.
+
+## Moneytor sync — pending→settled twin merge
+
+- **Historical Moneytor imports produced duplicate rows** for a single real-world
+  charge: once as the pending "רגילה" version (older date, `moneytorId=NULL`
+  after Moneytor's side removed it) and again as the settled version (newer
+  date, a new `moneytorId`). Moneytor now reuses the pending's date on the
+  settled row, so future syncs won't dupe, but the historical pairs still
+  needed collapsing.
+- **Merge policy is intentionally conservative** to avoid collapsing
+  legitimate recurring same-amount buys (bus fare, corner shop). It requires
+  same (`payee_id`, `amount`, `source='moneytor_sync'`), ±7 days apart, AND
+  the older row's `moneytor_id` is NULL. Two rows that each carry their own
+  `moneytor_id` are separately-issued and are never merged.
+- **Survivor = the earlier row** (pending's date is what the user knows;
+  it usually holds their manual category). The later row's `moneytorId`
+  is moved to the survivor, either side's category wins (survivor first),
+  and the later row is soft-deleted with `mergedFromId` recording the link
+  for debugging in the edit UI.
+- **Twin's `moneytor_id` is cleared before the survivor claims it** because
+  `moneytor_id` has a UNIQUE constraint — see `lib/utils/dedupe-moneytor-twins.ts`.
