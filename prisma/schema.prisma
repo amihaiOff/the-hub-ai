@@ -44,6 +44,9 @@ model User {
   // Pages (Notion-like documents) authored by this user
   ownedPages Page[] @relation("PageOwner")
 
+  // Favourite destinations pinned in this user's mobile favourites drawer
+  favorites Favorite[] @relation("FavoriteOwner")
+
   // Wiki quiz attempts recorded per user.
   wikiAttempts WikiQuestionAttempt[]
 
@@ -119,6 +122,9 @@ model Household {
 
   // Insurance module
   insurancePolicies InsurancePolicy[]
+
+  // Favourites (per-user pinned destinations, scoped to this household)
+  favorites Favorite[]
 
   // Shopping module
   shoppingCategories ShoppingCategory[]
@@ -1425,6 +1431,7 @@ model Page {
   household Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
   section   PageSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
   tabs      PageTab[]
+  favorites Favorite[]
 
   @@index([householdId])
   @@index([householdId, sortOrder])
@@ -1465,6 +1472,67 @@ model PageTab {
 
   @@index([pageId, sortOrder])
   @@map("page_tabs")
+}
+
+// Favorite - a destination pinned in a user's mobile favourites drawer.
+// Per-user (`ownerId`) and household-scoped.
+//
+// NAMING: `Favorite` / `favorites` in code, schema and URLs (en-US, matching
+// `autoCapitalize` and `BudgetCategorizationLog`); user-facing copy reads
+// "Favourites". Don't introduce a `useFavourites` spelling in a follow-up.
+//
+// TARGET: exactly one of `pageId` (an Areas page) or `route` (a nav-registered
+// pathname) is set. That invariant is enforced by zod in
+// `lib/validations/favorites.ts`, not by a CHECK constraint — this schema has
+// no CHECKs anywhere and one code path writes these rows. The kind is DERIVED
+// from which column is non-null and deliberately not stored, so the two can
+// never disagree.
+//
+// UNIQUES: the two triples stop the same destination being starred twice.
+// Postgres treats NULLs as distinct, so page rows (`route` NULL) never collide
+// with each other on the second index and vice versa — no partial index or raw
+// SQL needed. `householdId` is required in both: a page's household is implied
+// by its FK, but a route string carries no household, so without it starring
+// `/budget` in one household would block it in another.
+//
+// These indexes are a RACE BACKSTOP, not a lookup key: SQL `= NULL` never
+// matches, so a compound unique whose nullable member is null can't be used by
+// `findUnique` / `upsert` / `connectOrCreate` / `delete({ where: <compound> })`.
+// All reads here use `findFirst`; all mutations key off the bare `id`; the POST
+// route maps a P2002 to 409.
+//
+// If panes ever become favouritable, pane rows would also carry a `pageId`,
+// which breaks `@@unique([ownerId, householdId, pageId])` — that is the moment
+// to add an explicit `kind` column and re-scope these uniques, not now.
+model Favorite {
+  id          String   @id @default(cuid())
+  ownerId     String   @map("owner_id")
+  householdId String   @map("household_id")
+  // Areas page target. A real FK so deleting the page cascades the favourite
+  // away and so the label can be read live from `Page.title`.
+  pageId      String?  @map("page_id")
+  // App route target — pathname only, never a query string (e.g.
+  // "/budget/transactions"). Query params are excluded deliberately: budget
+  // month is billing-cycle-aware, so a pinned `?month=` would rot into a link
+  // to a stale month. See docs/decisions.md.
+  route       String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  owner     User      @relation("FavoriteOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  // Cascade, not the SetNull used for other optional parents: a favourite with
+  // no target is meaningless, so the row goes when the page does.
+  page      Page?     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerId, householdId, pageId])
+  @@unique([ownerId, householdId, route])
+  // Covers the only read query (one user's list in one household, in order).
+  // Not redundant with the uniques above, which are `ownerId`-prefixed.
+  @@index([householdId, ownerId, sortOrder])
+  @@index([pageId])
+  @@map("favorites")
 }
 
 // Household-scoped single-select category. Each task belongs to at most one

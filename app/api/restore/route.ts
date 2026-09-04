@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
       '2.6',
       '2.7',
       '2.8',
+      '2.9',
     ];
     if (!supportedVersions.includes(metadata.schemaVersion)) {
       return NextResponse.json(
@@ -181,6 +182,8 @@ export async function POST(request: NextRequest) {
     const pageTabs = await parseFile<Record<string, unknown>>('page_tabs.json');
     // Schema version 2.8+ (empty for older backups).
     const pageSections = await parseFile<Record<string, unknown>>('page_sections.json');
+    // Schema version 2.9+ (empty for older backups).
+    const favorites = await parseFile<Record<string, unknown>>('favorites.json');
     // Wiki module — schema version 2.5+ (empty for older backups).
     const wikiConcepts = await parseFile<Record<string, unknown>>('wiki_concepts.json');
     const wikiConceptProjects = await parseFile<Record<string, unknown>>(
@@ -213,6 +216,9 @@ export async function POST(request: NextRequest) {
     // page_sections is referenced by pages via a nullable FK (ON DELETE SET
     // NULL), so we could delete either first; wipe tabs → pages → sections
     // to keep the order deterministic.
+    // Favourites reference pages via a cascading FK, so deleting pages would
+    // take them anyway — wiped explicitly first to keep the order readable.
+    await prisma.favorite.deleteMany();
     await prisma.pageTab.deleteMany();
     await prisma.page.deleteMany();
     await prisma.pageSection.deleteMany();
@@ -1239,7 +1245,30 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 47. Wiki concepts (after users + households). Insert Projects before
+    // 47. Favourites (after users, households and pages — a favourite points
+    // at one of a page or a route). A row whose page is missing from the
+    // backup is skipped rather than nulled: a favourite with no target is
+    // meaningless, and nulling `pageId` would leave a row that violates the
+    // exactly-one-target invariant the API enforces.
+    const restoredPageIds = new Set(pages.map((p) => p.id as string));
+    for (const fav of favorites) {
+      const pageId = (fav.pageId as string | null) ?? null;
+      if (pageId && !restoredPageIds.has(pageId)) continue;
+      await prisma.favorite.create({
+        data: {
+          id: fav.id as string,
+          ownerId: fav.ownerId as string,
+          householdId: fav.householdId as string,
+          pageId,
+          route: (fav.route as string | null) ?? null,
+          sortOrder: (fav.sortOrder as number) ?? 0,
+          createdAt: new Date(fav.createdAt as string),
+          updatedAt: new Date(fav.updatedAt as string),
+        },
+      });
+    }
+
+    // 48. Wiki concepts (after users + households). Insert Projects before
     // Sources so a source's self-referential projectId points at an
     // already-inserted project; a dangling projectId (project missing from the
     // backup) is nulled rather than failing the whole restore.

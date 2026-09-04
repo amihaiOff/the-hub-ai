@@ -61,6 +61,7 @@ jest.mock('@/lib/db', () => ({
     page: { findMany: jest.fn() },
     pageTab: { findMany: jest.fn() },
     pageSection: { findMany: jest.fn() },
+    favorite: { findMany: jest.fn() },
     wikiConcept: { findMany: jest.fn() },
     wikiConceptProject: { findMany: jest.fn() },
     wikiQuestion: { findMany: jest.fn() },
@@ -348,6 +349,7 @@ describe('Backup API', () => {
       (mockPrisma.page.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.pageTab.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.pageSection.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.favorite.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.wikiConcept.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.wikiConceptProject.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.wikiQuestion.findMany as jest.Mock).mockResolvedValueOnce([]);
@@ -436,7 +438,7 @@ describe('Backup API', () => {
       // Verify metadata content
       const metadataContent = await zip.file('metadata.json')!.async('string');
       const metadata = JSON.parse(metadataContent);
-      expect(metadata.schemaVersion).toBe('2.8');
+      expect(metadata.schemaVersion).toBe('2.9');
       expect(metadata.createdBy).toBe('test@example.com');
       expect(metadata.counts).toEqual({
         users: 1,
@@ -484,6 +486,7 @@ describe('Backup API', () => {
         pages: 0,
         pageTabs: 0,
         pageSections: 0,
+        favorites: 0,
         wikiConcepts: 0,
         wikiConceptProjects: 0,
         wikiQuestions: 0,
@@ -558,6 +561,7 @@ describe('Backup API', () => {
       (mockPrisma.page.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.pageTab.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.pageSection.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.favorite.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.wikiConcept.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.wikiConceptProject.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.wikiQuestion.findMany as jest.Mock).mockResolvedValueOnce([]);
@@ -671,6 +675,7 @@ describe('Backup API', () => {
       (mockPrisma.page.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.pageTab.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.pageSection.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.favorite.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.wikiConcept.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.wikiConceptProject.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.wikiQuestion.findMany as jest.Mock).mockResolvedValueOnce([]);

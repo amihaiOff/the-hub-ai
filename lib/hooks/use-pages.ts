@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { invalidateFavoritesCache } from '@/lib/hooks/favorite-keys';
 import type {
   CreatePageInput,
   UpdatePageInput,
@@ -75,10 +76,17 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 
 // ─── Queries ────────────────────────────────────────────────────────────
 
-export function usePages() {
+/**
+ * `enabled` exists for callers mounted on every page whose consumer is closed
+ * by default (the favourites drawer). `lg:hidden` and Tailwind visibility don't
+ * unmount, so an ungated call there costs an `/api/pages` request on every page
+ * load — including desktop.
+ */
+export function usePages(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: pageKeys.list(),
     queryFn: () => fetchJson<PageListRow[]>('/api/pages'),
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -145,6 +153,9 @@ export function useDeletePage() {
     onSuccess: (_d, id) => {
       qc.removeQueries({ queryKey: pageKeys.detail(id) });
       qc.invalidateQueries({ queryKey: pageKeys.lists() });
+      // Favourites pointing at this page are cascade-deleted in the database,
+      // which the favourites cache has no way of observing on its own.
+      invalidateFavoritesCache(qc);
     },
   });
 }
