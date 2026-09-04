@@ -4,8 +4,8 @@ Code is the source of truth for _what/how_ the app works (read `prisma/schema.pr
 `app/`, `lib/`; design tokens in `docs/design-system.md`). This file holds only the
 **non-derivable rationale** — business rules, rejected alternatives, thresholds and
 cadences chosen for a reason, and deliberate scope exclusions — that reading the code
-alone would not reveal. Add to it (or to auto-memory) whenever a task involves such a
-decision; the `Stop` hook gates on this.
+alone would not reveal. Add to it when a decision is worth keeping — this is a
+reference, not an enforced step.
 
 _Seeded 2026-09-01 by salvaging `docs/the_hub_ai_spec.md` before deleting it._
 
@@ -148,3 +148,127 @@ _Seeded 2026-09-01 by salvaging `docs/the_hub_ai_spec.md` before deleting it._
   for debugging in the edit UI.
 - **Twin's `moneytor_id` is cleared before the survivor claims it** because
   `moneytor_id` has a UNIQUE constraint — see `lib/utils/dedupe-moneytor-twins.ts`.
+
+## `feature-brief` skill — build-vs-adopt, and no spec artifact
+
+- **Built a repo-specific skill rather than adopting a generic one.** The
+  installed `mattpocock-skills:grilling` runs an excellent round-based
+  interview but is deliberately domain-agnostic: nothing in it forces
+  coverage of *dimensions*, so it only probes where the conversation
+  happens to lead. Off-the-shelf spec skills (`feature-forge`,
+  "Requirements Elicitation") do carry dimension checklists, but they're
+  enterprise-shaped — EARS syntax and formal spec documents — and they
+  conflict with code-as-spec (see `workflow-code-as-spec` memory).
+  `feature-brief` therefore owns only the part that *must* be
+  repo-specific (the coverage matrix) and **delegates the interview
+  itself to `grilling`** rather than reimplementing it.
+- **Questions are classify-then-load, not one flat checklist.** The first
+  version asked every feature all ~15 dimensions; that meant asking a
+  chart tweak about `Decimal` precision and cron cadence, which trains
+  the user to skim — the exact failure the skill exists to prevent. So
+  the skill now classifies the feature along 8 axes (route? UI? data?
+  money? Areas? unattended? external service? household-shared?) and
+  loads **only the triggered packs**, on top of a 4-row always-on core.
+  Loading an untriggered pack is explicitly banned, same as skipping a
+  row in a loaded one.
+- **The packs are hard-coded; the per-feature fit comes from
+  classification, not from re-deriving surfaces each run.** Surveying
+  the codebase per invocation never drifts but is slow and yields an
+  inconsistent interview each time. The maintenance cost of hard-coding
+  is mitigated two ways: every row names the file it came from, so
+  staleness is auditable; and a final harvest step reads the nearest
+  analogous feature and adds any cross-cutting concern the packs
+  missed — which is what keeps the skill honest for corners of the app
+  the packs never anticipated.
+- **The skill emits no spec file — output goes straight into plan mode.**
+  A persisted brief would be exactly the drifting prose spec this repo
+  retired. The brief's value is entirely in *forcing the questions to be
+  asked*; once answered, the answers belong in the code (what/how) and
+  in this file or memory (why). A third copy would be the one nobody
+  updates.
+  **When to break this:** if a feature is large enough to need async
+  review across multiple sessions, write the brief to a gitignored
+  scratch file under `.claude/` — never to a tracked `docs/` path,
+  and delete it once implementation starts.
+- **"Not applicable, because X" is a required output, not a skipped row.**
+  Silence on a matrix row is indistinguishable from an oversight, which
+  is the exact failure mode the skill exists to prevent.
+
+## Product truth lives in `PRODUCT.md`
+
+- **`PRODUCT.md` (project root) is the authority for product truth** — users,
+  purpose, positioning, operating context, brand commitments, evidence, and
+  product principles. Written via `/impeccable init`. It is deliberately *not*
+  duplicated here; this section records only the judgment calls made while
+  writing it, which the file itself doesn't explain.
+- **The user model is asymmetric, and that is a design constraint.** One
+  operator (sets up, reviews, categorizes, administers) and one partner (mostly
+  captures shopping/tasks and reads). **Consequence:** capture and read paths
+  must be usable by someone who did not build the app and does not carry its
+  model in their head; only administrative surfaces (settings, Labs,
+  categorization, household structure) may assume expertise. Rejected the
+  "equal peers" model, which would have forced every surface to the lower
+  expertise bar.
+- **Review outranks entry.** Because transactions arrive mostly via Moneytor
+  sync rather than manual entry, correcting/confirming/scanning are the primary
+  interactions. Optimize those over creation forms — a non-obvious inversion of
+  the usual finance-app assumption.
+- **Israeli-finance specifics are positioning and capability, not a
+  must-preserve constraint.** Hishtalmut, TASE `.TA`, BOI prime, ILS-native,
+  Moneytor are recorded as what the product *is* and does. When asked which
+  constraints future design work must preserve, the user selected only
+  **financial precision** (`Decimal`, never float) and **mobile PWA + offline**,
+  and deliberately did not select the Israeli domain rules or the two-person
+  trust model. Respect that boundary rather than promoting them back.
+- **Accessibility is deliberately undecided, not defaulted.** No external
+  conformance target (e.g. WCAG AA) has been committed. What exists is recorded
+  factually — extensive `aria-label` coverage, a keyboard skip-to-content link
+  in `app-shell.tsx`. Do not assert a standard the household never chose.
+- **No public surface exists to draw evidence from.** No customers,
+  testimonials, case studies, press, pricing, or benchmarks. Future design work
+  must not fabricate any of these to fill a layout.
+
+## Favourites drawer (mobile)
+
+- **Route favourites store a bare pathname — never query params.** A favourite
+  pinned to `/budget/transactions?month=2026-08` would rot into a link to a
+  stale month, because budget month is billing-cycle-aware and Analysis
+  deliberately defaults to the current month (see **Monthly Budget** above).
+  Pinned filters would be a separate saved-view feature, not a favourite.
+- **Only nav-registered routes are favouritable.** `defaultTitleForPath` always
+  succeeds (it prettifies the last path segment), so it can never report that a
+  route is dead. Validating against the nav allowlist at write time is
+  therefore the only way the drawer's greyed-out "removed" state can mean
+  anything: everything stored is known-good by construction, so greying only
+  appears after a code change drops a nav entry. Consequence: the star is
+  disabled on dynamic content routes like `/wiki/<id>`.
+- **A dead route favourite is never auto-deleted** — it renders greyed with a
+  remove button. Silently dropping something the user deliberately pinned is
+  worse than a visible dead entry they can clear.
+- **Panes were deliberately excluded from v1.** Favouriting a pane needs
+  `?tab=<id>` deep-linking on `/areas/[id]`, which collides with three things:
+  `desktop-tabs-bar.tsx` syncs on `usePathname()` (which excludes the query
+  string); `writeStoredActivePane` fires on mount-time resolution, so merely
+  *following* a pane link would overwrite the user's remembered pane; and it
+  would be the app's first URL-synced state, with no `scroll: false` precedent
+  anywhere. Accepted consequence: `/areas/<id>` always opens the first pane, so
+  starring while on pane 3 and returning lands on pane 1.
+- **No `kind` discriminator column.** The target is fully determined by which
+  of `pageId` / `route` is non-null, and storing `kind` without a CHECK
+  constraint (this schema has none) would create a second source of truth that
+  can disagree. If panes ever return they would *also* carry a `pageId`, which
+  breaks `@@unique([ownerId, householdId, pageId])` — that is the moment to add
+  `kind` and re-scope the uniques.
+- **Dedupe uses two plain unique triples, not a partial index.** Postgres treats
+  NULLs as distinct, so page rows (`route` NULL) never collide on the route
+  index and vice versa. The repo has zero partial-index precedent, and one would
+  mean hand-appending raw SQL to a generated migration. Both triples include
+  `householdId` because a route string — unlike a page FK — carries no household
+  of its own. Consequence: these indexes are a race backstop only, not a lookup
+  key, since a compound unique whose nullable member is null can't be matched by
+  `findUnique`/`upsert`; all reads use `findFirst` and `P2002` maps to 409.
+- **Favourites use `getCurrentContext()`, not `resolvePagesAccess()`**, and their
+  ownership guards include `ownerId` rather than only `householdId`. Favourites
+  are per-user, so the usual household-only guard would let one housemate delete
+  the other's — and `resolvePagesAccess` deliberately collapses agent-token auth
+  onto the household owner, which must never write a real person's drawer.
