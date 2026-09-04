@@ -25,6 +25,25 @@ export function favoriteLabel(favorite: FavoriteRowData, pages: PageListRow[]): 
   return favorite.route ? defaultTitleForPath(favorite.route) : 'Unknown';
 }
 
+/**
+ * Resolve a favourite's emoji, mirroring `favoriteLabel`: prefer the live
+ * pages cache so an emoji added/changed/removed after the page was favourited
+ * shows up here exactly as it does in the left drawer (both read the same
+ * cache, which `useUpdatePage` keeps current). The favourite's embedded copy
+ * is only a fallback for when the page isn't in the cache yet. When the page
+ * IS in the cache, trust its value even if null — that means the emoji was
+ * removed, so the row should fall back to the generic icon, not a stale glyph.
+ */
+export function favoriteEmoji(
+  favorite: FavoriteRowData,
+  pages: PageListRow[]
+): string | null {
+  if (favorite.kind !== 'page') return null;
+  const live = pages.find((p) => p.id === favorite.pageId);
+  if (live) return live.emoji;
+  return favorite.pageEmoji ?? null;
+}
+
 interface FavoriteRowProps {
   favorite: FavoriteRowData;
   pages: PageListRow[];
@@ -68,6 +87,7 @@ export function FavoriteRow({ favorite, pages, onNavigate, onRemove }: FavoriteR
   }
 
   const isActive = pathname === href;
+  const emoji = favoriteEmoji(favorite, pages);
 
   return (
     <Link
@@ -80,8 +100,8 @@ export function FavoriteRow({ favorite, pages, onNavigate, onRemove }: FavoriteR
           : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'
       )}
     >
-      {favorite.pageEmoji ? (
-        <span className="w-4 shrink-0 text-center leading-none">{favorite.pageEmoji}</span>
+      {emoji ? (
+        <span className="w-4 shrink-0 text-center leading-none">{emoji}</span>
       ) : (
         <FileText className="h-4 w-4 shrink-0" />
       )}

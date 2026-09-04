@@ -175,6 +175,26 @@ describe('FavoritesDrawer', () => {
       expect(await screen.findByRole('link', { name: 'Renamed live' })).toBeInTheDocument();
       expect(screen.queryByText('Old name')).not.toBeInTheDocument();
     });
+
+    it('shows the live pages-cache emoji even when the favourite was saved without one', async () => {
+      // Regression: a page emoji added after the page was favourited showed in
+      // the left drawer (live cache) but not here, which read only the stale
+      // embedded copy. The row must resolve the emoji from the live cache too.
+      await renderDrawer({
+        favorites: [
+          makeFavorite({
+            id: 'f-page',
+            kind: 'page',
+            pageId: 'p-1',
+            route: null,
+            pageEmoji: null,
+          }),
+        ],
+        pages: [makePage({ id: 'p-1', title: 'Roadmap', emoji: '🚀' })],
+      });
+
+      expect(await screen.findByText('🚀')).toBeInTheDocument();
+    });
   });
 
   describe('a route favourite whose path is no longer nav-registered', () => {
