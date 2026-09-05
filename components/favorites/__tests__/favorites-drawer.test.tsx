@@ -195,6 +195,22 @@ describe('FavoritesDrawer', () => {
 
       expect(await screen.findByText('🚀')).toBeInTheDocument();
     });
+
+    it('renders route favourites with their nav icon, not the generic file icon', async () => {
+      // Regression: route favourites (Tasks, Transactions) fell back to the
+      // generic file icon; they should carry their sidebar glyph instead.
+      await renderDrawer({
+        favorites: [
+          makeFavorite({ id: 'f-tasks', route: '/tasks' }),
+          makeFavorite({ id: 'f-tx', route: '/budget/transactions', sortOrder: 1 }),
+        ],
+      });
+
+      const tasks = await screen.findByRole('link', { name: 'Tasks' });
+      expect(tasks.querySelector('svg')).toHaveClass('lucide-list-checks');
+      const tx = screen.getByRole('link', { name: 'Transactions' });
+      expect(tx.querySelector('svg')).toHaveClass('lucide-arrow-left-right');
+    });
   });
 
   describe('a route favourite whose path is no longer nav-registered', () => {

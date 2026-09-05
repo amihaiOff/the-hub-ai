@@ -1,10 +1,11 @@
 'use client';
 
+import { createElement } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { FileText, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { defaultTitleForPath, isKnownRoutePath } from '@/lib/utils/page-titles';
+import { defaultTitleForPath, isKnownRoutePath, iconForPath } from '@/lib/utils/page-titles';
 import type { FavoriteRow as FavoriteRowData } from '@/lib/hooks/use-favorites';
 import type { PageListRow } from '@/lib/hooks/use-pages';
 
@@ -88,6 +89,10 @@ export function FavoriteRow({ favorite, pages, onNavigate, onRemove }: FavoriteR
 
   const isActive = pathname === href;
   const emoji = favoriteEmoji(favorite, pages);
+  // Route favourites carry a real nav icon (Tasks → checklist, Transactions →
+  // arrows); resolve it so they match the sidebar instead of a generic file.
+  const RouteIcon =
+    favorite.kind === 'route' && favorite.route ? iconForPath(favorite.route) : null;
 
   return (
     <Link
@@ -103,7 +108,9 @@ export function FavoriteRow({ favorite, pages, onNavigate, onRemove }: FavoriteR
       {emoji ? (
         <span className="w-4 shrink-0 text-center leading-none">{emoji}</span>
       ) : (
-        <FileText className="h-4 w-4 shrink-0" />
+        // createElement (not <RouteIcon/>) so the lint rule doesn't read a
+        // map-selected icon as a component "created during render".
+        createElement(RouteIcon ?? FileText, { className: 'h-4 w-4 shrink-0' })
       )}
       <span className="min-w-0 flex-1 truncate">{label}</span>
     </Link>
