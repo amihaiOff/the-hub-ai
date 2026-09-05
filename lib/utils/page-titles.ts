@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react';
 import { navItems, settingsItem, isNavHeader, type NavItem } from '@/lib/constants/navigation';
 
 /** Flat map of `path → label` derived from `navItems` (+ subItems, + Settings). */
@@ -11,6 +12,28 @@ const NAV_LABEL_BY_PATH: Record<string, string> = (() => {
   addItem(settingsItem);
   return map;
 })();
+
+/** Flat map of `path → icon`, from the same nav registry as the labels. */
+const NAV_ICON_BY_PATH: Record<string, LucideIcon> = (() => {
+  const map: Record<string, LucideIcon> = {};
+  const addItem = (item: NavItem) => {
+    map[item.href] = item.icon;
+    for (const sub of item.subItems ?? []) map[sub.href] = sub.icon;
+  };
+  for (const entry of navItems) if (!isNavHeader(entry)) addItem(entry);
+  addItem(settingsItem);
+  return map;
+})();
+
+/**
+ * The nav icon for a route, so a route favourite shows the same glyph it has
+ * in the sidebar (Tasks → checklist, Transactions → arrows) instead of a
+ * generic file icon. Returns null for paths with no registered nav icon (the
+ * caller falls back to a default).
+ */
+export function iconForPath(path: string): LucideIcon | null {
+  return Object.hasOwn(NAV_ICON_BY_PATH, path) ? NAV_ICON_BY_PATH[path] : null;
+}
 
 const SETTINGS_SUBPAGES: Record<string, string> = {
   '/settings/household': 'Household',
