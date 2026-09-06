@@ -187,7 +187,13 @@ export function DbToolbar(props: DbToolbarProps) {
         )}
         <button
           type="button"
-          onClick={() => setToolsOpen((o) => !o)}
+          // On mobile the tools live in a bottom sheet that closes itself (its
+          // own X / swipe / Esc), so this button only ever OPENS it. An open is
+          // idempotent, which makes it immune to any residual WebKit
+          // touch→click double-fire that would cancel a toggle and leave the
+          // sheet shut ("Tools doesn't open"). Desktop keeps the toggle since
+          // its inline panel has no separate close control.
+          onClick={() => (isMobile ? setToolsOpen(true) : setToolsOpen((o) => !o))}
           aria-label="Tools"
           title="Tools"
           className={cn(
