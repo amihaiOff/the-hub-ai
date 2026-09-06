@@ -83,7 +83,7 @@ export function DbCardsView({
           return (
             <div
               key={row.id}
-              className="border-border/70 bg-card/40 flex flex-col gap-3 rounded-2xl border p-3.5"
+              className="border-border bg-card shadow-glow-sm flex flex-col gap-3 rounded-2xl border p-3.5"
             >
               <div className="flex items-start gap-2">
                 <button

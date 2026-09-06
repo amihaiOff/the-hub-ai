@@ -503,27 +503,6 @@
      class inside the block (text-foreground, bg-card, border-border,
      text-primary, bg-muted, …) without touching the rest of the app's cool
      slate + blue theme. */
-  .database-block,
-  .db-fullscreen {
-    --background: #100d0b;
-    --card: #17130f;
-    --card-foreground: #f4efe9;
-    --popover: #1b1611;
-    --popover-foreground: #f4efe9;
-    --foreground: #f4efe9;
-    --muted: #241d17;
-    --muted-foreground: #a99b8b;
-    --accent: #241d17;
-    --accent-foreground: #f4efe9;
-    --secondary: #241d17;
-    --secondary-foreground: #f4efe9;
-    --border: #322a22;
-    --input: #322a22;
-    --primary: #f5a524;
-    --primary-foreground: #1a140d;
-    --ring: #f5a524;
-  }
-
   /* Database block — the typed grid uses its own scoped styling so
      the inline table rules above don't apply. Numeric cells get
      right-aligned tabular-nums, headers pick up the same uppercase

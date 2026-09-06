@@ -199,9 +199,9 @@ export function DbToolbar(props: DbToolbarProps) {
       {restingChips}
 
       {toolsOpen && (
-        <div className="bg-muted/15 border-border/50 mt-2.5 flex flex-wrap items-center gap-3 rounded-xl border p-2">
+        <div className="bg-muted/20 border-border/60 scrollbar-hide mt-2.5 flex flex-nowrap items-center gap-2.5 overflow-x-auto rounded-xl border p-2">
           {/* View switcher */}
-          <div className="border-border/60 bg-card flex h-8 items-center gap-0.5 rounded-lg border p-[3px]">
+          <div className="border-border/60 bg-card flex h-8 shrink-0 items-center gap-0.5 rounded-lg border p-[3px]">
             {VIEW_META.map(({ view: v, label, icon: Icon }) => (
               <button
                 key={v}
@@ -224,7 +224,7 @@ export function DbToolbar(props: DbToolbarProps) {
 
           {/* Density (Table only) */}
           {view === 'table' && (
-            <div className="border-border/60 bg-card flex h-8 items-center gap-0.5 rounded-lg border p-[3px]">
+            <div className="border-border/60 bg-card flex h-8 shrink-0 items-center gap-0.5 rounded-lg border p-[3px]">
               {(['airy', 'dense'] as DbDensity[]).map((d) => (
                 <button
                   key={d}
@@ -244,7 +244,7 @@ export function DbToolbar(props: DbToolbarProps) {
           )}
 
           {/* Group · Filter · Sort */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-1.5">
             <GroupPicker
               groupableCols={groupableCols}
               groupCol={groupCol}
@@ -273,7 +273,7 @@ export function DbToolbar(props: DbToolbarProps) {
           <div className="min-w-3 flex-1" aria-hidden />
 
           {/* Properties + Add column */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-1.5">
             <PropertiesPopover
               view={view}
               columns={columns}
