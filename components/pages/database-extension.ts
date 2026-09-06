@@ -19,6 +19,13 @@ export interface DatabaseColumn {
   type: DatabaseColumnType;
   /** Present for `select` and `multiselect` columns. Each option carries a stable id + label + optional color key (see SELECT_COLORS in database-block). */
   options?: { id: string; label: string; color?: string }[];
+  /**
+   * Persisted column width in px (Table view), set by dragging the header
+   * border. Optional — a missing width falls back to a per-type default
+   * (see `columnWidth` in `lib/pages/db-view.ts`). Shared, so both household
+   * members see the same layout.
+   */
+  width?: number;
 }
 
 /**
@@ -114,6 +121,20 @@ export const DatabaseBlock = Node.create({
         default: null as DatabaseRow[] | null,
         parseHTML: (el) => tryParseJson(el.getAttribute('data-rows')),
         renderHTML: (attrs) => ({ 'data-rows': JSON.stringify(attrs.rows ?? []) }),
+      },
+      // Shared, per-block view configuration (current view, density, group-by,
+      // kanban column, sort, filters, per-view hidden columns, card options).
+      // A single JSON attribute keeps the HTML tidy and stays backward
+      // compatible: legacy blocks have no `data-view-config`, so this parses to
+      // null and `resolveViewConfig` (lib/pages/db-view.ts) fills in defaults.
+      // Storing it here (not localStorage) means both household members see the
+      // same configured view. Does NOT touch the columns/rows shape, so the
+      // agent backlog reader is unaffected.
+      viewConfig: {
+        default: null as unknown,
+        parseHTML: (el) => tryParseJson(el.getAttribute('data-view-config')),
+        renderHTML: (attrs) =>
+          attrs.viewConfig ? { 'data-view-config': JSON.stringify(attrs.viewConfig) } : {},
       },
     };
   },
