@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AlignLeft, ArrowUpRight, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type {
@@ -77,6 +77,10 @@ export function DbTableView(props: DbTableViewProps) {
   // we don't write an attribute on every pointer move.
   const [resizing, setResizing] = useState<{ colId: string; width: number } | null>(null);
   const resizeRef = useRef<{ colId: string; startX: number; startWidth: number } | null>(null);
+  // Removes any in-flight resize listeners; set while a drag is active so an
+  // unmount mid-drag (e.g. switching view) can't leak them or setState later.
+  const resizeTeardownRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => resizeTeardownRef.current?.(), []);
 
   const widthFor = (col: DatabaseColumn, index: number) =>
     resizing?.colId === col.id ? resizing.width : columnWidth(col, index);
@@ -97,12 +101,18 @@ export function DbTableView(props: DbTableViewProps) {
       const r = resizeRef.current;
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
+      resizeTeardownRef.current = null;
       resizeRef.current = null;
       if (r) {
         const width = Math.max(MIN_WIDTH, r.startWidth + (ev.clientX - r.startX));
         onSetColumnWidth(r.colId, width);
       }
       setResizing(null);
+    };
+    resizeTeardownRef.current = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      resizeRef.current = null;
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);

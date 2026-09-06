@@ -158,7 +158,13 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
 
   // ── Filters ─────────────────────────────────────────────────────────────
   const filters = config.filters;
-  const hasActiveFilters = Object.values(filters).some(isColumnFilterActive);
+  // Compute from existing columns (not raw filter values) so a filter left over
+  // from a column removed out-of-band can't falsely show "no rows match" —
+  // applyFilters ignores such orphans too (it iterates columns).
+  const hasActiveFilters = columns.some((c) => {
+    const f = filters[c.id];
+    return !!f && isColumnFilterActive(f);
+  });
   const onFilterChange = useCallback(
     (colId: string, next: ColumnFilter) => {
       const f = { ...configRef.current.filters };
