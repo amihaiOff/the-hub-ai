@@ -148,7 +148,32 @@ export const DatabaseBlock = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(DatabaseBlockView);
+    return ReactNodeViewRenderer(DatabaseBlockView, {
+      // This atom is `selectable`/`draggable` so the mobile block-drag handle
+      // (rendered outside this node view, in page-body-editor.tsx) can select
+      // and reorder the whole block. But without this guard, ProseMirror's
+      // own mousedown/mouseup handling (selectClickedLeaf's NodeSelection +
+      // a mid-gesture `draggable` toggle on the atom's DOM node) runs for
+      // EVERY tap inside the block too — including on its own interactive
+      // controls (e.g. the mobile Tools button) — and WebKit's touch-to-click
+      // synthesis can turn that into a double-fire independent of, and in
+      // addition to, the plain contentEditable-nested-button issue. Skipping
+      // ProseMirror's handling when the tap lands on a real control lets the
+      // control's own React onClick behave like a normal button while still
+      // allowing whole-block selection/drag from the block's non-interactive
+      // chrome.
+      stopEvent: ({ event }) => {
+        const target = event.target;
+        // `Element`, not `HTMLElement` — an icon-only button's tap target is
+        // often the inner <svg>/<path>, which is an SVGElement (a sibling of
+        // HTMLElement under Element, not a subclass), so an HTMLElement check
+        // here would let those taps fall through unguarded.
+        if (!(target instanceof Element)) return false;
+        return !!target.closest(
+          'button, input, textarea, select, [role="button"], [contenteditable="true"]'
+        );
+      },
+    });
   },
 
   addCommands() {
