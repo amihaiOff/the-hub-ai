@@ -629,6 +629,34 @@
   .database-block thead th {
     color: var(--muted-foreground) !important;
   }
+  /* ── v2 density: airy vs dense ─────────────────────────────────────────
+     Density is a class on the <table> so the two modes tune row height and
+     the grid without touching the shared rules above. Airy = generous rows
+     with thin horizontal dividers only (no vertical column lines). Dense =
+     compact rows with the full grid (vertical + horizontal). */
+  .database-block table.db-airy tbody tr[data-row-id] {
+    height: 52px;
+  }
+  .database-block table.db-airy th,
+  .database-block table.db-airy td {
+    border-right: none !important;
+  }
+  .database-block table.db-dense tbody tr[data-row-id] {
+    height: 33px;
+  }
+  .database-block table.db-dense thead tr {
+    height: 34px;
+  }
+  .database-block table.db-dense thead th,
+  .database-block table.db-dense tbody td {
+    font-size: 12.5px;
+  }
+  /* Group-header / add-row rows carry no cell divider or column grid. */
+  .database-block tbody tr[data-group-header] > td,
+  .database-block tbody tr[data-add-row] > td {
+    border-right: none !important;
+    border-bottom: none;
+  }
   /* On mobile, break out of the page-body's left padding and the shell's
      horizontal padding so the grid spans (nearly) the full screen width and
      sits flush with the page — no cramped column inset.
