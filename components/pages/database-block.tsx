@@ -425,7 +425,17 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
   const openRow = openRowId ? (rows.find((r) => r.id === openRowId) ?? null) : null;
 
   return (
-    <NodeViewWrapper as="div" className="database-block group/db relative my-4">
+    <NodeViewWrapper
+      as="div"
+      className="database-block group/db relative my-4"
+      // contentEditable="false" — this NodeView has no NodeViewContent (it's
+      // 100% custom React UI over viewConfig/columns/rows), but without this
+      // its buttons still live inside ProseMirror's contenteditable root.
+      // WebKit's mobile Safari double-fires `click` on a <button> nested in
+      // contenteditable, so e.g. the Tools button's onClick toggle ran twice
+      // per tap and the bottom sheet opened then immediately closed.
+      contentEditable={false}
+    >
       <DbToolbar
         editable={editable}
         title={title}
