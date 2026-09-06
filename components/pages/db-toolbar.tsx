@@ -185,66 +185,68 @@ export function DbToolbar(props: DbToolbarProps) {
         <button
           type="button"
           onClick={() => setToolsOpen((o) => !o)}
+          aria-label="Tools"
+          title="Tools"
           className={cn(
-            'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] transition-colors',
+            'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors',
             toolsOpen
               ? 'border-primary/40 bg-primary/10 text-primary'
               : 'border-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground'
           )}
         >
-          <Settings2 className="h-4 w-4" /> Tools
+          <Settings2 className="h-4 w-4" />
         </button>
       </div>
 
       {restingChips}
 
+      {/* Three fixed rows so the layout stays consistent regardless of view or
+          selection: (1) view + density, (2) group/filter/sort, (3) properties + add. */}
       {toolsOpen && (
-        <div className="bg-muted/20 border-border/60 scrollbar-hide mt-2.5 flex flex-nowrap items-center gap-2.5 overflow-x-auto rounded-xl border p-2">
-          {/* View switcher */}
-          <div className="border-border/60 bg-card flex h-8 shrink-0 items-center gap-0.5 rounded-lg border p-[3px]">
-            {VIEW_META.map(({ view: v, label, icon: Icon }) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => onViewChange(v)}
-                className={cn(
-                  'inline-flex h-[24px] items-center gap-1.5 rounded-md px-2 text-xs transition-colors',
-                  view === v
-                    ? 'bg-muted text-foreground font-medium'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{label}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="bg-border h-5 w-px shrink-0" aria-hidden />
-
-          {/* Density (Table only) */}
-          {view === 'table' && (
-            <div className="border-border/60 bg-card flex h-8 shrink-0 items-center gap-0.5 rounded-lg border p-[3px]">
-              {(['airy', 'dense'] as DbDensity[]).map((d) => (
+        <div className="bg-muted/20 border-border/60 mt-2.5 flex flex-col gap-2 rounded-xl border p-2">
+          {/* Row 1 — view switcher + density */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="border-border/60 bg-card flex h-8 items-center gap-0.5 rounded-lg border p-[3px]">
+              {VIEW_META.map(({ view: v, label, icon: Icon }) => (
                 <button
-                  key={d}
+                  key={v}
                   type="button"
-                  onClick={() => onDensityChange(d)}
+                  onClick={() => onViewChange(v)}
                   className={cn(
-                    'h-[24px] rounded-md px-2.5 text-xs capitalize transition-colors',
-                    density === d
+                    'inline-flex h-[24px] items-center gap-1.5 rounded-md px-2 text-xs transition-colors',
+                    view === v
                       ? 'bg-muted text-foreground font-medium'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
-                  {d}
+                  <Icon className="h-3.5 w-3.5" />
+                  <span>{label}</span>
                 </button>
               ))}
             </div>
-          )}
+            {view === 'table' && (
+              <div className="border-border/60 bg-card flex h-8 items-center gap-0.5 rounded-lg border p-[3px]">
+                {(['airy', 'dense'] as DbDensity[]).map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => onDensityChange(d)}
+                    className={cn(
+                      'h-[24px] rounded-md px-2.5 text-xs capitalize transition-colors',
+                      density === d
+                        ? 'bg-muted text-foreground font-medium'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
-          {/* Group · Filter · Sort */}
-          <div className="flex shrink-0 items-center gap-1.5">
+          {/* Row 2 — group / filter / sort */}
+          <div className="flex flex-wrap items-center gap-2">
             <GroupPicker
               groupableCols={groupableCols}
               groupCol={groupCol}
@@ -270,10 +272,8 @@ export function DbToolbar(props: DbToolbarProps) {
             <SortPicker columns={columns} sort={sort} sortCol={sortCol} onSortChange={onSortChange} />
           </div>
 
-          <div className="min-w-3 flex-1" aria-hidden />
-
-          {/* Properties + Add column */}
-          <div className="flex shrink-0 items-center gap-1.5">
+          {/* Row 3 — properties + add column */}
+          <div className="flex flex-wrap items-center gap-2">
             <PropertiesPopover
               view={view}
               columns={columns}

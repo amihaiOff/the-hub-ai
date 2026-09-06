@@ -418,10 +418,12 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                 primaryCol={primaryCol}
                 fieldCols={fieldCols}
                 rows={sorted}
+                editable={editable}
                 hideEmptyCardFields={config.hideEmptyCardFields}
                 hasActiveFilters={hasActiveFilters}
                 totalRowCount={rows.length}
                 onOpenRow={setOpenRowId}
+                onUpdateCell={updateCell}
               />
             </div>
           )}

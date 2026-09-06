@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { ChevronDown, Trash2, X } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
@@ -13,12 +12,11 @@ import {
 import { SELECT_COLORS, TYPE_META, resolveOptionColor } from './db-cells';
 
 /**
- * Table column header: type icon + name, a click-to-expand action row (column
- * options + delete), double-click / long-press to rename, and a portalled
- * options popover (type change + select options). The column resize handle is
- * owned by the table view (it needs the `<th>` geometry), not this component.
- * Sorting moved to the toolbar in v2, so the header no longer carries a sort
- * toggle.
+ * Table column header: type icon + name. A single click (or long-press on
+ * touch) opens the full column sheet — rename, type change, select options,
+ * delete — so there's no intermediate action row. A freshly-added column can
+ * still auto-focus an inline rename (autoStartEdit). The column resize handle
+ * is owned by the table view; sorting lives in the toolbar.
  */
 export function ColumnHeader({
   column,
@@ -37,24 +35,9 @@ export function ColumnHeader({
   onDelete: () => void;
   onSetOptions: (opts: { id: string; label: string; color?: string }[]) => void;
 }) {
-  const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null);
-  const menuOpen = menuAnchor !== null;
   const [editing, setEditing] = useState(() => Boolean(autoStartEdit && editable));
   const [mobileSheet, setMobileSheet] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const rootRef = useRef<HTMLDivElement | null>(null);
   const [name, setName] = useState(column.name);
-
-  useEffect(() => {
-    if (!expanded) return;
-    const onDown = (e: PointerEvent) => {
-      const target = e.target as Node | null;
-      if (rootRef.current?.contains(target)) return;
-      setExpanded(false);
-    };
-    window.addEventListener('pointerdown', onDown);
-    return () => window.removeEventListener('pointerdown', onDown);
-  }, [expanded]);
 
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearPress = () => {
@@ -78,10 +61,7 @@ export function ColumnHeader({
   const TypeIcon = typeMeta.icon;
 
   return (
-    <div
-      ref={rootRef}
-      className="group/header relative flex w-full items-center gap-1.5 px-3 py-1.5"
-    >
+    <div className="group/header relative flex w-full items-center gap-1.5 px-3 py-1.5">
       <TypeIcon className={cn('h-3.5 w-3.5 shrink-0', typeMeta.color)} aria-hidden />
       {editable && editing ? (
         <input
@@ -108,15 +88,7 @@ export function ColumnHeader({
       ) : (
         <button
           type="button"
-          onClick={editable ? () => setExpanded((v) => !v) : undefined}
-          onDoubleClick={
-            editable
-              ? (e) => {
-                  e.stopPropagation();
-                  setEditing(true);
-                }
-              : undefined
-          }
+          onClick={editable ? () => setMobileSheet(true) : undefined}
           onTouchStart={editable ? startPress : undefined}
           onTouchMove={clearPress}
           onTouchEnd={clearPress}
@@ -129,53 +101,11 @@ export function ColumnHeader({
                 }
               : undefined
           }
-          title={editable ? 'Click for column actions · double-click to rename' : undefined}
-          className={cn(
-            'text-muted-foreground min-w-0 flex-1 truncate text-left text-[12.5px] font-medium select-none',
-            expanded && 'text-foreground'
-          )}
+          title={editable ? 'Column settings' : undefined}
+          className="text-muted-foreground min-w-0 flex-1 truncate text-left text-[12.5px] font-medium select-none"
         >
           {column.name}
         </button>
-      )}
-
-      {editable && expanded && !editing && (
-        <div className="pointer-events-auto absolute top-full left-3 z-20 -mt-1 flex items-center gap-1">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setMenuAnchor((cur) => (cur ? null : (e.currentTarget as HTMLButtonElement)));
-            }}
-            aria-label="Column options"
-            title="Column options"
-            className="text-muted-foreground flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-emerald-400/10 hover:text-emerald-400"
-          >
-            <ChevronDown className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            aria-label="Delete column"
-            title="Delete column"
-            className="text-muted-foreground hover:bg-destructive/15 hover:text-destructive flex h-6 w-6 items-center justify-center rounded-md transition-colors"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
-
-      {menuOpen && (
-        <ColumnMenu
-          anchor={menuAnchor}
-          column={column}
-          onClose={() => setMenuAnchor(null)}
-          onChangeType={onChangeType}
-          onSetOptions={onSetOptions}
-        />
       )}
 
       {mobileSheet && (
@@ -190,180 +120,6 @@ export function ColumnHeader({
       )}
     </div>
   );
-}
-
-/** Portalled column-options popover: type change + select options editing. */
-function ColumnMenu({
-  anchor,
-  column,
-  onClose,
-  onChangeType,
-  onSetOptions,
-}: {
-  anchor: HTMLElement | null;
-  column: DatabaseColumn;
-  onClose: () => void;
-  onChangeType: (type: DatabaseColumnType) => void;
-  onSetOptions: (opts: { id: string; label: string; color?: string }[]) => void;
-}) {
-  const [newOption, setNewOption] = useState('');
-  const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-
-  useLayoutEffect(() => {
-    if (!anchor) return;
-    const place = () => {
-      const rect = anchor.getBoundingClientRect();
-      const width = 240;
-      const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8);
-      setPos({ top: rect.bottom + 4, left });
-    };
-    place();
-    window.addEventListener('resize', place);
-    window.addEventListener('scroll', place, true);
-    return () => {
-      window.removeEventListener('resize', place);
-      window.removeEventListener('scroll', place, true);
-    };
-  }, [anchor]);
-
-  useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      const t = e.target as Node | null;
-      if (!t) return;
-      if (menuRef.current?.contains(t)) return;
-      if (anchor && anchor.contains(t)) return;
-      onClose();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [anchor, onClose]);
-
-  if (!pos) return null;
-
-  const content = (
-    <div
-      ref={menuRef}
-      role="menu"
-      style={{ position: 'fixed', top: pos.top, left: pos.left, width: 240 }}
-      className="bg-popover text-popover-foreground z-[100] rounded-xl border p-1 shadow-xl"
-    >
-      <p className="text-muted-foreground px-2 pt-1 pb-1 text-[10px] font-semibold tracking-wider uppercase">
-        Column type
-      </p>
-      {(Object.keys(TYPE_META) as DatabaseColumnType[]).map((t) => {
-        const Icon = TYPE_META[t].icon;
-        return (
-          <button
-            key={t}
-            type="button"
-            onClick={() => {
-              onChangeType(t);
-              if (t !== 'select' && t !== 'multiselect') onClose();
-            }}
-            className={cn(
-              'hover:bg-muted/60 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs',
-              column.type === t && 'bg-muted/50 font-medium'
-            )}
-          >
-            <Icon className={cn('h-3.5 w-3.5', TYPE_META[t].color)} /> {TYPE_META[t].label}
-          </button>
-        );
-      })}
-
-      {(column.type === 'select' || column.type === 'multiselect') && (
-        <div className="border-border/50 mt-1 border-t pt-1">
-          <p className="text-muted-foreground px-2 pt-1 pb-1 text-[10px] font-semibold tracking-wider uppercase">
-            Options
-          </p>
-          <div className="space-y-1 px-1 pb-1">
-            {(column.options ?? []).map((opt, i) => {
-              const c = resolveOptionColor(opt, i);
-              return (
-                <div key={opt.id} className="relative flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setColorPickerFor((cur) => (cur === opt.id ? null : opt.id))}
-                    aria-label={`Color for ${opt.label}`}
-                    className={cn('h-3.5 w-3.5 shrink-0 rounded-full', c.swatch)}
-                  />
-                  <span className={cn('flex-1 truncate rounded-md px-2 py-1 text-xs ring-1', c.pill)}>
-                    {opt.label}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => onSetOptions((column.options ?? []).filter((o) => o.id !== opt.id))}
-                    aria-label={`Remove ${opt.label}`}
-                    className="text-muted-foreground/60 hover:text-destructive"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                  {colorPickerFor === opt.id && (
-                    <div className="bg-popover absolute top-full left-0 z-[110] mt-1 flex flex-wrap gap-1 rounded-lg border p-1.5 shadow-lg">
-                      {SELECT_COLORS.map((sc) => (
-                        <button
-                          key={sc.key}
-                          type="button"
-                          onClick={() => {
-                            onSetOptions(
-                              (column.options ?? []).map((o) =>
-                                o.id === opt.id ? { ...o, color: sc.key } : o
-                              )
-                            );
-                            setColorPickerFor(null);
-                          }}
-                          aria-label={sc.key}
-                          className={cn(
-                            'h-4 w-4 rounded-full ring-1 ring-white/10 hover:ring-2 hover:ring-white/40',
-                            sc.swatch,
-                            opt.color === sc.key && 'ring-2 ring-white/70'
-                          )}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const label = newOption.trim();
-                if (!label) return;
-                const next = SELECT_COLORS[(column.options?.length ?? 0) % SELECT_COLORS.length];
-                onSetOptions([...(column.options ?? []), makeSelectOption(label, next.key)]);
-                setNewOption('');
-              }}
-              className="flex gap-1"
-            >
-              <input
-                value={newOption}
-                onChange={(e) => setNewOption(e.target.value)}
-                placeholder="Add option"
-                className="border-border/60 bg-background flex-1 rounded-md border px-2 py-1 text-xs outline-none"
-              />
-              <button
-                type="submit"
-                className="bg-primary text-primary-foreground rounded-md px-2 py-1 text-xs"
-              >
-                Add
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  return createPortal(content, document.body);
 }
 
 /** Bottom-sheet column controls for touch devices (long-press / right-click). */

@@ -1,37 +1,44 @@
 'use client';
 
 import { useState } from 'react';
-import { AlignLeft, ChevronDown, ChevronRight } from 'lucide-react';
+import { AlignLeft, ArrowUpRight, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { DatabaseColumn, DatabaseRow } from './database-extension';
+import type { DatabaseCellValue, DatabaseColumn, DatabaseRow } from './database-extension';
 import { hasBodyContent } from '@/lib/pages/db-rows';
-import { CellValueDisplay, isEmptyCellValue } from './db-cells';
+import { CellEditor, isEmptyCellValue } from './db-cells';
+import { useLongPress } from '@/lib/hooks/use-long-press';
 
 interface DbCardsViewProps {
   primaryCol: DatabaseColumn | null;
   fieldCols: DatabaseColumn[];
   rows: DatabaseRow[];
+  editable: boolean;
   hideEmptyCardFields: boolean;
   hasActiveFilters: boolean;
   totalRowCount: number;
   onOpenRow: (rowId: string) => void;
+  onUpdateCell: (rowId: string, colId: string, value: DatabaseCellValue) => void;
 }
 
 /**
- * Cards view: a responsive grid where each row is a card with the primary
- * column as the hero title and the Properties-selected columns rendered as
- * `label: value` fields (empty fields optionally hidden). Cards collapse to
- * title-only individually, or all at once via the toolbar row. Clicking a card
- * opens the row's entry sheet. Per-card collapse is ephemeral (per-viewer).
+ * Cards view: a responsive grid where each row is a card. The primary column is
+ * the hero title and the Properties-selected columns render as editable
+ * `label: value` fields — you edit cells inline right in the card (empty fields
+ * optionally hidden). Long-press a card (or the hover "open" button on desktop)
+ * to open the row's full page; a plain tap edits the field you touched. Cards
+ * collapse to title-only individually or all at once. Per-card collapse is
+ * ephemeral (per-viewer).
  */
 export function DbCardsView({
   primaryCol,
   fieldCols,
   rows,
+  editable,
   hideEmptyCardFields,
   hasActiveFilters,
   totalRowCount,
   onOpenRow,
+  onUpdateCell,
 }: DbCardsViewProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const toggle = (id: string) =>
@@ -41,12 +48,6 @@ export function DbCardsView({
       else next.add(id);
       return next;
     });
-
-  const title = (row: DatabaseRow): string => {
-    if (!primaryCol) return 'Untitled';
-    const v = row.cells[primaryCol.id];
-    return typeof v === 'string' && v.trim() ? v : 'Untitled';
-  };
 
   if (rows.length === 0) {
     return (
@@ -75,67 +76,121 @@ export function DbCardsView({
         </button>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {rows.map((row) => {
-          const isCollapsed = collapsed.has(row.id);
-          const shownFields = fieldCols.filter(
-            (c) => !hideEmptyCardFields || !isEmptyCellValue(row.cells[c.id] ?? null)
-          );
-          return (
-            <div
-              key={row.id}
-              className="border-border bg-card shadow-glow-sm flex flex-col gap-3 rounded-2xl border p-3.5"
-            >
-              <div className="flex items-start gap-2">
-                <button
-                  type="button"
-                  onClick={() => toggle(row.id)}
-                  aria-label={isCollapsed ? 'Expand card' : 'Collapse card'}
-                  className="text-muted-foreground mt-0.5 shrink-0"
-                >
-                  {isCollapsed ? (
-                    <ChevronRight className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onOpenRow(row.id)}
-                  className="text-foreground min-w-0 flex-1 text-left text-[14.5px] leading-tight font-semibold hover:underline"
-                >
-                  {title(row)}
-                </button>
-                {hasBodyContent(row.body) && (
-                  <AlignLeft className="text-muted-foreground/60 mt-0.5 h-3.5 w-3.5 shrink-0" />
-                )}
-              </div>
-              {!isCollapsed && (
-                <div className="flex flex-col gap-1.5">
-                  {shownFields.length === 0 ? (
-                    <span className="text-muted-foreground/60 text-xs">No fields shown</span>
-                  ) : (
-                    shownFields.map((col) => (
-                      <div key={col.id} className="flex items-center gap-2 text-[12.5px]">
-                        <span className="text-muted-foreground w-20 shrink-0 truncate">
-                          {col.name}
-                        </span>
-                        <span
-                          className={cn(
-                            'min-w-0 flex-1 truncate',
-                            col.type === 'number' && 'tabular-nums'
-                          )}
-                        >
-                          <CellValueDisplay column={col} value={row.cells[col.id] ?? null} />
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {rows.map((row) => (
+          <CardItem
+            key={row.id}
+            row={row}
+            primaryCol={primaryCol}
+            fieldCols={fieldCols}
+            editable={editable}
+            hideEmptyCardFields={hideEmptyCardFields}
+            isCollapsed={collapsed.has(row.id)}
+            onToggle={() => toggle(row.id)}
+            onOpenRow={onOpenRow}
+            onUpdateCell={onUpdateCell}
+          />
+        ))}
       </div>
+    </div>
+  );
+}
+
+function CardItem({
+  row,
+  primaryCol,
+  fieldCols,
+  editable,
+  hideEmptyCardFields,
+  isCollapsed,
+  onToggle,
+  onOpenRow,
+  onUpdateCell,
+}: {
+  row: DatabaseRow;
+  primaryCol: DatabaseColumn | null;
+  fieldCols: DatabaseColumn[];
+  editable: boolean;
+  hideEmptyCardFields: boolean;
+  isCollapsed: boolean;
+  onToggle: () => void;
+  onOpenRow: (rowId: string) => void;
+  onUpdateCell: (rowId: string, colId: string, value: DatabaseCellValue) => void;
+}) {
+  // Long-press the card opens its page; a plain tap edits the field touched.
+  const { bindRef, consumedClick } = useLongPress(() => onOpenRow(row.id), {
+    delay: 450,
+    moveTolerance: 8,
+  });
+  const shownFields = fieldCols.filter(
+    (c) => !hideEmptyCardFields || !isEmptyCellValue(row.cells[c.id] ?? null)
+  );
+
+  return (
+    <div
+      ref={bindRef}
+      className="border-border bg-card shadow-glow-sm group/card relative flex flex-col gap-3 rounded-2xl border p-3.5"
+    >
+      <div className="flex items-start gap-2">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
+          aria-label={isCollapsed ? 'Expand card' : 'Collapse card'}
+          className="text-muted-foreground mt-1 shrink-0"
+        >
+          {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
+        <div className="min-w-0 flex-1 text-[14.5px] leading-tight font-semibold">
+          {primaryCol ? (
+            <CellEditor
+              column={primaryCol}
+              value={row.cells[primaryCol.id] ?? null}
+              onChange={(v) => onUpdateCell(row.id, primaryCol.id, v)}
+              editable={editable}
+              isPrimary
+            />
+          ) : (
+            <span className="text-foreground">Untitled</span>
+          )}
+        </div>
+        {hasBodyContent(row.body) && (
+          <AlignLeft className="text-muted-foreground/60 mt-1 h-3.5 w-3.5 shrink-0" />
+        )}
+        <button
+          type="button"
+          onClick={() => {
+            if (!consumedClick()) onOpenRow(row.id);
+          }}
+          aria-label="Open page"
+          title="Open page"
+          className="text-muted-foreground hover:bg-muted/50 hover:text-foreground mt-0.5 shrink-0 rounded-md p-1 opacity-0 transition-opacity group-hover/card:opacity-100"
+        >
+          <ArrowUpRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      {!isCollapsed && (
+        <div className="flex flex-col gap-1.5">
+          {shownFields.length === 0 ? (
+            <span className="text-muted-foreground/60 text-xs">No fields shown</span>
+          ) : (
+            shownFields.map((col) => (
+              <div key={col.id} className="flex items-center gap-2 text-[12.5px]">
+                <span className="text-muted-foreground w-20 shrink-0 truncate">{col.name}</span>
+                <span className={cn('min-w-0 flex-1', col.type === 'number' && 'tabular-nums')}>
+                  <CellEditor
+                    column={col}
+                    value={row.cells[col.id] ?? null}
+                    onChange={(v) => onUpdateCell(row.id, col.id, v)}
+                    editable={editable}
+                  />
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }
