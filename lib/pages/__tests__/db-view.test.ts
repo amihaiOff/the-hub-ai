@@ -50,7 +50,12 @@ describe('resolveViewConfig', () => {
   });
 
   it('is defensive against malformed values', () => {
-    const c = resolveViewConfig({ view: 'nope', density: 7, sort: 'x', hidden: { table: [1, 'a', 2] } });
+    const c = resolveViewConfig({
+      view: 'nope',
+      density: 7,
+      sort: 'x',
+      hidden: { table: [1, 'a', 2] },
+    });
     expect(c.view).toBe('table');
     expect(c.density).toBe('airy');
     expect(c.sort).toBeNull();
@@ -100,7 +105,9 @@ describe('applyFilters', () => {
     expect(applyFilters(rows, cols, {})).toHaveLength(4);
   });
   it('filters by a select filter', () => {
-    const out = applyFilters(rows, cols, { status: { kind: 'select', optionIds: ['done', 'doing'] } });
+    const out = applyFilters(rows, cols, {
+      status: { kind: 'select', optionIds: ['done', 'doing'] },
+    });
     expect(out.map((r) => r.id).sort()).toEqual(['r1', 'r2']);
   });
   it('ANDs multiple active filters', () => {

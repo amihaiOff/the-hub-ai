@@ -75,7 +75,12 @@ const MIN_WIDTH = 64;
 
 /** Resolved width (px) for a column at a given index (index 0 = primary/title). */
 export function columnWidth(col: DatabaseColumn, index: number): number {
-  const w = typeof col.width === 'number' ? col.width : index === 0 ? PRIMARY_WIDTH : DEFAULT_WIDTH[col.type];
+  const w =
+    typeof col.width === 'number'
+      ? col.width
+      : index === 0
+        ? PRIMARY_WIDTH
+        : DEFAULT_WIDTH[col.type];
   return Math.max(MIN_WIDTH, w);
 }
 
@@ -98,15 +103,21 @@ export function resolveViewConfig(raw: unknown): ViewConfig {
         }
       : null;
   const hiddenIn = (r.hidden ?? {}) as Partial<Record<DbView, unknown>>;
-  const arr = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+  const arr = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
   return {
     view,
     density,
     groupBy: typeof r.groupBy === 'string' ? r.groupBy : null,
     kanbanBy: typeof r.kanbanBy === 'string' ? r.kanbanBy : null,
     sort,
-    filters: r.filters && typeof r.filters === 'object' ? (r.filters as Record<string, ColumnFilter>) : {},
-    hidden: { table: arr(hiddenIn.table), cards: arr(hiddenIn.cards), kanban: arr(hiddenIn.kanban) },
+    filters:
+      r.filters && typeof r.filters === 'object' ? (r.filters as Record<string, ColumnFilter>) : {},
+    hidden: {
+      table: arr(hiddenIn.table),
+      cards: arr(hiddenIn.cards),
+      kanban: arr(hiddenIn.kanban),
+    },
     hideEmptyCardFields: r.hideEmptyCardFields !== false,
   };
 }
@@ -132,9 +143,13 @@ export function applyFilters(
 ): DatabaseRow[] {
   const active = columns
     .map((c) => ({ col: c, f: filters[c.id] }))
-    .filter((x): x is { col: DatabaseColumn; f: ColumnFilter } => !!x.f && isColumnFilterActive(x.f));
+    .filter(
+      (x): x is { col: DatabaseColumn; f: ColumnFilter } => !!x.f && isColumnFilterActive(x.f)
+    );
   if (active.length === 0) return rows;
-  return rows.filter((r) => active.every(({ col, f }) => cellMatchesFilter(r.cells[col.id] ?? null, f)));
+  return rows.filter((r) =>
+    active.every(({ col, f }) => cellMatchesFilter(r.cells[col.id] ?? null, f))
+  );
 }
 
 function isEmptyCell(v: DatabaseCellValue): boolean {
@@ -168,7 +183,11 @@ function compareCells(a: DatabaseCellValue, b: DatabaseCellValue, col: DatabaseC
 }
 
 /** Rows sorted by the given sort spec (stable). Pure; new array. */
-export function sortRows(rows: DatabaseRow[], columns: DatabaseColumn[], sort: DbSort | null): DatabaseRow[] {
+export function sortRows(
+  rows: DatabaseRow[],
+  columns: DatabaseColumn[],
+  sort: DbSort | null
+): DatabaseRow[] {
   if (!sort) return rows;
   const col = columns.find((c) => c.id === sort.columnId);
   if (!col) return rows;

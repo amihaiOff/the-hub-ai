@@ -214,11 +214,18 @@ function ColumnMobileSheet({
                       <div className="border-border/60 flex items-center gap-2 rounded-lg border px-2 py-2">
                         <button
                           type="button"
-                          onClick={() => setColorPickerFor((cur) => (cur === opt.id ? null : opt.id))}
+                          onClick={() =>
+                            setColorPickerFor((cur) => (cur === opt.id ? null : opt.id))
+                          }
                           aria-label={`Color for ${opt.label}`}
                           className={cn('h-5 w-5 shrink-0 rounded-full', c.swatch)}
                         />
-                        <span className={cn('flex-1 truncate rounded-md px-2 py-1 text-sm ring-1', c.pill)}>
+                        <span
+                          className={cn(
+                            'flex-1 truncate rounded-md px-2 py-1 text-sm ring-1',
+                            c.pill
+                          )}
+                        >
                           {opt.label}
                         </span>
                         <button
@@ -264,7 +271,8 @@ function ColumnMobileSheet({
                     e.preventDefault();
                     const label = newOption.trim();
                     if (!label) return;
-                    const next = SELECT_COLORS[(column.options?.length ?? 0) % SELECT_COLORS.length];
+                    const next =
+                      SELECT_COLORS[(column.options?.length ?? 0) % SELECT_COLORS.length];
                     onSetOptions([...(column.options ?? []), makeSelectOption(label, next.key)]);
                     setNewOption('');
                   }}

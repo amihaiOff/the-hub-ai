@@ -1,9 +1,4 @@
-import {
-  isEmptyCellValue,
-  getSelectColor,
-  resolveOptionColor,
-  SELECT_COLORS,
-} from '../db-cells';
+import { isEmptyCellValue, getSelectColor, resolveOptionColor, SELECT_COLORS } from '../db-cells';
 
 /**
  * Pure, render-free helpers from db-cells. These back view logic that has no

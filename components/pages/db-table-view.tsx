@@ -1,7 +1,18 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AlignLeft, ArrowUpRight, GripVertical, Plus, Trash2 } from 'lucide-react';
+import {
+  DndContext,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { cn } from '@/lib/utils';
 import type {
   DatabaseCellValue,
@@ -42,6 +53,12 @@ interface DbTableViewProps {
   ) => void;
   /** The group column id (a select column), for quick-add presets. */
   groupColId: string | null;
+  /** True while a sort is active — row drag is disabled (order is derived). */
+  sortActive: boolean;
+  /** Reorder within the stored `rows` array (ungrouped / same-group drags). */
+  onReorderRow: (activeId: string, overId: string) => void;
+  /** Cross-group drag: reclassify the row's group value + position near overId. */
+  onMoveRowToGroup: (activeId: string, targetValue: string | null, overId: string) => void;
 }
 
 /**
@@ -71,7 +88,44 @@ export function DbTableView(props: DbTableViewProps) {
     onDeleteColumn,
     onSetColumnOptions,
     groupColId,
+    sortActive,
+    onReorderRow,
+    onMoveRowToGroup,
   } = props;
+
+  // Row drag is on only for editors, and only when no sort is active (an active
+  // sort means the visible order is derived, not the stored order — reordering
+  // then would be meaningless / lost on the next sort pass).
+  const dragEnabled = editable && !sortActive;
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } })
+  );
+
+  // Map each visible row id → its group key, so a cross-group drop can resolve
+  // the target group's select value from the row it lands on.
+  const rowGroupKey = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const g of groups) for (const r of g.rows) m.set(r.id, g.key);
+    return m;
+  }, [groups]);
+
+  const handleDragEnd = (e: DragEndEvent) => {
+    if (!dragEnabled) return;
+    const { active, over } = e;
+    if (!over) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    if (activeId === overId) return;
+    if (grouped && groupColId) {
+      const key = rowGroupKey.get(overId);
+      if (key === undefined) return;
+      onMoveRowToGroup(activeId, key === NO_GROUP ? null : key, overId);
+    } else {
+      onReorderRow(activeId, overId);
+    }
+  };
 
   // Live width override while dragging a column edge — committed on mouse-up so
   // we don't write an attribute on every pointer move.
@@ -123,108 +177,121 @@ export function DbTableView(props: DbTableViewProps) {
   const colCount = visibleCols.length + (editable ? 1 : 0);
 
   return (
-    <div className="db-table-scroll relative">
-      <table
-        className={cn('text-sm', density === 'dense' ? 'db-dense' : 'db-airy')}
-        style={{ tableLayout: 'fixed', width: `${Math.max(totalWidth, 100)}px`, minWidth: '100%' }}
-      >
-        <colgroup>
-          {visibleCols.map((col, i) => (
-            <col key={col.id} style={{ width: `${widthFor(col, i)}px` }} />
-          ))}
-          {editable && <col style={{ width: `${GUTTER_PX}px` }} />}
-        </colgroup>
-        <thead>
-          <tr>
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <div className="db-table-scroll relative">
+        <table
+          className={cn('text-sm', density === 'dense' ? 'db-dense' : 'db-airy')}
+          style={{
+            tableLayout: 'fixed',
+            width: `${Math.max(totalWidth, 100)}px`,
+            minWidth: '100%',
+          }}
+        >
+          <colgroup>
             {visibleCols.map((col, i) => (
-              <th key={col.id} data-col-header-id={col.id} className="relative p-0">
-                <ColumnHeader
-                  column={col}
-                  editable={editable}
-                  autoStartEdit={autoEditColId === col.id}
-                  onRename={(name) => onRenameColumn(col.id, name)}
-                  onChangeType={(type) => onChangeColumnType(col.id, type)}
-                  onDelete={() => onDeleteColumn(col.id)}
-                  onSetOptions={(opts) => onSetColumnOptions(col.id, opts)}
-                />
-                {editable && (
-                  <span
-                    role="separator"
-                    aria-label={`Resize ${col.name}`}
-                    onMouseDown={(e) => startResize(e, col, i)}
-                    className="group/rz absolute top-0 right-[-4px] bottom-0 z-10 w-2 cursor-col-resize"
-                  >
-                    <span className="bg-primary/50 absolute top-2 right-1 bottom-2 w-0.5 rounded-full opacity-0 transition-opacity group-hover/rz:opacity-100" />
-                  </span>
-                )}
-              </th>
+              <col key={col.id} style={{ width: `${widthFor(col, i)}px` }} />
             ))}
-            {editable && <th aria-hidden className="p-0" />}
-          </tr>
-        </thead>
-        <tbody>
-          {groups.map((group) => (
-            <React.Fragment key={group.key}>
-              {grouped && (
-                <GroupHeaderRow
-                  group={group}
-                  colSpan={colCount}
-                  density={density}
-                  editable={editable}
-                  onQuickAdd={() =>
-                    onAddRow(
-                      groupColId
-                        ? { colId: groupColId, value: group.key === NO_GROUP ? null : group.key }
-                        : undefined
-                    )
-                  }
-                />
-              )}
-              {group.rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  row={row}
-                  visibleCols={visibleCols}
-                  editable={editable}
-                  open={openRowId === row.id}
-                  onUpdateCell={onUpdateCell}
-                  onOpenRow={onOpenRow}
-                  onDeleteRow={onDeleteRow}
-                />
+            {editable && <col style={{ width: `${GUTTER_PX}px` }} />}
+          </colgroup>
+          <thead>
+            <tr>
+              {visibleCols.map((col, i) => (
+                <th key={col.id} data-col-header-id={col.id} className="relative p-0">
+                  <ColumnHeader
+                    column={col}
+                    editable={editable}
+                    autoStartEdit={autoEditColId === col.id}
+                    onRename={(name) => onRenameColumn(col.id, name)}
+                    onChangeType={(type) => onChangeColumnType(col.id, type)}
+                    onDelete={() => onDeleteColumn(col.id)}
+                    onSetOptions={(opts) => onSetColumnOptions(col.id, opts)}
+                  />
+                  {editable && (
+                    <span
+                      role="separator"
+                      aria-label={`Resize ${col.name}`}
+                      onMouseDown={(e) => startResize(e, col, i)}
+                      className="group/rz absolute top-0 right-[-4px] bottom-0 z-10 w-2 cursor-col-resize"
+                    >
+                      <span className="bg-primary/50 absolute top-2 right-1 bottom-2 w-0.5 rounded-full opacity-0 transition-opacity group-hover/rz:opacity-100" />
+                    </span>
+                  )}
+                </th>
               ))}
-            </React.Fragment>
-          ))}
-          {totalRowCount === 0 && (
-            <tr>
-              <td colSpan={colCount} className="text-muted-foreground py-4 text-center text-xs">
-                {editable ? 'No rows yet.' : 'Empty'}
-              </td>
+              {editable && <th aria-hidden className="p-0" />}
             </tr>
-          )}
-          {hasActiveFilters && totalRowCount > 0 && groups.every((g) => g.rows.length === 0) && (
-            <tr>
-              <td colSpan={colCount} className="text-muted-foreground py-4 text-center text-xs">
-                No rows match the filter.
-              </td>
-            </tr>
-          )}
-          {editable && (
-            <tr data-add-row="">
-              <td colSpan={colCount} className="p-0">
-                <button
-                  type="button"
-                  onClick={() => onAddRow()}
-                  aria-label="Add row"
-                  className="text-muted-foreground/70 hover:text-foreground hover:bg-muted/30 flex w-full items-center gap-1.5 px-3 py-2.5 text-left text-[13px] transition-colors"
+          </thead>
+          <tbody>
+            {groups.map((group) => (
+              <React.Fragment key={group.key}>
+                {grouped && (
+                  <GroupHeaderRow
+                    group={group}
+                    colSpan={colCount}
+                    density={density}
+                    editable={editable}
+                    onQuickAdd={() =>
+                      onAddRow(
+                        groupColId
+                          ? { colId: groupColId, value: group.key === NO_GROUP ? null : group.key }
+                          : undefined
+                      )
+                    }
+                  />
+                )}
+                <SortableContext
+                  items={group.rows.map((r) => r.id)}
+                  strategy={verticalListSortingStrategy}
                 >
-                  <Plus className="h-3.5 w-3.5" /> New row
-                </button>
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+                  {group.rows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      row={row}
+                      visibleCols={visibleCols}
+                      editable={editable}
+                      dragEnabled={dragEnabled}
+                      sortActive={sortActive}
+                      open={openRowId === row.id}
+                      onUpdateCell={onUpdateCell}
+                      onOpenRow={onOpenRow}
+                      onDeleteRow={onDeleteRow}
+                    />
+                  ))}
+                </SortableContext>
+              </React.Fragment>
+            ))}
+            {totalRowCount === 0 && (
+              <tr>
+                <td colSpan={colCount} className="text-muted-foreground py-4 text-center text-xs">
+                  {editable ? 'No rows yet.' : 'Empty'}
+                </td>
+              </tr>
+            )}
+            {hasActiveFilters && totalRowCount > 0 && groups.every((g) => g.rows.length === 0) && (
+              <tr>
+                <td colSpan={colCount} className="text-muted-foreground py-4 text-center text-xs">
+                  No rows match the filter.
+                </td>
+              </tr>
+            )}
+            {editable && (
+              <tr data-add-row="">
+                <td colSpan={colCount} className="p-0">
+                  <button
+                    type="button"
+                    onClick={() => onAddRow()}
+                    aria-label="Add row"
+                    className="text-muted-foreground/70 hover:text-foreground hover:bg-muted/30 flex w-full items-center gap-1.5 px-3 py-2.5 text-left text-[13px] transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> New row
+                  </button>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </DndContext>
   );
 }
 
@@ -257,7 +324,9 @@ function GroupHeaderRow({
               {group.label || 'No value'}
             </span>
           )}
-          <span className="text-muted-foreground text-[11px] tabular-nums">{group.rows.length}</span>
+          <span className="text-muted-foreground text-[11px] tabular-nums">
+            {group.rows.length}
+          </span>
           {editable && (
             <button
               type="button"
@@ -278,6 +347,8 @@ function TableRow({
   row,
   visibleCols,
   editable,
+  dragEnabled,
+  sortActive,
   open,
   onUpdateCell,
   onOpenRow,
@@ -286,14 +357,29 @@ function TableRow({
   row: DatabaseRow;
   visibleCols: DatabaseColumn[];
   editable: boolean;
+  dragEnabled: boolean;
+  sortActive: boolean;
   open: boolean;
   onUpdateCell: (rowId: string, colId: string, value: DatabaseCellValue) => void;
   onOpenRow: (rowId: string) => void;
   onDeleteRow: (rowId: string) => void;
 }) {
   const rowHasBody = hasBodyContent(row.body);
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
+    id: row.id,
+    disabled: !dragEnabled,
+  });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
   return (
-    <tr className={cn('group/row', open && 'db-row-open')} data-row-id={row.id}>
+    <tr
+      ref={setNodeRef}
+      style={style}
+      className={cn('group/row', open && 'db-row-open', isDragging && 'relative z-10 opacity-60')}
+      data-row-id={row.id}
+    >
       {visibleCols.map((col, cellIdx) => {
         const isPrimary = cellIdx === 0;
         const cellEditor = (
@@ -306,16 +392,33 @@ function TableRow({
           />
         );
         return (
-          <td
-            key={col.id}
-            className={cn('p-0 align-top', col.type === 'number' && 'text-right')}
-          >
+          <td key={col.id} className={cn('p-0 align-top', col.type === 'number' && 'text-right')}>
             {isPrimary ? (
               <div className="flex items-center">
-                <GripVertical
-                  aria-hidden
-                  className="text-muted-foreground/40 ml-1 h-3.5 w-3 shrink-0 opacity-0 group-hover/row:opacity-40"
-                />
+                {editable && dragEnabled ? (
+                  <button
+                    type="button"
+                    {...attributes}
+                    {...listeners}
+                    aria-label="Drag to reorder row"
+                    title="Drag to reorder row"
+                    className="text-muted-foreground/40 hover:text-muted-foreground ml-1 flex h-5 w-3 shrink-0 cursor-grab touch-none items-center justify-center opacity-0 transition-opacity group-hover/row:opacity-60 active:cursor-grabbing [@media(hover:none)]:opacity-40"
+                  >
+                    <GripVertical aria-hidden className="h-3.5 w-3" />
+                  </button>
+                ) : editable && sortActive ? (
+                  <span
+                    title="Clear sort to reorder rows."
+                    className="ml-1 flex h-5 w-3 shrink-0 cursor-not-allowed items-center justify-center opacity-0 group-hover/row:opacity-30"
+                  >
+                    <GripVertical aria-hidden className="text-muted-foreground/40 h-3.5 w-3" />
+                  </span>
+                ) : (
+                  <GripVertical
+                    aria-hidden
+                    className="text-muted-foreground/40 ml-1 h-3.5 w-3 shrink-0 opacity-0 group-hover/row:opacity-40"
+                  />
+                )}
                 <div className="min-w-0 flex-1">{cellEditor}</div>
                 {rowHasBody && (
                   <AlignLeft

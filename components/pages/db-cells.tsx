@@ -7,11 +7,7 @@ import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { format, parseISO, isValid } from 'date-fns';
-import type {
-  DatabaseCellValue,
-  DatabaseColumn,
-  DatabaseColumnType,
-} from './database-extension';
+import type { DatabaseCellValue, DatabaseColumn, DatabaseColumnType } from './database-extension';
 
 /**
  * Shared cell primitives for the Areas database block (v2): the color palette
@@ -43,14 +39,22 @@ export const TYPE_META: Record<
  * solid-ish muted chips: fills at /30 with light (-200) text.
  */
 export const SELECT_COLORS = [
-  { key: 'slate', pill: 'bg-slate-500/30 text-slate-200 ring-slate-400/30', swatch: 'bg-slate-400' },
+  {
+    key: 'slate',
+    pill: 'bg-slate-500/30 text-slate-200 ring-slate-400/30',
+    swatch: 'bg-slate-400',
+  },
   { key: 'blue', pill: 'bg-blue-500/30 text-blue-200 ring-blue-400/30', swatch: 'bg-blue-400' },
   {
     key: 'emerald',
     pill: 'bg-emerald-500/30 text-emerald-200 ring-emerald-400/30',
     swatch: 'bg-emerald-400',
   },
-  { key: 'amber', pill: 'bg-amber-500/30 text-amber-200 ring-amber-400/30', swatch: 'bg-amber-400' },
+  {
+    key: 'amber',
+    pill: 'bg-amber-500/30 text-amber-200 ring-amber-400/30',
+    swatch: 'bg-amber-400',
+  },
   { key: 'rose', pill: 'bg-rose-500/30 text-rose-200 ring-rose-400/30', swatch: 'bg-rose-400' },
   {
     key: 'violet',
@@ -116,9 +120,7 @@ export function CellValueDisplay({
     case 'multiselect': {
       const opts = column.options ?? [];
       const ids = Array.isArray(value) ? value : [];
-      const selected = opts
-        .map((o, i) => ({ o, i }))
-        .filter(({ o }) => ids.includes(o.id));
+      const selected = opts.map((o, i) => ({ o, i })).filter(({ o }) => ids.includes(o.id));
       if (selected.length === 0) return <span className="text-muted-foreground/60">—</span>;
       return (
         <span className="flex flex-wrap items-center gap-1">
@@ -140,7 +142,11 @@ export function CellValueDisplay({
       const s = typeof value === 'string' ? value : '';
       const parsed = s ? parseISO(s) : undefined;
       const d = parsed && isValid(parsed) ? parsed : undefined;
-      return <span className="text-muted-foreground tabular-nums">{d ? format(d, 'dd/MM/yyyy') : s}</span>;
+      return (
+        <span className="text-muted-foreground tabular-nums">
+          {d ? format(d, 'dd/MM/yyyy') : s}
+        </span>
+      );
     }
     default:
       return <span className="truncate">{String(value)}</span>;
@@ -261,7 +267,9 @@ function DateCell({
             disabled && 'cursor-not-allowed'
           )}
         >
-          <span className={cn(date ? 'text-foreground/90 tabular-nums' : 'text-muted-foreground/50')}>
+          <span
+            className={cn(date ? 'text-foreground/90 tabular-nums' : 'text-muted-foreground/50')}
+          >
             {display}
           </span>
         </button>

@@ -24,6 +24,7 @@ import {
 } from '@/lib/pages/db-view';
 import { isColumnFilterActive, seedValueForFilter, type ColumnFilter } from './db-filter';
 import { primaryColumn, setRowBody } from '@/lib/pages/db-rows';
+import { moveRow, moveRowToGroup as moveRowToGroupPure } from '@/lib/pages/db-reorder';
 import { coerceValue } from './db-cells';
 import { DatabaseEntrySheet } from './database-entry-sheet';
 import { DbToolbar } from './db-toolbar';
@@ -232,6 +233,49 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
     [setRows]
   );
 
+  // ── Drag reorder (Table rows / Kanban cards) ─────────────────────────────
+  // All reordering mutates the stored `rows` array via the pure helpers, reading
+  // the freshest rows/columns from refs so an interleaved edit isn't clobbered.
+  // Persistence is Tiptap `updateAttributes` only (through `setRows`).
+  const reorderRows = useCallback(
+    (activeId: string, overId: string) => {
+      const next = moveRow(rowsRef.current, activeId, overId);
+      if (next !== rowsRef.current) setRows(next);
+    },
+    [setRows]
+  );
+  /** Reclassify (cross-group/column) + position a row within the target group. */
+  const moveRowToGroup = useCallback(
+    (
+      activeId: string,
+      targetGroupColId: string | null,
+      targetValue: string | null,
+      overId: string | null
+    ) => {
+      const next = moveRowToGroupPure(
+        rowsRef.current,
+        columnsRef.current,
+        activeId,
+        targetGroupColId,
+        targetValue,
+        overId
+      );
+      if (next !== rowsRef.current) setRows(next);
+    },
+    [setRows]
+  );
+  // View-bound wrappers: each view drops rows into ITS own group column.
+  const onTableMoveRowToGroup = useCallback(
+    (activeId: string, targetValue: string | null, overId: string | null) =>
+      moveRowToGroup(activeId, tableGroupColId, targetValue, overId),
+    [moveRowToGroup, tableGroupColId]
+  );
+  const onKanbanMoveRowToGroup = useCallback(
+    (activeId: string, targetValue: string | null, overId: string | null) =>
+      moveRowToGroup(activeId, kanbanColId, targetValue, overId),
+    [moveRowToGroup, kanbanColId]
+  );
+
   // ── Column mutations ────────────────────────────────────────────────────
   const addColumn = useCallback(() => {
     const col = makeColumn('New column', 'text');
@@ -320,13 +364,10 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
     },
     [setColumns, setRows, patchConfig]
   );
-  const requestDeleteColumn = useCallback(
-    (colId: string) => {
-      const col = columnsRef.current.find((c) => c.id === colId);
-      setConfirmDeleteCol({ id: colId, name: col?.name ?? 'this column' });
-    },
-    []
-  );
+  const requestDeleteColumn = useCallback((colId: string) => {
+    const col = columnsRef.current.find((c) => c.id === colId);
+    setConfirmDeleteCol({ id: colId, name: col?.name ?? 'this column' });
+  }, []);
 
   // ── Derived display (filter → sort → group) ─────────────────────────────
   const filtered = useMemo(() => applyFilters(rows, columns, filters), [rows, columns, filters]);
@@ -409,6 +450,9 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                 onDeleteColumn={requestDeleteColumn}
                 onSetColumnOptions={setColumnOptions}
                 groupColId={tableGroupColId}
+                sortActive={config.sort != null}
+                onReorderRow={reorderRows}
+                onMoveRowToGroup={onTableMoveRowToGroup}
               />
             </div>
           )}
@@ -435,8 +479,10 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                 groups={kanbanGroups}
                 kanbanColId={kanbanColId}
                 editable={editable}
+                sortActive={config.sort != null}
                 onAddRow={addRow}
                 onOpenRow={setOpenRowId}
+                onMoveRowToGroup={onKanbanMoveRowToGroup}
               />
             </div>
           )}

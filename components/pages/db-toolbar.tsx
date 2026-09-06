@@ -23,11 +23,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import type { DatabaseColumn } from './database-extension';
 import { TYPE_META } from './db-cells';
 import { DatabaseFilterPanel } from './database-filter-panel';
-import {
-  defaultFilterFor,
-  isColumnFilterActive,
-  type ColumnFilter,
-} from './db-filter';
+import { defaultFilterFor, isColumnFilterActive, type ColumnFilter } from './db-filter';
 import type { DbDensity, DbSort, DbView } from '@/lib/pages/db-view';
 
 /**
@@ -118,7 +114,7 @@ export function DbToolbar(props: DbToolbarProps) {
   const [filterAnchor, setFilterAnchor] = useState<HTMLButtonElement | null>(null);
 
   const groupCol = columns.find((c) => c.id === groupColId) ?? null;
-  const sortCol = sort ? columns.find((c) => c.id === sort.columnId) ?? null : null;
+  const sortCol = sort ? (columns.find((c) => c.id === sort.columnId) ?? null) : null;
   const activeFilterCols = columns.filter(
     (c) => filters[c.id] && isColumnFilterActive(filters[c.id])
   );
@@ -126,8 +122,7 @@ export function DbToolbar(props: DbToolbarProps) {
 
   // ── Resting header ──────────────────────────────────────────────────────
   const restingChips =
-    !toolsOpen &&
-    (groupCol || sortCol || activeFilterCols.length > 0) ? (
+    !toolsOpen && (groupCol || sortCol || activeFilterCols.length > 0) ? (
       <div className="flex flex-wrap items-center gap-1.5 px-1 pt-2">
         {groupCol && (
           <StateChip
@@ -191,7 +186,7 @@ export function DbToolbar(props: DbToolbarProps) {
             'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors',
             toolsOpen
               ? 'border-primary/40 bg-primary/10 text-primary'
-              : 'border-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground'
+              : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground border-transparent'
           )}
         >
           <Settings2 className="h-4 w-4" />
@@ -269,7 +264,12 @@ export function DbToolbar(props: DbToolbarProps) {
                 <span className="text-primary tabular-nums">{activeFilterCols.length}</span>
               )}
             </button>
-            <SortPicker columns={columns} sort={sort} sortCol={sortCol} onSortChange={onSortChange} />
+            <SortPicker
+              columns={columns}
+              sort={sort}
+              sortCol={sortCol}
+              onSortChange={onSortChange}
+            />
           </div>
 
           {/* Row 3 — properties + add column */}
@@ -389,7 +389,14 @@ function GroupPicker({
         <p className="text-muted-foreground px-2 pt-1 pb-1 text-[10px] font-semibold tracking-wider uppercase">
           Group by
         </p>
-        <PickerRow selected={!groupCol} label="None" onClick={() => { onGroupChange(null); setOpen(false); }} />
+        <PickerRow
+          selected={!groupCol}
+          label="None"
+          onClick={() => {
+            onGroupChange(null);
+            setOpen(false);
+          }}
+        />
         {groupableCols.map((c) => (
           <PickerRow
             key={c.id}
@@ -562,9 +569,7 @@ function PropertiesPopover({
         >
           <SlidersHorizontal className="h-3.5 w-3.5" /> Properties
           {hiddenCount > 0 && (
-            <span className="text-muted-foreground">
-              · {columns.length - hiddenCount} shown
-            </span>
+            <span className="text-muted-foreground">· {columns.length - hiddenCount} shown</span>
           )}
         </button>
       </PopoverTrigger>
@@ -639,7 +644,7 @@ function Toggle({ on }: { on: boolean }) {
       <span
         className={cn(
           'absolute top-0.5 h-[14px] w-[14px] rounded-full transition-all',
-          on ? 'left-[14px] bg-primary-foreground' : 'bg-muted-foreground left-0.5'
+          on ? 'bg-primary-foreground left-[14px]' : 'bg-muted-foreground left-0.5'
         )}
       />
     </span>

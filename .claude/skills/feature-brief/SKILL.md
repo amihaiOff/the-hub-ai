@@ -48,19 +48,20 @@ spend a round of questions on the wrong packs.
 
 These apply to essentially every feature. Four rows, no exceptions:
 
-| Dimension | Notes |
-|---|---|
-| **Scope boundary** | What is explicitly *not* in this feature. Name it — a stated exclusion is a decision; an unstated one is a future argument. |
-| **Full lifecycle** | Not just the happy "add" path: read, edit, remove, and — for anything ordered or listed — reorder. A feature described as "add X" almost never mentions removal. |
-| **Empty / loading / error** | All three, named. Empty-state copy, `Skeleton` while loading, what the user sees when it fails. |
-| **Done means what** | The one observable thing that proves it works, for the `testing-agent` to verify later. |
+| Dimension                   | Notes                                                                                                                                                            |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Scope boundary**          | What is explicitly _not_ in this feature. Name it — a stated exclusion is a decision; an unstated one is a future argument.                                      |
+| **Full lifecycle**          | Not just the happy "add" path: read, edit, remove, and — for anything ordered or listed — reorder. A feature described as "add X" almost never mentions removal. |
+| **Empty / loading / error** | All three, named. Empty-state copy, `Skeleton` while loading, what the user sees when it fails.                                                                  |
+| **Done means what**         | The one observable thing that proves it works, for the `testing-agent` to verify later.                                                                          |
 
 ## Step 3 — Conditional packs
 
 Load a pack **only** if Step 1 triggered it. For each row in a loaded pack,
-resolve to *answered from code* / *ask the user* / *not applicable because X*.
+resolve to _answered from code_ / _ask the user_ / _not applicable because X_.
 
 **Route** (trigger 1)
+
 - Nav entry registers **once** in `lib/constants/navigation.ts` (`navItems`) —
   both `sidebar.tsx` and `mobile-menu.tsx` consume it, but render differently.
 - Should it be openable in the desktop tabs bar? `desktop-tabs-bar.tsx` is not
@@ -68,6 +69,7 @@ resolve to *answered from code* / *ask the user* / *not applicable because X*.
   drag-reorder and a title from `lib/utils/page-titles.ts`.
 
 **UI** (trigger 2)
+
 - Desktop and mobile described separately — `app-shell.tsx` composes `Sidebar`
   vs `MobileHeader` + `MobileMenu` as distinct trees.
 - Input pattern: repo convention is a bottom sheet on mobile (`*-sheet.tsx`),
@@ -76,6 +78,7 @@ resolve to *answered from code* / *ask the user* / *not applicable because X*.
 - Does it need a preference in `app/settings/*`?
 
 **Data** (trigger 3)
+
 - New Prisma model, new column, or reuse an existing one?
 - Server vs client state, per CLAUDE.md: server → TanStack Query with a key
   factory; UI-only → Zustand/`useState`. Never copy server data into local state.
@@ -85,6 +88,7 @@ resolve to *answered from code* / *ask the user* / *not applicable because X*.
   referenced entity is deleted or renamed.
 
 **Money** (trigger 4)
+
 - Monetary values are `Decimal` in the DB — never float. See
   `lib/api/transformers/budget.ts`, `lib/utils/portfolio.ts`.
 - Does it feed net worth? `lib/utils/net-worth-breakdown.ts`,
@@ -93,6 +97,7 @@ resolve to *answered from code* / *ask the user* / *not applicable because X*.
   `lib/api/exchange-rates.ts`?
 
 **Areas / pages** (trigger 5)
+
 - Panes, tabs, and database blocks: `components/pages/*` (`page-editor`,
   `page-tab-bar`, `database-block`), `components/shared/areas-nav.tsx`.
   Ask explicitly whether these are in scope — the most commonly forgotten
@@ -100,24 +105,27 @@ resolve to *answered from code* / *ask the user* / *not applicable because X*.
 - Does it interact with the `for Claude` backlog column? (`lib/agent/backlog.ts`)
 
 **Unattended** (trigger 6)
-- Cadence, and *why that cadence* — cost, rate limits, or data freshness.
+
+- Cadence, and _why that cadence_ — cost, rate limits, or data freshness.
   Existing jobs: `app/api/cron/{create-snapshot,daily-tasks,suggest-categories}`.
 - Idempotency: what happens on a double-run or a retry.
 - Does it need to notify anyone, or fail silently?
 
 **External service** (trigger 7)
+
 - Caching TTL and the reason for it. See `lib/api/rate-limit.ts`,
   `fetch-utils.ts`, `errors.ts`.
 - Failure behaviour: stale data, empty, or a visible error?
 
 **Household-shared** (trigger 8)
+
 - `householdId` scoping (~170 API files) and `ownerId` attribution.
 - Shared or per-profile? What the other household member sees, and whether
   they can undo it.
 
 ## Step 4 — Harvest what the packs missed
 
-The packs encode the concerns that recur *app-wide*. The analogue you read in
+The packs encode the concerns that recur _app-wide_. The analogue you read in
 Step 1 will have concerns specific to its corner of the app. Name any
 cross-cutting thing it handles that no loaded pack asked about, and add it to
 the frontier. This is what keeps the skill honest for feature areas the packs
@@ -153,7 +161,7 @@ kept. Decisions the code can't express get captured at session end per CLAUDE.md
 
 - **Never invent an answer to a product question.** Recommend, then wait.
 - **Never ask for a fact you could look up.** Grep it, or dispatch a subagent.
-- **Never leave a row in a *loaded* pack unmentioned.** "Not applicable,
+- **Never leave a row in a _loaded_ pack unmentioned.** "Not applicable,
   because X" is a valid outcome; silence isn't.
 - **Never load a pack the feature didn't trigger.** Irrelevant questions are
   how a checklist trains the user to ignore it.

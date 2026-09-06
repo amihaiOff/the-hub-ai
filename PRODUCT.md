@@ -80,8 +80,8 @@ Confirmed constraints:
 - Net worth = stocks + pension + assets − debt, snapshotted on a schedule rather
   than daily.
 
-Terminology: *Hishtalmut* (Israeli study/severance fund), *Areas* (pages),
-*Moneytor* (the transaction source), *Labs* (operator diagnostics).
+Terminology: _Hishtalmut_ (Israeli study/severance fund), _Areas_ (pages),
+_Moneytor_ (the transaction source), _Labs_ (operator diagnostics).
 
 ## Brand Commitments
 

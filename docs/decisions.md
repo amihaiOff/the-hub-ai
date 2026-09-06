@@ -154,12 +154,12 @@ _Seeded 2026-09-01 by salvaging `docs/the_hub_ai_spec.md` before deleting it._
 - **Built a repo-specific skill rather than adopting a generic one.** The
   installed `mattpocock-skills:grilling` runs an excellent round-based
   interview but is deliberately domain-agnostic: nothing in it forces
-  coverage of *dimensions*, so it only probes where the conversation
+  coverage of _dimensions_, so it only probes where the conversation
   happens to lead. Off-the-shelf spec skills (`feature-forge`,
   "Requirements Elicitation") do carry dimension checklists, but they're
   enterprise-shaped — EARS syntax and formal spec documents — and they
   conflict with code-as-spec (see `workflow-code-as-spec` memory).
-  `feature-brief` therefore owns only the part that *must* be
+  `feature-brief` therefore owns only the part that _must_ be
   repo-specific (the coverage matrix) and **delegates the interview
   itself to `grilling`** rather than reimplementing it.
 - **Questions are classify-then-load, not one flat checklist.** The first
@@ -182,8 +182,8 @@ _Seeded 2026-09-01 by salvaging `docs/the_hub_ai_spec.md` before deleting it._
   the packs never anticipated.
 - **The skill emits no spec file — output goes straight into plan mode.**
   A persisted brief would be exactly the drifting prose spec this repo
-  retired. The brief's value is entirely in *forcing the questions to be
-  asked*; once answered, the answers belong in the code (what/how) and
+  retired. The brief's value is entirely in _forcing the questions to be
+  asked_; once answered, the answers belong in the code (what/how) and
   in this file or memory (why). A third copy would be the one nobody
   updates.
   **When to break this:** if a feature is large enough to need async
@@ -198,7 +198,7 @@ _Seeded 2026-09-01 by salvaging `docs/the_hub_ai_spec.md` before deleting it._
 
 - **`PRODUCT.md` (project root) is the authority for product truth** — users,
   purpose, positioning, operating context, brand commitments, evidence, and
-  product principles. Written via `/impeccable init`. It is deliberately *not*
+  product principles. Written via `/impeccable init`. It is deliberately _not_
   duplicated here; this section records only the judgment calls made while
   writing it, which the file itself doesn't explain.
 - **The user model is asymmetric, and that is a design constraint.** One
@@ -215,7 +215,7 @@ _Seeded 2026-09-01 by salvaging `docs/the_hub_ai_spec.md` before deleting it._
   the usual finance-app assumption.
 - **Israeli-finance specifics are positioning and capability, not a
   must-preserve constraint.** Hishtalmut, TASE `.TA`, BOI prime, ILS-native,
-  Moneytor are recorded as what the product *is* and does. When asked which
+  Moneytor are recorded as what the product _is_ and does. When asked which
   constraints future design work must preserve, the user selected only
   **financial precision** (`Decimal`, never float) and **mobile PWA + offline**,
   and deliberately did not select the Israeli domain rules or the two-person
@@ -249,14 +249,14 @@ _Seeded 2026-09-01 by salvaging `docs/the_hub_ai_spec.md` before deleting it._
   `?tab=<id>` deep-linking on `/areas/[id]`, which collides with three things:
   `desktop-tabs-bar.tsx` syncs on `usePathname()` (which excludes the query
   string); `writeStoredActivePane` fires on mount-time resolution, so merely
-  *following* a pane link would overwrite the user's remembered pane; and it
+  _following_ a pane link would overwrite the user's remembered pane; and it
   would be the app's first URL-synced state, with no `scroll: false` precedent
   anywhere. Accepted consequence: `/areas/<id>` always opens the first pane, so
   starring while on pane 3 and returning lands on pane 1.
 - **No `kind` discriminator column.** The target is fully determined by which
   of `pageId` / `route` is non-null, and storing `kind` without a CHECK
   constraint (this schema has none) would create a second source of truth that
-  can disagree. If panes ever return they would *also* carry a `pageId`, which
+  can disagree. If panes ever return they would _also_ carry a `pageId`, which
   breaks `@@unique([ownerId, householdId, pageId])` — that is the moment to add
   `kind` and re-scope the uniques.
 - **Dedupe uses two plain unique triples, not a partial index.** Postgres treats

@@ -35,10 +35,7 @@ export function favoriteLabel(favorite: FavoriteRowData, pages: PageListRow[]): 
  * IS in the cache, trust its value even if null — that means the emoji was
  * removed, so the row should fall back to the generic icon, not a stale glyph.
  */
-export function favoriteEmoji(
-  favorite: FavoriteRowData,
-  pages: PageListRow[]
-): string | null {
+export function favoriteEmoji(favorite: FavoriteRowData, pages: PageListRow[]): string | null {
   if (favorite.kind !== 'page') return null;
   const live = pages.find((p) => p.id === favorite.pageId);
   if (live) return live.emoji;
