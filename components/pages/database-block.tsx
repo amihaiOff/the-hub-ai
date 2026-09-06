@@ -16,6 +16,7 @@ import {
   applyFilters,
   groupRows,
   groupableColumns,
+  isView,
   resolveViewConfig,
   sortRows,
   visibleColumns,
@@ -26,6 +27,7 @@ import { isColumnFilterActive, seedValueForFilter, type ColumnFilter } from './d
 import { primaryColumn, setRowBody } from '@/lib/pages/db-rows';
 import { moveRow, moveRowToGroup as moveRowToGroupPure } from '@/lib/pages/db-reorder';
 import { coerceValue } from './db-cells';
+import { useIsMobileViewport } from '@/lib/hooks/use-is-mobile-viewport';
 import { DatabaseEntrySheet } from './database-entry-sheet';
 import { DbToolbar } from './db-toolbar';
 import { DbTableView } from './db-table-view';
@@ -77,21 +79,48 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
 
   // Resolved, effective view config. Editable users read/write the persisted
   // `viewConfig` attribute; read-only viewers get an ephemeral local override so
-  // they can drive the views without mutating the shared document.
+  // they can drive the views without mutating the shared document. A brand-new /
+  // never-switched block defaults to Cards on mobile, Table on desktop; once
+  // anyone switches view the choice persists and is shared across devices.
+  const isMobile = useIsMobileViewport();
   const persistedConfig = useMemo(
-    () => resolveViewConfig(node.attrs.viewConfig),
-    [node.attrs.viewConfig]
+    () => resolveViewConfig(node.attrs.viewConfig, isMobile ? 'cards' : 'table'),
+    [node.attrs.viewConfig, isMobile]
   );
   const [localConfig, setLocalConfig] = useState<ViewConfig | null>(null);
   const config = editable ? persistedConfig : (localConfig ?? persistedConfig);
   const configRef = useRef(config);
   configRef.current = config;
 
+  // Whether a `view` has actually been persisted (vs. `config.view` currently
+  // holding the injected device default). Used so an unrelated edit doesn't pin
+  // the device default into the shared doc — only an explicit view switch does.
+  const rawViewConfig = node.attrs.viewConfig;
+  const viewExplicit =
+    !!rawViewConfig &&
+    typeof rawViewConfig === 'object' &&
+    isView((rawViewConfig as { view?: unknown }).view);
+  const viewExplicitRef = useRef(viewExplicit);
+  viewExplicitRef.current = viewExplicit;
+
   const patchConfig = useCallback(
     (patch: Partial<ViewConfig>) => {
       const next = { ...configRef.current, ...patch };
-      if (editable) updateAttributes({ viewConfig: next });
-      else setLocalConfig(next);
+      if (!editable) {
+        setLocalConfig(next);
+        return;
+      }
+      // Don't bake the device-default `view` into the shared document from an
+      // edit that isn't itself a view switch — persist `view` only once it has
+      // been explicitly chosen (this patch, or a prior one). Otherwise strip it
+      // so the block keeps resolving the device-appropriate default on load.
+      if ('view' in patch || viewExplicitRef.current) {
+        updateAttributes({ viewConfig: next });
+      } else {
+        const { view: _omitView, ...rest } = next;
+        void _omitView;
+        updateAttributes({ viewConfig: rest });
+      }
     },
     [editable, updateAttributes]
   );

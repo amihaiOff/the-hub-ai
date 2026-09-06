@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -10,6 +10,8 @@ import {
   type DatabaseColumnType,
 } from './database-extension';
 import { SELECT_COLORS, TYPE_META, resolveOptionColor } from './db-cells';
+import { useLongPress } from '@/lib/hooks/use-long-press';
+import { GESTURE } from '@/lib/pages/db-gestures';
 
 /**
  * Table column header: type icon + name. A single click (or long-press on
@@ -39,20 +41,14 @@ export function ColumnHeader({
   const [mobileSheet, setMobileSheet] = useState(false);
   const [name, setName] = useState(column.name);
 
-  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clearPress = () => {
-    if (pressTimer.current) {
-      clearTimeout(pressTimer.current);
-      pressTimer.current = null;
-    }
-  };
-  const startPress = () => {
-    clearPress();
-    pressTimer.current = setTimeout(() => {
-      pressTimer.current = null;
-      setMobileSheet(true);
-    }, 500);
-  };
+  // Touch: hold-to-open the column sheet via the shared long-press hook (native
+  // passive listeners → no first-touch scroll stall). Desktop keeps click and
+  // right-click (contextmenu) to open. `consumedClick` swallows the click that
+  // follows a long-press so it doesn't reopen the sheet.
+  const { bindRef, consumedClick } = useLongPress(() => setMobileSheet(true), {
+    delay: GESTURE.longPressMs,
+    moveTolerance: GESTURE.longPressMoveTolerance,
+  });
 
   if (!editing && name !== column.name) {
     setName(column.name);
@@ -88,11 +84,14 @@ export function ColumnHeader({
       ) : (
         <button
           type="button"
-          onClick={editable ? () => setMobileSheet(true) : undefined}
-          onTouchStart={editable ? startPress : undefined}
-          onTouchMove={clearPress}
-          onTouchEnd={clearPress}
-          onTouchCancel={clearPress}
+          ref={editable ? bindRef : undefined}
+          onClick={
+            editable
+              ? () => {
+                  if (!consumedClick()) setMobileSheet(true);
+                }
+              : undefined
+          }
           onContextMenu={
             editable
               ? (e) => {

@@ -128,7 +128,12 @@ export function DatabaseFilterPanel({
 const inputCls =
   'border-border bg-background focus:ring-primary/40 h-8 w-full rounded-lg border px-2 text-xs outline-none focus:ring-2';
 
-function FilterControl({
+/**
+ * A single column's type-appropriate filter control (text/number/date range,
+ * select/multiselect pills, checkbox tri-state). Exported so the mobile tools
+ * sheet can render the same controls inline without the portaled dropdown frame.
+ */
+export function FilterControl({
   column,
   value,
   onChange,

@@ -7,6 +7,7 @@ import type { DatabaseCellValue, DatabaseColumn, DatabaseRow } from './database-
 import { hasBodyContent } from '@/lib/pages/db-rows';
 import { CellEditor, isEmptyCellValue } from './db-cells';
 import { useLongPress } from '@/lib/hooks/use-long-press';
+import { GESTURE } from '@/lib/pages/db-gestures';
 
 interface DbCardsViewProps {
   primaryCol: DatabaseColumn | null;
@@ -118,8 +119,8 @@ function CardItem({
 }) {
   // Long-press the card opens its page; a plain tap edits the field touched.
   const { bindRef, consumedClick } = useLongPress(() => onOpenRow(row.id), {
-    delay: 450,
-    moveTolerance: 8,
+    delay: GESTURE.longPressMs,
+    moveTolerance: GESTURE.longPressMoveTolerance,
   });
   const shownFields = fieldCols.filter(
     (c) => !hideEmptyCardFields || !isEmptyCellValue(row.cells[c.id] ?? null)

@@ -6,6 +6,7 @@ import {
   columnWidth,
   groupRows,
   groupableColumns,
+  isView,
   resolveViewConfig,
   sortRows,
   visibleColumns,
@@ -73,6 +74,36 @@ describe('resolveViewConfig', () => {
   it('hideEmptyCardFields defaults true and only false when explicitly false', () => {
     expect(resolveViewConfig({}).hideEmptyCardFields).toBe(true);
     expect(resolveViewConfig({ hideEmptyCardFields: false }).hideEmptyCardFields).toBe(false);
+  });
+
+  it('uses the device-appropriate default view only when none is persisted', () => {
+    expect(resolveViewConfig(null, 'cards').view).toBe('cards');
+    expect(resolveViewConfig({}, 'cards').view).toBe('cards');
+    // A persisted view always wins over the passed default.
+    expect(resolveViewConfig({ view: 'table' }, 'cards').view).toBe('table');
+    // Any valid persisted view wins, including kanban.
+    expect(resolveViewConfig({ view: 'kanban' }, 'cards').view).toBe('kanban');
+    // An invalid persisted view falls back to the passed default (not hardcoded table).
+    expect(resolveViewConfig({ view: 'nonsense' }, 'cards').view).toBe('cards');
+    // The default arg itself defaults to 'table'.
+    expect(resolveViewConfig(null).view).toBe('table');
+  });
+});
+
+describe('isView', () => {
+  it('is true for the three valid views', () => {
+    expect(isView('table')).toBe(true);
+    expect(isView('cards')).toBe(true);
+    expect(isView('kanban')).toBe(true);
+  });
+  it('is false for invalid strings and non-string values', () => {
+    expect(isView('nope')).toBe(false);
+    expect(isView('')).toBe(false);
+    expect(isView(null)).toBe(false);
+    expect(isView(undefined)).toBe(false);
+    expect(isView(0)).toBe(false);
+    expect(isView(1)).toBe(false);
+    expect(isView({})).toBe(false);
   });
 });
 

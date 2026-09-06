@@ -84,16 +84,27 @@ export function columnWidth(col: DatabaseColumn, index: number): number {
   return Math.max(MIN_WIDTH, w);
 }
 
+/** Type guard for a valid `DbView` string. */
+export function isView(v: unknown): v is DbView {
+  return v === 'table' || v === 'cards' || v === 'kanban';
+}
+
 /**
  * Merge a stored (possibly partial / legacy-null) view config with defaults.
  * Defensive against malformed JSON: unknown fields are ignored and each field
  * falls back to its default when absent or the wrong type.
+ *
+ * `defaultView` is the view used only when none is persisted (brand-new or
+ * never-switched blocks). Callers pass a device-appropriate default (Cards on
+ * mobile, Table on desktop); once anyone switches view it persists and wins.
+ * Defaults to `'table'` so existing callers/tests behave identically.
  */
-export function resolveViewConfig(raw: unknown): ViewConfig {
+export function resolveViewConfig(raw: unknown, defaultView: DbView = 'table'): ViewConfig {
   const d = DEFAULT_VIEW_CONFIG;
-  if (!raw || typeof raw !== 'object') return { ...d, hidden: { ...d.hidden }, filters: {} };
+  if (!raw || typeof raw !== 'object')
+    return { ...d, view: defaultView, hidden: { ...d.hidden }, filters: {} };
   const r = raw as Partial<ViewConfig> & Record<string, unknown>;
-  const view: DbView = r.view === 'cards' || r.view === 'kanban' ? r.view : 'table';
+  const view: DbView = isView(r.view) ? r.view : defaultView;
   const density: DbDensity = r.density === 'dense' ? 'dense' : 'airy';
   const sort: DbSort | null =
     r.sort && typeof r.sort === 'object' && typeof (r.sort as DbSort).columnId === 'string'

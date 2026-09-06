@@ -17,6 +17,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { cn } from '@/lib/utils';
 import type { DatabaseCellValue, DatabaseColumn, DatabaseRow } from './database-extension';
 import { type RowGroup, NO_GROUP } from '@/lib/pages/db-view';
+import { GESTURE } from '@/lib/pages/db-gestures';
 import { hasBodyContent } from '@/lib/pages/db-rows';
 import { CellValueDisplay, getSelectColor, isEmptyCellValue, SelectPill } from './db-cells';
 
@@ -69,8 +70,13 @@ export function DbKanbanView({
   // card up: mouse drags start after a small move; touch drags require a hold so
   // a scroll gesture has room to be read as a scroll (and tap-to-open survives).
   const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } })
+    useSensor(MouseSensor, { activationConstraint: { distance: GESTURE.dragMouseDistancePx } }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: GESTURE.dragTouchDelayMs,
+        tolerance: GESTURE.dragTouchTolerancePx,
+      },
+    })
   );
 
   // rowId → group key, to resolve the target column when a card is dropped onto
