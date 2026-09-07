@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetPortal, SheetTitle } from '@/components/ui/sheet';
 import { useIsMobileViewport } from '@/lib/hooks/use-is-mobile-viewport';
 import type { DatabaseColumn } from './database-extension';
 import { TYPE_META } from './db-cells';
@@ -343,7 +343,6 @@ export function DbToolbar(props: DbToolbarProps) {
           filters={filters}
           onFilterChange={onFilterChange}
           onClearFilters={onClearFilters}
-          activeFilterCols={activeFilterCols}
           hidden={hidden}
           onToggleHidden={onToggleHidden}
           onShowAll={onShowAll}
@@ -482,7 +481,7 @@ function SortPickerContent({
             aria-label="Ascending"
             className={cn(
               'flex items-center justify-center rounded-md transition-colors',
-              touch ? 'h-10 w-11' : 'h-7 w-9',
+              touch ? 'h-11 w-12' : 'h-7 w-9',
               active && dir === 'asc'
                 ? 'bg-background text-primary shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
@@ -496,7 +495,7 @@ function SortPickerContent({
             aria-label="Descending"
             className={cn(
               'flex items-center justify-center rounded-md transition-colors',
-              touch ? 'h-10 w-11' : 'h-7 w-9',
+              touch ? 'h-11 w-12' : 'h-7 w-9',
               active && dir === 'desc'
                 ? 'bg-background text-primary shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
@@ -536,6 +535,7 @@ function PropertiesContent({
   hideEmptyCardFields,
   onHideEmptyChange,
   touch = false,
+  hideTitle = false,
 }: {
   view: DbView;
   columns: DatabaseColumn[];
@@ -546,19 +546,34 @@ function PropertiesContent({
   hideEmptyCardFields: boolean;
   onHideEmptyChange: (value: boolean) => void;
   touch?: boolean;
+  /** Suppress the internal header: the mobile sheet's section card owns the
+   *  title and hosts "Show all" as its action, so rendering both duplicates it. */
+  hideTitle?: boolean;
 }) {
   const hiddenSet = new Set(hidden);
   const title = view === 'table' ? 'Columns' : 'Card fields';
   return (
     <>
-      <div className="flex items-center justify-between px-1.5 pt-1 pb-2">
-        <span className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
+      <div
+        className={cn('flex items-center justify-between px-1.5 pt-1 pb-2', hideTitle && 'hidden')}
+      >
+        <span
+          className={cn(
+            'text-muted-foreground font-semibold tracking-wider uppercase',
+            // Match SheetSectionLabel in the mobile sheet; keep the tighter
+            // desktop scale in the popover.
+            touch ? 'text-[11px]' : 'text-[10px]'
+          )}
+        >
           {title}
         </span>
         <button
           type="button"
           onClick={onShowAll}
-          className="text-primary text-[11.5px] hover:underline"
+          className={cn(
+            'text-primary hover:underline',
+            touch ? 'min-h-11 px-2 text-sm' : 'text-[11.5px]'
+          )}
         >
           Show all
         </button>
@@ -579,7 +594,11 @@ function PropertiesContent({
               locked ? 'cursor-default opacity-60' : 'hover:bg-muted/50'
             )}
           >
-            <GripVertical className="text-muted-foreground/50 h-3.5 w-3.5 shrink-0" aria-hidden />
+            {/* Desktop only: nothing wires up reorder here, and a grip that
+                doesn't grip is worse on touch where it invites a drag. */}
+            {!touch && (
+              <GripVertical className="text-muted-foreground/50 h-3.5 w-3.5 shrink-0" aria-hidden />
+            )}
             <Icon className="text-muted-foreground h-3.5 w-3.5 shrink-0" aria-hidden />
             <span className={cn('flex-1 truncate', !on && 'text-muted-foreground')}>
               {col.name}
@@ -840,11 +859,151 @@ function PickerRow({
 }
 
 /** Small uppercase section label for the mobile tools sheet. */
-function SheetSectionLabel({ children }: { children: React.ReactNode }) {
+/**
+ * Filter section for the mobile sheet: shows only the filters actually in use,
+ * plus a picker to add one.
+ *
+ * It used to render a control for EVERY column unconditionally, which made this
+ * one section taller than the whole sheet on a wide database and was the main
+ * reason the panel read as an endless list. Note this is deliberately different
+ * from the desktop popover, which still lists every column — there the panel is
+ * a transient overlay with room to spare, whereas here it competes for a phone
+ * screen with six other sections.
+ *
+ * `revealed` is local UI state, not a filter value: a freshly-added filter is
+ * empty, and an empty filter is by definition inactive, so without tracking the
+ * user's intent separately the row would vanish the instant it was added.
+ */
+function FilterSection({
+  columns,
+  filters,
+  onFilterChange,
+  onClearFilters,
+}: {
+  columns: DatabaseColumn[];
+  filters: Record<string, ColumnFilter>;
+  onFilterChange: (colId: string, next: ColumnFilter) => void;
+  onClearFilters: () => void;
+}) {
+  const [revealed, setRevealed] = useState<string[]>([]);
+
+  const isActive = (col: DatabaseColumn) => {
+    const f = filters[col.id];
+    return !!f && isColumnFilterActive(f);
+  };
+  const shown = columns.filter((col) => isActive(col) || revealed.includes(col.id));
+  const addable = columns.filter((col) => !shown.some((c) => c.id === col.id));
+  const anyActive = columns.some(isActive);
+
+  const removeFilter = (col: DatabaseColumn) => {
+    onFilterChange(col.id, defaultFilterFor(col.type));
+    setRevealed((prev) => prev.filter((id) => id !== col.id));
+  };
+
   return (
-    <p className="text-muted-foreground mb-2 text-[10px] font-semibold tracking-wider uppercase">
+    <SheetSection
+      title="Filter"
+      action={
+        anyActive ? (
+          <button
+            type="button"
+            onClick={() => {
+              onClearFilters();
+              setRevealed([]);
+            }}
+            className="text-muted-foreground hover:text-foreground -my-2 px-2 py-2 text-sm"
+          >
+            Clear all
+          </button>
+        ) : null
+      }
+    >
+      {shown.length === 0 ? (
+        <p className="text-muted-foreground mb-3 text-sm">No filters yet.</p>
+      ) : (
+        <div className="mb-3 space-y-3">
+          {shown.map((col) => (
+            <div key={col.id} className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                {/* `span`, not `label`: FilterControl already supplies its own
+                    aria-label, and an inline label shared a line with the
+                    checkbox filter's inline-flex root. */}
+                <span className="text-foreground/80 text-sm font-medium">{col.name}</span>
+                <button
+                  type="button"
+                  onClick={() => removeFilter(col)}
+                  aria-label={`Remove ${col.name} filter`}
+                  className="text-muted-foreground hover:text-destructive -my-2 flex h-11 w-11 shrink-0 items-center justify-center"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <FilterControl
+                column={col}
+                value={filters[col.id] ?? defaultFilterFor(col.type)}
+                onChange={(next) => onFilterChange(col.id, next)}
+                touch
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {addable.length > 0 && (
+        <label className="sr-only" htmlFor="db-add-filter">
+          Add filter
+        </label>
+      )}
+      {addable.length > 0 && (
+        <select
+          id="db-add-filter"
+          value=""
+          onChange={(e) => {
+            const id = e.target.value;
+            if (id) setRevealed((prev) => [...prev, id]);
+          }}
+          className="border-border bg-background text-foreground focus:ring-primary/40 h-11 w-full rounded-lg border px-3 text-base outline-none focus:ring-2"
+        >
+          <option value="">+ Add filter…</option>
+          {addable.map((col) => (
+            <option key={col.id} value={col.id}>
+              {col.name}
+            </option>
+          ))}
+        </select>
+      )}
+    </SheetSection>
+  );
+}
+
+/**
+ * One section of the mobile tools sheet, as a discrete card.
+ *
+ * The sheet used to be a single flat `bg-card` surface with `space-y-6` gaps
+ * and 11px uppercase micro-labels, which read as one long undifferentiated
+ * list — gaps can't create division and micro-labels can't create hierarchy.
+ * Each section is now a raised card on a recessed body, using the design
+ * system's three-surface stack (background → card → secondary), with a real
+ * title at body scale.
+ */
+function SheetSection({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  /** Optional right-aligned control on the title row (e.g. "Clear all"). */
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="border-border/50 bg-card rounded-2xl border p-4">
+      <div className="mb-3 flex min-h-6 items-center justify-between gap-3">
+        <h3 className="text-foreground text-sm font-semibold">{title}</h3>
+        {action}
+      </div>
       {children}
-    </p>
+    </section>
   );
 }
 
@@ -873,7 +1032,6 @@ function MobileToolsSheet({
   filters,
   onFilterChange,
   onClearFilters,
-  activeFilterCols,
   hidden,
   onToggleHidden,
   onShowAll,
@@ -898,7 +1056,6 @@ function MobileToolsSheet({
   filters: Record<string, ColumnFilter>;
   onFilterChange: (colId: string, next: ColumnFilter) => void;
   onClearFilters: () => void;
-  activeFilterCols: DatabaseColumn[];
   hidden: string[];
   onToggleHidden: (colId: string) => void;
   onShowAll: () => void;
@@ -906,24 +1063,73 @@ function MobileToolsSheet({
   onHideEmptyChange: (value: boolean) => void;
   onAddColumn: () => void;
 }) {
+  const headerRef = useRef<HTMLDivElement>(null);
   return (
     <Sheet open={open} modal={false} onOpenChange={(o) => !o && onClose()}>
+      {/* Our own scrim. Radix returns null for Dialog.Overlay when
+          `modal={false}`, so the primitive's `bg-black/60 backdrop-blur-sm`
+          never renders here — leaving the sheet sitting on an undimmed page at
+          1.25:1 with nothing to signal a new layer arrived. `modal={false}` is
+          load-bearing (see database-entry-sheet.tsx: a modal sheet runs
+          react-remove-scroll, whose body mutation makes ProseMirror recreate
+          the host NodeView mid-interaction), so we can't just flip it.
+          `pointer-events-none` keeps this purely visual so it can't interfere
+          with the onInteractOutside guards below. */}
+      {open && (
+        <SheetPortal>
+          <div
+            className="pointer-events-none fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+            aria-hidden
+          />
+        </SheetPortal>
+      )}
       <SheetContent
         side="bottom"
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
         onFocusOutside={(e) => e.preventDefault()}
-        className="flex max-h-[85vh] flex-col gap-0 rounded-t-2xl p-0"
+        aria-describedby={undefined}
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          headerRef.current?.focus();
+        }}
+        className="border-border shadow-glow-lg flex max-h-[85dvh] flex-col gap-0 rounded-t-3xl border-t p-0"
       >
-        <SheetHeader className="border-border/40 border-b p-4">
-          <SheetTitle className="text-left text-base">View options</SheetTitle>
+        {/* Grabber, and a real dismiss control rather than decoration: all three
+            outside-interaction guards below are preventDefault()ed and the scrim
+            is pointer-events-none, so without this the only way out is the
+            primitive's 16px close icon. The visible pill stays 6px; the button
+            around it carries the 44px target. */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close view options"
+          className="group focus-visible:ring-ring mx-auto flex h-11 w-16 shrink-0 items-center justify-center rounded-full outline-none focus-visible:ring-2"
+        >
+          {/* `bg-muted-foreground` (4.76:1 on the sheet), not `bg-border`
+              (1.35:1): this pill is the visual affordance for the sheet's
+              primary exit, so it has to clear the 3:1 non-text minimum. */}
+          <span className="bg-muted-foreground/80 group-hover:bg-muted-foreground h-1.5 w-10 rounded-full transition-colors" />
+        </button>
+        {/* Focus lands on the heading, not the grabber. Radix would otherwise
+            focus the first tabbable child — so the first thing announced inside
+            the sheet was "Close view options" instead of what the sheet is. */}
+        <SheetHeader
+          ref={headerRef}
+          tabIndex={-1}
+          className="border-border/50 shrink-0 border-b px-5 py-4 outline-none"
+        >
+          <SheetTitle className="pr-10 text-left text-lg">View options</SheetTitle>
         </SheetHeader>
 
-        <div className="flex-1 space-y-6 overflow-y-auto p-4">
-          {/* View */}
-          <section>
-            <SheetSectionLabel>View</SheetSectionLabel>
-            <div className="border-border/60 bg-card grid grid-cols-3 gap-1 rounded-xl border p-1">
+        {/* `safe-pb` goes on the scroller, not SheetContent, so the home-indicator
+            inset becomes trailing scroll room instead of dead space under a
+            clipped list. Base is driven via the CSS var because `.safe-pb` sets
+            padding-bottom outright and `tailwind-merge` can't see it, so any
+            `pb-*` here would silently lose. */}
+        <div className="bg-background safe-pb flex-1 space-y-3 overflow-y-auto p-4 [--safe-pb-base:1.5rem]">
+          <SheetSection title="View">
+            <div className="border-border/60 bg-background grid grid-cols-3 gap-1 rounded-xl border p-1">
               {VIEW_META.map(({ view: v, label, icon: Icon }) => (
                 <button
                   key={v}
@@ -931,7 +1137,9 @@ function MobileToolsSheet({
                   onClick={() => onViewChange(v)}
                   className={cn(
                     'inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg text-sm transition-colors',
-                    view === v ? 'bg-muted text-foreground font-medium' : 'text-muted-foreground'
+                    view === v
+                      ? 'bg-primary/15 text-primary ring-primary/60 font-medium ring-1'
+                      : 'text-muted-foreground'
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -939,13 +1147,11 @@ function MobileToolsSheet({
                 </button>
               ))}
             </div>
-          </section>
+          </SheetSection>
 
-          {/* Density (table only) */}
           {view === 'table' && (
-            <section>
-              <SheetSectionLabel>Density</SheetSectionLabel>
-              <div className="border-border/60 bg-card grid grid-cols-2 gap-1 rounded-xl border p-1">
+            <SheetSection title="Density">
+              <div className="border-border/60 bg-background grid grid-cols-2 gap-1 rounded-xl border p-1">
                 {(['airy', 'dense'] as DbDensity[]).map((d) => (
                   <button
                     key={d}
@@ -954,7 +1160,7 @@ function MobileToolsSheet({
                     className={cn(
                       'inline-flex min-h-11 items-center justify-center rounded-lg text-sm capitalize transition-colors',
                       density === d
-                        ? 'bg-muted text-foreground font-medium'
+                        ? 'bg-primary/15 text-primary ring-primary/60 font-medium ring-1'
                         : 'text-muted-foreground'
                     )}
                   >
@@ -962,12 +1168,10 @@ function MobileToolsSheet({
                   </button>
                 ))}
               </div>
-            </section>
+            </SheetSection>
           )}
 
-          {/* Group by */}
-          <section>
-            <SheetSectionLabel>Group by</SheetSectionLabel>
+          <SheetSection title="Group by">
             <GroupPickerContent
               groupableCols={groupableCols}
               groupCol={groupCol}
@@ -975,11 +1179,9 @@ function MobileToolsSheet({
               onDone={() => {}}
               touch
             />
-          </section>
+          </SheetSection>
 
-          {/* Sort */}
-          <section>
-            <SheetSectionLabel>Sort</SheetSectionLabel>
+          <SheetSection title="Sort">
             <SortPickerContent
               columns={columns}
               sort={sort}
@@ -987,39 +1189,27 @@ function MobileToolsSheet({
               onDone={() => {}}
               touch
             />
-          </section>
+          </SheetSection>
 
-          {/* Filter */}
-          <section>
-            <div className="mb-2 flex items-center justify-between">
-              <SheetSectionLabel>Filter</SheetSectionLabel>
-              {activeFilterCols.length > 0 && (
-                <button
-                  type="button"
-                  onClick={onClearFilters}
-                  className="text-muted-foreground hover:text-foreground text-xs"
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
-            <div className="space-y-3">
-              {columns.map((col) => (
-                <div key={col.id} className="space-y-1">
-                  <label className="text-foreground/80 text-sm font-medium">{col.name}</label>
-                  <FilterControl
-                    column={col}
-                    value={filters[col.id] ?? defaultFilterFor(col.type)}
-                    onChange={(next) => onFilterChange(col.id, next)}
-                  />
-                </div>
-              ))}
-            </div>
-          </section>
+          <FilterSection
+            columns={columns}
+            filters={filters}
+            onFilterChange={onFilterChange}
+            onClearFilters={onClearFilters}
+          />
 
-          {/* Properties */}
-          <section>
-            <SheetSectionLabel>Properties</SheetSectionLabel>
+          <SheetSection
+            title={view === 'table' ? 'Columns' : 'Card fields'}
+            action={
+              <button
+                type="button"
+                onClick={onShowAll}
+                className="text-primary -my-2 px-2 py-2 text-sm hover:underline"
+              >
+                Show all
+              </button>
+            }
+          >
             <PropertiesContent
               view={view}
               columns={columns}
@@ -1030,10 +1220,10 @@ function MobileToolsSheet({
               hideEmptyCardFields={hideEmptyCardFields}
               onHideEmptyChange={onHideEmptyChange}
               touch
+              hideTitle
             />
-          </section>
+          </SheetSection>
 
-          {/* Add column (editable + table only) */}
           {editable && view === 'table' && (
             <section>
               <button

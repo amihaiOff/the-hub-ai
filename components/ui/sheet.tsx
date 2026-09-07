@@ -127,4 +127,8 @@ export {
   SheetFooter,
   SheetTitle,
   SheetDescription,
+  // Exported for non-modal sheets, which need to portal their own scrim:
+  // Radix returns null for Dialog.Overlay when `modal={false}`, so
+  // `SheetOverlay` above never renders in that mode.
+  SheetPortal,
 };
