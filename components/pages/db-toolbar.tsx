@@ -907,7 +907,7 @@ function MobileToolsSheet({
   onAddColumn: () => void;
 }) {
   return (
-    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+    <Sheet open={open} modal={false} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
         side="bottom"
         onPointerDownOutside={(e) => e.preventDefault()}

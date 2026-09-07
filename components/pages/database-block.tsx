@@ -530,6 +530,12 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
 
       <Dialog
         open={confirmDeleteCol !== null}
+        // Non-modal: a modal Radix dialog runs react-remove-scroll, whose
+        // body scroll-lock mutation makes ProseMirror recreate this whole
+        // NodeView while the block is in Table view — which unmounts the block
+        // (and this dialog) mid-interaction. See ColumnMobileSheet for the same
+        // fix and the full explanation.
+        modal={false}
         onOpenChange={(open) => !open && setConfirmDeleteCol(null)}
       >
         <DialogContent className="rounded-3xl">

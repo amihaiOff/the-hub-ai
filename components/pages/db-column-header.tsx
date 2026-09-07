@@ -10,15 +10,13 @@ import {
   type DatabaseColumnType,
 } from './database-extension';
 import { SELECT_COLORS, TYPE_META, resolveOptionColor } from './db-cells';
-import { useLongPress } from '@/lib/hooks/use-long-press';
-import { GESTURE } from '@/lib/pages/db-gestures';
 
 /**
- * Table column header: type icon + name. A single click (or long-press on
- * touch) opens the full column sheet — rename, type change, select options,
- * delete — so there's no intermediate action row. A freshly-added column can
- * still auto-focus an inline rename (autoStartEdit). The column resize handle
- * is owned by the table view; sorting lives in the toolbar.
+ * Table column header: type icon + name. Tapping/clicking the name (or
+ * right-clicking) opens the full column sheet — rename, type change, select
+ * options, delete — so there's no intermediate action row. A freshly-added
+ * column can still auto-focus an inline rename (autoStartEdit). The column
+ * resize handle is owned by the table view; sorting lives in the toolbar.
  */
 export function ColumnHeader({
   column,
@@ -40,15 +38,6 @@ export function ColumnHeader({
   const [editing, setEditing] = useState(() => Boolean(autoStartEdit && editable));
   const [mobileSheet, setMobileSheet] = useState(false);
   const [name, setName] = useState(column.name);
-
-  // Touch: hold-to-open the column sheet via the shared long-press hook (native
-  // passive listeners → no first-touch scroll stall). Desktop keeps click and
-  // right-click (contextmenu) to open. `consumedClick` swallows the click that
-  // follows a long-press so it doesn't reopen the sheet.
-  const { bindRef, consumedClick } = useLongPress(() => setMobileSheet(true), {
-    delay: GESTURE.longPressMs,
-    moveTolerance: GESTURE.longPressMoveTolerance,
-  });
 
   if (!editing && name !== column.name) {
     setName(column.name);
@@ -84,14 +73,7 @@ export function ColumnHeader({
       ) : (
         <button
           type="button"
-          ref={editable ? bindRef : undefined}
-          onClick={
-            editable
-              ? () => {
-                  if (!consumedClick()) setMobileSheet(true);
-                }
-              : undefined
-          }
+          onClick={editable ? () => setMobileSheet(true) : undefined}
           onContextMenu={
             editable
               ? (e) => {
@@ -148,7 +130,7 @@ function ColumnMobileSheet({
   };
 
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
+    <Sheet open modal={false} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         side="bottom"
         onPointerDownOutside={(e) => e.preventDefault()}

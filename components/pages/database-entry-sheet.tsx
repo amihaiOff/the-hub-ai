@@ -5,13 +5,6 @@ import { Calendar, CheckSquare, ChevronDown, Hash, List, Tags, Trash2, Type } fr
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useBackToClose } from '@/lib/hooks/use-back-to-close';
 import { PageBodyEditor } from './page-body-editor-lazy';
 import { coerceValue, getSelectColor, resolveOptionColor } from './db-cells';
@@ -66,7 +59,11 @@ export function DatabaseEntrySheet({
 }: DatabaseEntrySheetProps) {
   const open = !!row;
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    // Non-modal: a modal Radix sheet runs react-remove-scroll, whose body
+    // scroll-lock mutation makes ProseMirror recreate the host database
+    // NodeView while it's in Table view — unmounting the block and this sheet
+    // mid-interaction. Non-modal skips the scroll-lock. See ColumnMobileSheet.
+    <Sheet open={open} modal={false} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
         // No SheetDescription — the fields/body are self-describing. Tell Radix
@@ -375,10 +372,7 @@ function DateField({
   );
 }
 
-/** Sentinel for the "no selection" item (Radix Select can't use "" as a value). */
-const SELECT_NONE = '__none__';
-
-/** Single-select rendered as a dropdown, with a color dot per option. */
+/** Single-select rendered as inline color pills (no dropdown — see body). */
 function SelectField({
   column,
   value,
@@ -395,32 +389,38 @@ function SelectField({
   if (options.length === 0) {
     return <span className="text-muted-foreground/60 text-sm">No options</span>;
   }
+  // Inline single-select pills (not a Radix Select). Radix Select wraps its
+  // dropdown in react-remove-scroll unconditionally, and that body scroll-lock
+  // makes ProseMirror recreate the host database NodeView while it's in Table
+  // view — which unmounts this whole sheet mid-interaction. Pills avoid the
+  // dropdown entirely (mirrors MultiSelectField / the filter panel) and are
+  // more tappable on mobile. Tapping the selected pill clears it (→ null).
   return (
-    <Select
-      value={selectedId || SELECT_NONE}
-      onValueChange={(v) => onChange(v === SELECT_NONE ? null : v)}
-      disabled={disabled}
-    >
-      <SelectTrigger className={cn('bg-muted/40 border-border/60 rounded-lg', FIELD_CONTROL_W)}>
-        <SelectValue placeholder="—" />
-      </SelectTrigger>
-      <SelectContent className="rounded-2xl">
-        <SelectItem value={SELECT_NONE}>
-          <span className="text-muted-foreground">—</span>
-        </SelectItem>
-        {options.map((opt, i) => {
-          const c = opt.color ? getSelectColor(opt.color) : resolveOptionColor(opt, i);
-          return (
-            <SelectItem key={opt.id} value={opt.id}>
-              <span className="flex items-center gap-2">
-                <span className={cn('h-2 w-2 shrink-0 rounded-full', c.swatch)} />
-                {opt.label}
-              </span>
-            </SelectItem>
-          );
-        })}
-      </SelectContent>
-    </Select>
+    <div className="flex flex-wrap gap-1.5 pt-0.5">
+      {options.map((opt, i) => {
+        const c = opt.color ? getSelectColor(opt.color) : resolveOptionColor(opt, i);
+        const on = selectedId === opt.id;
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => !disabled && onChange(on ? null : opt.id)}
+            disabled={disabled}
+            aria-pressed={on}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-opacity disabled:opacity-60',
+              on ? c.pill : 'text-muted-foreground ring-border/60 hover:bg-muted/50'
+            )}
+          >
+            <span
+              className={cn('h-1.5 w-1.5 rounded-full', on ? c.swatch : 'bg-muted-foreground/40')}
+              aria-hidden
+            />
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
