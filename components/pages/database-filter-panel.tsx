@@ -136,7 +136,7 @@ const inputCls =
  * on tap. `h-11` meets the 44px minimum target.
  */
 const inputTouchCls =
-  'border-border bg-background focus:ring-primary/40 h-11 w-full min-w-0 rounded-lg border px-3 text-base outline-none focus:ring-2';
+  'border-border bg-background focus:ring-primary/40 h-10 w-full min-w-0 rounded-lg border px-2.5 text-base outline-none focus:ring-2';
 
 /**
  * A single column's type-appropriate filter control (text/number/date range,
@@ -245,7 +245,7 @@ export function FilterControl({
               onClick={() => toggle(opt.id)}
               className={cn(
                 'rounded-full border transition-colors',
-                touch ? 'min-h-11 px-3.5 py-2 text-sm' : 'px-2 py-0.5 text-xs',
+                touch ? 'min-h-9 px-3 py-1.5 text-sm' : 'px-2 py-0.5 text-xs',
                 on
                   ? 'border-primary/50 bg-primary/15 text-primary'
                   : 'border-border/60 text-muted-foreground hover:bg-muted/50'
@@ -279,7 +279,7 @@ export function FilterControl({
           onClick={() => onChange({ kind: 'checkbox', want: o.key })}
           className={cn(
             'transition-colors',
-            touch ? 'min-h-11 px-4' : 'px-2.5 py-1',
+            touch ? 'min-h-10 px-3.5' : 'px-2.5 py-1',
             value.want === o.key
               ? 'bg-primary/15 text-primary'
               : 'text-muted-foreground hover:bg-muted/50'

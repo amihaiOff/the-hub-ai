@@ -21,6 +21,13 @@ import {
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Sheet, SheetContent, SheetHeader, SheetPortal, SheetTitle } from '@/components/ui/sheet';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useIsMobileViewport } from '@/lib/hooks/use-is-mobile-viewport';
 import type { DatabaseColumn } from './database-extension';
 import { TYPE_META } from './db-cells';
@@ -453,27 +460,28 @@ function SortPickerContent({
   const active = !!sort;
   const dir = sort?.dir ?? 'asc';
   const selectedId = sort?.columnId ?? columns[0]?.id ?? '';
-  const h = touch ? 'h-11' : 'h-8';
+  const h = touch ? 'h-10' : 'h-8';
   const text = touch ? 'text-sm' : 'text-xs';
   return (
     <>
       <div className="flex items-center gap-2">
-        <select
-          value={selectedId}
-          onChange={(e) => onSortChange({ columnId: e.target.value, dir })}
-          aria-label="Sort field"
-          className={cn(
-            'border-border/60 bg-background focus:ring-primary/40 flex-1 rounded-lg border px-2 outline-none focus:ring-2',
-            h,
-            text
-          )}
-        >
-          {columns.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+        <Select value={selectedId} onValueChange={(v) => onSortChange({ columnId: v, dir })}>
+          <SelectTrigger
+            aria-label="Sort field"
+            className={cn('border-border/60 bg-background flex-1', h, text)}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          {/* `popper` + `side="bottom"`: the default `item-aligned` overlays the
+              trigger, so the list covers the control you just tapped. */}
+          <SelectContent position="popper" side="bottom" sideOffset={4}>
+            {columns.map((c) => (
+              <SelectItem key={c.id} value={c.id} className={text}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <div className={cn('bg-muted/40 inline-flex items-center rounded-lg p-0.5', h)}>
           <button
             type="button"
@@ -481,7 +489,7 @@ function SortPickerContent({
             aria-label="Ascending"
             className={cn(
               'flex items-center justify-center rounded-md transition-colors',
-              touch ? 'h-11 w-12' : 'h-7 w-9',
+              touch ? 'h-10 w-11' : 'h-7 w-9',
               active && dir === 'asc'
                 ? 'bg-background text-primary shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
@@ -495,7 +503,7 @@ function SortPickerContent({
             aria-label="Descending"
             className={cn(
               'flex items-center justify-center rounded-md transition-colors',
-              touch ? 'h-11 w-12' : 'h-7 w-9',
+              touch ? 'h-10 w-11' : 'h-7 w-9',
               active && dir === 'desc'
                 ? 'bg-background text-primary shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
@@ -514,7 +522,7 @@ function SortPickerContent({
           }}
           className={cn(
             'text-muted-foreground hover:bg-muted/40 hover:text-foreground mt-1 w-full rounded-lg px-2 text-left',
-            touch ? 'py-2.5 text-sm' : 'py-1.5 text-xs'
+            touch ? 'py-2 text-sm' : 'py-1.5 text-xs'
           )}
         >
           Clear sort
@@ -590,7 +598,7 @@ function PropertiesContent({
             onClick={() => !locked && onToggleHidden(col.id)}
             className={cn(
               'flex w-full items-center gap-2.5 rounded-lg px-2 text-left transition-colors',
-              touch ? 'min-h-11 py-2.5 text-sm' : 'py-1.5 text-[13px]',
+              touch ? 'min-h-10 py-2 text-sm' : 'py-1.5 text-[13px]',
               locked ? 'cursor-default opacity-60' : 'hover:bg-muted/50'
             )}
           >
@@ -950,27 +958,30 @@ function FilterSection({
       )}
 
       {addable.length > 0 && (
-        <label className="sr-only" htmlFor="db-add-filter">
-          Add filter
-        </label>
-      )}
-      {addable.length > 0 && (
-        <select
-          id="db-add-filter"
+        // `value=""` with a reset in onValueChange keeps this a pure action
+        // picker rather than a control with a selected state.
+        <Select
           value=""
-          onChange={(e) => {
-            const id = e.target.value;
+          onValueChange={(id) => {
             if (id) setRevealed((prev) => [...prev, id]);
           }}
-          className="border-border bg-background text-foreground focus:ring-primary/40 h-11 w-full rounded-lg border px-3 text-base outline-none focus:ring-2"
         >
-          <option value="">+ Add filter…</option>
-          {addable.map((col) => (
-            <option key={col.id} value={col.id}>
-              {col.name}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger
+            aria-label="Add filter"
+            className="border-border bg-background text-primary h-10 w-full text-sm"
+          >
+            <span className="flex items-center gap-1.5">
+              <Plus className="h-4 w-4" /> Add filter
+            </span>
+          </SelectTrigger>
+          <SelectContent position="popper" side="bottom" sideOffset={4}>
+            {addable.map((col) => (
+              <SelectItem key={col.id} value={col.id} className="text-sm">
+                {col.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
     </SheetSection>
   );
@@ -997,8 +1008,8 @@ function SheetSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="border-border/50 bg-card rounded-2xl border p-4">
-      <div className="mb-3 flex min-h-6 items-center justify-between gap-3">
+    <section className="border-border/50 bg-card rounded-2xl border p-3">
+      <div className="mb-2 flex min-h-6 items-center justify-between gap-3">
         <h3 className="text-foreground text-sm font-semibold">{title}</h3>
         {action}
       </div>
@@ -1117,7 +1128,7 @@ function MobileToolsSheet({
         <SheetHeader
           ref={headerRef}
           tabIndex={-1}
-          className="border-border/50 shrink-0 border-b px-5 py-4 outline-none"
+          className="border-border/50 shrink-0 border-b px-4 py-3 outline-none"
         >
           <SheetTitle className="pr-10 text-left text-lg">View options</SheetTitle>
         </SheetHeader>
@@ -1127,7 +1138,7 @@ function MobileToolsSheet({
             clipped list. Base is driven via the CSS var because `.safe-pb` sets
             padding-bottom outright and `tailwind-merge` can't see it, so any
             `pb-*` here would silently lose. */}
-        <div className="bg-background safe-pb flex-1 space-y-3 overflow-y-auto p-4 [--safe-pb-base:1.5rem]">
+        <div className="bg-background safe-pb flex-1 space-y-2 overflow-y-auto p-3 [--safe-pb-base:1.5rem]">
           <SheetSection title="View">
             <div className="border-border/60 bg-background grid grid-cols-3 gap-1 rounded-xl border p-1">
               {VIEW_META.map(({ view: v, label, icon: Icon }) => (
@@ -1136,7 +1147,7 @@ function MobileToolsSheet({
                   type="button"
                   onClick={() => onViewChange(v)}
                   className={cn(
-                    'inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg text-sm transition-colors',
+                    'inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm transition-colors',
                     view === v
                       ? 'bg-primary/15 text-primary ring-primary/60 font-medium ring-1'
                       : 'text-muted-foreground'
@@ -1158,7 +1169,7 @@ function MobileToolsSheet({
                     type="button"
                     onClick={() => onDensityChange(d)}
                     className={cn(
-                      'inline-flex min-h-11 items-center justify-center rounded-lg text-sm capitalize transition-colors',
+                      'inline-flex min-h-10 items-center justify-center rounded-lg text-sm capitalize transition-colors',
                       density === d
                         ? 'bg-primary/15 text-primary ring-primary/60 font-medium ring-1'
                         : 'text-muted-foreground'
@@ -1229,7 +1240,7 @@ function MobileToolsSheet({
               <button
                 type="button"
                 onClick={onAddColumn}
-                className="border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-lg border text-sm font-medium transition-colors"
+                className="border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg border text-sm font-medium transition-colors"
               >
                 <Plus className="h-4 w-4" /> Add column
               </button>
