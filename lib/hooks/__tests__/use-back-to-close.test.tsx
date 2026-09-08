@@ -7,6 +7,7 @@
  * overlay is closed by other means.
  */
 
+import { StrictMode } from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { useBackToClose } from '../use-back-to-close';
 
@@ -171,5 +172,73 @@ describe('useBackToClose', () => {
 
     expect(firstOnClose).not.toHaveBeenCalled();
     expect(secondOnClose).toHaveBeenCalledTimes(1);
+  });
+  /**
+   * Regression: the hook used to close the overlay it had just opened.
+   *
+   * `history.back()` is async, so under StrictMode's double-invoked mount
+   * effects the order is push → (simulated unmount) back() → push again, and
+   * the queued popstate then landed while `pushedRef` was true and read as a
+   * real user Back. The database row-detail sheet flashed open and closed.
+   *
+   * These two tests need BOTH things the rest of this file deliberately avoids:
+   * a real `<StrictMode>` wrapper, and a `history.back` spy that actually
+   * dispatches popstate the way a browser would. Without either, the suite is
+   * structurally unable to see the bug.
+   */
+  describe('self-inflicted popstate', () => {
+    /** Make back() behave like a browser: async, and it fires popstate. */
+    function backFiresPopState() {
+      backSpy.mockImplementation(() => {
+        setTimeout(() => window.dispatchEvent(new PopStateEvent('popstate')), 0);
+      });
+    }
+
+    it('does not call onClose when its own unmount cleanup pops the entry', () => {
+      jest.useFakeTimers();
+      backFiresPopState();
+      const onClose = jest.fn();
+
+      renderHook(() => useBackToClose(true, onClose), { wrapper: StrictMode });
+
+      // Let the queued popstate from the StrictMode remount cleanup land.
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      expect(onClose).not.toHaveBeenCalled();
+      jest.useRealTimers();
+    });
+
+    it('does not call onClose when a deliberate close pops the entry', () => {
+      jest.useFakeTimers();
+      backFiresPopState();
+      const onClose = jest.fn();
+
+      const { rerender } = renderHook(({ active }) => useBackToClose(active, onClose), {
+        initialProps: { active: true },
+      });
+
+      // Closed by a Cancel button / Escape — the hook pops its own entry.
+      rerender({ active: false });
+      act(() => {
+        jest.runAllTimers();
+      });
+
+      expect(onClose).not.toHaveBeenCalled();
+      jest.useRealTimers();
+    });
+
+    it('still calls onClose for a genuine user Back press', () => {
+      const onClose = jest.fn();
+      renderHook(() => useBackToClose(true, onClose));
+
+      // A pop we did NOT cause.
+      act(() => {
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      });
+
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
   });
 });
