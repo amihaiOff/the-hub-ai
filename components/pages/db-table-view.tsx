@@ -58,6 +58,10 @@ interface DbTableViewProps {
   sortActive: boolean;
   /** Reorder within the stored `rows` array (ungrouped / same-group drags). */
   onReorderRow: (activeId: string, overId: string) => void;
+  /** Create a column. Driven by the `+` in the header's trailing gutter. */
+  onAddColumn: () => void;
+  /** Clear the active sort, so manual row order (and drag) becomes meaningful. */
+  onClearSort: () => void;
   /** Cross-group drag: reclassify the row's group value + position near overId. */
   onMoveRowToGroup: (activeId: string, targetValue: string | null, overId: string) => void;
 }
@@ -92,6 +96,8 @@ export function DbTableView(props: DbTableViewProps) {
     sortActive,
     onReorderRow,
     onMoveRowToGroup,
+    onAddColumn,
+    onClearSort,
   } = props;
 
   // Row drag is on only for editors, and only when no sort is active (an active
@@ -224,7 +230,22 @@ export function DbTableView(props: DbTableViewProps) {
                   )}
                 </th>
               ))}
-              {editable && <th aria-hidden className="p-0" />}
+              {editable && (
+                <th className="p-0">
+                  <button
+                    type="button"
+                    onClick={onAddColumn}
+                    aria-label="Add column"
+                    title="Add column"
+                    /* Explicit size: `h-full`/`w-full` don't resolve against a
+                       `th` with no intrinsic height, so the button collapsed to
+                       the glyph. `w-9` matches GUTTER_PX (36px). */
+                    className="text-muted-foreground/70 hover:text-foreground hover:bg-muted/30 flex h-8 w-9 items-center justify-center transition-colors"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -261,6 +282,7 @@ export function DbTableView(props: DbTableViewProps) {
                       onUpdateCell={onUpdateCell}
                       onOpenRow={onOpenRow}
                       onDeleteRow={onDeleteRow}
+                      onClearSort={onClearSort}
                     />
                   ))}
                 </SortableContext>
@@ -359,6 +381,7 @@ function TableRow({
   onUpdateCell,
   onOpenRow,
   onDeleteRow,
+  onClearSort,
 }: {
   row: DatabaseRow;
   visibleCols: DatabaseColumn[];
@@ -366,12 +389,21 @@ function TableRow({
   dragEnabled: boolean;
   sortActive: boolean;
   open: boolean;
+  onClearSort: () => void;
   onUpdateCell: (rowId: string, colId: string, value: DatabaseCellValue) => void;
   onOpenRow: (rowId: string) => void;
   onDeleteRow: (rowId: string) => void;
 }) {
   const rowHasBody = hasBodyContent(row.body);
-  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
+  const {
+    setNodeRef,
+    setActivatorNodeRef,
+    attributes,
+    listeners,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: row.id,
     disabled: !dragEnabled,
   });
@@ -404,34 +436,55 @@ function TableRow({
                 {editable && dragEnabled ? (
                   <button
                     type="button"
+                    ref={setActivatorNodeRef}
                     {...attributes}
                     {...listeners}
                     aria-label="Drag to reorder row"
                     title="Drag to reorder row"
-                    className="text-muted-foreground/40 hover:text-muted-foreground ml-1 flex h-5 w-3 shrink-0 cursor-grab touch-none items-center justify-center opacity-0 transition-opacity group-hover/row:opacity-60 active:cursor-grabbing [@media(hover:none)]:opacity-40"
+                    className="text-muted-foreground/40 hover:text-muted-foreground flex h-5 w-3 shrink-0 cursor-grab touch-none items-center justify-center opacity-0 transition-opacity group-hover/row:opacity-60 active:cursor-grabbing [@media(hover:none)]:opacity-40"
                   >
                     <GripVertical aria-hidden className="h-3.5 w-3" />
                   </button>
                 ) : editable && sortActive ? (
-                  <span
-                    title="Clear sort to reorder rows."
-                    className="ml-1 flex h-5 w-3 shrink-0 cursor-not-allowed items-center justify-center opacity-0 group-hover/row:opacity-30"
+                  /* Row order is derived while a sort is active, so dragging is
+                     off. This used to be an inert span whose only explanation
+                     was a `title` — invisible on touch, and a silent dead zone
+                     under the cursor. It's now a real control that clears the
+                     sort, which is the one action that makes dragging possible. */
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onClearSort();
+                    }}
+                    aria-label="Sorted — clear the sort to reorder rows"
+                    title="Sorted by a column, so rows can't be dragged. Tap to clear the sort."
+                    className="text-muted-foreground/40 hover:text-muted-foreground flex h-5 w-3 shrink-0 items-center justify-center opacity-0 transition-opacity group-hover/row:opacity-40 [@media(hover:none)]:opacity-30"
                   >
-                    <GripVertical aria-hidden className="text-muted-foreground/40 h-3.5 w-3" />
-                  </span>
+                    <GripVertical aria-hidden className="h-3.5 w-3" />
+                  </button>
                 ) : (
                   <GripVertical
                     aria-hidden
-                    className="text-muted-foreground/40 ml-1 h-3.5 w-3 shrink-0 opacity-0 group-hover/row:opacity-40"
+                    className="text-muted-foreground/40 h-3.5 w-3 shrink-0 opacity-0 group-hover/row:opacity-40"
                   />
                 )}
+                {/* Before the value, not after: it labels the row rather than
+                    trailing its title. The slot is always rendered, even when
+                    the row has no notes, so every title in the column shares
+                    the same left edge instead of shifting by the icon's width. */}
+                <span
+                  className="mr-1.5 ml-0.5 flex h-3 w-3 shrink-0 items-center justify-center"
+                  aria-hidden={!rowHasBody}
+                >
+                  {rowHasBody && (
+                    <AlignLeft
+                      aria-label="Row has notes"
+                      className="text-muted-foreground/50 h-3 w-3"
+                    />
+                  )}
+                </span>
                 <div className="min-w-0 flex-1">{cellEditor}</div>
-                {rowHasBody && (
-                  <AlignLeft
-                    aria-label="Row has notes"
-                    className="text-muted-foreground/50 ml-3 h-3 w-3 shrink-0"
-                  />
-                )}
                 <button
                   type="button"
                   draggable={false}

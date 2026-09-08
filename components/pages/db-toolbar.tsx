@@ -5,6 +5,7 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Check,
   ChevronDown,
   ChevronRight,
   Columns3,
@@ -21,13 +22,6 @@ import {
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Sheet, SheetContent, SheetHeader, SheetPortal, SheetTitle } from '@/components/ui/sheet';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useIsMobileViewport } from '@/lib/hooks/use-is-mobile-viewport';
 import type { DatabaseColumn } from './database-extension';
 import { TYPE_META } from './db-cells';
@@ -82,8 +76,6 @@ interface DbToolbarProps {
   /** Cards-only: hide empty fields toggle. */
   hideEmptyCardFields: boolean;
   onHideEmptyChange: (value: boolean) => void;
-
-  onAddColumn: () => void;
 }
 
 const VIEW_META: { view: DbView; label: string; icon: typeof Table2 }[] = [
@@ -118,7 +110,6 @@ export function DbToolbar(props: DbToolbarProps) {
     onShowAll,
     hideEmptyCardFields,
     onHideEmptyChange,
-    onAddColumn,
   } = props;
 
   const isMobile = useIsMobileViewport();
@@ -307,15 +298,6 @@ export function DbToolbar(props: DbToolbarProps) {
               onHideEmptyChange={onHideEmptyChange}
               hiddenCount={hiddenCount}
             />
-            {editable && view === 'table' && (
-              <button
-                type="button"
-                onClick={onAddColumn}
-                className="border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs transition-colors"
-              >
-                <Plus className="h-3.5 w-3.5" /> Add column
-              </button>
-            )}
           </div>
         </div>
       )}
@@ -335,7 +317,6 @@ export function DbToolbar(props: DbToolbarProps) {
         <MobileToolsSheet
           open={toolsOpen}
           onClose={() => setToolsOpen(false)}
-          editable={editable}
           view={view}
           onViewChange={onViewChange}
           density={density}
@@ -355,7 +336,6 @@ export function DbToolbar(props: DbToolbarProps) {
           onShowAll={onShowAll}
           hideEmptyCardFields={hideEmptyCardFields}
           onHideEmptyChange={onHideEmptyChange}
-          onAddColumn={onAddColumn}
         />
       )}
     </div>
@@ -443,7 +423,88 @@ function GroupPickerContent({
   );
 }
 
-/** Sort field `<select>` + asc/desc segmented + Clear sort. */
+/**
+ * A field picker styled like the rest of the app, opening below its trigger.
+ *
+ * Built on Popover rather than Radix Select on purpose: Select wraps its
+ * dropdown in react-remove-scroll unconditionally, and that body scroll-lock
+ * makes ProseMirror recreate the host database NodeView while it's in Table
+ * view, which unmounts the whole tools sheet mid-interaction. Popover is
+ * non-modal by default and skips the scroll-lock. `database-entry-sheet.tsx`
+ * documents the same hazard and dodges it with inline pills.
+ */
+function DbFieldPicker({
+  label,
+  value,
+  options,
+  selectedId,
+  onSelect,
+  triggerClassName,
+  leadingIcon,
+  hideChevron = false,
+}: {
+  label: string;
+  value: string;
+  options: { id: string; name: string }[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  triggerClassName?: string;
+  leadingIcon?: React.ReactNode;
+  hideChevron?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          className={cn(
+            'focus-visible:ring-ring flex items-center justify-between gap-2 rounded-lg border px-2.5 outline-none focus-visible:ring-2',
+            triggerClassName
+          )}
+        >
+          <span className="flex min-w-0 items-center gap-1.5">
+            {leadingIcon}
+            <span className="truncate">{value}</span>
+          </span>
+          {!hideChevron && (
+            <ChevronDown className="text-muted-foreground h-4 w-4 shrink-0" aria-hidden />
+          )}
+        </button>
+      </PopoverTrigger>
+      {/* Below the trigger, matching the app's other popovers. Collision
+          detection stays on, so it flips up when the trigger sits near the
+          viewport edge rather than rendering off-screen. */}
+      <PopoverContent
+        side="bottom"
+        align="start"
+        sideOffset={4}
+        className="max-h-[min(50vh,320px)] w-[var(--radix-popover-trigger-width)] overflow-y-auto p-1"
+      >
+        {options.map((opt) => (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => {
+              onSelect(opt.id);
+              setOpen(false);
+            }}
+            className={cn(
+              'hover:bg-muted/50 flex min-h-10 w-full items-center justify-between gap-2 rounded-md px-2.5 text-left text-sm',
+              opt.id === selectedId ? 'text-primary font-medium' : 'text-foreground'
+            )}
+          >
+            <span className="truncate">{opt.name}</span>
+            {opt.id === selectedId && <Check className="h-4 w-4 shrink-0" aria-hidden />}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** Sort field picker + asc/desc segmented + Clear sort. */
 function SortPickerContent({
   columns,
   sort,
@@ -465,23 +526,20 @@ function SortPickerContent({
   return (
     <>
       <div className="flex items-center gap-2">
-        <Select value={selectedId} onValueChange={(v) => onSortChange({ columnId: v, dir })}>
-          <SelectTrigger
-            aria-label="Sort field"
-            className={cn('border-border/60 bg-background flex-1', h, text)}
-          >
-            <SelectValue />
-          </SelectTrigger>
-          {/* `popper` + `side="bottom"`: the default `item-aligned` overlays the
-              trigger, so the list covers the control you just tapped. */}
-          <SelectContent position="popper" side="bottom" sideOffset={4}>
-            {columns.map((c) => (
-              <SelectItem key={c.id} value={c.id} className={text}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Popover, NOT Radix Select. Select wraps its dropdown in
+            react-remove-scroll unconditionally, and that body scroll-lock makes
+            ProseMirror recreate the host database NodeView in Table view —
+            unmounting this whole sheet mid-interaction. Same reason
+            database-entry-sheet.tsx uses inline pills instead of a Select.
+            Popover is non-modal by default, so it skips the scroll-lock. */}
+        <DbFieldPicker
+          label="Sort field"
+          value={columns.find((c) => c.id === selectedId)?.name ?? 'Select…'}
+          options={columns.map((c) => ({ id: c.id, name: c.name }))}
+          selectedId={selectedId}
+          onSelect={(id) => onSortChange({ columnId: id, dir })}
+          triggerClassName={cn('border-border/60 bg-background flex-1', h, text)}
+        />
         <div className={cn('bg-muted/40 inline-flex items-center rounded-lg p-0.5', h)}>
           <button
             type="button"
@@ -958,30 +1016,16 @@ function FilterSection({
       )}
 
       {addable.length > 0 && (
-        // `value=""` with a reset in onValueChange keeps this a pure action
-        // picker rather than a control with a selected state.
-        <Select
-          value=""
-          onValueChange={(id) => {
-            if (id) setRevealed((prev) => [...prev, id]);
-          }}
-        >
-          <SelectTrigger
-            aria-label="Add filter"
-            className="border-border bg-background text-primary h-10 w-full text-sm"
-          >
-            <span className="flex items-center gap-1.5">
-              <Plus className="h-4 w-4" /> Add filter
-            </span>
-          </SelectTrigger>
-          <SelectContent position="popper" side="bottom" sideOffset={4}>
-            {addable.map((col) => (
-              <SelectItem key={col.id} value={col.id} className="text-sm">
-                {col.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <DbFieldPicker
+          label="Add filter"
+          value="Add filter"
+          leadingIcon={<Plus className="h-4 w-4" />}
+          options={addable.map((col) => ({ id: col.id, name: col.name }))}
+          selectedId={null}
+          onSelect={(id) => setRevealed((prev) => [...prev, id])}
+          triggerClassName="border-border bg-background text-primary h-10 w-full text-sm"
+          hideChevron
+        />
       )}
     </SheetSection>
   );
@@ -1028,7 +1072,6 @@ function SheetSection({
 function MobileToolsSheet({
   open,
   onClose,
-  editable,
   view,
   onViewChange,
   density,
@@ -1048,11 +1091,9 @@ function MobileToolsSheet({
   onShowAll,
   hideEmptyCardFields,
   onHideEmptyChange,
-  onAddColumn,
 }: {
   open: boolean;
   onClose: () => void;
-  editable: boolean;
   view: DbView;
   onViewChange: (view: DbView) => void;
   density: DbDensity;
@@ -1072,7 +1113,6 @@ function MobileToolsSheet({
   onShowAll: () => void;
   hideEmptyCardFields: boolean;
   onHideEmptyChange: (value: boolean) => void;
-  onAddColumn: () => void;
 }) {
   const headerRef = useRef<HTMLDivElement>(null);
   return (
@@ -1234,18 +1274,6 @@ function MobileToolsSheet({
               hideTitle
             />
           </SheetSection>
-
-          {editable && view === 'table' && (
-            <section>
-              <button
-                type="button"
-                onClick={onAddColumn}
-                className="border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg border text-sm font-medium transition-colors"
-              >
-                <Plus className="h-4 w-4" /> Add column
-              </button>
-            </section>
-          )}
         </div>
       </SheetContent>
     </Sheet>

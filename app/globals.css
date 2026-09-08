@@ -520,12 +520,14 @@
      scroller lives inside the frame so a wide table scrolls without
      escaping the border. */
   .database-block > .db-frame {
-    /* Flat filled card: a warm near-black surface with a thin edge, small
-       radius, and a whisper of shadow — no big elevation. */
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--card);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    /* No card. The grid reads as part of the page (Notion-style): the table's
+       own rules draw the full horizontal + vertical grid, so a border,
+       surface fill and shadow on top of that just boxed it in and made it
+       look like an embedded widget. */
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
     /* Frame stays put; the inner table wrapper handles horizontal scroll
        so a wide table doesn't push the header off screen. */
     overflow: hidden;
@@ -609,16 +611,12 @@
     color: var(--muted-foreground) !important;
   }
   /* ── v2 density: airy vs dense ─────────────────────────────────────────
-     Density is a class on the <table> so the two modes tune row height and
-     the grid without touching the shared rules above. Airy = generous rows
-     with thin horizontal dividers only (no vertical column lines). Dense =
-     compact rows with the full grid (vertical + horizontal). */
+     Density is a class on the <table> and now tunes ONLY row height and type
+     size — both modes draw the full grid (the shared rules above supply the
+     vertical column lines), so the table reads as a grid at either density
+     rather than switching between two different visual languages. */
   .database-block table.db-airy tbody tr[data-row-id] {
-    height: 52px;
-  }
-  .database-block table.db-airy th,
-  .database-block table.db-airy td {
-    border-right: none !important;
+    height: 44px;
   }
   .database-block table.db-dense tbody tr[data-row-id] {
     height: 33px;
@@ -680,22 +678,32 @@
   /* Thin, theme-matched horizontal scrollbar on the table's overflow
      wrapper. Firefox uses `scrollbar-*`; Chromium/Safari use the
      ::-webkit-scrollbar pseudos. Track blends into the block, thumb
-     picks up the same border tint used for cell dividers. */
-  .database-block .overflow-x-auto {
+     picks up the same border tint used for cell dividers.
+
+     `.db-table-scroll` is listed explicitly: it sets `overflow-x` in CSS
+     rather than via Tailwind's `overflow-x-auto` class, so these rules never
+     matched it and the table fell back to the OS scrollbar — a bright 15px
+     bar on a dark page. */
+  .database-block .overflow-x-auto,
+  .database-block .db-table-scroll {
     scrollbar-width: thin;
     scrollbar-color: color-mix(in oklab, var(--border) 70%, transparent) transparent;
   }
-  .database-block .overflow-x-auto::-webkit-scrollbar {
+  .database-block .overflow-x-auto::-webkit-scrollbar,
+  .database-block .db-table-scroll::-webkit-scrollbar {
     height: 8px;
   }
-  .database-block .overflow-x-auto::-webkit-scrollbar-track {
+  .database-block .overflow-x-auto::-webkit-scrollbar-track,
+  .database-block .db-table-scroll::-webkit-scrollbar-track {
     background: transparent;
   }
-  .database-block .overflow-x-auto::-webkit-scrollbar-thumb {
+  .database-block .overflow-x-auto::-webkit-scrollbar-thumb,
+  .database-block .db-table-scroll::-webkit-scrollbar-thumb {
     background: color-mix(in oklab, var(--border) 55%, transparent);
     border-radius: 999px;
   }
-  .database-block .overflow-x-auto::-webkit-scrollbar-thumb:hover {
+  .database-block .overflow-x-auto::-webkit-scrollbar-thumb:hover,
+  .database-block .db-table-scroll::-webkit-scrollbar-thumb:hover {
     background: color-mix(in oklab, var(--border) 90%, transparent);
   }
   /* Reusable thin, theme-matched vertical scrollbar for overflow-y panels

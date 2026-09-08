@@ -461,7 +461,6 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
         onShowAll={showAllColumns}
         hideEmptyCardFields={config.hideEmptyCardFields}
         onHideEmptyChange={(v) => patchConfig({ hideEmptyCardFields: v })}
-        onAddColumn={addColumn}
       />
 
       {!collapsed && columns.length > 0 && (
@@ -492,6 +491,8 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                 sortActive={config.sort != null}
                 onReorderRow={reorderRows}
                 onMoveRowToGroup={onTableMoveRowToGroup}
+                onAddColumn={addColumn}
+                onClearSort={() => patchConfig({ sort: null })}
               />
             </div>
           )}
