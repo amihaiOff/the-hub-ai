@@ -1,129 +1,8 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import type { DatabaseColumn } from './database-extension';
-import { defaultFilterFor, isColumnFilterActive, type ColumnFilter } from './db-filter';
-
-interface DatabaseFilterPanelProps {
-  columns: DatabaseColumn[];
-  /** Active filters keyed by column id (only active ones are present). */
-  filters: Record<string, ColumnFilter>;
-  /** The trigger button — excluded from outside-click so it can toggle closed. */
-  anchorEl?: HTMLElement | null;
-  onChange: (colId: string, next: ColumnFilter) => void;
-  onClearAll: () => void;
-  onClose: () => void;
-}
-
-/**
- * Dropdown panel listing every column with a type-appropriate filter control.
- * Rendered inline (absolutely positioned) beneath the toolbar's Filter button.
- * Filter state lives in the block's ephemeral view state — nothing is persisted.
- */
-export function DatabaseFilterPanel({
-  columns,
-  filters,
-  anchorEl,
-  onChange,
-  onClearAll,
-  onClose,
-}: DatabaseFilterPanelProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  // Position via portal so the panel isn't clipped by the DB frame's
-  // `overflow: hidden` and lands next to the filter icon regardless of
-  // where in the header markup it sits. Recompute on scroll/resize so it
-  // stays tethered as the user scrolls the page under it.
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  useLayoutEffect(() => {
-    if (!anchorEl) return;
-    const measure = () => {
-      const r = anchorEl.getBoundingClientRect();
-      // Align the panel's right edge to the anchor's right edge so it
-      // opens under the button and never spills past the viewport edge.
-      const panelWidth = Math.min(window.innerWidth - 16, 576);
-      const left = Math.max(8, r.right - panelWidth);
-      queueMicrotask(() => setPos({ top: r.bottom + 6, left }));
-    };
-    measure();
-    window.addEventListener('resize', measure);
-    window.addEventListener('scroll', measure, true);
-    return () => {
-      window.removeEventListener('resize', measure);
-      window.removeEventListener('scroll', measure, true);
-    };
-  }, [anchorEl]);
-
-  // Close on outside click / Escape. The trigger button is excluded so its own
-  // click toggles the panel closed instead of racing this handler (mousedown
-  // close → click reopen).
-  useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (ref.current?.contains(target)) return;
-      if (anchorEl?.contains(target)) return;
-      onClose();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [onClose, anchorEl]);
-
-  const anyActive = Object.values(filters).some(isColumnFilterActive);
-
-  if (!pos || typeof document === 'undefined') return null;
-
-  return createPortal(
-    <div
-      ref={ref}
-      style={{ position: 'fixed', top: pos.top, left: pos.left }}
-      // Mobile: fixed 18rem width capped by viewport so the panel never
-      // spills past the right edge on a ~320px screen. Desktop: fit
-      // content so date-range pairs / wider controls aren't clipped or
-      // horizontally-scrolled. `lg:w-max` + `lg:max-w-[36rem]` gives
-      // room for two side-by-side date inputs without runaway growth.
-      className="border-border bg-card z-[100] w-72 max-w-[calc(100vw-1rem)] rounded-xl border p-3 shadow-lg lg:w-max lg:max-w-[36rem]"
-    >
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-          Filter
-        </span>
-        {anyActive && (
-          <button
-            type="button"
-            onClick={onClearAll}
-            className="text-muted-foreground hover:text-foreground text-xs"
-          >
-            Clear all
-          </button>
-        )}
-      </div>
-
-      {/* Vertical scroll only when the mobile viewport gets tight; desktop
-          drops the cap so the panel expands to fit its content. */}
-      <div className="max-h-[50vh] space-y-3 overflow-y-auto lg:max-h-none lg:overflow-visible">
-        {columns.map((col) => (
-          <div key={col.id} className="space-y-1">
-            <label className="text-foreground/80 text-xs font-medium">{col.name}</label>
-            <FilterControl
-              column={col}
-              value={filters[col.id] ?? defaultFilterFor(col.type)}
-              onChange={(next) => onChange(col.id, next)}
-            />
-          </div>
-        ))}
-      </div>
-    </div>,
-    document.body
-  );
-}
+import { type ColumnFilter } from './db-filter';
 
 const inputCls =
   'border-border bg-background focus:ring-primary/40 h-8 w-full rounded-lg border px-2 text-xs outline-none focus:ring-2';
@@ -140,8 +19,8 @@ const inputTouchCls =
 
 /**
  * A single column's type-appropriate filter control (text/number/date range,
- * select/multiselect pills, checkbox tri-state). Exported so the mobile tools
- * sheet can render the same controls inline without the portaled dropdown frame.
+ * select/multiselect pills, checkbox tri-state). Rendered inline in the tools
+ * popover's Filter section.
  */
 export function FilterControl({
   column,
