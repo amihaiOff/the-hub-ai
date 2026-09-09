@@ -36,13 +36,22 @@ export interface DbSort {
 export interface ViewConfig {
   view: DbView;
   density: DbDensity;
-  /** Column id (a `select` column) to cluster rows by in Table/Cards. null = flat. */
-  groupBy: string | null;
+  /**
+   * Column id (a `select` column) to cluster rows by, PER VIEW. null = flat.
+   *
+   * `groupBy`, `sort` and `filters` are keyed by view (like `hidden` always
+   * was) so the three views are independent workspaces: filtering the Kanban
+   * board doesn't hide rows in the Table. Settings that only ever applied to
+   * one view — `density` (table), `kanbanBy` (kanban), `hideEmptyCardFields`
+   * (cards) — stay flat, since there's nothing to separate.
+   */
+  groupBy: Record<DbView, string | null>;
   /** Column id (a `select` column) the Kanban board's columns come from. */
   kanbanBy: string | null;
-  sort: DbSort | null;
-  /** Active filters keyed by column id. */
-  filters: Record<string, ColumnFilter>;
+  /** Active sort, per view. */
+  sort: Record<DbView, DbSort | null>;
+  /** Active filters keyed by column id, per view. */
+  filters: Record<DbView, Record<string, ColumnFilter>>;
   /** Hidden column ids, per view. The primary (first) column is never hidden. */
   hidden: Record<DbView, string[]>;
   /** Cards view: hide fields with no value (default true). */
@@ -52,13 +61,73 @@ export interface ViewConfig {
 export const DEFAULT_VIEW_CONFIG: ViewConfig = {
   view: 'table',
   density: 'airy',
-  groupBy: null,
+  groupBy: { table: null, cards: null, kanban: null },
   kanbanBy: null,
-  sort: null,
-  filters: {},
+  sort: { table: null, cards: null, kanban: null },
+  filters: { table: {}, cards: {}, kanban: {} },
   hidden: { table: [], cards: [], kanban: [] },
   hideEmptyCardFields: true,
 };
+
+/** The three views, for building and walking per-view records. */
+export const VIEW_KEYS = ['table', 'cards', 'kanban'] as const satisfies readonly DbView[];
+
+/**
+ * Remove one column's filter from every view.
+ *
+ * Used when a column is deleted or its type changes: the filter is invalid
+ * everywhere, not only in whichever view happened to be open.
+ */
+export function withoutColumnFilter(
+  filters: Record<DbView, Record<string, ColumnFilter>>,
+  colId: string
+): Record<DbView, Record<string, ColumnFilter>> {
+  const next = {} as Record<DbView, Record<string, ColumnFilter>>;
+  for (const v of VIEW_KEYS) {
+    const rest = { ...filters[v] };
+    delete rest[colId];
+    next[v] = rest;
+  }
+  return next;
+}
+
+/**
+ * Build a per-view record, accepting either the new per-view shape or a legacy
+ * flat value.
+ *
+ * Legacy blocks stored one shared `sort`/`filters`/`groupBy`. Those are lifted
+ * into ALL views so a block looks exactly as it did before the split — the
+ * views only diverge once the user changes one. Resetting instead would
+ * silently drop filters people are relying on.
+ *
+ * `parse` runs once PER VIEW (never once with the result shared) so the three
+ * views can't end up aliasing one mutable object, and so `parse(undefined)`
+ * supplies each view's own empty value when nothing is stored.
+ *
+ * `isLeaf` disambiguates the one shape that is genuinely ambiguous: legacy
+ * `filters` is keyed by COLUMN id, so a column whose id is literally `table` /
+ * `cards` / `kanban` would otherwise be misread as the new per-view shape and
+ * the block's filters silently dropped. A legacy leaf is recognisable (a
+ * `ColumnFilter` has a `kind` discriminant) and sends us down the legacy path.
+ */
+function perView<T>(
+  raw: unknown,
+  parse: (v: unknown) => T,
+  isLeaf?: (v: unknown) => boolean
+): Record<DbView, T> {
+  const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : null;
+  const isPerView = !!obj && VIEW_KEYS.some((v) => v in obj && !isLeaf?.(obj[v]));
+  if (isPerView) {
+    const r = obj as Partial<Record<DbView, unknown>>;
+    return { table: parse(r.table), cards: parse(r.cards), kanban: parse(r.kanban) };
+  }
+  return { table: parse(raw), cards: parse(raw), kanban: parse(raw) };
+}
+
+/** A `ColumnFilter` (legacy flat leaf) rather than a per-view filter bucket. */
+function isColumnFilterLeaf(v: unknown): boolean {
+  return !!v && typeof v === 'object' && typeof (v as { kind?: unknown }).kind === 'string';
+}
 
 /** Per-type default column width (px) when a column has no stored `width`. */
 const DEFAULT_WIDTH: Record<DatabaseColumn['type'], number> = {
@@ -102,28 +171,36 @@ export function isView(v: unknown): v is DbView {
 export function resolveViewConfig(raw: unknown, defaultView: DbView = 'table'): ViewConfig {
   const d = DEFAULT_VIEW_CONFIG;
   if (!raw || typeof raw !== 'object')
-    return { ...d, view: defaultView, hidden: { ...d.hidden }, filters: {} };
+    return {
+      ...d,
+      view: defaultView,
+      hidden: { ...d.hidden },
+      sort: { ...d.sort },
+      filters: { table: {}, cards: {}, kanban: {} },
+      groupBy: { ...d.groupBy },
+    };
   const r = raw as Partial<ViewConfig> & Record<string, unknown>;
   const view: DbView = isView(r.view) ? r.view : defaultView;
   const density: DbDensity = r.density === 'dense' ? 'dense' : 'airy';
-  const sort: DbSort | null =
-    r.sort && typeof r.sort === 'object' && typeof (r.sort as DbSort).columnId === 'string'
-      ? {
-          columnId: (r.sort as DbSort).columnId,
-          dir: (r.sort as DbSort).dir === 'desc' ? 'desc' : 'asc',
-        }
+  const parseSort = (v: unknown): DbSort | null =>
+    v && typeof v === 'object' && typeof (v as DbSort).columnId === 'string'
+      ? { columnId: (v as DbSort).columnId, dir: (v as DbSort).dir === 'desc' ? 'desc' : 'asc' }
       : null;
+  // Cloned, not passed through: each view must own its filter map so lifting a
+  // legacy value into all three can't leave them aliasing one object.
+  const parseFilters = (v: unknown): Record<string, ColumnFilter> =>
+    v && typeof v === 'object' ? { ...(v as Record<string, ColumnFilter>) } : {};
+  const parseGroupBy = (v: unknown): string | null => (typeof v === 'string' ? v : null);
   const hiddenIn = (r.hidden ?? {}) as Partial<Record<DbView, unknown>>;
   const arr = (v: unknown): string[] =>
     Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
   return {
     view,
     density,
-    groupBy: typeof r.groupBy === 'string' ? r.groupBy : null,
+    groupBy: perView(r.groupBy, parseGroupBy),
     kanbanBy: typeof r.kanbanBy === 'string' ? r.kanbanBy : null,
-    sort,
-    filters:
-      r.filters && typeof r.filters === 'object' ? (r.filters as Record<string, ColumnFilter>) : {},
+    sort: perView(r.sort, parseSort),
+    filters: perView(r.filters, parseFilters, isColumnFilterLeaf),
     hidden: {
       table: arr(hiddenIn.table),
       cards: arr(hiddenIn.cards),

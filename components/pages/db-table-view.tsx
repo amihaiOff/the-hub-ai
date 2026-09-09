@@ -223,7 +223,12 @@ export function DbTableView(props: DbTableViewProps) {
                       role="separator"
                       aria-label={`Resize ${col.name}`}
                       onMouseDown={(e) => startResize(e, col, i)}
-                      className="group/rz absolute top-0 right-[-4px] bottom-0 z-10 w-2 cursor-col-resize"
+                      /* Sits fully INSIDE its own column, flush to the right
+                         edge. It used to overhang by 4px, but the sticky header
+                         gives every column its own layer, so the neighbouring
+                         column painted over the overhanging half — the hot zone
+                         was ~5px and sat entirely left of the visible line. */
+                      className="group/rz absolute top-0 right-0 bottom-0 z-10 w-3 cursor-col-resize"
                     >
                       <span className="bg-primary/50 absolute top-2 right-1 bottom-2 w-0.5 rounded-full opacity-0 transition-opacity group-hover/rz:opacity-100" />
                     </span>

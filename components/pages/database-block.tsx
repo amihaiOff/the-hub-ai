@@ -20,6 +20,8 @@ import {
   resolveViewConfig,
   sortRows,
   visibleColumns,
+  withoutColumnFilter,
+  VIEW_KEYS,
   type DbView,
   type ViewConfig,
 } from '@/lib/pages/db-view';
@@ -177,17 +179,26 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
   const isKanban = config.view === 'kanban';
   const firstGroupable = groupableCols[0]?.id ?? null;
   const kanbanColId = config.kanbanBy ?? firstGroupable;
+  const storedGroupBy = config.groupBy[config.view];
   const tableGroupColId =
-    config.groupBy && groupableCols.some((c) => c.id === config.groupBy) ? config.groupBy : null;
+    storedGroupBy && groupableCols.some((c) => c.id === storedGroupBy) ? storedGroupBy : null;
   // The column the toolbar's Group control targets for the current view.
   const groupColId = isKanban ? kanbanColId : tableGroupColId;
   const onGroupChange = useCallback(
-    (id: string | null) => patchConfig(isKanban ? { kanbanBy: id } : { groupBy: id }),
+    (id: string | null) => {
+      const c = configRef.current;
+      // Kanban's column source is its own field; Table/Cards grouping is
+      // per-view like sort and filters.
+      patchConfig(isKanban ? { kanbanBy: id } : { groupBy: { ...c.groupBy, [c.view]: id } });
+    },
     [isKanban, patchConfig]
   );
 
-  // ── Filters ─────────────────────────────────────────────────────────────
-  const filters = config.filters;
+  /** The active sort for the current view (per-view, like filters/grouping). */
+  const activeSort = config.sort[config.view];
+
+  // ── Filters (per view) ──────────────────────────────────────────────────
+  const filters = config.filters[config.view];
   // Compute from existing columns (not raw filter values) so a filter left over
   // from a column removed out-of-band can't falsely show "no rows match" —
   // applyFilters ignores such orphans too (it iterates columns).
@@ -197,14 +208,18 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
   });
   const onFilterChange = useCallback(
     (colId: string, next: ColumnFilter) => {
-      const f = { ...configRef.current.filters };
+      const c = configRef.current;
+      const f = { ...c.filters[c.view] };
       if (isColumnFilterActive(next)) f[colId] = next;
       else delete f[colId];
-      patchConfig({ filters: f });
+      patchConfig({ filters: { ...c.filters, [c.view]: f } });
     },
     [patchConfig]
   );
-  const onClearFilters = useCallback(() => patchConfig({ filters: {} }), [patchConfig]);
+  const onClearFilters = useCallback(() => {
+    const c = configRef.current;
+    patchConfig({ filters: { ...c.filters, [c.view]: {} } });
+  }, [patchConfig]);
 
   // ── Hidden columns (per view) ───────────────────────────────────────────
   const toggleHidden = useCallback(
@@ -242,8 +257,9 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
       const row = makeRow(columnsRef.current);
       // Seed any active filter so the new row stays visible instead of being
       // hidden the moment it's created (an empty cell fails every filter).
+      const activeViewFilters = configRef.current.filters[configRef.current.view];
       for (const col of columnsRef.current) {
-        const f = configRef.current.filters[col.id];
+        const f = activeViewFilters[col.id];
         if (f && isColumnFilterActive(f)) {
           const seed = seedValueForFilter(f);
           if (seed !== undefined) row.cells[col.id] = seed;
@@ -348,12 +364,19 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
           cells: { ...r.cells, [colId]: coerceValue(r.cells[colId] ?? null, type) },
         }))
       );
-      // Drop the (now type-mismatched) filter for this column.
-      const f = { ...configRef.current.filters };
-      if (f[colId]) {
-        delete f[colId];
-        patchConfig({ filters: f });
+      // Drop the (now type-mismatched) filter for this column, in every view —
+      // the mismatch isn't specific to whichever view happens to be open.
+      const c = configRef.current;
+      const typePatch: Partial<ViewConfig> = {};
+      if (VIEW_KEYS.some((v) => c.filters[v][colId])) {
+        typePatch.filters = withoutColumnFilter(c.filters, colId);
       }
+      // Kanban's column source must be dropped too. Unlike grouping and sort —
+      // which re-validate or merely reorder — a Kanban board pointed at a
+      // no-longer-select column collapses to one unnamed column AND a card drag
+      // would write an option id into a text/number cell.
+      if (c.kanbanBy === colId) typePatch.kanbanBy = null;
+      if (Object.keys(typePatch).length > 0) patchConfig(typePatch);
     },
     [setColumns, setRows, patchConfig]
   );
@@ -376,14 +399,20 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
       // Scrub any config references to the deleted column.
       const c = configRef.current;
       const patch: Partial<ViewConfig> = {};
-      if (c.filters[colId]) {
-        const f = { ...c.filters };
-        delete f[colId];
-        patch.filters = f;
+      if (VIEW_KEYS.some((v) => c.filters[v][colId])) {
+        patch.filters = withoutColumnFilter(c.filters, colId);
       }
-      if (c.groupBy === colId) patch.groupBy = null;
+      // Scrub across all views: the column is gone everywhere, not just in the
+      // view that happened to be open when it was deleted.
+      if (VIEW_KEYS.some((v) => c.groupBy[v] === colId)) {
+        patch.groupBy = { ...c.groupBy };
+        for (const v of VIEW_KEYS) if (patch.groupBy[v] === colId) patch.groupBy[v] = null;
+      }
       if (c.kanbanBy === colId) patch.kanbanBy = null;
-      if (c.sort?.columnId === colId) patch.sort = null;
+      if (VIEW_KEYS.some((v) => c.sort[v]?.columnId === colId)) {
+        patch.sort = { ...c.sort };
+        for (const v of VIEW_KEYS) if (patch.sort[v]?.columnId === colId) patch.sort[v] = null;
+      }
       patch.hidden = {
         table: c.hidden.table.filter((x) => x !== colId),
         cards: c.hidden.cards.filter((x) => x !== colId),
@@ -401,8 +430,8 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
   // ── Derived display (filter → sort → group) ─────────────────────────────
   const filtered = useMemo(() => applyFilters(rows, columns, filters), [rows, columns, filters]);
   const sorted = useMemo(
-    () => sortRows(filtered, columns, config.sort),
-    [filtered, columns, config.sort]
+    () => sortRows(filtered, columns, activeSort),
+    [filtered, columns, activeSort]
   );
   const view: DbView = config.view;
   const visibleForView = useMemo(
@@ -451,8 +480,11 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
         groupableCols={groupableCols}
         groupColId={groupColId}
         onGroupChange={onGroupChange}
-        sort={config.sort}
-        onSortChange={(s) => patchConfig({ sort: s })}
+        sort={activeSort}
+        onSortChange={(s) => {
+          const c = configRef.current;
+          patchConfig({ sort: { ...c.sort, [c.view]: s } });
+        }}
         filters={filters}
         onFilterChange={onFilterChange}
         onClearFilters={onClearFilters}
@@ -488,11 +520,14 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                 onDeleteColumn={requestDeleteColumn}
                 onSetColumnOptions={setColumnOptions}
                 groupColId={tableGroupColId}
-                sortActive={config.sort != null}
+                sortActive={activeSort != null}
                 onReorderRow={reorderRows}
                 onMoveRowToGroup={onTableMoveRowToGroup}
                 onAddColumn={addColumn}
-                onClearSort={() => patchConfig({ sort: null })}
+                onClearSort={() => {
+                  const c = configRef.current;
+                  patchConfig({ sort: { ...c.sort, [c.view]: null } });
+                }}
               />
             </div>
           )}
@@ -519,7 +554,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                 groups={kanbanGroups}
                 kanbanColId={kanbanColId}
                 editable={editable}
-                sortActive={config.sort != null}
+                sortActive={activeSort != null}
                 onAddRow={addRow}
                 onOpenRow={setOpenRowId}
                 onMoveRowToGroup={onKanbanMoveRowToGroup}

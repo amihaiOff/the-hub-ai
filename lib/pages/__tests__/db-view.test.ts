@@ -10,6 +10,7 @@ import {
   resolveViewConfig,
   sortRows,
   visibleColumns,
+  withoutColumnFilter,
 } from '../db-view';
 
 const cols: DatabaseColumn[] = [
@@ -46,7 +47,7 @@ describe('resolveViewConfig', () => {
     expect(c.view).toBe('kanban');
     expect(c.density).toBe('dense');
     expect(c.kanbanBy).toBe('status');
-    expect(c.groupBy).toBeNull();
+    expect(c.groupBy).toEqual({ table: null, cards: null, kanban: null });
     expect(c.hidden).toEqual({ table: [], cards: [], kanban: [] });
   });
 
@@ -59,16 +60,71 @@ describe('resolveViewConfig', () => {
     });
     expect(c.view).toBe('table');
     expect(c.density).toBe('airy');
-    expect(c.sort).toBeNull();
+    expect(c.sort.table).toBeNull();
     expect(c.hidden.table).toEqual(['a']); // non-strings dropped
   });
 
   it('normalizes a sort spec and defaults dir to asc', () => {
-    expect(resolveViewConfig({ sort: { columnId: 'budget' } }).sort).toEqual({
+    expect(resolveViewConfig({ sort: { columnId: 'budget' } }).sort.table).toEqual({
       columnId: 'budget',
       dir: 'asc',
     });
-    expect(resolveViewConfig({ sort: { columnId: 'budget', dir: 'desc' } }).sort?.dir).toBe('desc');
+    expect(resolveViewConfig({ sort: { columnId: 'budget', dir: 'desc' } }).sort.table?.dir).toBe(
+      'desc'
+    );
+  });
+
+  describe('per-view sort / filters / groupBy', () => {
+    it('lifts a legacy flat value into every view so nothing changes visually', () => {
+      const c = resolveViewConfig({
+        sort: { columnId: 'due', dir: 'desc' },
+        filters: { status: { kind: 'select', optionIds: ['a'] } },
+        groupBy: 'status',
+      });
+      for (const v of ['table', 'cards', 'kanban'] as const) {
+        expect(c.sort[v]).toEqual({ columnId: 'due', dir: 'desc' });
+        expect(c.filters[v]).toEqual({ status: { kind: 'select', optionIds: ['a'] } });
+        expect(c.groupBy[v]).toBe('status');
+      }
+    });
+
+    it('keeps views independent when already stored per view', () => {
+      const c = resolveViewConfig({
+        sort: { table: { columnId: 'due', dir: 'asc' }, kanban: null },
+        filters: { kanban: { status: { kind: 'select', optionIds: ['x'] } } },
+        groupBy: { cards: 'status' },
+      });
+      expect(c.sort.table).toEqual({ columnId: 'due', dir: 'asc' });
+      expect(c.sort.kanban).toBeNull();
+      expect(c.sort.cards).toBeNull();
+      expect(c.filters.kanban).toEqual({ status: { kind: 'select', optionIds: ['x'] } });
+      expect(c.filters.table).toEqual({});
+      expect(c.groupBy.cards).toBe('status');
+      expect(c.groupBy.table).toBeNull();
+    });
+
+    it('defaults every view to empty when nothing is stored', () => {
+      const c = resolveViewConfig({});
+      for (const v of ['table', 'cards', 'kanban'] as const) {
+        expect(c.sort[v]).toBeNull();
+        expect(c.filters[v]).toEqual({});
+        expect(c.groupBy[v]).toBeNull();
+      }
+    });
+  });
+
+  describe('withoutColumnFilter', () => {
+    it('removes the column from every view, leaving others intact', () => {
+      const f = {
+        table: { a: { kind: 'text', query: 'x' }, b: { kind: 'text', query: 'y' } },
+        cards: { a: { kind: 'text', query: 'z' } },
+        kanban: {},
+      } as never;
+      const next = withoutColumnFilter(f, 'a');
+      expect(next.table).toEqual({ b: { kind: 'text', query: 'y' } });
+      expect(next.cards).toEqual({});
+      expect(next.kanban).toEqual({});
+    });
   });
 
   it('hideEmptyCardFields defaults true and only false when explicitly false', () => {

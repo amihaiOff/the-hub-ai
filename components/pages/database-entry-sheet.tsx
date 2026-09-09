@@ -42,11 +42,11 @@ interface DatabaseEntrySheetProps {
 /**
  * Detail view for a single database-block row — like the Tasks detail sheet.
  * Right-hand side panel on desktop, full-screen on mobile (`w-full sm:max-w-lg`),
- * with the row's fields on top and a rich-text body below. Browser Back closes
- * it (via `useBackToClose`). Writes flow back to the host Tiptap node through the
- * callbacks, which is why we swallow Radix's outside-interaction close events —
- * a write refocuses the editor and would otherwise auto-close the sheet (same
- * fix as ColumnMobileSheet).
+ * with the row's fields on top and a rich-text body below. Clicking the page
+ * outside the panel closes it, as do the X button, Escape, and browser Back
+ * (via `useBackToClose`). Only FOCUS moving outside is swallowed — writes flow
+ * back to the host Tiptap node, and that refocuses the editor, which Radix
+ * would otherwise read as a dismissal while the user is still editing.
  */
 export function DatabaseEntrySheet({
   row,
@@ -69,13 +69,12 @@ export function DatabaseEntrySheet({
         // No SheetDescription — the fields/body are self-describing. Tell Radix
         // it's intentional so it doesn't warn about a missing description.
         aria-describedby={undefined}
-        // Outside-click-to-close is deliberately disabled: a field/body write
-        // calls updateAttributes, which refocuses the host editor, and Radix
-        // would read that as an outside interaction and auto-close the sheet
-        // (same fix as ColumnMobileSheet). Close via the X button, Escape, or
-        // browser Back (useBackToClose).
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onInteractOutside={(e) => e.preventDefault()}
+        // Clicking the page outside the panel closes it (pointer-down-outside
+        // and interact-outside are deliberately NOT blocked). Only FOCUS moving
+        // outside is: a field/body write calls updateAttributes, which refocuses
+        // the host editor, and Radix would read that as an outside interaction
+        // and dismiss the panel mid-edit. (ColumnMobileSheet still blocks all
+        // three — it has no equivalent click-away affordance.)
         onFocusOutside={(e) => e.preventDefault()}
         className="w-full overflow-y-auto rounded-l-3xl p-6 pt-12 sm:max-w-lg"
       >
