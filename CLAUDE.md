@@ -487,7 +487,7 @@ git push origin develop
 
 ```bash
 # Local development database
-DATABASE_URL="postgresql://amihaio@localhost:5432/hub_ai_dev"
+DATABASE_URL="postgresql://<your-os-user>@localhost:5432/hub_ai"
 ```
 
 **Workflow:**

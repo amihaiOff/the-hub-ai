@@ -16,6 +16,96 @@ messages for the reasoning — they are detailed and not duplicated here:
 **Next up: plan step 2 — the structured page-write endpoint.** This is the largest and most
 important app-side piece. Nothing has been started on it.
 
+## Local environment on a fresh machine — do this first
+
+Nothing secret is in the repo, so the app will not start until this is done. Ask the user for values;
+do not invent them and do not copy them into any tracked file. `.env.local` is gitignored.
+
+**1. Install and generate.**
+
+```bash
+npm install
+npx prisma generate
+```
+
+Node 25 is what the previous machine ran; the repo pins no engine.
+
+**2. A local Postgres database.** The app is developed against local Postgres, never against the
+hosted database.
+
+```bash
+createdb hub_ai
+npx prisma migrate deploy      # 69 migrations
+npm run db:seed                # optional but recommended — gives you a household, profiles,
+                               # categories and tags to work against
+```
+
+The database is named **`hub_ai`**. (CLAUDE.md said `hub_ai_dev` for a while — that was wrong and has
+been corrected. If you see `hub_ai_dev` anywhere else, it's stale.)
+
+**3. Create `.env.local` at the repo root.** The **minimum to boot the app and do plan step 2**:
+
+```
+DATABASE_URL="postgresql://<your-os-user>@localhost:5432/hub_ai"
+SKIP_AUTH="true"
+NEXT_PUBLIC_SKIP_AUTH="true"
+```
+
+That is genuinely enough. Stack Auth is _not_ configured locally and doesn't need to be — the two
+skip flags stand in for a login, and the app serves a fixed dev user. Those two must always be set
+or unset **together** (see the note in CLAUDE.md; a mismatch makes the browser think it's signed in
+while the server disagrees, and you land in a broken onboarding loop).
+
+**To exercise the scoped agent tokens, add whichever you're using:**
+
+```
+AGENT_TASKS_TOKEN="..."     # create tasks           (new this session; user may not have made one yet)
+AGENT_PAGES_TOKEN="..."     # read + write pages     (needed for plan step 2 testing)
+AGENT_READ_TOKEN="..."      # read-only agent reads  (needed for plan step 3)
+API_SECRET="..."            # full-access admin; every resolver above also accepts it
+```
+
+Any 32-char random string works locally (`openssl rand -hex 16`) — these are compared against your
+own env, not a remote service. Use the real values only when talking to the deployed app.
+
+**The rest of the previous machine's `.env.local` is optional.** Verified by grepping the source, not
+assumed:
+
+- Actually read by app code, but only by features this work doesn't touch: `ALPHA_VANTAGE_API_KEY`
+  (stock prices, 1 call site), `MONEYTOR_API_TOKEN` (account sync, 3 call sites), `BACKUP_TOKEN`
+  (the scheduled Drive backup endpoint).
+- **Dead — zero references anywhere in the repo:** `NEXTAUTH_SECRET`, `NEXTAUTH_URL`,
+  `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (leftovers from before the move to Stack Auth),
+  `RESEND_API_KEY`, and `GITHUB_PERSONAL_ACCESS_TOKEN` (that one is editor/MCP config, not app
+  config). Don't bother recreating these, and don't be misled by seeing them in CLAUDE.md's env list.
+
+Leave all of the above out unless something you need actually complains.
+
+**4. Run it.**
+
+```bash
+npm run dev        # already binds 3001 — do NOT pass `-- -p 3001`, you get a duplicated flag
+```
+
+**5. Confirm the environment is actually right** before writing code:
+
+```bash
+curl -s localhost:3001/api/debug-auth | python3 -m json.tool
+```
+
+Expect `database.connected: true`, a non-zero `userCount`, and `currentUser` showing the dev user.
+`stackUser: null` with a "client not initialised" note is **correct** here, not a failure. If
+`currentUser` is null while the skip flags are set, the environment is wrong — stop and fix it.
+
+**Testing a token path locally has a catch:** with the skip flags on, a session is always present and
+short-circuits the token path, so a bearer token proves nothing. To genuinely exercise it, start the
+server with the skip flags emptied (`SKIP_AUTH= NEXT_PUBLIC_SKIP_AUTH= npm run dev`); unauthenticated
+requests then 401 and the token resolver takes over. That's how the create-only boundary was verified
+this session.
+
+**Never point anything at the hosted production database.** It is read-only for agents — see the
+database-safety section of CLAUDE.md, which lists the host identifiers to check.
+
 ## Design decisions already locked (do not re-litigate)
 
 The user answered these explicitly. Re-opening them will annoy them.
