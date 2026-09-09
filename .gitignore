@@ -55,3 +55,7 @@ prisma/*.db-journal
 /lib/generated/prisma
 .mcp.json
 .venv
+
+# Apps Script: per-account script id, written by `clasp create`
+.clasp.json
+apps-script/**/.clasp.json

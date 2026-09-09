@@ -28,6 +28,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Google Apps Script, not app code: it runs on Google's runtime with its
+    // own globals (DriveApp, MailApp, …) and its entry points are called by a
+    // scheduler rather than imported, so app lint rules only produce noise.
+    "apps-script/**",
   ]),
   // Everywhere: no unused-collab libs, and no static import of the raw editor.
   {

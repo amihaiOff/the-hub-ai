@@ -16,6 +16,7 @@ import {
   getHouseholdIdFromApiKey,
   getHouseholdIdFromAgentKey,
   getPagesHouseholdIdFromToken,
+  getHouseholdIdFromBackupToken,
   resolveHouseholdOwnerUserId,
 } from '@/lib/auth-api-key';
 
@@ -208,5 +209,68 @@ describe('resolveHouseholdOwnerUserId', () => {
     (mockPrisma.householdMember.findFirst as jest.Mock).mockResolvedValueOnce(null);
     const result = await resolveHouseholdOwnerUserId('hh-1');
     expect(result).toBeNull();
+  });
+});
+
+describe('getHouseholdIdFromBackupToken', () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    jest.resetAllMocks();
+    process.env = { ...originalEnv };
+    (mockPrisma.household.findFirst as jest.Mock).mockResolvedValue({ id: 'hh-1' });
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  it('accepts the dedicated backup token', async () => {
+    process.env.BACKUP_TOKEN = 'backup-secret';
+
+    await expect(getHouseholdIdFromBackupToken(makeRequest('Bearer backup-secret'))).resolves.toBe(
+      'hh-1'
+    );
+  });
+
+  it('accepts the full-access admin secret', async () => {
+    process.env.API_SECRET = 'admin-secret';
+
+    await expect(getHouseholdIdFromBackupToken(makeRequest('Bearer admin-secret'))).resolves.toBe(
+      'hh-1'
+    );
+  });
+
+  it('rejects a missing header, a wrong token, and a non-Bearer scheme', async () => {
+    process.env.BACKUP_TOKEN = 'backup-secret';
+
+    await expect(getHouseholdIdFromBackupToken(makeRequest())).resolves.toBeNull();
+    await expect(getHouseholdIdFromBackupToken(makeRequest('Bearer nope'))).resolves.toBeNull();
+    await expect(
+      getHouseholdIdFromBackupToken(makeRequest('Basic backup-secret'))
+    ).resolves.toBeNull();
+  });
+
+  it('does NOT accept the narrower agent or pages tokens', async () => {
+    // The whole point of a separate secret: this endpoint can pull everything,
+    // so a token handed to an agent for read-only page access must not unlock it.
+    process.env.BACKUP_TOKEN = 'backup-secret';
+    process.env.AGENT_READ_TOKEN = 'agent-token';
+    process.env.AGENT_PAGES_TOKEN = 'pages-token';
+
+    await expect(
+      getHouseholdIdFromBackupToken(makeRequest('Bearer agent-token'))
+    ).resolves.toBeNull();
+    await expect(
+      getHouseholdIdFromBackupToken(makeRequest('Bearer pages-token'))
+    ).resolves.toBeNull();
+  });
+
+  it('rejects everything when no backup secret is configured', async () => {
+    delete process.env.BACKUP_TOKEN;
+    delete process.env.API_SECRET;
+
+    await expect(getHouseholdIdFromBackupToken(makeRequest('Bearer anything'))).resolves.toBeNull();
+    await expect(getHouseholdIdFromBackupToken(makeRequest('Bearer '))).resolves.toBeNull();
   });
 });

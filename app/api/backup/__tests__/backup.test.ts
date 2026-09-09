@@ -4,6 +4,12 @@
  */
 
 import JSZip from 'jszip';
+import { NextRequest } from 'next/server';
+
+/** A request with no Authorization header — exercises the session-auth path. */
+function sessionRequest() {
+  return new NextRequest('http://localhost/api/backup');
+}
 import { pathInArchive } from '@/lib/api/backup-layout';
 
 // Simple Decimal mock that mimics Prisma Decimal behavior
@@ -98,7 +104,7 @@ describe('Backup API', () => {
     it('should return 401 when not authenticated', async () => {
       mockGetCurrentUser.mockResolvedValueOnce(null);
 
-      const response = await GET();
+      const response = await GET(sessionRequest());
       const data = await response.json();
 
       expect(response.status).toBe(401);
@@ -363,7 +369,7 @@ describe('Backup API', () => {
       (mockPrisma.marketRate.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
 
-      const response = await GET();
+      const response = await GET(sessionRequest());
 
       // Verify response headers
       expect(response.status).toBe(200);
@@ -575,7 +581,7 @@ describe('Backup API', () => {
       (mockPrisma.marketRate.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
 
-      const response = await GET();
+      const response = await GET(sessionRequest());
 
       expect(response.status).toBe(200);
 
@@ -598,7 +604,7 @@ describe('Backup API', () => {
       // Simulate database error
       (mockPrisma.user.findMany as jest.Mock).mockRejectedValueOnce(new Error('Database error'));
 
-      const response = await GET();
+      const response = await GET(sessionRequest());
       const data = await response.json();
 
       expect(response.status).toBe(500);
@@ -689,7 +695,7 @@ describe('Backup API', () => {
       (mockPrisma.marketRate.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
 
-      const response = await GET();
+      const response = await GET(sessionRequest());
       const blob = await response.blob();
       const arrayBuffer = await blob.arrayBuffer();
       const zip = await JSZip.loadAsync(arrayBuffer);

@@ -317,6 +317,10 @@ ALLOWED_EMAILS="email1@example.com,email2@example.com"  # Comma-separated allowl
 ALPHA_VANTAGE_API_KEY="..."
 AGENT_READ_TOKEN="..."                   # Read-only token for /api/agent/* (backlog)
 AGENT_PAGES_TOKEN="..."                  # Scoped token: read+write the Areas Pages API (no delete)
+BACKUP_TOKEN="..."                       # Lets the scheduled Drive backup fetch /api/backup unattended.
+                                         # CAN PULL THE ENTIRE DATABASE — keep it as closely held as
+                                         # API_SECRET. Separate from the agent/pages tokens so it can be
+                                         # rotated on its own. See apps-script/drive-backup/README.md
 SKIP_AUTH="true"                         # DEV ONLY - bypasses OAuth for local development
 ```
 

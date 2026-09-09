@@ -108,3 +108,24 @@ export async function getHouseholdIdFromAgentKey(request: NextRequest): Promise<
   }
   return firstHouseholdId();
 }
+
+/**
+ * Validate a key for the automated-backup endpoints.
+ *
+ * `BACKUP_TOKEN` exists so the scheduled Drive backup can fetch an archive
+ * without a browser session. Treat it as sensitive: unlike `AGENT_READ_TOKEN`,
+ * which only unlocks a narrow read surface, this one can pull the ENTIRE
+ * database in one request. It's deliberately a separate secret from the agent
+ * and pages tokens so it can be rotated on its own, and so widening it never
+ * widens theirs.
+ *
+ * `API_SECRET` is also accepted so an admin token keeps working.
+ *
+ * @returns householdId if authenticated, null otherwise
+ */
+export async function getHouseholdIdFromBackupToken(request: NextRequest): Promise<string | null> {
+  const token = bearerToken(request);
+  if (!token) return null;
+  if (!matchesAny(token, [process.env.BACKUP_TOKEN, process.env.API_SECRET])) return null;
+  return firstHouseholdId();
+}
