@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import JSZip from 'jszip';
+import { pathInArchive } from '@/lib/api/backup-layout';
 import {
   HouseholdRole,
   PensionAccountType,
@@ -78,6 +79,7 @@ export async function POST(request: NextRequest) {
       '2.7',
       '2.8',
       '2.9',
+      '3.0',
     ];
     if (!supportedVersions.includes(metadata.schemaVersion)) {
       return NextResponse.json(
@@ -86,9 +88,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse all JSON files from the backup
+    // Parse a table's JSON out of the archive.
+    //
+    // Looks in the folder the current layout puts it in, then falls back to the
+    // bare filename at the archive root — archives taken before the files were
+    // grouped into folders are still restorable, and every call site stays
+    // unchanged because they all pass just the filename.
     const parseFile = async <T>(filename: string): Promise<T[]> => {
-      const file = zip.file(filename);
+      const file = zip.file(pathInArchive(filename)) ?? zip.file(filename);
       if (!file) return [];
       const content = await file.async('string');
       return JSON.parse(content) as T[];

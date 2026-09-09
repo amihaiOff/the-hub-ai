@@ -4,6 +4,7 @@
  */
 
 import JSZip from 'jszip';
+import { pathInArchive } from '@/lib/api/backup-layout';
 
 // Simple Decimal mock that mimics Prisma Decimal behavior
 const createDecimal = (value: number) => ({
@@ -377,68 +378,68 @@ describe('Backup API', () => {
       const zip = await JSZip.loadAsync(arrayBuffer);
 
       // Check all expected files exist
-      expect(zip.file('metadata.json')).not.toBeNull();
-      expect(zip.file('users.json')).not.toBeNull();
-      expect(zip.file('profiles.json')).not.toBeNull();
-      expect(zip.file('households.json')).not.toBeNull();
-      expect(zip.file('household_members.json')).not.toBeNull();
-      expect(zip.file('pension_accounts.json')).not.toBeNull();
-      expect(zip.file('pension_account_owners.json')).not.toBeNull();
-      expect(zip.file('pension_deposits.json')).not.toBeNull();
-      expect(zip.file('misc_assets.json')).not.toBeNull();
-      expect(zip.file('misc_asset_owners.json')).not.toBeNull();
-      expect(zip.file('mortgage_tracks.json')).not.toBeNull();
-      expect(zip.file('net_worth_snapshots.json')).not.toBeNull();
-      expect(zip.file('budget_category_groups.json')).not.toBeNull();
-      expect(zip.file('budget_categories.json')).not.toBeNull();
-      expect(zip.file('budget_payees.json')).not.toBeNull();
-      expect(zip.file('budget_tags.json')).not.toBeNull();
-      expect(zip.file('budget_transactions.json')).not.toBeNull();
-      expect(zip.file('budget_transaction_tags.json')).not.toBeNull();
-      expect(zip.file('cc_generic_payee_names.json')).not.toBeNull();
-      expect(zip.file('budget_account_names.json')).not.toBeNull();
-      expect(zip.file('partner_contacts.json')).not.toBeNull();
-      expect(zip.file('moneytor_drop_logs.json')).not.toBeNull();
-      expect(zip.file('moneytor_real_estate.json')).not.toBeNull();
-      expect(zip.file('moneytor_real_estate_snapshots.json')).not.toBeNull();
-      expect(zip.file('moneytor_sync_logs.json')).not.toBeNull();
-      expect(zip.file('tasks.json')).not.toBeNull();
-      expect(zip.file('task_categories.json')).not.toBeNull();
-      expect(zip.file('task_tags.json')).not.toBeNull();
-      expect(zip.file('task_shares.json')).not.toBeNull();
-      expect(zip.file('riseup_categories.json')).not.toBeNull();
-      expect(zip.file('payee_category_rules.json')).not.toBeNull();
-      expect(zip.file('insurance_policies.json')).not.toBeNull();
-      expect(zip.file('shopping_categories.json')).not.toBeNull();
-      expect(zip.file('shopping_items.json')).not.toBeNull();
-      expect(zip.file('shopping_cart_items.json')).not.toBeNull();
-      expect(zip.file('shopping_deliveries.json')).not.toBeNull();
-      expect(zip.file('moneytor_stock_holdings.json')).not.toBeNull();
-      expect(zip.file('moneytor_stock_snapshots.json')).not.toBeNull();
-      expect(zip.file('moneytor_accounts.json')).not.toBeNull();
-      expect(zip.file('moneytor_account_snapshots.json')).not.toBeNull();
-      expect(zip.file('pages.json')).not.toBeNull();
-      expect(zip.file('page_tabs.json')).not.toBeNull();
-      expect(zip.file('wiki_concepts.json')).not.toBeNull();
-      expect(zip.file('wiki_concept_projects.json')).not.toBeNull();
-      expect(zip.file('wiki_questions.json')).not.toBeNull();
-      expect(zip.file('wiki_question_attempts.json')).not.toBeNull();
+      expect(zip.file(pathInArchive('metadata.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('users.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('profiles.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('households.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('household_members.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('pension_accounts.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('pension_account_owners.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('pension_deposits.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('misc_assets.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('misc_asset_owners.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('mortgage_tracks.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('net_worth_snapshots.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('budget_category_groups.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('budget_categories.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('budget_payees.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('budget_tags.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('budget_transactions.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('budget_transaction_tags.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('cc_generic_payee_names.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('budget_account_names.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('partner_contacts.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('moneytor_drop_logs.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('moneytor_real_estate.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('moneytor_real_estate_snapshots.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('moneytor_sync_logs.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('tasks.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('task_categories.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('task_tags.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('task_shares.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('riseup_categories.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('payee_category_rules.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('insurance_policies.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('shopping_categories.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('shopping_items.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('shopping_cart_items.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('shopping_deliveries.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('moneytor_stock_holdings.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('moneytor_stock_snapshots.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('moneytor_accounts.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('moneytor_account_snapshots.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('pages.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('page_tabs.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('wiki_concepts.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('wiki_concept_projects.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('wiki_questions.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('wiki_question_attempts.json'))).not.toBeNull();
       // Legacy stock-portfolio tables are re-included from 2.6 onward so
       // users still holding rows there get a round-trip; stock_price_history
       // remains excluded (regenerable price cache).
-      expect(zip.file('stock_accounts.json')).not.toBeNull();
-      expect(zip.file('stock_holdings.json')).not.toBeNull();
-      expect(zip.file('stock_account_cash.json')).not.toBeNull();
-      expect(zip.file('stock_account_owners.json')).not.toBeNull();
-      expect(zip.file('household_invites.json')).not.toBeNull();
-      expect(zip.file('market_rates.json')).not.toBeNull();
-      expect(zip.file('moneytor_transactions.json')).not.toBeNull();
-      expect(zip.file('stock_price_history.json')).toBeNull();
+      expect(zip.file(pathInArchive('stock_accounts.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('stock_holdings.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('stock_account_cash.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('stock_account_owners.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('household_invites.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('market_rates.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('moneytor_transactions.json'))).not.toBeNull();
+      expect(zip.file(pathInArchive('stock_price_history.json'))).toBeNull();
 
       // Verify metadata content
-      const metadataContent = await zip.file('metadata.json')!.async('string');
+      const metadataContent = await zip.file(pathInArchive('metadata.json'))!.async('string');
       const metadata = JSON.parse(metadataContent);
-      expect(metadata.schemaVersion).toBe('2.9');
+      expect(metadata.schemaVersion).toBe('3.0');
       expect(metadata.createdBy).toBe('test@example.com');
       expect(metadata.counts).toEqual({
         users: 1,
@@ -501,13 +502,13 @@ describe('Backup API', () => {
       });
 
       // Verify data files contain correct data
-      const usersContent = await zip.file('users.json')!.async('string');
+      const usersContent = await zip.file(pathInArchive('users.json'))!.async('string');
       const users = JSON.parse(usersContent);
       expect(users).toHaveLength(1);
       expect(users[0].email).toBe('test@example.com');
 
       // Moneytor tables are present (empty here but file exists)
-      const moneytorAccountsContent = await zip.file('moneytor_accounts.json')!.async('string');
+      const moneytorAccountsContent = await zip.file(pathInArchive('moneytor_accounts.json'))!.async('string');
       expect(JSON.parse(moneytorAccountsContent)).toEqual([]);
     });
 
@@ -582,7 +583,7 @@ describe('Backup API', () => {
       const arrayBuffer = await blob.arrayBuffer();
       const zip = await JSZip.loadAsync(arrayBuffer);
 
-      const metadataContent = await zip.file('metadata.json')!.async('string');
+      const metadataContent = await zip.file(pathInArchive('metadata.json'))!.async('string');
       const metadata = JSON.parse(metadataContent);
 
       expect(metadata.counts.users).toBe(0);
@@ -693,7 +694,7 @@ describe('Backup API', () => {
       const arrayBuffer = await blob.arrayBuffer();
       const zip = await JSZip.loadAsync(arrayBuffer);
 
-      const holdingsContent = await zip.file('moneytor_stock_holdings.json')!.async('string');
+      const holdingsContent = await zip.file(pathInArchive('moneytor_stock_holdings.json'))!.async('string');
       const holdings = JSON.parse(holdingsContent);
 
       // Verify Decimal values are converted to strings (for precision)

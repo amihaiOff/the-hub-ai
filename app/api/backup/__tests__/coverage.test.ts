@@ -12,6 +12,7 @@
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { knownBackupFiles, pathInArchive } from '@/lib/api/backup-layout';
 
 const REPO_ROOT = join(__dirname, '../../../..');
 const SCHEMA_PATH = join(REPO_ROOT, 'prisma/schema.prisma');
@@ -85,6 +86,34 @@ describe('backup + restore coverage', () => {
           `add it to INTENTIONALLY_EXCLUDED in this test with a reason.`
       );
     }
+  });
+
+  it('every file the backup writes is filed into a folder', () => {
+    // The archive is grouped into folders mirroring the app's sections. A new
+    // table wired into backup without a folder would still be captured, but it
+    // would sit loose at the archive root, which is the mess this replaced.
+    const written = [...backup.matchAll(/pathInArchive\('([a-z_0-9]+\.json)'\)/g)].map(
+      (m) => m[1]
+    );
+    expect(written.length).toBeGreaterThan(50);
+
+    const unfiled = written.filter((f) => f !== 'metadata.json' && !pathInArchive(f).includes('/'));
+    if (unfiled.length > 0) {
+      throw new Error(
+        `Backup file(s) have no folder and would land at the archive root:\n  ${unfiled.join('\n  ')}\n\n` +
+          `Fix: add each one to FOLDER_BY_FILE in lib/api/backup-layout.ts.`
+      );
+    }
+  });
+
+  it('the folder map has no entries the backup never writes', () => {
+    // A stale mapping is harmless at runtime but misleads the next reader about
+    // what an archive contains.
+    const written = new Set(
+      [...backup.matchAll(/pathInArchive\('([a-z_0-9]+\.json)'\)/g)].map((m) => m[1])
+    );
+    const orphans = knownBackupFiles().filter((f) => !written.has(f));
+    expect(orphans).toEqual([]);
   });
 
   it('every backed-up user-data model has matching restore code', () => {

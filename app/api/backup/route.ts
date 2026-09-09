@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import JSZip from 'jszip';
+import { pathInArchive } from '@/lib/api/backup-layout';
 
 // Extend timeout for backup operations with large datasets
 export const maxDuration = 60;
@@ -146,7 +147,7 @@ export async function GET() {
     // Create backup metadata
     const metadata = {
       backupDate: new Date().toISOString(),
-      schemaVersion: '2.9',
+      schemaVersion: '3.0',
       createdBy: user.email,
       counts: {
         users: users.length,
@@ -213,97 +214,87 @@ export async function GET() {
     const zip = new JSZip();
 
     // Add metadata
-    zip.file('metadata.json', JSON.stringify(metadata, null, 2));
+    zip.file(pathInArchive('metadata.json'), JSON.stringify(metadata, null, 2));
 
     // Add each table as a separate JSON file
     // Convert Decimal and Date fields to serializable format
-    zip.file('users.json', JSON.stringify(users, jsonSerializer, 2));
-    zip.file('profiles.json', JSON.stringify(profiles, jsonSerializer, 2));
-    zip.file('households.json', JSON.stringify(households, jsonSerializer, 2));
-    zip.file('household_members.json', JSON.stringify(householdMembers, jsonSerializer, 2));
-    zip.file('pension_accounts.json', JSON.stringify(pensionAccounts, jsonSerializer, 2));
-    zip.file(
-      'pension_account_owners.json',
+    zip.file(pathInArchive('users.json'), JSON.stringify(users, jsonSerializer, 2));
+    zip.file(pathInArchive('profiles.json'), JSON.stringify(profiles, jsonSerializer, 2));
+    zip.file(pathInArchive('households.json'), JSON.stringify(households, jsonSerializer, 2));
+    zip.file(pathInArchive('household_members.json'), JSON.stringify(householdMembers, jsonSerializer, 2));
+    zip.file(pathInArchive('pension_accounts.json'), JSON.stringify(pensionAccounts, jsonSerializer, 2));
+    zip.file(pathInArchive('pension_account_owners.json'),
       JSON.stringify(pensionAccountOwners, jsonSerializer, 2)
     );
-    zip.file('pension_deposits.json', JSON.stringify(pensionDeposits, jsonSerializer, 2));
-    zip.file('misc_assets.json', JSON.stringify(miscAssets, jsonSerializer, 2));
-    zip.file('misc_asset_owners.json', JSON.stringify(miscAssetOwners, jsonSerializer, 2));
-    zip.file('mortgage_tracks.json', JSON.stringify(mortgageTracks, jsonSerializer, 2));
-    zip.file('net_worth_snapshots.json', JSON.stringify(netWorthSnapshots, jsonSerializer, 2));
-    zip.file(
-      'budget_category_groups.json',
+    zip.file(pathInArchive('pension_deposits.json'), JSON.stringify(pensionDeposits, jsonSerializer, 2));
+    zip.file(pathInArchive('misc_assets.json'), JSON.stringify(miscAssets, jsonSerializer, 2));
+    zip.file(pathInArchive('misc_asset_owners.json'), JSON.stringify(miscAssetOwners, jsonSerializer, 2));
+    zip.file(pathInArchive('mortgage_tracks.json'), JSON.stringify(mortgageTracks, jsonSerializer, 2));
+    zip.file(pathInArchive('net_worth_snapshots.json'), JSON.stringify(netWorthSnapshots, jsonSerializer, 2));
+    zip.file(pathInArchive('budget_category_groups.json'),
       JSON.stringify(budgetCategoryGroups, jsonSerializer, 2)
     );
-    zip.file('budget_categories.json', JSON.stringify(budgetCategories, jsonSerializer, 2));
-    zip.file('budget_payees.json', JSON.stringify(budgetPayees, jsonSerializer, 2));
-    zip.file('budget_tags.json', JSON.stringify(budgetTags, jsonSerializer, 2));
-    zip.file('budget_transactions.json', JSON.stringify(budgetTransactions, jsonSerializer, 2));
-    zip.file(
-      'budget_transaction_tags.json',
+    zip.file(pathInArchive('budget_categories.json'), JSON.stringify(budgetCategories, jsonSerializer, 2));
+    zip.file(pathInArchive('budget_payees.json'), JSON.stringify(budgetPayees, jsonSerializer, 2));
+    zip.file(pathInArchive('budget_tags.json'), JSON.stringify(budgetTags, jsonSerializer, 2));
+    zip.file(pathInArchive('budget_transactions.json'), JSON.stringify(budgetTransactions, jsonSerializer, 2));
+    zip.file(pathInArchive('budget_transaction_tags.json'),
       JSON.stringify(budgetTransactionTags, jsonSerializer, 2)
     );
-    zip.file('cc_generic_payee_names.json', JSON.stringify(ccGenericPayeeNames, jsonSerializer, 2));
-    zip.file('budget_account_names.json', JSON.stringify(budgetAccountNames, jsonSerializer, 2));
-    zip.file('partner_contacts.json', JSON.stringify(partnerContacts, jsonSerializer, 2));
-    zip.file('moneytor_drop_logs.json', JSON.stringify(moneytorDropLogs, jsonSerializer, 2));
-    zip.file('moneytor_real_estate.json', JSON.stringify(moneytorRealEstate, jsonSerializer, 2));
-    zip.file(
-      'moneytor_real_estate_snapshots.json',
+    zip.file(pathInArchive('cc_generic_payee_names.json'), JSON.stringify(ccGenericPayeeNames, jsonSerializer, 2));
+    zip.file(pathInArchive('budget_account_names.json'), JSON.stringify(budgetAccountNames, jsonSerializer, 2));
+    zip.file(pathInArchive('partner_contacts.json'), JSON.stringify(partnerContacts, jsonSerializer, 2));
+    zip.file(pathInArchive('moneytor_drop_logs.json'), JSON.stringify(moneytorDropLogs, jsonSerializer, 2));
+    zip.file(pathInArchive('moneytor_real_estate.json'), JSON.stringify(moneytorRealEstate, jsonSerializer, 2));
+    zip.file(pathInArchive('moneytor_real_estate_snapshots.json'),
       JSON.stringify(moneytorRealEstateSnapshots, jsonSerializer, 2)
     );
-    zip.file('moneytor_sync_logs.json', JSON.stringify(moneytorSyncLogs, jsonSerializer, 2));
-    zip.file('tasks.json', JSON.stringify(tasks, jsonSerializer, 2));
-    zip.file('task_categories.json', JSON.stringify(taskCategories, jsonSerializer, 2));
-    zip.file('task_tags.json', JSON.stringify(taskTags, jsonSerializer, 2));
-    zip.file('task_shares.json', JSON.stringify(taskShares, jsonSerializer, 2));
-    zip.file('riseup_categories.json', JSON.stringify(riseupCategories, jsonSerializer, 2));
-    zip.file('payee_category_rules.json', JSON.stringify(payeeCategoryRules, jsonSerializer, 2));
-    zip.file('insurance_policies.json', JSON.stringify(insurancePolicies, jsonSerializer, 2));
-    zip.file('shopping_categories.json', JSON.stringify(shoppingCategories, jsonSerializer, 2));
-    zip.file('shopping_items.json', JSON.stringify(shoppingItems, jsonSerializer, 2));
-    zip.file('shopping_cart_items.json', JSON.stringify(shoppingCartItems, jsonSerializer, 2));
-    zip.file('shopping_deliveries.json', JSON.stringify(shoppingDeliveries, jsonSerializer, 2));
-    zip.file(
-      'moneytor_stock_holdings.json',
+    zip.file(pathInArchive('moneytor_sync_logs.json'), JSON.stringify(moneytorSyncLogs, jsonSerializer, 2));
+    zip.file(pathInArchive('tasks.json'), JSON.stringify(tasks, jsonSerializer, 2));
+    zip.file(pathInArchive('task_categories.json'), JSON.stringify(taskCategories, jsonSerializer, 2));
+    zip.file(pathInArchive('task_tags.json'), JSON.stringify(taskTags, jsonSerializer, 2));
+    zip.file(pathInArchive('task_shares.json'), JSON.stringify(taskShares, jsonSerializer, 2));
+    zip.file(pathInArchive('riseup_categories.json'), JSON.stringify(riseupCategories, jsonSerializer, 2));
+    zip.file(pathInArchive('payee_category_rules.json'), JSON.stringify(payeeCategoryRules, jsonSerializer, 2));
+    zip.file(pathInArchive('insurance_policies.json'), JSON.stringify(insurancePolicies, jsonSerializer, 2));
+    zip.file(pathInArchive('shopping_categories.json'), JSON.stringify(shoppingCategories, jsonSerializer, 2));
+    zip.file(pathInArchive('shopping_items.json'), JSON.stringify(shoppingItems, jsonSerializer, 2));
+    zip.file(pathInArchive('shopping_cart_items.json'), JSON.stringify(shoppingCartItems, jsonSerializer, 2));
+    zip.file(pathInArchive('shopping_deliveries.json'), JSON.stringify(shoppingDeliveries, jsonSerializer, 2));
+    zip.file(pathInArchive('moneytor_stock_holdings.json'),
       JSON.stringify(moneytorStockHoldings, jsonSerializer, 2)
     );
-    zip.file(
-      'moneytor_stock_snapshots.json',
+    zip.file(pathInArchive('moneytor_stock_snapshots.json'),
       JSON.stringify(moneytorStockSnapshots, jsonSerializer, 2)
     );
-    zip.file('moneytor_accounts.json', JSON.stringify(moneytorAccounts, jsonSerializer, 2));
-    zip.file(
-      'moneytor_account_snapshots.json',
+    zip.file(pathInArchive('moneytor_accounts.json'), JSON.stringify(moneytorAccounts, jsonSerializer, 2));
+    zip.file(pathInArchive('moneytor_account_snapshots.json'),
       JSON.stringify(moneytorAccountSnapshots, jsonSerializer, 2)
     );
-    zip.file(
-      'moneytor_pension_funds.json',
+    zip.file(pathInArchive('moneytor_pension_funds.json'),
       JSON.stringify(moneytorPensionFunds, jsonSerializer, 2)
     );
-    zip.file(
-      'moneytor_pension_snapshots.json',
+    zip.file(pathInArchive('moneytor_pension_snapshots.json'),
       JSON.stringify(moneytorPensionSnapshots, jsonSerializer, 2)
     );
-    zip.file('general_logs.json', JSON.stringify(generalLogs, jsonSerializer, 2));
-    zip.file('pages.json', JSON.stringify(pages, jsonSerializer, 2));
-    zip.file('page_tabs.json', JSON.stringify(pageTabs, jsonSerializer, 2));
-    zip.file('page_sections.json', JSON.stringify(pageSections, jsonSerializer, 2));
-    zip.file('favorites.json', JSON.stringify(favorites, jsonSerializer, 2));
-    zip.file('wiki_concepts.json', JSON.stringify(wikiConcepts, jsonSerializer, 2));
-    zip.file('wiki_concept_projects.json', JSON.stringify(wikiConceptProjects, jsonSerializer, 2));
-    zip.file('wiki_questions.json', JSON.stringify(wikiQuestions, jsonSerializer, 2));
-    zip.file(
-      'wiki_question_attempts.json',
+    zip.file(pathInArchive('general_logs.json'), JSON.stringify(generalLogs, jsonSerializer, 2));
+    zip.file(pathInArchive('pages.json'), JSON.stringify(pages, jsonSerializer, 2));
+    zip.file(pathInArchive('page_tabs.json'), JSON.stringify(pageTabs, jsonSerializer, 2));
+    zip.file(pathInArchive('page_sections.json'), JSON.stringify(pageSections, jsonSerializer, 2));
+    zip.file(pathInArchive('favorites.json'), JSON.stringify(favorites, jsonSerializer, 2));
+    zip.file(pathInArchive('wiki_concepts.json'), JSON.stringify(wikiConcepts, jsonSerializer, 2));
+    zip.file(pathInArchive('wiki_concept_projects.json'), JSON.stringify(wikiConceptProjects, jsonSerializer, 2));
+    zip.file(pathInArchive('wiki_questions.json'), JSON.stringify(wikiQuestions, jsonSerializer, 2));
+    zip.file(pathInArchive('wiki_question_attempts.json'),
       JSON.stringify(wikiQuestionAttempts, jsonSerializer, 2)
     );
-    zip.file('stock_accounts.json', JSON.stringify(stockAccounts, jsonSerializer, 2));
-    zip.file('stock_account_owners.json', JSON.stringify(stockAccountOwners, jsonSerializer, 2));
-    zip.file('stock_holdings.json', JSON.stringify(stockHoldings, jsonSerializer, 2));
-    zip.file('stock_account_cash.json', JSON.stringify(stockAccountCash, jsonSerializer, 2));
-    zip.file('household_invites.json', JSON.stringify(householdInvites, jsonSerializer, 2));
-    zip.file('market_rates.json', JSON.stringify(marketRates, jsonSerializer, 2));
-    zip.file('moneytor_transactions.json', JSON.stringify(moneytorTransactions, jsonSerializer, 2));
+    zip.file(pathInArchive('stock_accounts.json'), JSON.stringify(stockAccounts, jsonSerializer, 2));
+    zip.file(pathInArchive('stock_account_owners.json'), JSON.stringify(stockAccountOwners, jsonSerializer, 2));
+    zip.file(pathInArchive('stock_holdings.json'), JSON.stringify(stockHoldings, jsonSerializer, 2));
+    zip.file(pathInArchive('stock_account_cash.json'), JSON.stringify(stockAccountCash, jsonSerializer, 2));
+    zip.file(pathInArchive('household_invites.json'), JSON.stringify(householdInvites, jsonSerializer, 2));
+    zip.file(pathInArchive('market_rates.json'), JSON.stringify(marketRates, jsonSerializer, 2));
+    zip.file(pathInArchive('moneytor_transactions.json'), JSON.stringify(moneytorTransactions, jsonSerializer, 2));
 
     // Generate ZIP as Blob
     const zipBlob = await zip.generateAsync({ type: 'blob' });
