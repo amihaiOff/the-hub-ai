@@ -198,7 +198,7 @@ export function DbToolbar(props: DbToolbarProps) {
           <PopoverContent
             align="end"
             sideOffset={6}
-            className="max-h-[min(70vh,520px)] w-[min(20rem,calc(100vw-1.5rem))] overflow-y-auto p-1"
+            className="themed-scroll max-h-[min(70vh,520px)] w-[min(20rem,calc(100vw-1.5rem))] overflow-y-auto p-1"
           >
             <DbToolsPanel
               view={view}
@@ -569,7 +569,7 @@ function DbFieldPicker({
         side="bottom"
         align="start"
         sideOffset={4}
-        className="max-h-[min(50vh,320px)] w-[var(--radix-popover-trigger-width)] overflow-y-auto p-1"
+        className="themed-scroll max-h-[min(50vh,320px)] w-[var(--radix-popover-trigger-width)] overflow-y-auto p-1"
       >
         {options.map((opt) => (
           <button
