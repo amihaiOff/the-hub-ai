@@ -1,7 +1,12 @@
 const mockGetCurrentContext = jest.fn();
+const mockResolveTasksAccess = jest.fn();
 
 jest.mock('@/lib/auth-utils', () => ({
   getCurrentContext: () => mockGetCurrentContext(),
+}));
+
+jest.mock('@/lib/auth-tasks', () => ({
+  resolveTasksAccess: () => mockResolveTasksAccess(),
 }));
 
 const mockPrisma = {
@@ -21,6 +26,11 @@ import { GET, POST } from '../route';
 import { PATCH, DELETE } from '../[id]/route';
 
 const ctx = { activeHousehold: { id: 'hh-1' } };
+const access = { householdId: 'hh-1', userId: 'u-1' };
+
+function getReq(): NextRequest {
+  return new NextRequest('http://localhost/api/task-categories');
+}
 
 function jsonReq(body: unknown, method = 'POST'): NextRequest {
   return new NextRequest('http://localhost/api/task-categories', {
@@ -38,18 +48,18 @@ beforeEach(() => {
 
 describe('GET /api/task-categories', () => {
   it('401 when unauthenticated', async () => {
-    mockGetCurrentContext.mockResolvedValue(null);
-    const res = await GET();
+    mockResolveTasksAccess.mockResolvedValue(null);
+    const res = await GET(getReq());
     expect(res.status).toBe(401);
   });
 
   it('returns categories for the active household', async () => {
-    mockGetCurrentContext.mockResolvedValue(ctx);
+    mockResolveTasksAccess.mockResolvedValue(access);
     mockPrisma.taskCategory.findMany.mockResolvedValue([
       { id: 'c1', name: 'Work' },
       { id: 'c2', name: 'Home' },
     ]);
-    const res = await GET();
+    const res = await GET(getReq());
     const json = await res.json();
     expect(json.data).toHaveLength(2);
     expect(mockPrisma.taskCategory.findMany).toHaveBeenCalledWith(
@@ -164,5 +174,36 @@ describe('DELETE /api/task-categories/[id]', () => {
     const res = await DELETE(jsonReq({}, 'DELETE'), params('c1'));
     expect(res.status).toBe(500);
     spy.mockRestore();
+  });
+});
+
+/**
+ * Only the list GET is token-reachable. Every category mutation stays
+ * session-only, so each one is pinned by making `resolveTasksAccess` succeed
+ * (as it would for a valid AGENT_TASKS_TOKEN) while there is no session: the
+ * handler must still 401 and touch nothing.
+ */
+describe('category mutations stay session-only (token cannot mutate)', () => {
+  beforeEach(() => {
+    mockResolveTasksAccess.mockResolvedValue(access);
+    mockGetCurrentContext.mockResolvedValue(null);
+  });
+
+  it('POST 401s for a token-only caller', async () => {
+    const res = await POST(jsonReq({ name: 'Agent invented this' }));
+    expect(res.status).toBe(401);
+    expect(mockPrisma.taskCategory.create).not.toHaveBeenCalled();
+  });
+
+  it('PATCH 401s for a token-only caller', async () => {
+    const res = await PATCH(jsonReq({ name: 'Renamed' }, 'PATCH'), params('c1'));
+    expect(res.status).toBe(401);
+    expect(mockPrisma.taskCategory.update).not.toHaveBeenCalled();
+  });
+
+  it('DELETE 401s for a token-only caller', async () => {
+    const res = await DELETE(jsonReq({}, 'DELETE'), params('c1'));
+    expect(res.status).toBe(401);
+    expect(mockPrisma.taskCategory.delete).not.toHaveBeenCalled();
   });
 });

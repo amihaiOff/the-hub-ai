@@ -16,6 +16,7 @@ import {
   getHouseholdIdFromApiKey,
   getHouseholdIdFromAgentKey,
   getPagesHouseholdIdFromToken,
+  getTasksHouseholdIdFromToken,
   getHouseholdIdFromBackupToken,
   resolveHouseholdOwnerUserId,
 } from '@/lib/auth-api-key';
@@ -208,6 +209,77 @@ describe('resolveHouseholdOwnerUserId', () => {
   it('returns null when the household has no login owner', async () => {
     (mockPrisma.householdMember.findFirst as jest.Mock).mockResolvedValueOnce(null);
     const result = await resolveHouseholdOwnerUserId('hh-1');
+    expect(result).toBeNull();
+  });
+});
+
+describe('getTasksHouseholdIdFromToken', () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    jest.resetAllMocks();
+    process.env = { ...originalEnv };
+    delete process.env.API_SECRET;
+    delete process.env.UPLOAD_SCRIPT_API_KEY;
+    delete process.env.AGENT_READ_TOKEN;
+    delete process.env.AGENT_PAGES_TOKEN;
+    delete process.env.AGENT_TASKS_TOKEN;
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  it('accepts the dedicated tasks token', async () => {
+    process.env.AGENT_TASKS_TOKEN = 'tasks-token';
+    (mockPrisma.household.findFirst as jest.Mock).mockResolvedValueOnce({ id: 'hh-1' });
+    const result = await getTasksHouseholdIdFromToken(makeRequest('Bearer tasks-token'));
+    expect(result).toBe('hh-1');
+  });
+
+  it('also accepts the full-access API secret', async () => {
+    process.env.API_SECRET = 'admin-secret';
+    (mockPrisma.household.findFirst as jest.Mock).mockResolvedValueOnce({ id: 'hh-1' });
+    const result = await getTasksHouseholdIdFromToken(makeRequest('Bearer admin-secret'));
+    expect(result).toBe('hh-1');
+  });
+
+  // Token isolation: each agent token unlocks exactly one surface, so handing
+  // out the pages token must never also grant task writes (or vice versa).
+  it('rejects the pages token', async () => {
+    process.env.AGENT_PAGES_TOKEN = 'pages-token';
+    const result = await getTasksHouseholdIdFromToken(makeRequest('Bearer pages-token'));
+    expect(result).toBeNull();
+  });
+
+  it('rejects the read-only agent token', async () => {
+    process.env.AGENT_READ_TOKEN = 'read-token';
+    const result = await getTasksHouseholdIdFromToken(makeRequest('Bearer read-token'));
+    expect(result).toBeNull();
+  });
+
+  it('returns null with no authorization header', async () => {
+    process.env.AGENT_TASKS_TOKEN = 'tasks-token';
+    const result = await getTasksHouseholdIdFromToken(makeRequest());
+    expect(result).toBeNull();
+  });
+
+  it('returns null for a non-Bearer scheme', async () => {
+    process.env.AGENT_TASKS_TOKEN = 'tasks-token';
+    const result = await getTasksHouseholdIdFromToken(makeRequest('Basic dXNlcjpwYXNz'));
+    expect(result).toBeNull();
+  });
+
+  // A wrong-length token must not reach timingSafeEqual (it throws on
+  // mismatched buffer lengths) — matchesAny length-checks first.
+  it('returns null for a token of a different length', async () => {
+    process.env.AGENT_TASKS_TOKEN = 'tasks-token';
+    const result = await getTasksHouseholdIdFromToken(makeRequest('Bearer short'));
+    expect(result).toBeNull();
+  });
+
+  it('returns null when no tasks token is configured at all', async () => {
+    const result = await getTasksHouseholdIdFromToken(makeRequest('Bearer anything'));
     expect(result).toBeNull();
   });
 });

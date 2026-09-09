@@ -1,5 +1,6 @@
 /**
- * Integration tests for /api/task-tags (list + create).
+ * Integration tests for /api/task-tags (list + create) and /api/task-tags/[id]
+ * (token-rejection on the mutations).
  */
 
 import { NextRequest } from 'next/server';
@@ -8,7 +9,10 @@ jest.mock('@/lib/db', () => ({
   prisma: {
     taskTag: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
     },
   },
 }));
@@ -17,11 +21,18 @@ jest.mock('@/lib/auth-utils', () => ({
   getCurrentContext: jest.fn(),
 }));
 
+jest.mock('@/lib/auth-tasks', () => ({
+  resolveTasksAccess: jest.fn(),
+}));
+
 import { prisma } from '@/lib/db';
 import { getCurrentContext } from '@/lib/auth-utils';
+import { resolveTasksAccess } from '@/lib/auth-tasks';
 import { GET, POST } from '../route';
+import { PATCH, DELETE } from '../[id]/route';
 
 const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
+const mockResolveTasksAccess = resolveTasksAccess as jest.MockedFunction<typeof resolveTasksAccess>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 
 const mockContext = {
@@ -31,6 +42,10 @@ const mockContext = {
   activeHousehold: { id: 'hh-1', name: 'Home', description: null, role: 'owner' as const },
   householdProfiles: [],
 };
+
+// The list GET is token-reachable, so it resolves access rather than a session.
+const access = { householdId: 'hh-1', userId: 'user-1' };
+const getRequest = () => new NextRequest('http://localhost/api/task-tags');
 
 const postRequest = (body: Record<string, unknown>) =>
   new NextRequest('http://localhost/api/task-tags', {
@@ -43,19 +58,19 @@ describe('GET /api/task-tags', () => {
   beforeEach(() => jest.resetAllMocks());
 
   it('returns 401 when unauthenticated', async () => {
-    mockGetCurrentContext.mockResolvedValue(null);
-    const res = await GET();
+    mockResolveTasksAccess.mockResolvedValue(null);
+    const res = await GET(getRequest());
     const data = await res.json();
     expect(res.status).toBe(401);
     expect(data.success).toBe(false);
   });
 
   it('returns household-scoped tags ordered by name', async () => {
-    mockGetCurrentContext.mockResolvedValue(mockContext);
+    mockResolveTasksAccess.mockResolvedValue(access);
     const tags = [{ id: 'tag-1', name: 'Urgent', color: '#f00', householdId: 'hh-1' }];
     (mockPrisma.taskTag.findMany as jest.Mock).mockResolvedValue(tags);
 
-    const res = await GET();
+    const res = await GET(getRequest());
     const data = await res.json();
 
     expect(res.status).toBe(200);
@@ -136,5 +151,45 @@ describe('POST /api/task-tags', () => {
 
     expect(res.status).toBe(500);
     expect(data.error).toBe('Failed to create');
+  });
+});
+
+/**
+ * Only the list GET is token-reachable. Tag mutations stay session-only, so
+ * each is pinned by making `resolveTasksAccess` succeed (as it would for a
+ * valid AGENT_TASKS_TOKEN) while there is no session: the handler must still
+ * 401 and write nothing.
+ */
+describe('tag mutations stay session-only (token cannot mutate)', () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+    mockResolveTasksAccess.mockResolvedValue(access);
+    mockGetCurrentContext.mockResolvedValue(null);
+  });
+
+  const idParams = { params: Promise.resolve({ id: 'tag-1' }) };
+
+  it('POST 401s for a token-only caller', async () => {
+    const res = await POST(postRequest({ name: 'Agent invented this' }));
+    expect(res.status).toBe(401);
+    expect(mockPrisma.taskTag.create).not.toHaveBeenCalled();
+  });
+
+  it('PATCH 401s for a token-only caller', async () => {
+    const res = await PATCH(
+      new NextRequest('http://localhost/api/task-tags/tag-1', {
+        method: 'PATCH',
+        body: JSON.stringify({ name: 'Renamed' }),
+      }),
+      idParams
+    );
+    expect(res.status).toBe(401);
+    expect(mockPrisma.taskTag.update).not.toHaveBeenCalled();
+  });
+
+  it('DELETE 401s for a token-only caller', async () => {
+    const res = await DELETE(new NextRequest('http://localhost/api/task-tags/tag-1'), idParams);
+    expect(res.status).toBe(401);
+    expect(mockPrisma.taskTag.delete).not.toHaveBeenCalled();
   });
 });

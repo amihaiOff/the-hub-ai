@@ -514,7 +514,9 @@ describe('Backup API', () => {
       expect(users[0].email).toBe('test@example.com');
 
       // Moneytor tables are present (empty here but file exists)
-      const moneytorAccountsContent = await zip.file(pathInArchive('moneytor_accounts.json'))!.async('string');
+      const moneytorAccountsContent = await zip
+        .file(pathInArchive('moneytor_accounts.json'))!
+        .async('string');
       expect(JSON.parse(moneytorAccountsContent)).toEqual([]);
     });
 
@@ -700,7 +702,9 @@ describe('Backup API', () => {
       const arrayBuffer = await blob.arrayBuffer();
       const zip = await JSZip.loadAsync(arrayBuffer);
 
-      const holdingsContent = await zip.file(pathInArchive('moneytor_stock_holdings.json'))!.async('string');
+      const holdingsContent = await zip
+        .file(pathInArchive('moneytor_stock_holdings.json'))!
+        .async('string');
       const holdings = JSON.parse(holdingsContent);
 
       // Verify Decimal values are converted to strings (for precision)

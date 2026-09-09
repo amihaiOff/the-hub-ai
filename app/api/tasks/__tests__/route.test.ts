@@ -13,39 +13,45 @@ jest.mock('@/lib/db', () => ({
       count: jest.fn(),
       create: jest.fn(),
     },
+    taskCategory: { count: jest.fn() },
+    taskTag: { count: jest.fn() },
+    profile: { count: jest.fn() },
   },
 }));
 
-jest.mock('@/lib/auth-utils', () => ({
-  getCurrentContext: jest.fn(),
+// These routes resolve either a session or a scoped agent token, and can't tell
+// the two apart — so the tests mock the resolver, not the session.
+jest.mock('@/lib/auth-tasks', () => ({
+  resolveTasksAccess: jest.fn(),
 }));
 
 import { prisma } from '@/lib/db';
-import { getCurrentContext } from '@/lib/auth-utils';
+import { resolveTasksAccess } from '@/lib/auth-tasks';
 import { GET, POST } from '../route';
 
-const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
+const mockResolveTasksAccess = resolveTasksAccess as jest.MockedFunction<typeof resolveTasksAccess>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 
-const mockContext = {
-  user: { id: 'user-1', email: 't@x.com', name: 'Me' },
-  profile: { id: 'profile-1', name: 'Me', image: null, color: '#3b82f6', userId: 'user-1' },
-  households: [{ id: 'hh-1', name: 'Home', description: null, role: 'owner' as const }],
-  activeHousehold: { id: 'hh-1', name: 'Home', description: null, role: 'owner' as const },
-  householdProfiles: [],
-};
+const access = { householdId: 'hh-1', userId: 'user-1' };
+
+/** All referenced relations exist in this household. */
+function allRelationsValid() {
+  (mockPrisma.taskCategory.count as jest.Mock).mockResolvedValue(1);
+  (mockPrisma.profile.count as jest.Mock).mockResolvedValue(1);
+  (mockPrisma.taskTag.count as jest.Mock).mockResolvedValue(1);
+}
 
 describe('GET /api/tasks', () => {
   beforeEach(() => jest.resetAllMocks());
 
   it('returns 401 when unauthenticated', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(null);
+    mockResolveTasksAccess.mockResolvedValueOnce(null);
     const res = await GET(new NextRequest('http://localhost/api/tasks'));
     expect(res.status).toBe(401);
   });
 
   it('scopes the query to the active household and current user', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveTasksAccess.mockResolvedValueOnce(access);
     (mockPrisma.task.findMany as jest.Mock).mockResolvedValueOnce([]);
     await GET(new NextRequest('http://localhost/api/tasks'));
 
@@ -61,7 +67,7 @@ describe('GET /api/tasks', () => {
   });
 
   it('applies status/priority/type/category filters', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveTasksAccess.mockResolvedValueOnce(access);
     (mockPrisma.task.findMany as jest.Mock).mockResolvedValueOnce([]);
     await GET(
       new NextRequest(
@@ -76,13 +82,13 @@ describe('GET /api/tasks', () => {
   });
 
   it('rejects an unknown type filter with 400', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveTasksAccess.mockResolvedValueOnce(access);
     const res = await GET(new NextRequest('http://localhost/api/tasks?type=ERRANDS'));
     expect(res.status).toBe(400);
   });
 
   it('applies assignee/tag/search filters', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveTasksAccess.mockResolvedValueOnce(access);
     (mockPrisma.task.findMany as jest.Mock).mockResolvedValueOnce([]);
     await GET(
       new NextRequest(
@@ -96,7 +102,7 @@ describe('GET /api/tasks', () => {
   });
 
   it('treats parentTaskId=null (literal) as top-level only', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveTasksAccess.mockResolvedValueOnce(access);
     (mockPrisma.task.findMany as jest.Mock).mockResolvedValueOnce([]);
     await GET(new NextRequest('http://localhost/api/tasks?parentTaskId=null'));
     const call = (mockPrisma.task.findMany as jest.Mock).mock.calls[0][0];
@@ -104,7 +110,7 @@ describe('GET /api/tasks', () => {
   });
 
   it('scopes to a specific parent when parentTaskId is a real id', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveTasksAccess.mockResolvedValueOnce(access);
     (mockPrisma.task.findMany as jest.Mock).mockResolvedValueOnce([]);
     await GET(new NextRequest('http://localhost/api/tasks?parentTaskId=clv0parent1234567890123'));
     const call = (mockPrisma.task.findMany as jest.Mock).mock.calls[0][0];
@@ -112,7 +118,7 @@ describe('GET /api/tasks', () => {
   });
 
   it('returns 400 on invalid filter enum', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveTasksAccess.mockResolvedValueOnce(access);
     // Priority is still an enum; an unknown value fails validation.
     const res = await GET(new NextRequest('http://localhost/api/tasks?priority=PARKED'));
     expect(res.status).toBe(400);
@@ -125,7 +131,7 @@ describe('POST /api/tasks', () => {
   beforeEach(() => jest.resetAllMocks());
 
   it('returns 401 when unauthenticated', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(null);
+    mockResolveTasksAccess.mockResolvedValueOnce(null);
     const res = await POST(
       new NextRequest('http://localhost/api/tasks', {
         method: 'POST',
@@ -136,7 +142,8 @@ describe('POST /api/tasks', () => {
   });
 
   it('creates a task with all optional fields set', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveTasksAccess.mockResolvedValueOnce(access);
+    allRelationsValid();
     // Parent lookup for assertParentAllowed: valid top-level task in household.
     (mockPrisma.task.findUnique as jest.Mock).mockResolvedValueOnce({
       id: CUID,
@@ -176,8 +183,57 @@ describe('POST /api/tasks', () => {
     expect(data.customFields).toEqual([{ id: 'f1', name: 'Field', type: 'number', value: 3 }]);
   });
 
+  it('rejects an unknown category with 400 rather than a 500', async () => {
+    mockResolveTasksAccess.mockResolvedValueOnce(access);
+    (mockPrisma.taskCategory.count as jest.Mock).mockResolvedValueOnce(0);
+    const res = await POST(
+      new NextRequest('http://localhost/api/tasks', {
+        method: 'POST',
+        body: JSON.stringify({ title: 'Mislabelled', categoryId: CUID }),
+      })
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/Unknown category/);
+    expect(mockPrisma.task.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects an assignee from outside the household with 400', async () => {
+    mockResolveTasksAccess.mockResolvedValueOnce(access);
+    (mockPrisma.profile.count as jest.Mock).mockResolvedValueOnce(0);
+    const res = await POST(
+      new NextRequest('http://localhost/api/tasks', {
+        method: 'POST',
+        body: JSON.stringify({ title: 'Someone else', assigneeId: CUID }),
+      })
+    );
+    expect(res.status).toBe(400);
+    expect(mockPrisma.task.create).not.toHaveBeenCalled();
+  });
+
+  it('scopes relation lookups to the resolved household, not the request', async () => {
+    // The token path resolves its own household; a caller can't smuggle one in.
+    mockResolveTasksAccess.mockResolvedValueOnce({ householdId: 'hh-token', userId: 'owner-1' });
+    allRelationsValid();
+    (mockPrisma.task.create as jest.Mock).mockResolvedValueOnce({ id: 't1' });
+    const res = await POST(
+      new NextRequest('http://localhost/api/tasks', {
+        method: 'POST',
+        body: JSON.stringify({ title: 'Filed by agent', categoryId: CUID }),
+      })
+    );
+    expect(res.status).toBe(201);
+    expect(mockPrisma.taskCategory.count).toHaveBeenCalledWith({
+      where: { id: CUID, householdId: 'hh-token' },
+    });
+    // And the task is attributed to the household owner the token resolved to.
+    const call = (mockPrisma.task.create as jest.Mock).mock.calls[0][0];
+    expect(call.data.ownerId).toBe('owner-1');
+    expect(call.data.householdId).toBe('hh-token');
+  });
+
   it('returns 500 when the create unexpectedly fails', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveTasksAccess.mockResolvedValueOnce(access);
     (mockPrisma.task.create as jest.Mock).mockRejectedValueOnce(new Error('db down'));
     const errSpy = jest.spyOn(console, 'error').mockImplementation();
     const res = await POST(
@@ -191,7 +247,7 @@ describe('POST /api/tasks', () => {
   });
 
   it('requires a title', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveTasksAccess.mockResolvedValueOnce(access);
     const res = await POST(
       new NextRequest('http://localhost/api/tasks', {
         method: 'POST',
@@ -202,7 +258,7 @@ describe('POST /api/tasks', () => {
   });
 
   it('rejects when parent is a sub-task itself (would nest two deep)', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveTasksAccess.mockResolvedValueOnce(access);
     (mockPrisma.task.findUnique as jest.Mock).mockResolvedValueOnce({
       id: 'parent',
       parentTaskId: 'grand',
@@ -218,7 +274,7 @@ describe('POST /api/tasks', () => {
   });
 
   it('creates a task with owner=current user and household=active', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+    mockResolveTasksAccess.mockResolvedValueOnce(access);
     (mockPrisma.task.create as jest.Mock).mockResolvedValueOnce({
       id: 't1',
       title: 'Do it',

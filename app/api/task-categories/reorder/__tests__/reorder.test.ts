@@ -4,6 +4,13 @@ jest.mock('@/lib/auth-utils', () => ({
   getCurrentContext: () => mockGetCurrentContext(),
 }));
 
+// Reorder is a category mutation, so it must stay session-only: mocked here to
+// prove a resolvable AGENT_TASKS_TOKEN still can't drive it.
+const mockResolveTasksAccess = jest.fn();
+jest.mock('@/lib/auth-tasks', () => ({
+  resolveTasksAccess: () => mockResolveTasksAccess(),
+}));
+
 const mockTx = { taskCategory: { update: jest.fn() } };
 const mockPrisma = {
   taskCategory: { findMany: jest.fn() },
@@ -83,5 +90,15 @@ describe('POST /api/task-categories/reorder', () => {
     const res = await POST(req({ categories: [{ id: 'c1', sortOrder: 0 }] }));
     expect(res.status).toBe(500);
     spy.mockRestore();
+  });
+});
+
+describe('POST /api/task-categories/reorder stays session-only', () => {
+  it('401s when a scoped token resolves access but there is no session', async () => {
+    mockResolveTasksAccess.mockResolvedValue({ householdId: 'hh-1', userId: 'u-1' });
+    mockGetCurrentContext.mockResolvedValue(null);
+    const res = await POST(req({ categories: [{ id: 'c1', sortOrder: 0 }] }));
+    expect(res.status).toBe(401);
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 });

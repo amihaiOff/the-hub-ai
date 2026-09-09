@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { getCurrentContext } from '@/lib/auth-utils';
+import { resolveTasksAccess } from '@/lib/auth-tasks';
 import { prisma } from '@/lib/db';
 import { updateTaskSchema } from '@/lib/validations/tasks';
 import { getFirstZodError } from '@/lib/validations/common';
@@ -8,6 +9,7 @@ import { canView, canEdit, isOwner } from '@/lib/tasks/permissions';
 import {
   assertParentAllowed,
   assertNotConvertingParentToChild,
+  assertRelationsInHousehold,
   TaskValidationError,
 } from '@/lib/tasks/validation';
 
@@ -38,22 +40,30 @@ async function loadTaskInHousehold(id: string, householdId: string) {
   });
 }
 
-export async function GET(_request: NextRequest, { params }: RouteParams) {
-  const context = await getCurrentContext();
-  if (!context) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  const access = await resolveTasksAccess(request);
+  if (!access) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
   const { id } = await params;
-  const task = await loadTaskInHousehold(id, context.activeHousehold.id);
+  const task = await loadTaskInHousehold(id, access.householdId);
   if (!task) {
     return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
   }
-  if (!canView(task, context.user.id)) {
+  if (!canView(task, access.userId)) {
     return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
   }
   return NextResponse.json({ success: true, data: task });
 }
 
+/**
+ * PATCH /api/tasks/[id]
+ * Session-only on purpose, like DELETE below. The scoped agent token's write
+ * surface is deliberately create-only: editing would let a token holder
+ * overwrite the title or notes of any task in the household, which is data
+ * loss without needing a delete verb. Widen this to `resolveTasksAccess` only
+ * if an agent genuinely needs to amend existing tasks.
+ */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const context = await getCurrentContext();
@@ -85,6 +95,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         await assertNotConvertingParentToChild(id);
       }
     }
+    await assertRelationsInHousehold(input, context.activeHousehold.id);
 
     // Build the update payload — only include keys the client sent so we
     // don't clobber other fields with undefined.
@@ -129,6 +140,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 }
 
+/**
+ * DELETE /api/tasks/[id]
+ * Session-only on purpose: `resolveTasksAccess` (and so the scoped agent
+ * token) deliberately does not reach here — destructive verbs stay behind a
+ * real browser session. Don't "tidy" this into the resolver like its GET/PATCH
+ * siblings. Same asymmetry as the Areas Pages routes.
+ */
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   try {
     const context = await getCurrentContext();

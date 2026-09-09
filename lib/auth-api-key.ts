@@ -71,6 +71,37 @@ export async function getPagesHouseholdIdFromToken(request: NextRequest): Promis
 }
 
 /**
+ * Validate a key scoped to the Tasks API and resolve the household.
+ *
+ * Accepts a dedicated `AGENT_TASKS_TOKEN` — safe to hand to a task-filing agent
+ * because its write surface is create-only: it can read tasks, create a task,
+ * and read categories/tags, but never edit or delete an existing task, never
+ * create categories or tags, and never reach any other data. Plus the
+ * full-access `API_SECRET` / `UPLOAD_SCRIPT_API_KEY` so an admin token keeps
+ * working.
+ *
+ * Deliberately does NOT honour `AGENT_PAGES_TOKEN` or `AGENT_READ_TOKEN`: each
+ * agent token unlocks exactly one surface, so handing one out never widens the
+ * others. Same isolation reasoning as `getPagesHouseholdIdFromToken` above.
+ *
+ * @returns householdId if authenticated, null otherwise
+ */
+export async function getTasksHouseholdIdFromToken(request: NextRequest): Promise<string | null> {
+  const token = bearerToken(request);
+  if (!token) return null;
+  if (
+    !matchesAny(token, [
+      process.env.AGENT_TASKS_TOKEN,
+      process.env.API_SECRET,
+      process.env.UPLOAD_SCRIPT_API_KEY,
+    ])
+  ) {
+    return null;
+  }
+  return firstHouseholdId();
+}
+
+/**
  * Resolve the user id of a household's owner. Used when a session-less token
  * request needs an acting user (e.g. `ownerId` on page creation): the token
  * carries no session user, so writes are attributed to the household owner.

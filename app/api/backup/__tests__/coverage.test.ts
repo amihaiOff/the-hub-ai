@@ -92,9 +92,7 @@ describe('backup + restore coverage', () => {
     // The archive is grouped into folders mirroring the app's sections. A new
     // table wired into backup without a folder would still be captured, but it
     // would sit loose at the archive root, which is the mess this replaced.
-    const written = [...backup.matchAll(/pathInArchive\('([a-z_0-9]+\.json)'\)/g)].map(
-      (m) => m[1]
-    );
+    const written = [...backup.matchAll(/pathInArchive\('([a-z_0-9]+\.json)'\)/g)].map((m) => m[1]);
     expect(written.length).toBeGreaterThan(50);
 
     const unfiled = written.filter((f) => f !== 'metadata.json' && !pathInArchive(f).includes('/'));

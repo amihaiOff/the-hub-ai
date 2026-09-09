@@ -43,6 +43,48 @@ export async function assertParentAllowed(
 }
 
 /**
+ * Reject a create/update payload that references a category, assignee or tag
+ * from outside this household (or one that doesn't exist at all).
+ *
+ * Prisma would otherwise fail these at the FK/`connect` level, which the routes
+ * can only report as a generic 500 — useless to a caller, and actively
+ * misleading to an agent that needs to know its id was stale rather than that
+ * the server broke. Zod already checks these are cuid-shaped; this checks they
+ * are real and ours.
+ *
+ * Note `assigneeId` is a `Profile` id while `ownerId` is a `User` id — easy to
+ * conflate, so they're looked up in different tables here.
+ */
+export async function assertRelationsInHousehold(
+  input: {
+    categoryId?: string | null;
+    assigneeId?: string | null;
+    tagIds?: string[];
+  },
+  householdId: string
+): Promise<void> {
+  if (input.categoryId) {
+    const found = await prisma.taskCategory.count({
+      where: { id: input.categoryId, householdId },
+    });
+    if (found === 0) throw new TaskValidationError('Unknown category for this household');
+  }
+
+  if (input.assigneeId) {
+    const found = await prisma.profile.count({
+      where: { id: input.assigneeId, householdMemberships: { some: { householdId } } },
+    });
+    if (found === 0) throw new TaskValidationError('Unknown assignee for this household');
+  }
+
+  if (input.tagIds && input.tagIds.length > 0) {
+    const ids = [...new Set(input.tagIds)];
+    const found = await prisma.taskTag.count({ where: { id: { in: ids }, householdId } });
+    if (found !== ids.length) throw new TaskValidationError('Unknown tag for this household');
+  }
+}
+
+/**
  * Reject converting a task that already has children into a sub-task —
  * that would create a second level of nesting via its own kids.
  * Called on PATCH when parentTaskId is being set to a non-null value.

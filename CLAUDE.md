@@ -317,6 +317,9 @@ ALLOWED_EMAILS="email1@example.com,email2@example.com"  # Comma-separated allowl
 ALPHA_VANTAGE_API_KEY="..."
 AGENT_READ_TOKEN="..."                   # Read-only token for /api/agent/* (backlog)
 AGENT_PAGES_TOKEN="..."                  # Scoped token: read+write the Areas Pages API (no delete)
+AGENT_TASKS_TOKEN="..."                  # Scoped token: read tasks + CREATE tasks, read categories/tags.
+                                         # Cannot edit or delete existing tasks, cannot create
+                                         # categories or tags.
 BACKUP_TOKEN="..."                       # Lets the scheduled Drive backup fetch /api/backup unattended.
                                          # CAN PULL THE ENTIRE DATABASE — keep it as closely held as
                                          # API_SECRET. Separate from the agent/pages tokens so it can be
@@ -384,6 +387,15 @@ delete (deletes stay session-only), never any non-pages data. So: do not run raw
 DB writes against production, but you _may_ use the pages token to read/write
 pages when the user asks. Auth wiring: `lib/auth-api-key.ts`
 (`getPagesHouseholdIdFromToken`) + `lib/auth-pages.ts` (`resolvePagesAccess`).
+
+The **Tasks API** works the same way and is equally sanctioned: the scoped
+**`AGENT_TASKS_TOKEN`** (`Bearer` token on `/api/tasks/*`) grants **read +
+create** on tasks plus **read** on categories and tags. Its write surface is
+deliberately create-only — editing (PATCH) and deleting stay session-only,
+because overwriting a task's title or notes is data loss that doesn't need a
+delete verb. It also can't create categories or tags, or touch any non-task
+data. Auth wiring: `lib/auth-api-key.ts` (`getTasksHouseholdIdFromToken`) +
+`lib/auth-tasks.ts` (`resolveTasksAccess`).
 
 ### Database Identification
 

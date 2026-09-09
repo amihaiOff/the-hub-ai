@@ -15,6 +15,9 @@ jest.mock('@/lib/db', () => ({
       update: jest.fn(),
       delete: jest.fn(),
     },
+    taskCategory: { count: jest.fn() },
+    taskTag: { count: jest.fn() },
+    profile: { count: jest.fn() },
   },
 }));
 
@@ -22,11 +25,19 @@ jest.mock('@/lib/auth-utils', () => ({
   getCurrentContext: jest.fn(),
 }));
 
+// GET and PATCH are token-reachable (they resolve access); DELETE stays
+// session-only, so both auth paths are mocked here.
+jest.mock('@/lib/auth-tasks', () => ({
+  resolveTasksAccess: jest.fn(),
+}));
+
 import { prisma } from '@/lib/db';
 import { getCurrentContext } from '@/lib/auth-utils';
+import { resolveTasksAccess } from '@/lib/auth-tasks';
 import { GET, PATCH, DELETE } from '../[id]/route';
 
 const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
+const mockResolveTasksAccess = resolveTasksAccess as jest.MockedFunction<typeof resolveTasksAccess>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 
 function ctx(userId: string) {
@@ -41,26 +52,36 @@ function ctx(userId: string) {
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
 
+/** What resolveTasksAccess hands back for a given acting user. */
+const accessFor = (userId: string) => ({ householdId: 'hh-1', userId });
+
+/** All referenced relations exist in this household. */
+function allRelationsValid() {
+  (mockPrisma.taskCategory.count as jest.Mock).mockResolvedValue(1);
+  (mockPrisma.profile.count as jest.Mock).mockResolvedValue(1);
+  (mockPrisma.taskTag.count as jest.Mock).mockResolvedValue(1);
+}
+
 const CUID = 'clv0abcde12345678901234';
 
 describe('GET /api/tasks/[id]', () => {
   beforeEach(() => jest.resetAllMocks());
 
   it('returns 401 when unauthenticated', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(null);
+    mockResolveTasksAccess.mockResolvedValueOnce(null);
     const res = await GET(new NextRequest('http://localhost/api/tasks/t1'), params('t1'));
     expect(res.status).toBe(401);
   });
 
   it('returns 404 when task not found in this household', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(ctx('u1'));
+    mockResolveTasksAccess.mockResolvedValueOnce(accessFor('u1'));
     (mockPrisma.task.findFirst as jest.Mock).mockResolvedValueOnce(null);
     const res = await GET(new NextRequest('http://localhost/api/tasks/t1'), params('t1'));
     expect(res.status).toBe(404);
   });
 
   it('returns 403 when user is neither owner nor sharee', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(ctx('stranger'));
+    mockResolveTasksAccess.mockResolvedValueOnce(accessFor('stranger'));
     (mockPrisma.task.findFirst as jest.Mock).mockResolvedValueOnce({
       id: 't1',
       ownerId: 'owner',
@@ -71,7 +92,7 @@ describe('GET /api/tasks/[id]', () => {
   });
 
   it('returns the task for a shared reader', async () => {
-    mockGetCurrentContext.mockResolvedValueOnce(ctx('reader'));
+    mockResolveTasksAccess.mockResolvedValueOnce(accessFor('reader'));
     (mockPrisma.task.findFirst as jest.Mock).mockResolvedValueOnce({
       id: 't1',
       ownerId: 'owner',
@@ -124,6 +145,7 @@ describe('PATCH /api/tasks/[id]', () => {
 
   it('applies every optional scalar/relation field the client sends', async () => {
     mockGetCurrentContext.mockResolvedValueOnce(ctx('owner'));
+    allRelationsValid();
     (mockPrisma.task.findFirst as jest.Mock).mockResolvedValueOnce({
       id: 't1',
       ownerId: 'owner',
@@ -389,5 +411,121 @@ describe('DELETE /api/tasks/[id]', () => {
     const res = await DELETE(new NextRequest('http://localhost/api/tasks/t1'), params('t1'));
     expect(res.status).toBe(200);
     expect(mockPrisma.task.delete).toHaveBeenCalledWith({ where: { id: 't1' } });
+  });
+});
+
+/**
+ * The scoped AGENT_TASKS_TOKEN must never reach a destructive route. DELETE
+ * deliberately keeps calling `getCurrentContext` instead of
+ * `resolveTasksAccess`, so the way to pin that down is to make the resolver
+ * succeed (as it would for a valid token) while there is no session, and prove
+ * the handler still refuses. Without this test, swapping DELETE over to the
+ * resolver would silently hand deletes to the token.
+ */
+describe('PATCH /api/tasks/[id] stays session-only', () => {
+  beforeEach(() => jest.resetAllMocks());
+
+  // The scoped agent token's write surface is create-only. Editing must stay
+  // shut even when the token resolves access successfully, because overwriting
+  // a title or notes body is data loss that needs no delete verb.
+  it('401s when a scoped token resolves access but there is no session', async () => {
+    mockResolveTasksAccess.mockResolvedValue(accessFor('owner'));
+    mockGetCurrentContext.mockResolvedValue(null);
+    const res = await PATCH(
+      new NextRequest('http://localhost/api/tasks/t1', {
+        method: 'PATCH',
+        body: JSON.stringify({ title: 'Overwritten' }),
+      }),
+      params('t1')
+    );
+    expect(res.status).toBe(401);
+    expect(mockPrisma.task.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.task.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('DELETE /api/tasks/[id] stays session-only', () => {
+  beforeEach(() => jest.resetAllMocks());
+
+  it('401s when a scoped token resolves access but there is no session', async () => {
+    mockResolveTasksAccess.mockResolvedValue(accessFor('owner'));
+    mockGetCurrentContext.mockResolvedValue(null);
+    const res = await DELETE(new NextRequest('http://localhost/api/tasks/t1'), params('t1'));
+    expect(res.status).toBe(401);
+    // Never even looked the task up, let alone deleted it.
+    expect(mockPrisma.task.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.task.delete).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * `assertRelationsInHousehold` runs on update as well as create: a client (or
+ * agent) holding a stale id must get a 400 telling it the id is wrong, not a
+ * 500 from Prisma failing the `connect`.
+ */
+describe('PATCH /api/tasks/[id] relation guards', () => {
+  beforeEach(() => jest.resetAllMocks());
+
+  /** The task exists in hh-1 and the caller owns it, so we reach the guard. */
+  function ownedTaskExists() {
+    (mockPrisma.task.findFirst as jest.Mock).mockResolvedValue({
+      id: 't1',
+      ownerId: 'owner',
+      shares: [],
+      parentTaskId: null,
+    });
+  }
+
+  function patch(body: Record<string, unknown>) {
+    return PATCH(
+      new NextRequest('http://localhost/api/tasks/t1', {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+      params('t1')
+    );
+  }
+
+  it('400s on a category from another household', async () => {
+    mockGetCurrentContext.mockResolvedValue(ctx('owner'));
+    ownedTaskExists();
+    (mockPrisma.taskCategory.count as jest.Mock).mockResolvedValue(0);
+    const res = await patch({ categoryId: CUID });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/Unknown category/);
+    expect(mockPrisma.task.update).not.toHaveBeenCalled();
+  });
+
+  it('400s on an assignee outside the household', async () => {
+    mockGetCurrentContext.mockResolvedValue(ctx('owner'));
+    ownedTaskExists();
+    (mockPrisma.profile.count as jest.Mock).mockResolvedValue(0);
+    const res = await patch({ assigneeId: CUID });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/Unknown assignee/);
+    expect(mockPrisma.task.update).not.toHaveBeenCalled();
+  });
+
+  it('400s when one of the tagIds is unknown', async () => {
+    mockGetCurrentContext.mockResolvedValue(ctx('owner'));
+    ownedTaskExists();
+    // Two ids sent, only one found in this household.
+    (mockPrisma.taskTag.count as jest.Mock).mockResolvedValue(1);
+    const res = await patch({ tagIds: [CUID, 'clv0zzzzz12345678901234'] });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/Unknown tag/);
+    expect(mockPrisma.task.update).not.toHaveBeenCalled();
+  });
+
+  it("scopes the relation lookups to the session's household, not the request", async () => {
+    mockGetCurrentContext.mockResolvedValue(ctx('owner'));
+    ownedTaskExists();
+    allRelationsValid();
+    (mockPrisma.task.update as jest.Mock).mockResolvedValue({ id: 't1' });
+    const res = await patch({ categoryId: CUID });
+    expect(res.status).toBe(200);
+    expect(mockPrisma.taskCategory.count).toHaveBeenCalledWith({
+      where: { id: CUID, householdId: 'hh-1' },
+    });
   });
 });

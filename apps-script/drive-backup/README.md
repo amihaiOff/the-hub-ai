@@ -52,11 +52,11 @@ gitignored — it's per-account, not per-project.
 **4. Configure it.** Open the script (`npx clasp open`), then
 **Project Settings → Script Properties**, and add three:
 
-| Property            | Value                                          |
-| ------------------- | ---------------------------------------------- |
-| `HUB_BASE_URL`      | `https://the-hub-ai-ten.vercel.app`            |
-| `HUB_BACKUP_TOKEN`  | the same value you set as `BACKUP_TOKEN`       |
-| `DRIVE_FOLDER_ID`   | the folder id from step 1                      |
+| Property           | Value                                    |
+| ------------------ | ---------------------------------------- |
+| `HUB_BASE_URL`     | `https://the-hub-ai-ten.vercel.app`      |
+| `HUB_BACKUP_TOKEN` | the same value you set as `BACKUP_TOKEN` |
+| `DRIVE_FOLDER_ID`  | the folder id from step 1                |
 
 **5. Run it once by hand.** In the editor, select `backupToDrive` and press Run.
 Google will ask for permission to access Drive, send mail, and make outbound

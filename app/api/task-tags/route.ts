@@ -1,16 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentContext } from '@/lib/auth-utils';
+import { resolveTasksAccess } from '@/lib/auth-tasks';
 import { prisma } from '@/lib/db';
 import { createTaskTagSchema } from '@/lib/validations/tasks';
 import { getFirstZodError } from '@/lib/validations/common';
 
-export async function GET() {
-  const context = await getCurrentContext();
-  if (!context) {
+/**
+ * GET /api/task-tags
+ * Lists the household's tags. Token-reachable so an agent can discover the
+ * valid ids before referencing one on a task; every mutation below stays
+ * session-only, because there's no upsert-by-name and names are unique per
+ * household — letting an agent invent tags would just mean a stream of
+ * conflicts.
+ */
+export async function GET(request: NextRequest) {
+  const access = await resolveTasksAccess(request);
+  if (!access) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
   const tags = await prisma.taskTag.findMany({
-    where: { householdId: context.activeHousehold.id },
+    where: { householdId: access.householdId },
     orderBy: { name: 'asc' },
   });
   return NextResponse.json({ success: true, data: tags });

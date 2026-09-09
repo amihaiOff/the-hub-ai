@@ -42,13 +42,13 @@ the repo, rewrite it or cut it.
 
 ## Rewrites
 
-| Instead of | Say |
-|---|---|
-| "Moved `AlignLeft` before `cellEditor` in `db-table-view.tsx`" | "The notes icon now sits left of the row title, and every title lines up whether or not a row has notes." |
-| "`useBackToClose`'s cleanup fired `history.back()`, misread as popstate" | "Opening a row flashed the panel open and shut. The Back-button handling was closing the panel it had just opened — fixed, and it also fixed the same problem in the task panel." |
-| "Radix Select wraps in react-remove-scroll, which remounts the NodeView" | "The dropdown was tearing down the whole panel when tapped. It now uses the same kind of popup as the rest of the app, which doesn't disturb the page underneath." |
-| "Added `Record<DbView, T>` and a legacy-lift in the normalizer" | "Each view keeps its own filters, sort and grouping. Boards you already set up carry their current settings into all three views, so nothing looks different until you change one." |
-| "208 suites / 3306 tests pass, type-check clean, lint 0 errors" | "All checks pass." |
+| Instead of                                                               | Say                                                                                                                                                                                 |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Moved `AlignLeft` before `cellEditor` in `db-table-view.tsx`"           | "The notes icon now sits left of the row title, and every title lines up whether or not a row has notes."                                                                           |
+| "`useBackToClose`'s cleanup fired `history.back()`, misread as popstate" | "Opening a row flashed the panel open and shut. The Back-button handling was closing the panel it had just opened — fixed, and it also fixed the same problem in the task panel."   |
+| "Radix Select wraps in react-remove-scroll, which remounts the NodeView" | "The dropdown was tearing down the whole panel when tapped. It now uses the same kind of popup as the rest of the app, which doesn't disturb the page underneath."                  |
+| "Added `Record<DbView, T>` and a legacy-lift in the normalizer"          | "Each view keeps its own filters, sort and grouping. Boards you already set up carry their current settings into all three views, so nothing looks different until you change one." |
+| "208 suites / 3306 tests pass, type-check clean, lint 0 errors"          | "All checks pass."                                                                                                                                                                  |
 
 ## Still say these things
 

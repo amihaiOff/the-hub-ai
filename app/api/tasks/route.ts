@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
-import { getCurrentContext } from '@/lib/auth-utils';
+import { resolveTasksAccess } from '@/lib/auth-tasks';
 import { prisma } from '@/lib/db';
 import { createTaskSchema, taskFiltersSchema } from '@/lib/validations/tasks';
 import { getFirstZodError } from '@/lib/validations/common';
-import { assertParentAllowed, TaskValidationError } from '@/lib/tasks/validation';
+import {
+  assertParentAllowed,
+  assertRelationsInHousehold,
+  TaskValidationError,
+} from '@/lib/tasks/validation';
 
 /**
  * GET /api/tasks
@@ -15,8 +19,8 @@ import { assertParentAllowed, TaskValidationError } from '@/lib/tasks/validation
  * `include` so the Table view can expand rows without a second request.
  */
 export async function GET(request: NextRequest) {
-  const context = await getCurrentContext();
-  if (!context) {
+  const access = await resolveTasksAccess(request);
+  if (!access) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
   const { searchParams } = new URL(request.url);
@@ -39,9 +43,9 @@ export async function GET(request: NextRequest) {
   const f = parsedFilters.data;
 
   const where: Prisma.TaskWhereInput = {
-    householdId: context.activeHousehold.id,
+    householdId: access.householdId,
     // Visible to me: owner OR shared with me.
-    OR: [{ ownerId: context.user.id }, { shares: { some: { userId: context.user.id } } }],
+    OR: [{ ownerId: access.userId }, { shares: { some: { userId: access.userId } } }],
   };
   if (f.status) where.status = f.status;
   if (f.priority) where.priority = f.priority;
@@ -84,8 +88,8 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const context = await getCurrentContext();
-    if (!context) {
+    const access = await resolveTasksAccess(request);
+    if (!access) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
     const body = await request.json();
@@ -98,7 +102,8 @@ export async function POST(request: NextRequest) {
     }
     const input = parsed.data;
 
-    await assertParentAllowed(input.parentTaskId ?? null, context.activeHousehold.id);
+    await assertParentAllowed(input.parentTaskId ?? null, access.householdId);
+    await assertRelationsInHousehold(input, access.householdId);
 
     const created = await prisma.task.create({
       data: {
@@ -115,8 +120,8 @@ export async function POST(request: NextRequest) {
         customFields: input.customFields
           ? (input.customFields as unknown as Prisma.InputJsonValue)
           : Prisma.JsonNull,
-        ownerId: context.user.id,
-        householdId: context.activeHousehold.id,
+        ownerId: access.userId,
+        householdId: access.householdId,
         tags: input.tagIds ? { connect: input.tagIds.map((id) => ({ id })) } : undefined,
       },
       include: {
