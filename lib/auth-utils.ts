@@ -1,4 +1,5 @@
 import { stackServerApp } from '@/stack/server';
+import { isAuthBypassed } from '@/lib/auth-env';
 import { prisma } from '@/lib/db';
 import { acceptPendingInvitesForUser } from '@/lib/invites';
 import type { HouseholdRole } from '@prisma/client';
@@ -53,20 +54,11 @@ const ALLOWED_EMAILS =
 let devUserCreated = false;
 
 /**
- * Check if auth bypass is enabled.
- * Allowed when SKIP_AUTH=true AND either:
- * - NODE_ENV !== 'production' (local dev), or
- * - VERCEL_ENV === 'preview' (Vercel preview deployments)
- */
-function isAuthBypassed(): boolean {
-  return process.env.SKIP_AUTH === 'true';
-}
-
-/**
  * Get the current user for API routes.
- * In development mode (when SKIP_AUTH=true and NODE_ENV !== 'production'),
- * returns a dev user without requiring OAuth.
- * In production, requires proper authentication via Stack Auth.
+ * When the dev auth bypass applies (see `isAuthBypassed` in
+ * `lib/auth-env.ts` — local dev and Vercel preview, never production),
+ * returns a canned dev user without requiring OAuth.
+ * Otherwise requires proper authentication via Stack Auth.
  * @returns The current user with guaranteed id, or null if not authenticated
  */
 export async function getCurrentUser(): Promise<CurrentUser | null> {
@@ -100,7 +92,15 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     };
   }
 
-  // Production: require proper authentication via Stack Auth
+  // Production: require proper authentication via Stack Auth.
+  // No client means either the env vars aren't configured or the bypass was
+  // refused for this environment. Treat that as "not signed in" so callers
+  // send the user to the sign-in flow — never throw, which would surface as a
+  // 500 on every authenticated route.
+  if (!stackServerApp) {
+    console.warn('Stack Auth is not configured; treating request as unauthenticated');
+    return null;
+  }
   const stackUser = await stackServerApp.getUser();
   if (!stackUser) {
     return null;

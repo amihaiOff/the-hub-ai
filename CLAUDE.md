@@ -324,10 +324,17 @@ BACKUP_TOKEN="..."                       # Lets the scheduled Drive backup fetch
                                          # CAN PULL THE ENTIRE DATABASE — keep it as closely held as
                                          # API_SECRET. Separate from the agent/pages tokens so it can be
                                          # rotated on its own. See apps-script/drive-backup/README.md
-SKIP_AUTH="true"                         # DEV ONLY - bypasses OAuth for local development
+SKIP_AUTH="true"                         # DEV ONLY - bypasses OAuth locally and on preview.
+                                         # Always ignored in Vercel production.
+NEXT_PUBLIC_SKIP_AUTH="true"             # DEV ONLY - the client half of the above. Must be
+                                         # set/unset in lockstep with SKIP_AUTH.
 ```
 
-**Note:** `SKIP_AUTH` only works when `NODE_ENV !== 'production'`. It's safe to have in `.env.local` but will be ignored in production even if accidentally set.
+**Note:** `SKIP_AUTH` works on a local machine (any `NODE_ENV`, including a local production build) and on **Vercel preview**. In **Vercel production, auth is always enforced** regardless of the flag — the request falls through to the normal sign-in flow rather than erroring. `NODE_ENV` can't gate this on its own (Vercel builds preview with `NODE_ENV=production` too), so the check reads `VERCEL_ENV`: anything but `production` bypasses, and an on-Vercel deployment with no `VERCEL_ENV` is refused. The predicate lives in **`lib/auth-env.ts`** and is the single source of truth — `lib/auth-utils.ts` and `stack/server.ts` both read it, and they must never re-derive it: if they disagree, one of them sees a null auth client on a path that expects a real one.
+
+`NEXT_PUBLIC_SKIP_AUTH` gates the **client** and must be set/unset in lockstep with `SKIP_AUTH`. It's inlined at build time and has no environment check of its own, so a mismatch means the browser believes it's signed in while the server disagrees — which shows up as the app skipping the login screen and landing on a failing onboarding wizard instead.
+
+Because preview bypasses auth, every preview request arrives as a logged-in dev user. That means the scoped agent tokens (`AGENT_PAGES_TOKEN`, `AGENT_TASKS_TOKEN`) are never exercised there — the session path short-circuits first. **To test a token-driven agent against preview, unset `SKIP_AUTH` in the Vercel preview environment.**
 
 ### Deployment
 

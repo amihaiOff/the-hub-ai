@@ -72,7 +72,12 @@ export async function GET() {
     let stackError = null;
 
     try {
-      const stackUser = await stackServerApp.getUser();
+      // Null when the dev bypass is active or Stack Auth isn't configured —
+      // which is itself the useful diagnostic here.
+      const stackUser = stackServerApp ? await stackServerApp.getUser() : null;
+      if (!stackServerApp) {
+        stackError = 'Stack Auth client not initialised (dev bypass active or config missing)';
+      }
       if (stackUser) {
         stackUserInfo = {
           id: stackUser.id,

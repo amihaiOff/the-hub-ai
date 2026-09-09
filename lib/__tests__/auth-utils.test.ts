@@ -1,7 +1,7 @@
 /**
  * Unit tests for auth-utils.ts
  * Verifies authentication bypass security fix:
- * - SKIP_AUTH should ONLY work when NODE_ENV is NOT 'production'
+ * - SKIP_AUTH works in local dev and on Vercel preview, never in real production
  * - Dev user caching prevents repeated DB calls
  * - getCurrentUser returns correct user object
  * - getCurrentContext returns profile and household data
@@ -12,6 +12,7 @@
 // Store original env values
 const originalNodeEnv = process.env.NODE_ENV;
 const originalSkipAuth = process.env.SKIP_AUTH;
+const originalVercelEnv = process.env.VERCEL_ENV;
 
 // Mock Stack Auth server app - will be used by dynamic imports
 const mockGetUser = jest.fn();
@@ -67,6 +68,8 @@ describe('Auth Utils', () => {
     // Reset environment
     setNodeEnv(originalNodeEnv || 'test');
     delete process.env.SKIP_AUTH;
+    delete process.env.VERCEL_ENV;
+    delete process.env.VERCEL;
   });
 
   afterAll(() => {
@@ -76,11 +79,62 @@ describe('Auth Utils', () => {
     } else {
       delete process.env.SKIP_AUTH;
     }
+    if (originalVercelEnv !== undefined) {
+      process.env.VERCEL_ENV = originalVercelEnv;
+    } else {
+      delete process.env.VERCEL_ENV;
+    }
   });
 
   describe('isAuthBypassed / isDevAuthMode', () => {
-    describe('SKIP_AUTH bypass works in any NODE_ENV when set to "true"', () => {
-      it('should bypass auth in production when SKIP_AUTH=true', async () => {
+    describe('Production refuses the bypass even when SKIP_AUTH is set', () => {
+      // Vercel builds BOTH preview and production with NODE_ENV=production, so
+      // VERCEL_ENV is the only reliable discriminator between them.
+      it('should NOT bypass auth on Vercel production', async () => {
+        setNodeEnv('production');
+        process.env.VERCEL_ENV = 'production';
+        process.env.SKIP_AUTH = 'true';
+
+        const { isDevAuthMode } = await import('../auth-utils');
+
+        expect(isDevAuthMode()).toBe(false);
+      });
+
+      it('should NOT bypass auth when on Vercel but VERCEL_ENV is absent', async () => {
+        // An unidentifiable Vercel deployment is refused rather than trusted:
+        // happens if the project stops exposing system env vars.
+        setNodeEnv('production');
+        process.env.VERCEL = '1';
+        process.env.SKIP_AUTH = 'true';
+
+        const { isDevAuthMode } = await import('../auth-utils');
+
+        expect(isDevAuthMode()).toBe(false);
+      });
+
+      it('should NOT bypass auth on Vercel production even in a dev NODE_ENV', async () => {
+        setNodeEnv('development');
+        process.env.VERCEL_ENV = 'production';
+        process.env.SKIP_AUTH = 'true';
+
+        const { isDevAuthMode } = await import('../auth-utils');
+
+        expect(isDevAuthMode()).toBe(false);
+      });
+
+      it('should NOT bypass auth when SKIP_AUTH is uppercase TRUE', async () => {
+        setNodeEnv('production');
+        process.env.SKIP_AUTH = 'TRUE'; // must be exact lowercase 'true'
+
+        const { isDevAuthMode } = await import('../auth-utils');
+
+        expect(isDevAuthMode()).toBe(false);
+      });
+    });
+
+    describe('Local machine bypass', () => {
+      it('should bypass auth on a local production build (no VERCEL at all)', async () => {
+        // `npm run build && npm start` for perf measurement — see docs/perf.md.
         setNodeEnv('production');
         process.env.SKIP_AUTH = 'true';
 
@@ -88,10 +142,27 @@ describe('Auth Utils', () => {
 
         expect(isDevAuthMode()).toBe(true);
       });
+    });
 
-      it('should NOT bypass auth when SKIP_AUTH is uppercase TRUE', async () => {
+    describe('Vercel preview bypass (deliberate)', () => {
+      it('should bypass auth on preview when SKIP_AUTH=true', async () => {
         setNodeEnv('production');
-        process.env.SKIP_AUTH = 'TRUE'; // must be exact lowercase 'true'
+        process.env.VERCEL = '1';
+        process.env.VERCEL_ENV = 'preview';
+        process.env.SKIP_AUTH = 'true';
+
+        const { isDevAuthMode } = await import('../auth-utils');
+
+        expect(isDevAuthMode()).toBe(true);
+      });
+
+      it('should NOT bypass auth on preview when SKIP_AUTH is unset', async () => {
+        // Unsetting SKIP_AUTH in the preview env is how you make preview
+        // behave like production (e.g. to exercise the scoped agent tokens,
+        // whose code path a live session short-circuits).
+        setNodeEnv('production');
+        process.env.VERCEL_ENV = 'preview';
+        delete process.env.SKIP_AUTH;
 
         const { isDevAuthMode } = await import('../auth-utils');
 
@@ -315,8 +386,9 @@ describe('Auth Utils', () => {
       });
     });
 
-    describe('SKIP_AUTH=true bypasses auth in any NODE_ENV', () => {
-      it('should bypass auth and return dev user when SKIP_AUTH=true in production', async () => {
+    describe('SKIP_AUTH=true bypasses auth in dev and on preview', () => {
+      it('should bypass auth and return dev user on a preview deployment', async () => {
+        process.env.VERCEL_ENV = 'preview';
         setNodeEnv('production');
         process.env.SKIP_AUTH = 'true';
 
@@ -367,6 +439,8 @@ describe('Security Verification Summary', () => {
     jest.resetModules();
     setNodeEnv(originalNodeEnv || 'test');
     delete process.env.SKIP_AUTH;
+    delete process.env.VERCEL_ENV;
+    delete process.env.VERCEL;
   });
 
   afterAll(() => {
@@ -376,9 +450,15 @@ describe('Security Verification Summary', () => {
     } else {
       delete process.env.SKIP_AUTH;
     }
+    if (originalVercelEnv !== undefined) {
+      process.env.VERCEL_ENV = originalVercelEnv;
+    } else {
+      delete process.env.VERCEL_ENV;
+    }
   });
 
-  it('Auth bypass works in production when SKIP_AUTH=true (preview deployments)', async () => {
+  it('Auth bypass works on preview deployments (NODE_ENV=production there)', async () => {
+    process.env.VERCEL_ENV = 'preview';
     setNodeEnv('production');
     process.env.SKIP_AUTH = 'true';
 
@@ -392,7 +472,7 @@ describe('Security Verification Summary', () => {
     expect(user?.email).toBe('dev@localhost');
   });
 
-  it('CRITICAL: Auth bypass only works in non-production environments', async () => {
+  it('CRITICAL: Auth bypass never works in real production', async () => {
     // Test development
     setNodeEnv('development');
     process.env.SKIP_AUTH = 'true';
@@ -408,24 +488,45 @@ describe('Security Verification Summary', () => {
     const testModule = await import('../auth-utils');
     expect(testModule.isDevAuthMode()).toBe(true);
 
-    // Reset for production — SKIP_AUTH=true still bypasses
+    // Reset for preview — SKIP_AUTH=true bypasses (NODE_ENV is production there)
     jest.resetModules();
     setNodeEnv('production');
+    process.env.VERCEL_ENV = 'preview';
+    process.env.SKIP_AUTH = 'true';
+
+    const previewModule = await import('../auth-utils');
+    expect(previewModule.isDevAuthMode()).toBe(true);
+
+    // Reset for real production — SKIP_AUTH is ignored, as CLAUDE.md promises
+    jest.resetModules();
+    setNodeEnv('production');
+    process.env.VERCEL = '1';
+    process.env.VERCEL_ENV = 'production';
     process.env.SKIP_AUTH = 'true';
 
     const prodModule = await import('../auth-utils');
-    expect(prodModule.isDevAuthMode()).toBe(true);
+    expect(prodModule.isDevAuthMode()).toBe(false);
   });
 
-  it('isAuthBypassed requires SKIP_AUTH=true (works in any NODE_ENV)', async () => {
-    // Case 1: production + SKIP_AUTH=true -> bypassed
+  it('isAuthBypassed requires SKIP_AUTH=true AND a non-production environment', async () => {
+    // Case 1: production + SKIP_AUTH=true -> STILL blocked
     setNodeEnv('production');
+    process.env.VERCEL_ENV = 'production';
     process.env.SKIP_AUTH = 'true';
     let mod = await import('../auth-utils');
+    expect(mod.isDevAuthMode()).toBe(false);
+
+    // Case 1b: preview + SKIP_AUTH=true -> bypassed
+    jest.resetModules();
+    setNodeEnv('production');
+    process.env.VERCEL_ENV = 'preview';
+    process.env.SKIP_AUTH = 'true';
+    mod = await import('../auth-utils');
     expect(mod.isDevAuthMode()).toBe(true);
 
     // Case 2: production + SKIP_AUTH=false -> blocked
     jest.resetModules();
+    delete process.env.VERCEL_ENV;
     setNodeEnv('production');
     process.env.SKIP_AUTH = 'false';
     mod = await import('../auth-utils');
@@ -456,6 +557,8 @@ describe('Profile/Household Context', () => {
     jest.resetModules();
     setNodeEnv(originalNodeEnv || 'test');
     delete process.env.SKIP_AUTH;
+    delete process.env.VERCEL_ENV;
+    delete process.env.VERCEL;
   });
 
   afterAll(() => {
@@ -464,6 +567,11 @@ describe('Profile/Household Context', () => {
       process.env.SKIP_AUTH = originalSkipAuth;
     } else {
       delete process.env.SKIP_AUTH;
+    }
+    if (originalVercelEnv !== undefined) {
+      process.env.VERCEL_ENV = originalVercelEnv;
+    } else {
+      delete process.env.VERCEL_ENV;
     }
   });
 
