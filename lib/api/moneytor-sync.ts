@@ -1008,8 +1008,15 @@ export async function forceResyncMoneytorTransactionsForHousehold(
   const unlinkedIds = new Set<string>();
   let adoptedFromUnlinked = 0;
   if (inRangeOldIds.length > 0) {
+    // isDeleted: false — a soft-deleted twin (see dedupe-moneytor-twins.ts
+    // rule 2) keeps its own real moneytorId on purpose, as a marker that
+    // stops it being re-promoted. Without this filter, a rolling resync
+    // could catch it here and either repoint its id to a fresh row (the
+    // genuinely new transaction that id belongs to then can never be
+    // promoted) or hard-delete it and free the id for re-promotion —
+    // resurrecting the exact duplicate the merge removed.
     const linkedBudget = await prisma.budgetTransaction.findMany({
-      where: { householdId, moneytorId: { in: inRangeOldIds } },
+      where: { householdId, moneytorId: { in: inRangeOldIds }, isDeleted: false },
       select: { id: true, moneytorId: true, categoryId: true, _count: { select: { tags: true } } },
     });
     // A row carries user intent worth preserving if it's categorized or tagged.

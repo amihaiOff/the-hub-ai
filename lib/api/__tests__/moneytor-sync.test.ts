@@ -355,6 +355,38 @@ describe('forceResyncMoneytorTransactionsForHousehold', () => {
     });
   });
 
+  it('excludes soft-deleted rows from the linked-budget lookup so a merged twin cannot be repointed or freed', async () => {
+    // A rule-2 twin (dedupe-moneytor-twins.ts) is soft-deleted but keeps its
+    // own real moneytorId on purpose, as the marker that stops it being
+    // re-promoted. The rolling resync's linkedBudget read (step 5) must
+    // exclude isDeleted rows — otherwise it could repoint a dead twin's id
+    // to a fresh row (the genuinely new transaction that id belongs to can
+    // then never be promoted) or hard-delete it and free the id for
+    // re-promotion, resurrecting the exact duplicate the merge removed.
+    (mockPrisma.moneytorTransaction.findMany as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          id: 'mt-old',
+          description: 'COFFEE SHOP',
+          transactionDate: new Date('2026-06-05T00:00:00Z'),
+          amount: -42.5,
+          accountId: 'CHK-001',
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([]);
+    mockFetchTransactions.mockResolvedValue([]);
+
+    await forceResyncMoneytorTransactionsForHousehold('household-1', {
+      from: '2026-06-01',
+      to: '2026-06-10',
+    });
+
+    const linkedBudgetCall = (mockPrisma.budgetTransaction.findMany as jest.Mock).mock.calls[0][0];
+    expect(linkedBudgetCall.where.isDeleted).toBe(false);
+  });
+
   it('deletes orphaned budget_transactions when their moneytor row has no fresh match', async () => {
     (mockPrisma.moneytorTransaction.findMany as jest.Mock)
       .mockResolvedValueOnce([

@@ -9,24 +9,31 @@ import { prisma } from '@/lib/db';
  * pending's date, but historical pairs (and any that slip through the
  * date-alignment) still need collapsing.
  *
- * Merge rule (kept conservative to avoid collapsing legitimate same-amount
- * recurring buys like a daily bus fare):
- *   - Same householdId, payeeId, amountIls
- *   - source = 'moneytor_sync' on both rows
- *   - transactionDate within ±TWIN_WINDOW_DAYS
- *   - The candidate "pending" row must have moneytorId = NULL (its id was
- *     dropped when Moneytor's side deleted the pending). Recurring rows
- *     each carry their own moneytorId and are therefore skipped.
- *   - Neither row is already soft-deleted.
+ * Two matching rules, both scoped to same householdId + payeeId + amountIls,
+ * source = 'moneytor_sync' on both rows, neither already soft-deleted:
  *
- * On merge: keep the EARLIER row as the survivor (its date is the pending
- * date the user knows, and it often carries the user's category); back-stamp
- * the later row's moneytorId onto the survivor, prefer any non-null category
- * from either side, soft-delete the later row, and set survivor.mergedFromId
- * to point at the soft-deleted twin for auditability.
+ * 1. Null-moneytorId case (TWIN_WINDOW_DAYS): the candidate "pending" row has
+ *    moneytorId = NULL (its id was dropped when Moneytor's side deleted the
+ *    pending). On merge, keep the EARLIER row as survivor (its date is the
+ *    pending date the user knows), back-stamp the later row's moneytorId
+ *    onto it, prefer any non-null category from either side, soft-delete the
+ *    later row, and set survivor.mergedFromId for auditability.
+ *
+ * 2. Both-sides-have-an-id case (WIDENED_TWIN_WINDOW_DAYS, narrower): some
+ *    feeds hand out a real moneytorId even for the not-yet-final row, so
+ *    neither side is null and rule 1 never fires — these sat as permanent
+ *    visible duplicates. Same survivor pick (earlier row, its own date and
+ *    moneytorId kept as-is — no id to move since both are already real),
+ *    prefer non-null category from either side, soft-delete the later row,
+ *    set survivor.mergedFromId. Kept to a tighter window than rule 1 because
+ *    there's no null-id signal at all here to distinguish a real duplicate
+ *    from a same-amount recurring purchase (coffee, parking) — same payee +
+ *    same amount + a few days apart is genuinely ambiguous past a short gap.
  */
 export const TWIN_WINDOW_DAYS = 7;
 const TWIN_WINDOW_MS = TWIN_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+export const WIDENED_TWIN_WINDOW_DAYS = 4;
+const WIDENED_TWIN_WINDOW_MS = WIDENED_TWIN_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
 export interface MergeSummary {
   merged: number;
@@ -136,6 +143,46 @@ export async function dedupeMoneytorTwinsForHousehold(householdId: string): Prom
 
       consumed.add(survivor.id);
       consumed.add(twin.id);
+      merged += 1;
+    }
+
+    // Second pass: pairs where BOTH sides already carry a real moneytorId
+    // (rule 2 above) — the loop needs its own scan since `pendings` above is
+    // empty for these. No moneytorId to move: each row already owns a valid
+    // one, so soft-deleting the twin as-is leaves it correctly marked
+    // "already promoted" and safe from re-import on the next sync.
+    const remaining = settleds
+      .filter((r) => !consumed.has(r.id))
+      .sort((a, b) => a.transactionDate.getTime() - b.transactionDate.getTime());
+
+    for (let i = 0; i < remaining.length; i++) {
+      const earlier = remaining[i];
+      if (consumed.has(earlier.id)) continue;
+      const later = remaining
+        .slice(i + 1)
+        .find(
+          (r) =>
+            !consumed.has(r.id) &&
+            r.transactionDate.getTime() - earlier.transactionDate.getTime() <=
+              WIDENED_TWIN_WINDOW_MS
+        );
+      if (!later) continue;
+
+      const winningCategoryId = earlier.categoryId ?? later.categoryId ?? null;
+
+      await prisma.$transaction([
+        prisma.budgetTransaction.update({
+          where: { id: later.id },
+          data: { isDeleted: true },
+        }),
+        prisma.budgetTransaction.update({
+          where: { id: earlier.id },
+          data: { categoryId: winningCategoryId, mergedFromId: later.id },
+        }),
+      ]);
+
+      consumed.add(earlier.id);
+      consumed.add(later.id);
       merged += 1;
     }
   }
