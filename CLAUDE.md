@@ -395,6 +395,28 @@ DB writes against production, but you _may_ use the pages token to read/write
 pages when the user asks. Auth wiring: `lib/auth-api-key.ts`
 (`getPagesHouseholdIdFromToken`) + `lib/auth-pages.ts` (`resolvePagesAccess`).
 
+**Writing page content: use the ops route, not PATCH.** For anything that isn't
+the editor, prefer **`POST /api/pages/[id]/ops`**. The PATCH routes accept
+whatever document they're given (`pageContentSchema` is `z.unknown()` + a size
+cap, because the editor owns its shape), so a malformed document is persisted
+happily and then fails to render — breaking that page in the app. The ops route
+instead takes a fixed instruction vocabulary (append paragraph / heading /
+bullet list, create a database block, add rows, set cells) and builds the nodes
+server-side, so an invalid page isn't expressible. It also translates choice
+values to option ids (a `select` cell stores the id, not the label — writing the
+label makes the cell render blank), applies a batch all-or-nothing, and requires
+`ifUnchangedSince` (the tab's `updatedAt` as last read, now returned by the page
+and tab routes) so a write can't clobber a concurrent editor autosave and a
+retry can't duplicate rows. It also preserves stored rows verbatim and refuses
+rather than replacing content it can't parse, so no write can lose data.
+Logic lives in `lib/pages/page-ops.ts` and `lib/validations/page-ops.ts`.
+
+That guard runs **one direction only**: the editor's own autosave (the tab
+PATCH) has no equivalent check, so a browser left open on a page with a stale
+document can still overwrite what an agent wrote. Giving the editor the same
+check would change how every page saves, so it's deliberately out of scope —
+an agent should re-read on its next pass and repair anything lost.
+
 The **Tasks API** works the same way and is equally sanctioned: the scoped
 **`AGENT_TASKS_TOKEN`** (`Bearer` token on `/api/tasks/*`) grants **read +
 create** on tasks plus **read** on categories and tags. Its write surface is

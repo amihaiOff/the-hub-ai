@@ -173,7 +173,7 @@ describe('PATCH /api/pages/[id]/tabs/[tabId]', () => {
     expect(mockPrisma.pageTab.update).toHaveBeenCalledWith({
       where: { id: 't1' },
       data: { title: 'New' },
-      select: { id: true, title: true, content: true, sortOrder: true },
+      select: { id: true, title: true, content: true, sortOrder: true, updatedAt: true },
     });
   });
 
@@ -185,7 +185,7 @@ describe('PATCH /api/pages/[id]/tabs/[tabId]', () => {
     expect(mockPrisma.pageTab.update).toHaveBeenCalledWith({
       where: { id: 't1' },
       data: { sortOrder: 3 },
-      select: { id: true, title: true, content: true, sortOrder: true },
+      select: { id: true, title: true, content: true, sortOrder: true, updatedAt: true },
     });
   });
 

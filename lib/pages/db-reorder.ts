@@ -1,4 +1,4 @@
-import type { DatabaseColumn, DatabaseRow } from '@/components/pages/database-extension';
+import type { DatabaseColumn, DatabaseRow } from '@/lib/pages/db-schema';
 
 /**
  * Pure, side-effect-free reorder / reclassify transforms for the database

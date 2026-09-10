@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       include: {
         tabs: {
           orderBy: { sortOrder: 'asc' },
-          select: { id: true, title: true, content: true, sortOrder: true },
+          select: { id: true, title: true, content: true, sortOrder: true, updatedAt: true },
         },
       },
     });

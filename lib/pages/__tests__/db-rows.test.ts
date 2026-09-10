@@ -1,5 +1,5 @@
 import { setRowCell, setRowBody, primaryColumn, hasBodyContent } from '@/lib/pages/db-rows';
-import type { DatabaseColumn, DatabaseRow } from '@/components/pages/database-extension';
+import type { DatabaseColumn, DatabaseRow } from '@/lib/pages/db-schema';
 
 const rows: DatabaseRow[] = [
   { id: 'r1', cells: { c1: 'a', c2: 1 } },

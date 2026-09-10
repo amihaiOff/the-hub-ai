@@ -1,8 +1,4 @@
-import type {
-  DatabaseColumn,
-  DatabaseRow,
-  DatabaseCellValue,
-} from '@/components/pages/database-extension';
+import type { DatabaseColumn, DatabaseRow, DatabaseCellValue } from '@/lib/pages/db-schema';
 import {
   type ColumnFilter,
   isColumnFilterActive,

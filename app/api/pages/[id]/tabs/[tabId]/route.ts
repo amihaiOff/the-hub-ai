@@ -56,7 +56,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const updated = await prisma.pageTab.update({
       where: { id: tabId },
       data,
-      select: { id: true, title: true, content: true, sortOrder: true },
+      select: { id: true, title: true, content: true, sortOrder: true, updatedAt: true },
     });
     return NextResponse.json({ success: true, data: updated });
   } catch {

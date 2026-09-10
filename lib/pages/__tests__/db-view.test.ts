@@ -1,4 +1,4 @@
-import type { DatabaseColumn, DatabaseRow } from '@/components/pages/database-extension';
+import type { DatabaseColumn, DatabaseRow } from '@/lib/pages/db-schema';
 import {
   DEFAULT_VIEW_CONFIG,
   NO_GROUP,

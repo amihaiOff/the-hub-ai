@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     include: {
       tabs: {
         orderBy: { sortOrder: 'asc' },
-        select: { id: true, title: true, content: true, sortOrder: true },
+        select: { id: true, title: true, content: true, sortOrder: true, updatedAt: true },
       },
     },
   });

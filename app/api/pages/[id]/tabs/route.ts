@@ -52,7 +52,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         content: input.content ? (input.content as Prisma.InputJsonValue) : Prisma.JsonNull,
         sortOrder: (last?.sortOrder ?? -1) + 1,
       },
-      select: { id: true, title: true, content: true, sortOrder: true },
+      select: { id: true, title: true, content: true, sortOrder: true, updatedAt: true },
     });
     return NextResponse.json({ success: true, data: created }, { status: 201 });
   } catch {

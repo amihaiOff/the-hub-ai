@@ -1,6 +1,7 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import { DatabaseBlockView } from './database-block';
+import { newId, type DatabaseColumn, type DatabaseRow } from '@/lib/pages/db-schema';
 
 /**
  * A Notion-like "database" block: a structured table with typed columns
@@ -10,42 +11,23 @@ import { DatabaseBlockView } from './database-block';
  * document JSON, no external persistence needed.
  */
 
-export type DatabaseColumnType = 'text' | 'number' | 'date' | 'select' | 'multiselect' | 'checkbox';
-
-export interface DatabaseColumn {
-  /** Stable per-column id. Persisted so referencing the column by name isn't required. */
-  id: string;
-  name: string;
-  type: DatabaseColumnType;
-  /** Present for `select` and `multiselect` columns. Each option carries a stable id + label + optional color key (see SELECT_COLORS in database-block). */
-  options?: { id: string; label: string; color?: string }[];
-  /**
-   * Persisted column width in px (Table view), set by dragging the header
-   * border. Optional — a missing width falls back to a per-type default
-   * (see `columnWidth` in `lib/pages/db-view.ts`). Shared, so both household
-   * members see the same layout.
-   */
-  width?: number;
-}
-
 /**
- * A cell value. `string[]` is the `multiselect` shape — an array of the
- * selected options' ids (empty array = nothing selected). Every other column
- * type stores a scalar.
+ * The data shape (columns / rows / cell values) and its constructors live in
+ * `lib/pages/db-schema.ts` — a React- and Tiptap-free module so server code
+ * (the structured page-write API) can build rows too. Re-exported here so the
+ * editor-side callers can keep importing from this module.
  */
-export type DatabaseCellValue = string | number | boolean | string[] | null;
-
-export interface DatabaseRow {
-  id: string;
-  /** Cells keyed by column id. Missing keys render as empty. */
-  cells: Record<string, DatabaseCellValue>;
-  /**
-   * Optional rich-text body for the row's detail view (a Tiptap JSON doc),
-   * edited in the entry side panel. `undefined` on legacy rows → empty body.
-   * Round-trips inside the block's `data-rows` JSON like the rest of the row.
-   */
-  body?: unknown;
-}
+export {
+  newId,
+  makeColumn,
+  makeRow,
+  makeSelectOption,
+  emptyCellValue,
+  type DatabaseCellValue,
+  type DatabaseColumn,
+  type DatabaseColumnType,
+  type DatabaseRow,
+} from '@/lib/pages/db-schema';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -54,11 +36,6 @@ declare module '@tiptap/core' {
       insertDatabase: () => ReturnType;
     };
   }
-}
-
-export function newId(prefix: string): string {
-  // Simple non-cryptographic id — enough for local disambiguation.
-  return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function defaultColumns(): DatabaseColumn[] {
@@ -201,28 +178,4 @@ function tryParseJson<T>(raw: string | null): T | null {
   } catch {
     return null;
   }
-}
-
-export function makeColumn(name: string, type: DatabaseColumnType): DatabaseColumn {
-  const col: DatabaseColumn = { id: newId('col'), name, type };
-  if (type === 'select' || type === 'multiselect') col.options = [];
-  return col;
-}
-
-/** Empty (unset) value for a column of the given type. */
-export function emptyCellValue(type: DatabaseColumnType): DatabaseCellValue {
-  if (type === 'checkbox') return false;
-  if (type === 'multiselect') return [];
-  return null;
-}
-
-export function makeRow(cols: DatabaseColumn[]): DatabaseRow {
-  return {
-    id: newId('row'),
-    cells: Object.fromEntries(cols.map((c) => [c.id, emptyCellValue(c.type)])),
-  };
-}
-
-export function makeSelectOption(label: string, color?: string) {
-  return { id: newId('opt'), label, color };
 }

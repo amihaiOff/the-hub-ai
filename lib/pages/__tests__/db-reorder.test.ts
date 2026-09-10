@@ -1,5 +1,5 @@
 import { moveRow, reclassifyRow, moveRowToGroup } from '@/lib/pages/db-reorder';
-import type { DatabaseColumn, DatabaseRow } from '@/components/pages/database-extension';
+import type { DatabaseColumn, DatabaseRow } from '@/lib/pages/db-schema';
 
 const columns: DatabaseColumn[] = [
   { id: 'name', name: 'Name', type: 'text' },
