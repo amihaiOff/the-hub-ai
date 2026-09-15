@@ -11,7 +11,12 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import {
+  SortableContext,
+  useSortable,
+  horizontalListSortingStrategy,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { cn } from '@/lib/utils';
 import type {
@@ -58,6 +63,8 @@ interface DbTableViewProps {
   sortActive: boolean;
   /** Reorder within the stored `rows` array (ungrouped / same-group drags). */
   onReorderRow: (activeId: string, overId: string) => void;
+  /** Reorder columns by dragging headers (title column stays pinned first). */
+  onReorderColumn: (activeId: string, overId: string) => void;
   /** Create a column. Driven by the `+` in the header's trailing gutter. */
   onAddColumn: () => void;
   /** Clear the active sort, so manual row order (and drag) becomes meaningful. */
@@ -95,6 +102,7 @@ export function DbTableView(props: DbTableViewProps) {
     groupColId,
     sortActive,
     onReorderRow,
+    onReorderColumn,
     onMoveRowToGroup,
     onAddColumn,
     onClearSort,
@@ -124,12 +132,25 @@ export function DbTableView(props: DbTableViewProps) {
   }, [groups]);
 
   const handleDragEnd = (e: DragEndEvent) => {
-    if (!dragEnabled) return;
     const { active, over } = e;
     if (!over) return;
     const activeId = String(active.id);
     const overId = String(over.id);
     if (activeId === overId) return;
+
+    // Column reorder (header drag). Column ids are namespaced `col:` to tell them
+    // apart from row ids in this shared DndContext. Allowed for editors even when
+    // a sort is active — sort orders rows, not columns.
+    if (activeId.startsWith('col:')) {
+      if (!editable || !overId.startsWith('col:')) return;
+      onReorderColumn(activeId.slice(4), overId.slice(4));
+      return;
+    }
+    // A row can never be dropped onto a header.
+    if (overId.startsWith('col:')) return;
+
+    // Row reorder / reclassify — only meaningful when the stored order is live.
+    if (!dragEnabled) return;
     if (grouped && groupColId) {
       const key = rowGroupKey.get(overId);
       if (key === undefined) return;
@@ -138,6 +159,13 @@ export function DbTableView(props: DbTableViewProps) {
       onReorderRow(activeId, overId);
     }
   };
+
+  // Non-primary visible columns are the draggable set; the title (index 0) is
+  // pinned first, so it's excluded and can't be a drop target.
+  const colSortIds = useMemo(
+    () => (editable ? visibleCols.slice(1).map((c) => `col:${c.id}`) : []),
+    [editable, visibleCols]
+  );
 
   // Live width override while dragging a column edge — committed on mouse-up so
   // we don't write an attribute on every pointer move.
@@ -207,34 +235,54 @@ export function DbTableView(props: DbTableViewProps) {
           </colgroup>
           <thead>
             <tr>
-              {visibleCols.map((col, i) => (
-                <th key={col.id} data-col-header-id={col.id} className="relative p-0">
-                  <ColumnHeader
-                    column={col}
-                    editable={editable}
-                    autoStartEdit={autoEditColId === col.id}
-                    onRename={(name) => onRenameColumn(col.id, name)}
-                    onChangeType={(type) => onChangeColumnType(col.id, type)}
-                    onDelete={() => onDeleteColumn(col.id)}
-                    onSetOptions={(opts) => onSetColumnOptions(col.id, opts)}
-                  />
-                  {editable && (
-                    <span
-                      role="separator"
-                      aria-label={`Resize ${col.name}`}
-                      onMouseDown={(e) => startResize(e, col, i)}
-                      /* Sits fully INSIDE its own column, flush to the right
-                         edge. It used to overhang by 4px, but the sticky header
-                         gives every column its own layer, so the neighbouring
-                         column painted over the overhanging half — the hot zone
-                         was ~5px and sat entirely left of the visible line. */
-                      className="group/rz absolute top-0 right-0 bottom-0 z-10 w-3 cursor-col-resize"
-                    >
-                      <span className="bg-primary/50 absolute top-2 right-1 bottom-2 w-0.5 rounded-full opacity-0 transition-opacity group-hover/rz:opacity-100" />
-                    </span>
-                  )}
-                </th>
-              ))}
+              <SortableContext items={colSortIds} strategy={horizontalListSortingStrategy}>
+                {visibleCols.map((col, i) => {
+                  // The title column (index 0) is pinned first: not draggable.
+                  const draggable = editable && i !== 0;
+                  const content = (
+                    <>
+                      <ColumnHeader
+                        column={col}
+                        editable={editable}
+                        autoStartEdit={autoEditColId === col.id}
+                        onRename={(name) => onRenameColumn(col.id, name)}
+                        onChangeType={(type) => onChangeColumnType(col.id, type)}
+                        onDelete={() => onDeleteColumn(col.id)}
+                        onSetOptions={(opts) => onSetColumnOptions(col.id, opts)}
+                      />
+                      {editable && (
+                        <span
+                          role="separator"
+                          aria-label={`Resize ${col.name}`}
+                          onMouseDown={(e) => startResize(e, col, i)}
+                          // startResize already stops the mousedown from
+                          // reaching the header's drag sensor; this stops a
+                          // touch on the thin resize strip from starting a
+                          // column drag instead (resize itself is mouse-only).
+                          onTouchStart={(e) => e.stopPropagation()}
+                          /* Sits fully INSIDE its own column, flush to the right
+                             edge. It used to overhang by 4px, but the sticky header
+                             gives every column its own layer, so the neighbouring
+                             column painted over the overhanging half — the hot zone
+                             was ~5px and sat entirely left of the visible line. */
+                          className="group/rz absolute top-0 right-0 bottom-0 z-10 w-3 cursor-col-resize"
+                        >
+                          <span className="bg-primary/50 absolute top-2 right-1 bottom-2 w-0.5 rounded-full opacity-0 transition-opacity group-hover/rz:opacity-100" />
+                        </span>
+                      )}
+                    </>
+                  );
+                  return draggable ? (
+                    <SortableHeaderCell key={col.id} colId={col.id}>
+                      {content}
+                    </SortableHeaderCell>
+                  ) : (
+                    <th key={col.id} data-col-header-id={col.id} className="relative p-0">
+                      {content}
+                    </th>
+                  );
+                })}
+              </SortableContext>
               {editable && (
                 <th className="p-0">
                   <button
@@ -325,6 +373,44 @@ export function DbTableView(props: DbTableViewProps) {
         </table>
       </div>
     </DndContext>
+  );
+}
+
+/**
+ * A draggable, sortable table header cell. The dnd-kit listeners sit on the
+ * whole `<th>`, so grabbing anywhere on the header starts a drag past the
+ * activation threshold; a plain click still falls through to the ColumnHeader
+ * button (open settings), and the resize handle stops its own pointer event so
+ * it never starts a drag. Column ids are namespaced `col:` so the shared
+ * DndContext can tell a header drag from a row drag.
+ */
+function SortableHeaderCell({ colId, children }: { colId: string; children: React.ReactNode }) {
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
+    id: `col:${colId}`,
+  });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+  return (
+    <th
+      ref={setNodeRef}
+      data-col-header-id={colId}
+      style={style}
+      // `touch-pan-y`: reserve vertical panning for the browser (so the page
+      // still scrolls when a swipe starts on a header) while leaving horizontal
+      // movement to the drag sensor. `touch-none` would make the header a
+      // vertical-scroll dead zone until the drag delay elapsed.
+      className={cn('relative touch-pan-y p-0', isDragging && 'z-20 opacity-80')}
+      {...attributes}
+      {...listeners}
+      // dnd-kit's sortable attributes set role="button" + tabIndex on the node;
+      // restore the header-cell semantics so body cells stay associated with
+      // their column and we don't nest a button role around the inner controls.
+      role="columnheader"
+    >
+      {children}
+    </th>
   );
 }
 

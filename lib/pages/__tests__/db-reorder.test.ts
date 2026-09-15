@@ -1,4 +1,4 @@
-import { moveRow, reclassifyRow, moveRowToGroup } from '@/lib/pages/db-reorder';
+import { moveRow, reclassifyRow, moveRowToGroup, moveColumn } from '@/lib/pages/db-reorder';
 import type { DatabaseColumn, DatabaseRow } from '@/lib/pages/db-schema';
 
 const columns: DatabaseColumn[] = [
@@ -160,5 +160,64 @@ describe('moveRowToGroup', () => {
   it('full no-op (same reference) when the row is already last in its group on empty-space drop', () => {
     // r4 already in the no-value bucket and last in the array → nothing changes.
     expect(moveRowToGroup(rows, columns, 'r4', 'status', null, null)).toBe(rows);
+  });
+});
+
+describe('moveColumn', () => {
+  const colIds = (cs: DatabaseColumn[]) => cs.map((c) => c.id);
+  // name (title/primary, index 0), status, tags
+  it('moves a non-primary column to a later position', () => {
+    expect(colIds(moveColumn(columns, 'status', 'tags'))).toEqual(['name', 'tags', 'status']);
+  });
+
+  it('moves a non-primary column to an earlier position', () => {
+    expect(colIds(moveColumn(columns, 'tags', 'status'))).toEqual(['name', 'tags', 'status']);
+  });
+
+  it('pins the title column: dragging the primary is a no-op (same reference)', () => {
+    expect(moveColumn(columns, 'name', 'tags')).toBe(columns);
+  });
+
+  it('pins the title column: nothing can displace index 0 (same reference)', () => {
+    expect(moveColumn(columns, 'tags', 'name')).toBe(columns);
+  });
+
+  it('no-ops (same reference) when active === over', () => {
+    expect(moveColumn(columns, 'status', 'status')).toBe(columns);
+  });
+
+  it('no-ops when either id is missing', () => {
+    expect(moveColumn(columns, 'nope', 'status')).toBe(columns);
+    expect(moveColumn(columns, 'status', 'nope')).toBe(columns);
+  });
+
+  it('preserves the position of a hidden column between the moved ones', () => {
+    // Full order incl. a column that is hidden in the view (still in the array).
+    const withHidden: DatabaseColumn[] = [
+      { id: 'name', name: 'Name', type: 'text' },
+      { id: 'a', name: 'A', type: 'text' },
+      { id: 'hidden', name: 'H', type: 'text' },
+      { id: 'b', name: 'B', type: 'text' },
+    ];
+    // Drag visible 'b' before visible 'a'; the hidden column keeps its slot.
+    expect(colIds(moveColumn(withHidden, 'b', 'a'))).toEqual(['name', 'b', 'a', 'hidden']);
+  });
+
+  it('is immutable — does not mutate the input', () => {
+    moveColumn(columns, 'status', 'tags');
+    expect(colIds(columns)).toEqual(['name', 'status', 'tags']);
+  });
+
+  it('swaps the only two non-primary columns in a minimal array while pinning the title', () => {
+    // Smallest array where a reorder is possible: one pinned title + two movable.
+    const minimal: DatabaseColumn[] = [
+      { id: 'name', name: 'Name', type: 'text' },
+      { id: 'a', name: 'A', type: 'text' },
+      { id: 'b', name: 'B', type: 'text' },
+    ];
+    expect(colIds(moveColumn(minimal, 'b', 'a'))).toEqual(['name', 'b', 'a']);
+    // The pin still holds at this boundary: neither id may touch index 0.
+    expect(moveColumn(minimal, 'b', 'name')).toBe(minimal);
+    expect(moveColumn(minimal, 'name', 'a')).toBe(minimal);
   });
 });

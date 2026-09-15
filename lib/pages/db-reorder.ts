@@ -45,6 +45,29 @@ export function moveRow(rows: DatabaseRow[], activeId: string, overId: string): 
 }
 
 /**
+ * Move column `activeId` to `overId`'s position (arrayMove semantics) in the
+ * stored `columns` array. The primary column (index 0) is the row's title and
+ * is pinned: it can never be moved, and no column can take index 0 — so the
+ * title never changes as a side effect of reordering. Operates on the full
+ * columns array, so hidden columns keep their relative order. No-op (original
+ * reference) if either id is missing, they're equal, or the move would touch
+ * index 0.
+ */
+export function moveColumn(
+  columns: DatabaseColumn[],
+  activeId: string,
+  overId: string
+): DatabaseColumn[] {
+  if (activeId === overId) return columns;
+  const from = columns.findIndex((c) => c.id === activeId);
+  const to = columns.findIndex((c) => c.id === overId);
+  if (from === -1 || to === -1) return columns;
+  // Index 0 is the pinned title column: never move it, never displace it.
+  if (from === 0 || to === 0) return columns;
+  return arrayMove(columns, from, to);
+}
+
+/**
  * Set the active row's group-select cell to `targetValue` (an option id, or
  * `null` for the "no value" bucket), returning a new array. No-op if the row is
  * missing, the column isn't a single-select, or the value is already set.

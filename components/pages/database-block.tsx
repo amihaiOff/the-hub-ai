@@ -27,7 +27,7 @@ import {
 } from '@/lib/pages/db-view';
 import { isColumnFilterActive, seedValueForFilter, type ColumnFilter } from './db-filter';
 import { primaryColumn, setRowBody } from '@/lib/pages/db-rows';
-import { moveRow, moveRowToGroup as moveRowToGroupPure } from '@/lib/pages/db-reorder';
+import { moveColumn, moveRow, moveRowToGroup as moveRowToGroupPure } from '@/lib/pages/db-reorder';
 import { coerceValue } from './db-cells';
 import { useIsMobileViewport } from '@/lib/hooks/use-is-mobile-viewport';
 import { DatabaseEntrySheet } from './database-entry-sheet';
@@ -289,6 +289,14 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
     },
     [setRows]
   );
+  /** Reorder columns by dragging headers. The title (index 0) is pinned. */
+  const reorderColumn = useCallback(
+    (activeId: string, overId: string) => {
+      const next = moveColumn(columnsRef.current, activeId, overId);
+      if (next !== columnsRef.current) setColumns(next);
+    },
+    [setColumns]
+  );
   /** Reclassify (cross-group/column) + position a row within the target group. */
   const moveRowToGroup = useCallback(
     (
@@ -522,6 +530,7 @@ export function DatabaseBlockView({ node, updateAttributes, editor }: NodeViewPr
                 groupColId={tableGroupColId}
                 sortActive={activeSort != null}
                 onReorderRow={reorderRows}
+                onReorderColumn={reorderColumn}
                 onMoveRowToGroup={onTableMoveRowToGroup}
                 onAddColumn={addColumn}
                 onClearSort={() => {
