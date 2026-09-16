@@ -8,6 +8,7 @@ import {
   Maximize2,
   MoreHorizontal,
   Plus,
+  Share2,
   Trash2,
   ListTree,
   Minimize2,
@@ -43,6 +44,7 @@ import { EmojiPicker } from './emoji-picker';
 import { PageBodyEditor } from './page-body-editor-lazy';
 import { PageTabBar } from './page-tab-bar';
 import { ManageTabsDialog } from './manage-tabs-dialog';
+import { SharePageDialog } from './share-page-dialog';
 
 const SAVE_MS = 700;
 
@@ -57,6 +59,7 @@ export function PageEditor({ pageId }: { pageId: string }) {
   const [title, setTitle] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   // Full-width mode is desktop-only and persisted in localStorage under a
   // single global key — flipping it applies to every areas page for this
@@ -286,6 +289,11 @@ export function PageEditor({ pageId }: { pageId: string }) {
               <ListTree className="mr-2 h-4 w-4" />
               Manage panes
             </DropdownMenuItem>
+            <DropdownMenuItem className="rounded-lg text-sm" onSelect={() => setShareOpen(true)}>
+              <Share2 className="mr-2 h-4 w-4" />
+              Share
+              {page.shareAccess && <Check className="ml-auto h-4 w-4" />}
+            </DropdownMenuItem>
             {/* Toggle sentence-start auto-capitalization for this page's
                 editors. Preventing default keeps the menu open would be
                 ideal but Radix closes on select anyway — mirrors the
@@ -402,6 +410,8 @@ export function PageEditor({ pageId }: { pageId: string }) {
         activeTabId={activeTab?.id ?? null}
         onActiveTabChange={setActiveTabId}
       />
+
+      <SharePageDialog open={shareOpen} onOpenChange={setShareOpen} pageId={pageId} />
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="rounded-3xl">

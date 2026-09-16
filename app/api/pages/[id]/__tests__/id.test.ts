@@ -63,6 +63,15 @@ describe('GET /api/pages/[id]', () => {
     const json = await res.json();
     expect(json.data.id).toBe('p1');
   });
+
+  it('omits the raw share token — this route is reachable via the scoped AGENT_PAGES_TOKEN', async () => {
+    mockResolveAccess.mockResolvedValueOnce(mockAccess);
+    (mockPrisma.page.findFirst as jest.Mock).mockResolvedValueOnce({ id: 'p1', title: 'X' });
+    await GET(new NextRequest('http://localhost/api/pages/p1'), params('p1'));
+    expect(mockPrisma.page.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ omit: { shareToken: true } })
+    );
+  });
 });
 
 describe('PATCH /api/pages/[id]', () => {
@@ -86,6 +95,16 @@ describe('PATCH /api/pages/[id]', () => {
     expect(mockPrisma.page.update).not.toHaveBeenCalled();
   });
 
+  it('omits the raw share token from its response', async () => {
+    mockResolveAccess.mockResolvedValueOnce(mockAccess);
+    (mockPrisma.page.findFirst as jest.Mock).mockResolvedValueOnce({ id: 'p1' });
+    (mockPrisma.page.update as jest.Mock).mockResolvedValueOnce({ id: 'p1', title: 'New' });
+    await patch('p1', { title: 'New' });
+    expect(mockPrisma.page.update).toHaveBeenCalledWith(
+      expect.objectContaining({ omit: { shareToken: true } })
+    );
+  });
+
   it('only writes the keys the client sent', async () => {
     mockResolveAccess.mockResolvedValueOnce(mockAccess);
     (mockPrisma.page.findFirst as jest.Mock).mockResolvedValueOnce({ id: 'p1' });
@@ -95,6 +114,7 @@ describe('PATCH /api/pages/[id]', () => {
     expect(mockPrisma.page.update).toHaveBeenCalledWith({
       where: { id: 'p1' },
       data: { title: 'New' },
+      omit: { shareToken: true },
     });
   });
 
@@ -106,6 +126,7 @@ describe('PATCH /api/pages/[id]', () => {
     expect(mockPrisma.page.update).toHaveBeenCalledWith({
       where: { id: 'p1' },
       data: { emoji: null },
+      omit: { shareToken: true },
     });
   });
 });

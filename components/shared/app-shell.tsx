@@ -14,8 +14,18 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
-// Paths that don't require authentication or profile
-const PUBLIC_PATHS = ['/auth', '/onboarding', '/handler'];
+// Paths that don't require authentication or profile. '/share' is the
+// public link-sharing view (app/share/[token]) — a page-owner-issued token
+// stands in for a session there, so it must never hit the sign-in redirect
+// or render the authed sidebar/nav.
+const PUBLIC_PATHS = ['/auth', '/onboarding', '/handler', '/share'];
+
+// Exact-segment match — this is the only auth gate in the app (no
+// middleware.ts), so a plain `startsWith` would also whitelist a future
+// unrelated route that happens to share a prefix (e.g. `/share-price`
+// bypassing auth just for starting with `/share`).
+const isPublicPathname = (pathname: string) =>
+  PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));
 
 export function AppShell({ children }: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -25,7 +35,7 @@ export function AppShell({ children }: AppShellProps) {
   const { needsOnboarding, isLoading: isProfileLoading } = useNeedsOnboarding();
 
   // Check if current path is public (no auth/profile required)
-  const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
+  const isPublicPath = isPublicPathname(pathname);
 
   // Combined loading state
   const isLoading = isAuthLoading || isProfileLoading;

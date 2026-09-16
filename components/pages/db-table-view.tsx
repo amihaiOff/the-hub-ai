@@ -521,9 +521,28 @@ function TableRow({
           />
         );
         return (
-          <td key={col.id} className={cn('p-0 align-top', col.type === 'number' && 'text-right')}>
+          <td
+            key={col.id}
+            /* `h-px` is load-bearing, not a typo. A cell's control asks for
+               `h-full` so the whole cell is clickable, but a percentage height
+               needs a parent with a DEFINITE height to resolve against, and a
+               table cell sized by its row has none — so the control collapsed
+               to its own content and the rest of the cell was dead to clicks
+               (measured: 32px of a 73px cell on a row made tall by a wrapped
+               title). A height on the cell fixes that, and `1px` specifically
+               because a cell's `height` is a MINIMUM: the row still stretches
+               it to its real size, and a cell whose own content is the tallest
+               still grows normally. `h-full` here does nothing — percentage
+               against an auto-height row is still indefinite. */
+            className={cn('h-px p-0 align-top', col.type === 'number' && 'text-right')}
+          >
             {isPrimary ? (
-              <div className="flex items-center">
+              /* `h-full` continues the height chain the cell's `h-px`
+                 starts: without it this wrapper is only as tall as its own
+                 content, so a `select`/`date` column sitting FIRST would keep
+                 the dead-zone bug that the other columns just lost. The
+                 decorations either side stay vertically centred as before. */
+              <div className="flex h-full items-center">
                 {editable && dragEnabled ? (
                   <button
                     type="button"
@@ -575,7 +594,7 @@ function TableRow({
                     />
                   )}
                 </span>
-                <div className="min-w-0 flex-1">{cellEditor}</div>
+                <div className="h-full min-w-0 flex-1">{cellEditor}</div>
                 <button
                   type="button"
                   draggable={false}

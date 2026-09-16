@@ -16,8 +16,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
   const { id } = await params;
+  // `omit` the raw share token: this route is reachable via the scoped
+  // AGENT_PAGES_TOKEN (see resolvePagesAccess above), and that token must
+  // never be able to read a page's live share link — GET /api/pages/[id]/share
+  // is the one session-only place that's returned. shareAccess alone is
+  // harmless (just "is this shared, view or edit") and stays.
   const page = await prisma.page.findFirst({
     where: { id, householdId: access.householdId },
+    omit: { shareToken: true },
     include: {
       tabs: {
         orderBy: { sortOrder: 'asc' },
@@ -82,7 +88,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         input.content === null ? Prisma.JsonNull : (input.content as Prisma.InputJsonValue);
     }
 
-    const updated = await prisma.page.update({ where: { id }, data });
+    // omit: shareToken — same reasoning as GET above.
+    const updated = await prisma.page.update({ where: { id }, data, omit: { shareToken: true } });
     return NextResponse.json({ success: true, data: updated });
   } catch {
     return NextResponse.json({ success: false, error: 'Failed to update page' }, { status: 500 });

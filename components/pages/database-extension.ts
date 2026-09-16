@@ -27,6 +27,7 @@ export {
   type DatabaseColumn,
   type DatabaseColumnType,
   type DatabaseRow,
+  type SelectOption,
 } from '@/lib/pages/db-schema';
 
 declare module '@tiptap/core' {

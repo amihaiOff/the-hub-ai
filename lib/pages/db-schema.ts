@@ -10,13 +10,21 @@
 
 export type DatabaseColumnType = 'text' | 'number' | 'date' | 'select' | 'multiselect' | 'checkbox';
 
+/** One choice in a `select` / `multiselect` column. */
+export interface SelectOption {
+  id: string;
+  label: string;
+  /** Key into SELECT_COLORS; absent on older options, which fall back by index. */
+  color?: string;
+}
+
 export interface DatabaseColumn {
   /** Stable per-column id. Persisted so referencing the column by name isn't required. */
   id: string;
   name: string;
   type: DatabaseColumnType;
-  /** Present for `select` and `multiselect` columns. Each option carries a stable id + label + optional color key. */
-  options?: { id: string; label: string; color?: string }[];
+  /** Present for `select` and `multiselect` columns. */
+  options?: SelectOption[];
   /**
    * Persisted column width in px (Table view), set by dragging the header
    * border. Optional — a missing width falls back to a per-type default

@@ -9,6 +9,7 @@ import type {
   UpdatePageTabInput,
   CreatePageSectionInput,
   UpdatePageSectionInput,
+  SharePageInput,
 } from '@/lib/validations/pages';
 
 // ─── Types the UI consumes ──────────────────────────────────────────────
@@ -47,6 +48,17 @@ export interface PageRow extends PageListRow {
   autoCapitalize: boolean;
   sectionId: string | null;
   tabs: PageTabRow[];
+  // Whether this page is shared, and how — harmless as a flag, so the general
+  // page endpoint returns it. The raw token does NOT come back here (this
+  // route is reachable via the scoped AGENT_PAGES_TOKEN, not just a session);
+  // see usePageShare for the session-only place it's returned.
+  shareAccess: 'view' | 'edit' | null;
+}
+
+/** The owner's own read of the current share state, incl. the raw token. */
+export interface PageShareInfo {
+  shareToken: string | null;
+  shareAccess: 'view' | 'edit' | null;
 }
 
 // ─── Query keys ─────────────────────────────────────────────────────────
@@ -62,7 +74,7 @@ export const pageKeys = {
 
 // ─── Fetch helper ───────────────────────────────────────────────────────
 
-async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     ...init,
     headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
@@ -156,6 +168,63 @@ export function useDeletePage() {
       // Favourites pointing at this page are cascade-deleted in the database,
       // which the favourites cache has no way of observing on its own.
       invalidateFavoritesCache(qc);
+    },
+  });
+}
+
+// ─── Sharing ────────────────────────────────────────────────────────────
+//
+// The raw share token is deliberately NOT part of PageRow — GET/PATCH
+// /api/pages/[id] is reachable via the scoped AGENT_PAGES_TOKEN, which must
+// never be able to read a live public link off it. `usePageShare` hits the
+// one session-only route that returns it, kept in its own cache entry.
+
+const pageShareKey = (id: string) => ['pages', 'share', id] as const;
+
+/** The owner's own read of the current share state. Gate with `enabled` (e.g. dialog open). */
+export function usePageShare(id: string, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: pageShareKey(id),
+    queryFn: () => fetchJson<PageShareInfo>(`/api/pages/${id}/share`),
+    enabled: (options?.enabled ?? true) && !!id,
+  });
+}
+
+/** Enables (or updates) public link-sharing for a page. See app/share/[token]. */
+export function useSharePage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: SharePageInput }) =>
+      fetchJson<PageShareInfo>(`/api/pages/${id}/share`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: (result, { id }) => {
+      qc.setQueryData<PageShareInfo>(pageShareKey(id), result);
+      // The general page cache only ever carries `shareAccess` (the harmless
+      // flag), so the "Shared" checkmark in the overflow menu updates too.
+      const prevPage = qc.getQueryData<PageRow>(pageKeys.detail(id));
+      if (prevPage) {
+        qc.setQueryData<PageRow>(pageKeys.detail(id), {
+          ...prevPage,
+          shareAccess: result.shareAccess,
+        });
+      }
+    },
+  });
+}
+
+/** Turns off public link-sharing — the old link 404s immediately after. */
+export function useUnsharePage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      fetchJson<{ ok: true }>(`/api/pages/${id}/share`, { method: 'DELETE' }),
+    onSuccess: (_d, id) => {
+      qc.setQueryData<PageShareInfo>(pageShareKey(id), { shareToken: null, shareAccess: null });
+      const prevPage = qc.getQueryData<PageRow>(pageKeys.detail(id));
+      if (prevPage)
+        qc.setQueryData<PageRow>(pageKeys.detail(id), { ...prevPage, shareAccess: null });
     },
   });
 }

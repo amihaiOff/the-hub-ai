@@ -60,3 +60,12 @@ export const updatePageTabSchema = z.object({
   sortOrder: z.number().int().optional(),
 });
 export type UpdatePageTabInput = z.infer<typeof updatePageTabSchema>;
+
+// ─── Public link-sharing ─────────────────────────────────────────────────
+
+export const sharePageSchema = z.object({
+  access: z.enum(['view', 'edit']),
+  /** Rotate to a fresh token, invalidating the current link. */
+  regenerate: z.boolean().optional(),
+});
+export type SharePageInput = z.infer<typeof sharePageSchema>;

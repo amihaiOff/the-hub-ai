@@ -263,7 +263,7 @@ function DateCell({
           type="button"
           disabled={disabled}
           className={cn(
-            'flex h-full w-full items-center justify-start px-2 py-2 text-[13.5px] outline-none',
+            'flex h-full w-full items-start justify-start px-2 py-2 text-[13.5px] outline-none',
             disabled && 'cursor-not-allowed'
           )}
         >
@@ -365,7 +365,7 @@ function SelectCell({
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
         aria-label={`${column.name}: ${selected?.label ?? 'empty'}`}
-        className="flex h-full w-full items-center justify-start px-2 py-2 text-left text-[13.5px]"
+        className="flex h-full w-full items-start justify-start px-2 py-2 text-left text-[13.5px]"
       >
         {selected && selColor ? (
           <SelectPill label={selected.label} color={selColor} />
@@ -481,7 +481,7 @@ function MultiSelectCell({
         aria-label={`${column.name}: ${
           selectedOptions.map(({ opt }) => opt.label).join(', ') || 'empty'
         }`}
-        className="flex h-full w-full items-center justify-start px-2 py-2 text-left text-[13.5px]"
+        className="flex h-full w-full items-start justify-start px-2 py-2 text-left text-[13.5px]"
       >
         {selectedOptions.length > 0 ? (
           <span className="flex flex-wrap items-center justify-start gap-1">
@@ -589,7 +589,7 @@ export function CellEditor({
     case 'checkbox': {
       const checked = Boolean(value);
       return (
-        <div className="flex h-full items-center justify-start px-2 py-2">
+        <div className="flex h-full items-start justify-start px-2 py-2">
           <button
             type="button"
             role="checkbox"
