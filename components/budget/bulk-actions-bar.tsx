@@ -73,8 +73,9 @@ export function BulkActionsBar({
           onClick={() => setPickerOpen(true)}
           disabled={bulkCategorize.isPending}
         >
-          <FolderTree className="mr-1 h-4 w-4" />
-          Set Category
+          <FolderTree className="h-4 w-4 sm:mr-1" />
+          <span className="hidden sm:inline">Set Category</span>
+          <span className="sr-only sm:hidden">Set Category</span>
         </Button>
         <Button
           variant="outline"
@@ -82,8 +83,9 @@ export function BulkActionsBar({
           onClick={() => setTagPickerOpen(true)}
           disabled={bulkAssignTag.isPending}
         >
-          <Tag className="mr-1 h-4 w-4" />
-          Add Tag
+          <Tag className="h-4 w-4 sm:mr-1" />
+          <span className="hidden sm:inline">Add Tag</span>
+          <span className="sr-only sm:hidden">Add Tag</span>
         </Button>
         <Button
           variant="destructive"
@@ -91,8 +93,9 @@ export function BulkActionsBar({
           onClick={handleDelete}
           disabled={bulkDelete.isPending}
         >
-          <Trash2 className="mr-1 h-4 w-4" />
-          Delete
+          <Trash2 className="h-4 w-4 sm:mr-1" />
+          <span className="hidden sm:inline">Delete</span>
+          <span className="sr-only sm:hidden">Delete</span>
         </Button>
       </div>
 

@@ -713,6 +713,7 @@ export function useBulkAssignTag() {
     },
     onSuccess: () => {
       invalidateBudgetTransactionCaches(queryClient);
+      queryClient.invalidateQueries({ queryKey: budgetKeys.tags() });
     },
   });
 }
