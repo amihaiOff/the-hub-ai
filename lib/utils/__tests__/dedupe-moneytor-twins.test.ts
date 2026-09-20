@@ -18,6 +18,11 @@ type Row = {
   categoryId: string | null;
   mergedFromId: string | null;
   isDeleted: boolean;
+  // Rule-3 (cross-currency) fields. Optional so the 16 pre-existing,
+  // same-currency test bodies don't need to change — they default to a
+  // plain ILS row via the findMany mapping below.
+  currency?: string;
+  amountOriginal?: number;
 };
 
 function makeMockPrisma(rows: Row[]) {
@@ -28,6 +33,8 @@ function makeMockPrisma(rows: Row[]) {
         .filter((r) => !r.isDeleted && where.source === 'moneytor_sync')
         .map((r) => ({
           ...r,
+          currency: r.currency ?? 'ILS',
+          amountOriginal: r.amountOriginal ?? r.amountIls,
           amountIls: { toString: () => r.amountIls.toFixed(2) } as unknown as number,
         }));
     },
@@ -57,8 +64,13 @@ jest.mock('@/lib/db', () => {
   };
 });
 
+jest.mock('@/lib/api/exchange-rates', () => ({
+  fetchRateToILS: jest.fn(),
+}));
+
 // Wire the mocks per-test via require, so each test resets state.
 import { prisma } from '@/lib/db';
+import { fetchRateToILS } from '@/lib/api/exchange-rates';
 
 describe('dedupeMoneytorTwinsForHousehold', () => {
   const HH = 'hh_test';
@@ -67,6 +79,10 @@ describe('dedupeMoneytorTwinsForHousehold', () => {
     (prisma.budgetTransaction.findMany as jest.Mock).mockReset();
     (prisma.budgetTransaction.update as jest.Mock).mockReset();
     (prisma.$transaction as jest.Mock).mockReset();
+    (fetchRateToILS as jest.Mock).mockReset();
+    // Realistic default so rule-3 tests don't each need to stub it unless
+    // they're specifically exercising a different rate or a failed lookup.
+    (fetchRateToILS as jest.Mock).mockResolvedValue(3.7);
   });
 
   function wire(rows: Row[]) {
@@ -714,5 +730,333 @@ describe('dedupeMoneytorTwinsForHousehold', () => {
     expect(result.merged).toBe(0);
     expect(result.candidates).toBe(0);
     expect(prisma.budgetTransaction.update).not.toHaveBeenCalled();
+  });
+
+  // --- Rule 3: cross-currency pairs ----------------------------------------
+
+  describe('rule 3 (cross-currency pairs)', () => {
+    it('merges a foreign pending row with a same-payee ILS settled row within the FX margin', async () => {
+      // amountIls deliberately differs between the two rows (and is unique
+      // within the group) so rules 1/2 — which group by exact amountIls —
+      // never see this as a candidate pair; only rule 3's payee-only
+      // grouping should find it. 100 USD * 3.7 (default mocked rate) = 370,
+      // an exact match against the settled row's amountIls.
+      const rows: Row[] = [
+        {
+          id: 'pending-usd',
+          payeeId: 'p1',
+          amountIls: 375,
+          amountOriginal: 100,
+          currency: 'USD',
+          transactionDate: new Date('2026-08-01'),
+          moneytorId: 'MT_FX_A',
+          categoryId: 'cat_travel',
+          mergedFromId: null,
+          isDeleted: false,
+        },
+        {
+          id: 'settled-ils',
+          payeeId: 'p1',
+          amountIls: 370,
+          currency: 'ILS',
+          transactionDate: new Date('2026-08-03'),
+          moneytorId: 'MT_FX_B',
+          categoryId: null,
+          mergedFromId: null,
+          isDeleted: false,
+        },
+      ];
+      const state = wire(rows);
+
+      const result = await dedupeMoneytorTwinsForHousehold(HH);
+      expect(result.merged).toBe(1);
+
+      // Later row (settled-ils) soft-deleted; no moneytorId movement since
+      // both sides already carry real ids.
+      const twinUpdate = state.updates.find((u) => u.id === 'settled-ils');
+      expect(twinUpdate?.data).toEqual({ isDeleted: true });
+
+      // Earlier row (pending-usd) survives, keeps its own category (already
+      // set) and its own moneytorId (unchanged — no adoption needed since it
+      // already had one), records mergedFromId.
+      const survivorUpdate = state.updates.find((u) => u.id === 'pending-usd');
+      expect(survivorUpdate?.data).toEqual({
+        moneytorId: 'MT_FX_A',
+        categoryId: 'cat_travel',
+        mergedFromId: 'settled-ils',
+      });
+    });
+
+    it('does not merge when the converted amount is outside the FX margin', async () => {
+      const rows: Row[] = [
+        {
+          id: 'pending-usd',
+          payeeId: 'p1',
+          amountIls: 999,
+          amountOriginal: 100,
+          currency: 'USD',
+          transactionDate: new Date('2026-08-01'),
+          moneytorId: 'MT_FX_A',
+          categoryId: null,
+          mergedFromId: null,
+          isDeleted: false,
+        },
+        {
+          id: 'settled-ils',
+          payeeId: 'p1',
+          // 100 USD * 3.7 = 370; gap against 500 is 26%, well outside the
+          // 7% FX_MARGIN.
+          amountIls: 500,
+          currency: 'ILS',
+          transactionDate: new Date('2026-08-02'),
+          moneytorId: 'MT_FX_B',
+          categoryId: null,
+          mergedFromId: null,
+          isDeleted: false,
+        },
+      ];
+      wire(rows);
+
+      const result = await dedupeMoneytorTwinsForHousehold(HH);
+      expect(result.merged).toBe(0);
+      expect(prisma.budgetTransaction.update).not.toHaveBeenCalled();
+    });
+
+    it('picks the closest-gap ILS candidate over the earliest-in-window one', async () => {
+      // Both candidates are within the 4-day widened window and within the
+      // 7% margin, but ilsFurther (earlier in time) has a bigger gap than
+      // ilsCloser (later in time). A naive first-match implementation would
+      // pick ilsFurther; the tie-break requires ilsCloser to win instead.
+      const start = new Date('2026-08-01').getTime();
+      const rows: Row[] = [
+        {
+          id: 'pending-usd',
+          payeeId: 'p1',
+          amountIls: 999,
+          amountOriginal: 100, // converts to 370 at the default 3.7 rate
+          currency: 'USD',
+          transactionDate: new Date(start),
+          moneytorId: 'MT_FX_A',
+          categoryId: null,
+          mergedFromId: null,
+          isDeleted: false,
+        },
+        {
+          id: 'ils-further',
+          payeeId: 'p1',
+          amountIls: 350, // gap = |370-350|/350 = 5.71%
+          currency: 'ILS',
+          transactionDate: new Date(start + 1 * DAY_MS),
+          moneytorId: 'MT_FX_B',
+          categoryId: null,
+          mergedFromId: null,
+          isDeleted: false,
+        },
+        {
+          id: 'ils-closer',
+          payeeId: 'p1',
+          amountIls: 365, // gap = |370-365|/365 = 1.37%
+          currency: 'ILS',
+          transactionDate: new Date(start + 3 * DAY_MS),
+          moneytorId: 'MT_FX_C',
+          categoryId: null,
+          mergedFromId: null,
+          isDeleted: false,
+        },
+      ];
+      const state = wire(rows);
+
+      const result = await dedupeMoneytorTwinsForHousehold(HH);
+      expect(result.merged).toBe(1);
+
+      // ils-further must be left completely untouched.
+      expect(state.updates.some((u) => u.id === 'ils-further')).toBe(false);
+      expect(rows.find((r) => r.id === 'ils-further')?.isDeleted).toBe(false);
+
+      // ils-closer is the twin, soft-deleted; pending-usd survives (earlier
+      // date than ils-closer) and records the merge.
+      const twinUpdate = state.updates.find((u) => u.id === 'ils-closer');
+      expect(twinUpdate?.data).toEqual({ isDeleted: true });
+      const survivorUpdate = state.updates.find((u) => u.id === 'pending-usd');
+      expect(survivorUpdate?.data).toEqual({
+        moneytorId: 'MT_FX_A',
+        categoryId: null,
+        mergedFromId: 'ils-closer',
+      });
+    });
+
+    it('does not merge when the exchange rate lookup fails', async () => {
+      (fetchRateToILS as jest.Mock).mockResolvedValue(null);
+
+      const rows: Row[] = [
+        {
+          id: 'pending-usd',
+          payeeId: 'p1',
+          amountIls: 999,
+          amountOriginal: 100,
+          currency: 'USD',
+          transactionDate: new Date('2026-08-01'),
+          moneytorId: 'MT_FX_A',
+          categoryId: null,
+          mergedFromId: null,
+          isDeleted: false,
+        },
+        {
+          id: 'settled-ils',
+          // Would be an exact-match candidate if the rate lookup succeeded
+          // — proves the null-rate short-circuit is what prevents the merge.
+          amountIls: 370,
+          payeeId: 'p1',
+          currency: 'ILS',
+          transactionDate: new Date('2026-08-02'),
+          moneytorId: 'MT_FX_B',
+          categoryId: null,
+          mergedFromId: null,
+          isDeleted: false,
+        },
+      ];
+      wire(rows);
+
+      const result = await dedupeMoneytorTwinsForHousehold(HH);
+      expect(result.merged).toBe(0);
+      expect(prisma.budgetTransaction.update).not.toHaveBeenCalled();
+    });
+
+    it('excludes rows already merged by rule 1/2 from rule-3 consideration', async () => {
+      const start = new Date('2026-08-01').getTime();
+      const rows: Row[] = [
+        // Rule-1 pair: null-moneytorId pending + settled, same amountIls,
+        // 2 days apart — merges under rule 1 before rule 3 ever runs.
+        {
+          id: 'pending-null',
+          payeeId: 'p1',
+          amountIls: 200,
+          currency: 'ILS',
+          transactionDate: new Date(start),
+          moneytorId: null,
+          categoryId: null,
+          mergedFromId: null,
+          isDeleted: false,
+        },
+        {
+          id: 'settled-real',
+          payeeId: 'p1',
+          amountIls: 200,
+          currency: 'ILS',
+          transactionDate: new Date(start + 2 * DAY_MS),
+          moneytorId: 'MT_X',
+          categoryId: null,
+          mergedFromId: null,
+          isDeleted: false,
+        },
+        // Foreign row that would otherwise match settled-real by FX
+        // conversion (100 USD * 3.7 = 370... use an amountOriginal that
+        // converts close to 200 instead, to target settled-real directly).
+        {
+          id: 'foreign',
+          payeeId: 'p1',
+          amountIls: 999,
+          amountOriginal: 54.05, // * 3.7 ≈ 200, within margin of settled-real's 200
+          currency: 'USD',
+          transactionDate: new Date(start + 3 * DAY_MS),
+          moneytorId: 'MT_FX',
+          categoryId: null,
+          mergedFromId: null,
+          isDeleted: false,
+        },
+      ];
+      const state = wire(rows);
+
+      const result = await dedupeMoneytorTwinsForHousehold(HH);
+
+      // Only the rule-1 pair merges; settled-real is no longer available as
+      // an ILS candidate for rule 3 once consumed, so the foreign row is
+      // left completely alone (no double-merge).
+      expect(result.merged).toBe(1);
+      expect(state.updates.some((u) => u.id === 'foreign')).toBe(false);
+      expect(rows.find((r) => r.id === 'foreign')?.isDeleted).toBe(false);
+    });
+
+    it('matches currency case-insensitively (lowercase currency codes still merge)', async () => {
+      const rows: Row[] = [
+        {
+          id: 'pending-usd-lower',
+          payeeId: 'p1',
+          amountIls: 999,
+          amountOriginal: 100,
+          currency: 'usd',
+          transactionDate: new Date('2026-08-01'),
+          moneytorId: 'MT_FX_A',
+          categoryId: null,
+          mergedFromId: null,
+          isDeleted: false,
+        },
+        {
+          id: 'settled-ils-lower',
+          payeeId: 'p1',
+          amountIls: 370,
+          currency: 'ils',
+          transactionDate: new Date('2026-08-02'),
+          moneytorId: 'MT_FX_B',
+          categoryId: null,
+          mergedFromId: null,
+          isDeleted: false,
+        },
+      ];
+      wire(rows);
+
+      const result = await dedupeMoneytorTwinsForHousehold(HH);
+      expect(result.merged).toBe(1);
+      expect(fetchRateToILS).toHaveBeenCalledWith('USD');
+    });
+
+    it('adopts the twin real moneytorId onto a survivor that has none of its own', async () => {
+      // pending-usd has no moneytorId (reachable via the force-resync unlink
+      // path) and is the earlier — surviving — row. Without adoption it
+      // would permanently lose its id and a future sync could re-import
+      // settled-ils's underlying moneytor_transaction as a fresh duplicate.
+      const rows: Row[] = [
+        {
+          id: 'pending-usd',
+          payeeId: 'p1',
+          amountIls: 999,
+          amountOriginal: 100,
+          currency: 'USD',
+          transactionDate: new Date('2026-08-01'),
+          moneytorId: null,
+          categoryId: null,
+          mergedFromId: null,
+          isDeleted: false,
+        },
+        {
+          id: 'settled-ils',
+          payeeId: 'p1',
+          amountIls: 370,
+          currency: 'ILS',
+          transactionDate: new Date('2026-08-02'),
+          moneytorId: 'MT_FX_B',
+          categoryId: null,
+          mergedFromId: null,
+          isDeleted: false,
+        },
+      ];
+      const state = wire(rows);
+
+      const result = await dedupeMoneytorTwinsForHousehold(HH);
+      expect(result.merged).toBe(1);
+
+      // Twin's id is cleared before it's soft-deleted (avoids the unique
+      // constraint when the survivor adopts it).
+      const twinUpdate = state.updates.find((u) => u.id === 'settled-ils');
+      expect(twinUpdate?.data).toEqual({ moneytorId: null, isDeleted: true });
+
+      // Survivor adopts the twin's real id instead of staying null.
+      const survivorUpdate = state.updates.find((u) => u.id === 'pending-usd');
+      expect(survivorUpdate?.data).toEqual({
+        moneytorId: 'MT_FX_B',
+        categoryId: null,
+        mergedFromId: 'settled-ils',
+      });
+    });
   });
 });

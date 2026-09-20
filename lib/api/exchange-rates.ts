@@ -69,6 +69,16 @@ export function convertPrice(
 }
 
 /**
+ * Fetch today's rate for any currency to ILS (not limited to USD/EUR/GBP).
+ * Reuses the same Yahoo Finance lookup as fetchExchangeRates.
+ */
+export async function fetchRateToILS(currency: string): Promise<number | null> {
+  const upper = currency.toUpperCase();
+  if (upper === 'ILS') return 1;
+  return fetchRate(`${upper}ILS=X`);
+}
+
+/**
  * Fetch exchange rates from Yahoo Finance
  * Returns rates TO ILS (e.g., USD: 3.6 means 1 USD = 3.6 ILS)
  */
