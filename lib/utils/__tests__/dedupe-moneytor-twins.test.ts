@@ -23,6 +23,7 @@ type Row = {
   // plain ILS row via the findMany mapping below.
   currency?: string;
   amountOriginal?: number;
+  notes?: string | null;
 };
 
 function makeMockPrisma(rows: Row[]) {
@@ -35,6 +36,7 @@ function makeMockPrisma(rows: Row[]) {
           ...r,
           currency: r.currency ?? 'ILS',
           amountOriginal: r.amountOriginal ?? r.amountIls,
+          notes: r.notes ?? null,
           amountIls: { toString: () => r.amountIls.toFixed(2) } as unknown as number,
         }));
     },
@@ -1070,6 +1072,82 @@ describe('dedupeMoneytorTwinsForHousehold', () => {
         amountOriginal: 370,
       });
       expect(Number(survivorUpdate?.data.amountIls)).toBe(370);
+    });
+
+    it('records the original foreign amount in notes when the survivor has none', async () => {
+      const rows: Row[] = [
+        {
+          id: 'pending-usd',
+          payeeId: 'p1',
+          amountIls: 375,
+          amountOriginal: 100,
+          currency: 'USD',
+          transactionDate: new Date('2026-08-01'),
+          moneytorId: 'MT_FX_A',
+          categoryId: null,
+          mergedFromId: null,
+          notes: null,
+          isDeleted: false,
+        },
+        {
+          id: 'settled-ils',
+          payeeId: 'p1',
+          amountIls: 370,
+          currency: 'ILS',
+          transactionDate: new Date('2026-08-02'),
+          moneytorId: 'MT_FX_B',
+          categoryId: null,
+          mergedFromId: null,
+          isDeleted: false,
+        },
+      ];
+      const state = wire(rows);
+
+      await dedupeMoneytorTwinsForHousehold(HH);
+
+      const survivorUpdate = state.updates.find((u) => u.id === 'pending-usd');
+      const notes = survivorUpdate?.data.notes as string;
+      expect(notes).toMatch(/^Originally /);
+      expect(notes).toContain('100');
+      expect(notes).toContain('USD');
+    });
+
+    it('appends the original foreign amount to existing notes rather than overwriting them', async () => {
+      const rows: Row[] = [
+        {
+          id: 'pending-usd',
+          payeeId: 'p1',
+          amountIls: 375,
+          amountOriginal: 100,
+          currency: 'USD',
+          transactionDate: new Date('2026-08-01'),
+          moneytorId: 'MT_FX_A',
+          categoryId: null,
+          mergedFromId: null,
+          notes: 'Hotel deposit',
+          isDeleted: false,
+        },
+        {
+          id: 'settled-ils',
+          payeeId: 'p1',
+          amountIls: 370,
+          currency: 'ILS',
+          transactionDate: new Date('2026-08-02'),
+          moneytorId: 'MT_FX_B',
+          categoryId: null,
+          mergedFromId: null,
+          isDeleted: false,
+        },
+      ];
+      const state = wire(rows);
+
+      await dedupeMoneytorTwinsForHousehold(HH);
+
+      const survivorUpdate = state.updates.find((u) => u.id === 'pending-usd');
+      const notes = survivorUpdate?.data.notes as string;
+      expect(notes).toMatch(/^Hotel deposit\nOriginally /);
+      expect(notes).toContain('100');
+      expect(notes).toContain('USD');
     });
   });
 });

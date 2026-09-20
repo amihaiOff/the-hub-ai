@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import { fetchRateToILS } from '@/lib/api/exchange-rates';
+import { formatCurrencyForTransaction } from '@/lib/utils/budget';
 
 /**
  * Pending→settled twin merge policy.
@@ -53,7 +54,10 @@ import { fetchRateToILS } from '@/lib/api/exchange-rates';
  *    row like rules 1/2, but the amount/currency always come from the ILS
  *    side regardless of which one that is — a merged transaction becomes a
  *    normal ILS row from then on, so only a charge that's still genuinely
- *    unsettled displays in its original currency.
+ *    unsettled displays in its original currency. The original foreign
+ *    amount isn't lost once converted, though — it's appended to the
+ *    survivor's notes ("Originally $100 USD") so it stays visible even
+ *    after the row switches over to ILS.
  */
 export const TWIN_WINDOW_DAYS = 7;
 const TWIN_WINDOW_MS = TWIN_WINDOW_DAYS * 24 * 60 * 60 * 1000;
@@ -92,6 +96,7 @@ export async function dedupeMoneytorTwinsForHousehold(householdId: string): Prom
       mergedFromId: true,
       currency: true,
       amountOriginal: true,
+      notes: true,
     },
   });
 
@@ -301,6 +306,18 @@ export async function dedupeMoneytorTwinsForHousehold(householdId: string): Prom
       const needsIdAdoption = survivor.moneytorId === null && twin.moneytorId !== null;
       const survivingMoneytorId = survivor.moneytorId ?? twin.moneytorId ?? null;
 
+      // Record what the charge originally was in its own currency, since the
+      // survivor's amount/currency below get overwritten with the settled
+      // ILS numbers — `pending` (not survivor/twin) is always the foreign
+      // side by construction, regardless of which one is which here.
+      const originalAmountNote = `Originally ${formatCurrencyForTransaction(
+        Number(pending.amountOriginal),
+        pending.currency
+      )} ${pending.currency.toUpperCase()}`;
+      const notesWithOriginal = survivor.notes
+        ? `${survivor.notes}\n${originalAmountNote}`
+        : originalAmountNote;
+
       await prisma.$transaction([
         prisma.budgetTransaction.update({
           where: { id: twin.id },
@@ -321,6 +338,7 @@ export async function dedupeMoneytorTwinsForHousehold(householdId: string): Prom
             amountIls: best.amountIls,
             currency: best.currency,
             amountOriginal: best.amountOriginal,
+            notes: notesWithOriginal,
           },
         }),
       ]);
