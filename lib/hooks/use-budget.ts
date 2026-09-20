@@ -701,6 +701,22 @@ export function useBulkCategorizeTransactions() {
   });
 }
 
+export function useBulkAssignTag() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ ids, tagId }: { ids: string[]; tagId: string }): Promise<void> => {
+      await fetchApi<{ tagged: number }>('/api/budget/transactions/bulk', {
+        method: 'PATCH',
+        body: JSON.stringify({ transactionIds: ids, tagId }),
+      });
+    },
+    onSuccess: () => {
+      invalidateBudgetTransactionCaches(queryClient);
+    },
+  });
+}
+
 // Category mutations
 export function useCreateCategory() {
   const queryClient = useQueryClient();

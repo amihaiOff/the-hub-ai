@@ -213,6 +213,11 @@ export const bulkDeleteSchema = z.object({
   transactionIds: z.array(z.string()).min(1, 'At least one transaction ID is required'),
 });
 
+export const bulkAssignTagSchema = z.object({
+  transactionIds: z.array(z.string()).min(1, 'At least one transaction ID is required'),
+  tagId: z.string(),
+});
+
 // Split transaction schema
 export const createSplitSchema = z.object({
   originalTransactionId: nonEmptyString('Original transaction ID is required'),
@@ -375,6 +380,7 @@ export type TransactionFilters = z.infer<typeof transactionFiltersSchema>;
 export type BulkTransactionInput = z.infer<typeof bulkTransactionSchema>;
 export type BulkCategorizeInput = z.infer<typeof bulkCategorizeSchema>;
 export type BulkDeleteInput = z.infer<typeof bulkDeleteSchema>;
+export type BulkAssignTagInput = z.infer<typeof bulkAssignTagSchema>;
 export type CreateSplitInput = z.infer<typeof createSplitSchema>;
 
 export type CreatePayeeCategoryRuleInput = z.infer<typeof createPayeeCategoryRuleSchema>;

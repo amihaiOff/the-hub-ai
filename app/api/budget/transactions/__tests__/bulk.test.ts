@@ -24,9 +24,11 @@ jest.mock('@/lib/db', () => ({
     },
     budgetTag: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
     },
     budgetTransactionTag: {
       create: jest.fn(),
+      findMany: jest.fn(),
     },
     householdMember: {
       findMany: jest.fn(),
@@ -41,7 +43,7 @@ jest.mock('@/lib/auth-utils', () => ({
 
 import { prisma } from '@/lib/db';
 import { getCurrentContext } from '@/lib/auth-utils';
-import { POST, PUT, DELETE } from '../bulk/route';
+import { POST, PUT, PATCH, DELETE } from '../bulk/route';
 
 const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
@@ -442,6 +444,155 @@ describe('Transactions Bulk API', () => {
 
       expect(response.status).toBe(500);
       expect(data.error).toBe('Failed to categorize transactions');
+    });
+  });
+
+  describe('PATCH /api/budget/transactions/bulk', () => {
+    it('should bulk assign a tag, skipping transactions that already have it', async () => {
+      const mockTag = { id: 'tag-1', householdId: 'household-1' };
+      const mockTransactions = [{ id: 'tx-1' }, { id: 'tx-2' }, { id: 'tx-3' }];
+
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTag.findFirst as jest.Mock).mockResolvedValueOnce(mockTag);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce(mockTransactions);
+      // tx-2 already has the tag linked
+      (mockPrisma.budgetTransactionTag.findMany as jest.Mock).mockResolvedValueOnce([
+        { transactionId: 'tx-2' },
+      ]);
+      (mockPrisma.budgetTransactionTag.create as jest.Mock)
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({});
+
+      const request = new NextRequest('http://localhost:3000/api/budget/transactions/bulk', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          transactionIds: ['tx-1', 'tx-2', 'tx-3'],
+          tagId: 'tag-1',
+        }),
+      });
+
+      const response = await PATCH(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.data.tagged).toBe(2);
+      expect(data.data.tagId).toBe('tag-1');
+
+      // Only the two untagged transactions should get a new link created
+      expect(mockPrisma.budgetTransactionTag.create).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.budgetTransactionTag.create).toHaveBeenCalledWith({
+        data: { transactionId: 'tx-1', tagId: 'tag-1' },
+      });
+      expect(mockPrisma.budgetTransactionTag.create).toHaveBeenCalledWith({
+        data: { transactionId: 'tx-3', tagId: 'tag-1' },
+      });
+      expect(mockPrisma.budgetTransactionTag.create).not.toHaveBeenCalledWith({
+        data: { transactionId: 'tx-2', tagId: 'tag-1' },
+      });
+    });
+
+    it('should return 401 when not authenticated', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(null);
+
+      const request = new NextRequest('http://localhost:3000/api/budget/transactions/bulk', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          transactionIds: ['tx-1'],
+          tagId: 'tag-1',
+        }),
+      });
+
+      const response = await PATCH(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(data.error).toBe('Unauthorized');
+    });
+
+    it('should return 400 for invalid input', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+
+      const request = new NextRequest('http://localhost:3000/api/budget/transactions/bulk', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          transactionIds: [],
+          tagId: 'tag-1',
+        }),
+      });
+
+      const response = await PATCH(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.success).toBe(false);
+    });
+
+    it('should return 404 when tag not found', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTag.findFirst as jest.Mock).mockResolvedValueOnce(null);
+
+      const request = new NextRequest('http://localhost:3000/api/budget/transactions/bulk', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          transactionIds: ['tx-1'],
+          tagId: 'invalid-tag',
+        }),
+      });
+
+      const response = await PATCH(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(data.error).toBe('Tag not found');
+    });
+
+    it('should return 404 when some transactions not found', async () => {
+      const mockTag = { id: 'tag-1', householdId: 'household-1' };
+
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTag.findFirst as jest.Mock).mockResolvedValueOnce(mockTag);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([{ id: 'tx-1' }]); // Only 1 of 2 found
+
+      const request = new NextRequest('http://localhost:3000/api/budget/transactions/bulk', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          transactionIds: ['tx-1', 'tx-2'],
+          tagId: 'tag-1',
+        }),
+      });
+
+      const response = await PATCH(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(data.error).toBe('One or more transactions not found');
+    });
+
+    it('should return 500 on database error', async () => {
+      const mockTag = { id: 'tag-1', householdId: 'household-1' };
+      const mockTransactions = [{ id: 'tx-1' }];
+
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetTag.findFirst as jest.Mock).mockResolvedValueOnce(mockTag);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce(mockTransactions);
+      (mockPrisma.budgetTransactionTag.findMany as jest.Mock).mockRejectedValueOnce(
+        new Error('Database error')
+      );
+
+      const request = new NextRequest('http://localhost:3000/api/budget/transactions/bulk', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          transactionIds: ['tx-1'],
+          tagId: 'tag-1',
+        }),
+      });
+
+      const response = await PATCH(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data.error).toBe('Failed to assign tag to transactions');
     });
   });
 

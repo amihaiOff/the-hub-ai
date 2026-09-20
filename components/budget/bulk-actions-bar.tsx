@@ -2,13 +2,16 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { FolderTree, Trash2 } from 'lucide-react';
+import { FolderTree, Tag, Trash2 } from 'lucide-react';
 import {
   useCategoryGroups,
+  useTags,
   useBulkDeleteTransactions,
   useBulkCategorizeTransactions,
+  useBulkAssignTag,
 } from '@/lib/hooks/use-budget';
 import { CategoryPickerSheet } from './category-picker-sheet';
+import { BulkTagPickerSheet } from './bulk-tag-picker-sheet';
 
 interface BulkActionsBarProps {
   selectedCount: number;
@@ -22,9 +25,12 @@ export function BulkActionsBar({
   onClearSelection,
 }: BulkActionsBarProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const { data: categoryGroups = [] } = useCategoryGroups();
+  const { data: tags = [] } = useTags();
   const bulkDelete = useBulkDeleteTransactions();
   const bulkCategorize = useBulkCategorizeTransactions();
+  const bulkAssignTag = useBulkAssignTag();
 
   const handleDelete = async () => {
     if (confirm(`Delete ${selectedCount} transaction${selectedCount > 1 ? 's' : ''}?`)) {
@@ -47,6 +53,15 @@ export function BulkActionsBar({
     }
   };
 
+  const handleAssignTag = async (tagId: string) => {
+    try {
+      await bulkAssignTag.mutateAsync({ ids: selectedIds, tagId });
+      onClearSelection();
+    } catch (error) {
+      console.error('Failed to assign tag to transactions:', error);
+    }
+  };
+
   return (
     <>
       {/* Count + Clear live in the sticky header above the list, so the bar
@@ -60,6 +75,15 @@ export function BulkActionsBar({
         >
           <FolderTree className="mr-1 h-4 w-4" />
           Set Category
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setTagPickerOpen(true)}
+          disabled={bulkAssignTag.isPending}
+        >
+          <Tag className="mr-1 h-4 w-4" />
+          Add Tag
         </Button>
         <Button
           variant="destructive"
@@ -80,6 +104,14 @@ export function BulkActionsBar({
         onSelect={handleCategorize}
         allowNone={false}
         title={`Categorize ${selectedCount} transaction${selectedCount > 1 ? 's' : ''}`}
+      />
+
+      <BulkTagPickerSheet
+        open={tagPickerOpen}
+        onOpenChange={setTagPickerOpen}
+        tags={tags}
+        onSelect={handleAssignTag}
+        title={`Tag ${selectedCount} transaction${selectedCount > 1 ? 's' : ''}`}
       />
     </>
   );

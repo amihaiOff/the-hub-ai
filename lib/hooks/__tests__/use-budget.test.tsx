@@ -19,6 +19,7 @@ import {
   useDeleteTransaction,
   useBulkDeleteTransactions,
   useBulkCategorizeTransactions,
+  useBulkAssignTag,
   useUpdateCategory,
   useDeleteCategory,
   useExpandedGroups,
@@ -539,6 +540,29 @@ describe('Budget Hooks', () => {
         expect.objectContaining({
           method: 'PUT',
           body: JSON.stringify({ transactionIds: ['tx-1', 'tx-2', 'tx-3'], categoryId: 'cat-1' }),
+        })
+      );
+    });
+  });
+
+  describe('useBulkAssignTag', () => {
+    it('should assign a tag to multiple transactions', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: { tagged: 2, tagId: 'tag-1' } }),
+      });
+
+      const { result } = renderHook(() => useBulkAssignTag(), {
+        wrapper: createWrapper(),
+      });
+
+      result.current.mutate({ ids: ['tx-1', 'tx-2', 'tx-3'], tagId: 'tag-1' });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/budget/transactions/bulk',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ transactionIds: ['tx-1', 'tx-2', 'tx-3'], tagId: 'tag-1' }),
         })
       );
     });

@@ -5,6 +5,7 @@ import {
   bulkTransactionSchema,
   bulkCategorizeSchema,
   bulkDeleteSchema,
+  bulkAssignTagSchema,
 } from '@/lib/validations/budget';
 import { getFirstZodError } from '@/lib/validations/common';
 
@@ -242,6 +243,93 @@ export async function PUT(request: NextRequest) {
     console.error('Error bulk categorizing transactions:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to categorize transactions' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH /api/budget/transactions/bulk
+ * Bulk assign a tag to transactions (additive — existing tags are kept)
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const context = await getCurrentContext();
+    if (!context) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const householdId = context.activeHousehold.id;
+
+    const body = await request.json();
+    const validation = bulkAssignTagSchema.safeParse(body);
+
+    if (!validation.success) {
+      return NextResponse.json(
+        { success: false, error: getFirstZodError(validation.error) },
+        { status: 400 }
+      );
+    }
+
+    const { transactionIds, tagId } = validation.data;
+
+    // Verify tag belongs to household
+    const tag = await prisma.budgetTag.findFirst({
+      where: { id: tagId, householdId },
+    });
+
+    if (!tag) {
+      return NextResponse.json({ success: false, error: 'Tag not found' }, { status: 404 });
+    }
+
+    // Verify all transactions belong to household and are not deleted
+    const transactions = await prisma.budgetTransaction.findMany({
+      where: {
+        id: { in: transactionIds },
+        householdId,
+        isDeleted: false,
+      },
+      select: { id: true },
+    });
+
+    if (transactions.length !== transactionIds.length) {
+      return NextResponse.json(
+        { success: false, error: 'One or more transactions not found' },
+        { status: 404 }
+      );
+    }
+
+    // Skip transactions that already have this tag linked
+    const existingLinks = await prisma.budgetTransactionTag.findMany({
+      where: { transactionId: { in: transactionIds }, tagId },
+      select: { transactionId: true },
+    });
+    const alreadyTagged = new Set(existingLinks.map((link) => link.transactionId));
+    const toLink = transactionIds.filter((id) => !alreadyTagged.has(id));
+
+    // Create tag links in parallel batches (Neon compatibility - no createMany)
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < toLink.length; i += BATCH_SIZE) {
+      await Promise.all(
+        toLink.slice(i, i + BATCH_SIZE).map((txId) =>
+          prisma.budgetTransactionTag.create({
+            data: { transactionId: txId, tagId },
+          })
+        )
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        tagged: toLink.length,
+        tagId,
+      },
+    });
+  } catch (error) {
+    console.error('Error bulk assigning tag to transactions:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to assign tag to transactions' },
       { status: 500 }
     );
   }
