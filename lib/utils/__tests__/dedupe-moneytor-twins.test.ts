@@ -778,13 +778,17 @@ describe('dedupeMoneytorTwinsForHousehold', () => {
 
       // Earlier row (pending-usd) survives, keeps its own category (already
       // set) and its own moneytorId (unchanged — no adoption needed since it
-      // already had one), records mergedFromId.
+      // already had one), records mergedFromId, and adopts the settled row's
+      // real ILS amount/currency — it's a normal ILS transaction from now on.
       const survivorUpdate = state.updates.find((u) => u.id === 'pending-usd');
-      expect(survivorUpdate?.data).toEqual({
+      expect(survivorUpdate?.data).toMatchObject({
         moneytorId: 'MT_FX_A',
         categoryId: 'cat_travel',
         mergedFromId: 'settled-ils',
+        currency: 'ILS',
+        amountOriginal: 370,
       });
+      expect(Number(survivorUpdate?.data.amountIls)).toBe(370);
     });
 
     it('does not merge when the converted amount is outside the FX margin', async () => {
@@ -874,15 +878,20 @@ describe('dedupeMoneytorTwinsForHousehold', () => {
       expect(rows.find((r) => r.id === 'ils-further')?.isDeleted).toBe(false);
 
       // ils-closer is the twin, soft-deleted; pending-usd survives (earlier
-      // date than ils-closer) and records the merge.
+      // date than ils-closer), records the merge, and adopts ils-closer's
+      // real ILS amount (365, not ils-further's 350 — confirms the adopted
+      // amount tracks the winning match, not just any ILS candidate).
       const twinUpdate = state.updates.find((u) => u.id === 'ils-closer');
       expect(twinUpdate?.data).toEqual({ isDeleted: true });
       const survivorUpdate = state.updates.find((u) => u.id === 'pending-usd');
-      expect(survivorUpdate?.data).toEqual({
+      expect(survivorUpdate?.data).toMatchObject({
         moneytorId: 'MT_FX_A',
         categoryId: null,
         mergedFromId: 'ils-closer',
+        currency: 'ILS',
+        amountOriginal: 365,
       });
+      expect(Number(survivorUpdate?.data.amountIls)).toBe(365);
     });
 
     it('does not merge when the exchange rate lookup fails', async () => {
@@ -1050,13 +1059,17 @@ describe('dedupeMoneytorTwinsForHousehold', () => {
       const twinUpdate = state.updates.find((u) => u.id === 'settled-ils');
       expect(twinUpdate?.data).toEqual({ moneytorId: null, isDeleted: true });
 
-      // Survivor adopts the twin's real id instead of staying null.
+      // Survivor adopts the twin's real id instead of staying null, and its
+      // real ILS amount/currency.
       const survivorUpdate = state.updates.find((u) => u.id === 'pending-usd');
-      expect(survivorUpdate?.data).toEqual({
+      expect(survivorUpdate?.data).toMatchObject({
         moneytorId: 'MT_FX_B',
         categoryId: null,
         mergedFromId: 'settled-ils',
+        currency: 'ILS',
+        amountOriginal: 370,
       });
+      expect(Number(survivorUpdate?.data.amountIls)).toBe(370);
     });
   });
 });

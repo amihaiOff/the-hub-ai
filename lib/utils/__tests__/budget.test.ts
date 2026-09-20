@@ -17,6 +17,7 @@ import {
   formatCurrencyILS,
   formatCurrencyILSPrecise,
   formatCurrencyILSCompact,
+  formatCurrencyForTransaction,
   formatDate,
   formatMonth,
   getCurrentMonth,
@@ -116,6 +117,23 @@ describe('Budget Utility Functions', () => {
     it('should handle large numbers', () => {
       const formatted = formatCurrencyILS(1234567);
       expect(formatted).toContain('1,234,567');
+    });
+  });
+
+  describe('formatCurrencyForTransaction', () => {
+    it('formats with the currency-specific symbol, not always ₪', () => {
+      const formatted = formatCurrencyForTransaction(100, 'USD');
+      expect(formatted).toContain('100');
+      expect(formatted).not.toContain('₪');
+    });
+
+    it('formats ILS the same as formatCurrencyILS', () => {
+      expect(formatCurrencyForTransaction(1000, 'ILS')).toBe(formatCurrencyILS(1000));
+    });
+
+    it('falls back to ILS formatting for an unrecognized currency code', () => {
+      const formatted = formatCurrencyForTransaction(500, 'NOT_A_CURRENCY');
+      expect(formatted).toBe(formatCurrencyILS(500));
     });
   });
 

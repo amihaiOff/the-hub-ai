@@ -216,6 +216,24 @@ export function formatCurrencyILS(value: number): string {
   }).format(value);
 }
 
+/**
+ * Format a transaction's own amount in its own currency (e.g. $100 for a
+ * USD charge) instead of always showing the ILS equivalent. Falls back to
+ * ILS if `currency` isn't a currency code Intl recognizes.
+ */
+export function formatCurrencyForTransaction(amountOriginal: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat('he-IL', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amountOriginal);
+  } catch {
+    return formatCurrencyILS(amountOriginal);
+  }
+}
+
 export function formatCurrencyILSPrecise(value: number): string {
   return new Intl.NumberFormat('he-IL', {
     style: 'currency',

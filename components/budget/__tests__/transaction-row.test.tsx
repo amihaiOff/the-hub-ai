@@ -40,6 +40,14 @@ jest.mock('@/lib/utils/budget', () => ({
       maximumFractionDigits: 0,
     }).format(value);
   }),
+  formatCurrencyForTransaction: jest.fn((amountOriginal: number, currency: string) => {
+    return new Intl.NumberFormat('he-IL', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amountOriginal);
+  }),
   getPayeeName: jest.fn((payeeId: string | null, payees: BudgetPayee[]) => {
     if (!payeeId) return 'Unknown';
     const payee = payees.find((p) => p.id === payeeId);

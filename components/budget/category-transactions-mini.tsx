@@ -7,7 +7,7 @@ import {
   type BudgetTransaction,
   type BudgetPayee,
   formatDate,
-  formatCurrencyILS,
+  formatCurrencyForTransaction,
   getPayeeName,
 } from '@/lib/utils/budget';
 
@@ -71,7 +71,7 @@ export function CategoryTransactionsMini({
               <td className="py-1 text-right tabular-nums">
                 <span className={tx.type === 'income' ? 'text-green-500' : ''}>
                   {tx.type === 'income' ? '+' : '-'}
-                  {formatCurrencyILS(tx.amountIls)}
+                  {formatCurrencyForTransaction(tx.amountOriginal, tx.currency)}
                 </span>
               </td>
             </tr>

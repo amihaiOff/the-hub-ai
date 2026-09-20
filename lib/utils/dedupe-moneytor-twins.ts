@@ -49,6 +49,11 @@ import { fetchRateToILS } from '@/lib/api/exchange-rates';
  *    mirrors rule 2 (both sides usually already real, twin's id left intact
  *    so it still reads as already-promoted) but falls back to rule 1's
  *    adopt-and-clear behavior if the survivor happens to lack an id itself.
+ *    Survivor pick (id/date/category preference) still follows the earlier
+ *    row like rules 1/2, but the amount/currency always come from the ILS
+ *    side regardless of which one that is — a merged transaction becomes a
+ *    normal ILS row from then on, so only a charge that's still genuinely
+ *    unsettled displays in its original currency.
  */
 export const TWIN_WINDOW_DAYS = 7;
 const TWIN_WINDOW_MS = TWIN_WINDOW_DAYS * 24 * 60 * 60 * 1000;
@@ -307,6 +312,15 @@ export async function dedupeMoneytorTwinsForHousehold(householdId: string): Prom
             moneytorId: survivingMoneytorId,
             categoryId: winningCategoryId,
             mergedFromId: twin.id,
+            // `best` is always the ILS/settled side (it comes from ilsRows,
+            // regardless of which of the two ends up as survivor/twin by
+            // date). Adopting its real amount/currency here is the whole
+            // point of the merge — the pending row's converted estimate was
+            // only ever a stand-in for finding the pair, never the number to
+            // keep showing once the real charge is known.
+            amountIls: best.amountIls,
+            currency: best.currency,
+            amountOriginal: best.amountOriginal,
           },
         }),
       ]);

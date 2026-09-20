@@ -30,7 +30,7 @@ import {
   type BudgetPayee,
   type BudgetTag,
   formatDate,
-  formatCurrencyILS,
+  formatCurrencyForTransaction,
   getCategoryWithGroup,
   getPayeeName,
 } from '@/lib/utils/budget';
@@ -384,7 +384,7 @@ export function TransactionRow({
           className={cn('font-medium tabular-nums', isIncome ? 'text-green-500' : 'text-[#d4b878]')}
         >
           {isIncome ? '+' : '-'}
-          {formatCurrencyILS(transaction.amountIls)}
+          {formatCurrencyForTransaction(transaction.amountOriginal, transaction.currency)}
         </span>
       </td>
 
@@ -571,7 +571,7 @@ export function TransactionRowMobile({
         )}
       >
         {isIncome ? '+' : '-'}
-        <bdi>{formatCurrencyILS(transaction.amountIls)}</bdi>
+        <bdi>{formatCurrencyForTransaction(transaction.amountOriginal, transaction.currency)}</bdi>
       </div>
     </div>
   );
