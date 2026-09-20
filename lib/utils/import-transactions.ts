@@ -223,6 +223,16 @@ export async function importTransactions(
       // If the duplicate came from CSV/manual entry but this incoming row carries a
       // moneytorId, stamp it onto the existing row so the next sync recognises it
       // and doesn't keep retrying. Only stamp when the existing row has no moneytorId.
+      //
+      // Deliberately moneytorId-only: this dupKey is (date, payee, amountIls) with
+      // no currency in it, and a foreign transaction's amountIls is its raw
+      // un-converted number (see moneytor-sync.ts) — so a genuinely unrelated ILS
+      // transaction can coincidentally share a key with a foreign one (e.g. a
+      // ₪3,000 grocery run and an unrelated 3,000 HUF charge under a generic payee
+      // name on the same day). Mis-attaching an id here is low-risk; overwriting
+      // that row's displayed currency/amount on the same coincidence would silently
+      // corrupt a correct transaction, which is worse than leaving a rare
+      // still-foreign-currency row unresolved.
       if (tx.moneytorId) {
         const existing = existingByKey.get(dupKey);
         if (existing && !existing.moneytorId) {

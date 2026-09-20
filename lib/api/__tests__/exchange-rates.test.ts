@@ -3,7 +3,12 @@
  * Tests convertPrice and fetchExchangeRates functions
  */
 
-import { convertPrice, fetchExchangeRates, type ExchangeRates } from '../exchange-rates';
+import {
+  convertPrice,
+  fetchExchangeRates,
+  fetchRateToILS,
+  type ExchangeRates,
+} from '../exchange-rates';
 
 const DEFAULT_RATES: ExchangeRates = {
   USD: 3.7,
@@ -209,5 +214,154 @@ describe('fetchExchangeRates', () => {
     const rates = await fetchExchangeRates();
 
     expect(rates).toBeNull();
+  });
+});
+
+describe('fetchRateToILS', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    jest.clearAllMocks();
+  });
+
+  it('should return the direct rate when the direct ticker succeeds, without triangulating', async () => {
+    const mockFetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        chart: { result: [{ meta: { regularMarketPrice: 3.7 } }] },
+      }),
+    });
+    global.fetch = mockFetch;
+
+    const rate = await fetchRateToILS('USD');
+
+    expect(rate).toBe(3.7);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('should triangulate through USD when the direct ticker fails (e.g. HUF, no HUFILS=X)', async () => {
+    // 1) direct HUFILS=X 404s (matches how the real Yahoo 404 shapes a non-ok response)
+    // 2) USDHUF=X succeeds
+    // 3) USDILS=X succeeds
+    const mockFetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          chart: { result: [{ meta: { regularMarketPrice: 317 } }] },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          chart: { result: [{ meta: { regularMarketPrice: 3.7 } }] },
+        }),
+      });
+    global.fetch = mockFetch;
+
+    const rate = await fetchRateToILS('HUF');
+
+    // usdToIls / usdToCurrency = 3.7 / 317
+    expect(rate).toBeCloseTo(0.01167, 5);
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+  });
+
+  it('should return null when the direct ticker fails and one triangulation leg also fails', async () => {
+    const mockFetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          chart: { result: [{ meta: { regularMarketPrice: 3.7 } }] },
+        }),
+      });
+    global.fetch = mockFetch;
+
+    const rate = await fetchRateToILS('HUF');
+
+    expect(rate).toBeNull();
+  });
+
+  it('should return 1 immediately for ILS with no fetch calls', async () => {
+    const mockFetch = jest.fn();
+    global.fetch = mockFetch;
+
+    const rate = await fetchRateToILS('ILS');
+
+    expect(rate).toBe(1);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('should return null for USD when the direct ticker fails, without attempting self-referential triangulation', async () => {
+    const mockFetch = jest.fn().mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({}),
+    });
+    global.fetch = mockFetch;
+
+    const rate = await fetchRateToILS('USD');
+
+    expect(rate).toBeNull();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('should handle lowercase currency codes, building uppercase ticker symbols', async () => {
+    const mockFetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        chart: { result: [{ meta: { regularMarketPrice: 3.7 } }] },
+      }),
+    });
+    global.fetch = mockFetch;
+
+    const rate = await fetchRateToILS('usd');
+
+    expect(rate).toBe(3.7);
+    const requestedUrl = mockFetch.mock.calls[0][0] as string;
+    expect(requestedUrl).toContain('USDILS=X');
+  });
+
+  it('should return 1 immediately for lowercase "ils"', async () => {
+    const mockFetch = jest.fn();
+    global.fetch = mockFetch;
+
+    const rate = await fetchRateToILS('ils');
+
+    expect(rate).toBe(1);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('should return null rather than a garbage rate if a triangulation leg resolves to 0', async () => {
+    // A malformed-but-technically-successful response (regularMarketPrice: 0)
+    // must not slip past the null guard and get divided into a bogus rate.
+    const mockFetch = jest
+      .fn()
+      .mockResolvedValueOnce({ ok: false, json: async () => ({}) }) // direct fails
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ chart: { result: [{ meta: { regularMarketPrice: 317 } }] } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ chart: { result: [{ meta: { regularMarketPrice: 0 } }] } }),
+      });
+    global.fetch = mockFetch;
+
+    const rate = await fetchRateToILS('HUF');
+
+    expect(rate).toBeNull();
   });
 });

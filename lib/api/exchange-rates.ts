@@ -71,11 +71,25 @@ export function convertPrice(
 /**
  * Fetch today's rate for any currency to ILS (not limited to USD/EUR/GBP).
  * Reuses the same Yahoo Finance lookup as fetchExchangeRates.
+ *
+ * Yahoo doesn't quote a direct cross for every pair (e.g. HUFILS=X 404s,
+ * even though USDHUF=X and USDILS=X both exist) — falls back to
+ * triangulating through USD, which it always quotes both legs of.
  */
 export async function fetchRateToILS(currency: string): Promise<number | null> {
   const upper = currency.toUpperCase();
   if (upper === 'ILS') return 1;
-  return fetchRate(`${upper}ILS=X`);
+
+  const direct = await fetchRate(`${upper}ILS=X`);
+  if (direct !== null) return direct;
+  if (upper === 'USD') return null;
+
+  const [usdToCurrency, usdToIls] = await Promise.all([
+    fetchRate(`USD${upper}=X`),
+    fetchRate('USDILS=X'),
+  ]);
+  if (!usdToCurrency || !usdToIls) return null;
+  return usdToIls / usdToCurrency;
 }
 
 /**
