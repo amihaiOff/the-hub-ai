@@ -353,10 +353,15 @@ Because preview bypasses auth, every preview request arrives as a logged-in dev 
 
 **How agent sessions actually ship changes (IMPORTANT):**
 
+- **Start every session on `develop`.** If a session finds itself on `main` or any
+  other branch (e.g. the environment checked out the repo's default branch), switch
+  to `develop` (`git checkout develop`, creating it from `origin/develop` if it
+  doesn't exist locally yet) before making any changes. All work happens on
+  `develop` — never commit directly to `main`.
 - **Develop on and push directly to `develop`** (`git push -u origin develop`). Do
   not open a PR unless explicitly asked.
 - **Merge `develop` → `main` only when the user explicitly says "Merge".** `main`
-  is production.
+  is production. Nothing reaches production any other way.
 - **Multiple sessions push concurrently**, so a push may be rejected as
   non-fast-forward. When that happens: `git fetch origin develop` → **rebase**
   onto `origin/develop` → re-run `npm run type-check` (a rebase can pull in other
