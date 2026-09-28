@@ -34,6 +34,7 @@ import {
   MonthSelector,
   CategoryProgressBar,
   CategoryTransactionsMini,
+  TagMonthBreakdown,
 } from '@/components/budget';
 import { cn } from '@/lib/utils';
 import {
@@ -600,6 +601,9 @@ export default function BudgetDashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Tagged transactions this month, per tag */}
+      <TagMonthBreakdown month={selectedMonth} />
     </div>
   );
 }

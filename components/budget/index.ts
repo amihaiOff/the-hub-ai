@@ -1,6 +1,7 @@
 // Dashboard components
 export { BudgetSummary } from './budget-summary';
 export { MonthSelector } from './month-selector';
+export { TagMonthBreakdown } from './tag-month-breakdown';
 export { CategoryGroup } from './category-group';
 export { CategoryRow } from './category-row';
 export { CategoryProgressBar, StatusBadge } from './category-progress-bar';
