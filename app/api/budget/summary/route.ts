@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { summaryQuerySchema } from '@/lib/validations/budget';
 import { getFirstZodError } from '@/lib/validations/common';
 import { getMonthTransactionWhereForHousehold } from '@/lib/utils/billing-cycle-server';
+import type { BudgetSummaryTransaction } from '@/lib/utils/budget';
 
 /**
  * GET /api/budget/summary
@@ -68,6 +69,8 @@ export async function GET(request: NextRequest) {
           type: true,
           transactionDate: true,
           amountIls: true,
+          amountOriginal: true,
+          currency: true,
           categoryId: true,
           payeeId: true,
           paymentMethod: true,
@@ -111,6 +114,25 @@ export async function GET(request: NextRequest) {
       categorySpendingMap.set(categoryId, existing);
     }
 
+    const toSummaryRow = (
+      tx: (typeof transactions)[number]
+    ): BudgetSummaryTransaction & {
+      payeeName: string | null;
+    } => ({
+      id: tx.id,
+      type: tx.type,
+      transactionDate: tx.transactionDate.toISOString().split('T')[0],
+      amountIls: Number(tx.amountIls),
+      // The Overview's transaction rows display the native amount/currency.
+      amountOriginal: Number(tx.amountOriginal),
+      currency: tx.currency,
+      categoryId: tx.categoryId,
+      payeeId: tx.payeeId,
+      payeeName: tx.payee?.name ?? null,
+      paymentMethod: tx.paymentMethod,
+      notes: tx.notes,
+    });
+
     // Build response
     const categoryGroupSummaries = categoryGroups.map((group) => {
       const categorySpending = group.categories.map((category) => {
@@ -127,17 +149,7 @@ export async function GET(request: NextRequest) {
           spent,
           available: budgeted - spent,
           isMust: category.isMust,
-          transactions: (spending?.transactions ?? []).map((tx) => ({
-            id: tx.id,
-            type: tx.type,
-            transactionDate: tx.transactionDate.toISOString().split('T')[0],
-            amountIls: Number(tx.amountIls),
-            categoryId: tx.categoryId,
-            payeeId: tx.payeeId,
-            payeeName: tx.payee?.name ?? null,
-            paymentMethod: tx.paymentMethod,
-            notes: tx.notes,
-          })),
+          transactions: (spending?.transactions ?? []).map(toSummaryRow),
         };
       });
 
@@ -175,17 +187,7 @@ export async function GET(request: NextRequest) {
             spent: uncategorizedSpending.spent,
             available: -uncategorizedSpending.spent,
             isMust: false,
-            transactions: uncategorizedSpending.transactions.map((tx) => ({
-              id: tx.id,
-              type: tx.type,
-              transactionDate: tx.transactionDate.toISOString().split('T')[0],
-              amountIls: Number(tx.amountIls),
-              categoryId: tx.categoryId,
-              payeeId: tx.payeeId,
-              payeeName: tx.payee?.name ?? null,
-              paymentMethod: tx.paymentMethod,
-              notes: tx.notes,
-            })),
+            transactions: uncategorizedSpending.transactions.map(toSummaryRow),
           },
         ],
       });

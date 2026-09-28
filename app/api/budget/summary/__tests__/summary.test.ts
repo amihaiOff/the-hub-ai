@@ -130,6 +130,8 @@ describe('Budget Summary API', () => {
           type: 'expense',
           transactionDate: new Date('2024-01-15'),
           amountIls: createDecimal(200),
+          amountOriginal: createDecimal(55),
+          currency: 'USD',
           categoryId: 'cat-1',
           payeeId: 'payee-1',
           paymentMethod: 'cash',
@@ -201,6 +203,11 @@ describe('Budget Summary API', () => {
       expect(groceriesCategory.spent).toBe(300);
       expect(groceriesCategory.available).toBe(700);
       expect(groceriesCategory.transactions).toHaveLength(2);
+      // Rows render the native amount — both fields must reach the client.
+      expect(groceriesCategory.transactions[0]).toMatchObject({
+        amountOriginal: 55,
+        currency: 'USD',
+      });
     });
 
     it('should include uncategorized spending', async () => {

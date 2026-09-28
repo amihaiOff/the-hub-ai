@@ -14,7 +14,11 @@ import {
 const PAGE_SIZE = 10;
 
 interface CategoryTransactionsMiniProps {
-  transactions: BudgetTransaction[];
+  // Only the fields rendered here, so both the summary rows and full rows fit.
+  transactions: Pick<
+    BudgetTransaction,
+    'id' | 'type' | 'transactionDate' | 'amountOriginal' | 'currency' | 'payeeId' | 'notes'
+  >[];
   payees: BudgetPayee[];
   emptyMessage?: string;
 }

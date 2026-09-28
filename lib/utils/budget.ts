@@ -98,8 +98,23 @@ export interface CategorySpending {
   spent: number;
   available: number;
   isMust: boolean;
-  transactions: BudgetTransaction[];
+  transactions: BudgetSummaryTransaction[];
 }
+
+/** The slimmed-down transaction row the month summary API returns. */
+export type BudgetSummaryTransaction = Pick<
+  BudgetTransaction,
+  | 'id'
+  | 'type'
+  | 'transactionDate'
+  | 'amountIls'
+  | 'amountOriginal'
+  | 'currency'
+  | 'categoryId'
+  | 'payeeId'
+  | 'paymentMethod'
+  | 'notes'
+>;
 
 export interface BudgetMonthSummary {
   month: string; // YYYY-MM
