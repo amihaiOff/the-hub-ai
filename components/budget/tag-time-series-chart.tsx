@@ -3,6 +3,8 @@
 import { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, LabelList } from 'recharts';
 import { formatCurrencyILS, type BudgetTransaction } from '@/lib/utils/budget';
+import { transactionBudgetMonth } from '@/lib/utils/billing-cycle';
+import { useBillingCycleStartDay } from '@/lib/hooks/use-budget';
 
 /**
  * Monthly expense-bars for a single tag. Rendered inside the tag's
@@ -10,7 +12,8 @@ import { formatCurrencyILS, type BudgetTransaction } from '@/lib/utils/budget';
  * gives an at-a-glance view of how that tag has been spent over time
  * without a separate analysis-page chart.
  *
- * Aggregates the incoming transactions by `YYYY-MM` (transactionDate) and
+ * Aggregates the incoming transactions by budget month (credit cards on the
+ * billing cycle, others on the calendar month — same as the Overview) and
  * treats income transactions as negative so the sum matches how tag
  * totals are computed elsewhere in the app.
  */
@@ -21,13 +24,12 @@ export function TagTimeSeriesChart({
   transactions: BudgetTransaction[];
   color: string;
 }) {
+  const startDay = useBillingCycleStartDay();
   const chartData = useMemo(() => {
     const byMonth = new Map<string, number>();
     for (const t of transactions) {
-      // transactionDate is an ISO string; slice to YYYY-MM. Handles both
-      // full ISO ("2026-01-15T…") and plain date ("2026-01-15") forms.
-      const key = String(t.transactionDate).slice(0, 7);
-      if (!/^\d{4}-\d{2}$/.test(key)) continue;
+      const key = transactionBudgetMonth(t.transactionDate, t.paymentMethod, startDay);
+      if (!key) continue;
       const amount = Number(t.amountIls);
       if (!Number.isFinite(amount)) continue;
       const signed = t.type === 'income' ? -amount : amount;
@@ -36,7 +38,7 @@ export function TagTimeSeriesChart({
     return Array.from(byMonth.entries())
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
       .map(([month, spent]) => ({ month, spent, label: formatMonth(month) }));
-  }, [transactions]);
+  }, [transactions, startDay]);
 
   if (chartData.length === 0) return null;
 

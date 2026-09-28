@@ -65,6 +65,31 @@ export function getCurrentCycleMonth(today: Date, startDay: number): string {
   return `${y}-${String(m + 1).padStart(2, '0')}`;
 }
 
+/**
+ * The budget month (`YYYY-MM`) a transaction belongs to — the per-row twin of
+ * `monthTransactionWhere`: credit cards follow the billing cycle (a day before
+ * `startDay` belongs to the previous month), everything else the calendar
+ * month. Reads the date's `YYYY-MM-DD` prefix, so no timezone shift. Returns
+ * null for an unparseable date.
+ */
+export function transactionBudgetMonth(
+  transactionDate: string,
+  paymentMethod: string,
+  startDay: number
+): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(transactionDate));
+  if (!match) return null;
+  let [y, m] = [Number(match[1]), Number(match[2])];
+  if (paymentMethod === 'credit_card' && Number(match[3]) < clampStartDay(startDay)) {
+    m -= 1;
+    if (m === 0) {
+      m = 12;
+      y -= 1;
+    }
+  }
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
+
 function clampStartDay(startDay: number): number {
   if (!Number.isFinite(startDay)) return 1;
   // Keep within a safe range — 1..28 are valid for every month. We only

@@ -1,4 +1,9 @@
-import { getCurrentCycleMonth, monthToCycleRange, monthTransactionWhere } from '../billing-cycle';
+import {
+  getCurrentCycleMonth,
+  monthToCycleRange,
+  monthTransactionWhere,
+  transactionBudgetMonth,
+} from '../billing-cycle';
 
 describe('monthToCycleRange', () => {
   it('with startDay=1 returns the calendar month [first, next-first)', () => {
@@ -121,5 +126,28 @@ describe('monthTransactionWhere', () => {
     // A bank movement on the 5th belongs to calendar June.
     expect(inRange(other.transactionDate, '2026-06-05T00:00:00.000Z')).toBe(true);
     expect(inRange(other.transactionDate, '2026-07-01T00:00:00.000Z')).toBe(false);
+  });
+});
+
+describe('transactionBudgetMonth', () => {
+  it('puts a credit-card charge before the start day in the previous month', () => {
+    expect(transactionBudgetMonth('2026-06-09T00:00:00.000Z', 'credit_card', 10)).toBe('2026-05');
+    expect(transactionBudgetMonth('2026-06-10', 'credit_card', 10)).toBe('2026-06');
+  });
+
+  it('wraps January back to the previous December', () => {
+    expect(transactionBudgetMonth('2026-01-05', 'credit_card', 10)).toBe('2025-12');
+  });
+
+  it('keeps non-credit-card transactions on the calendar month', () => {
+    expect(transactionBudgetMonth('2026-06-09', 'bank_transfer', 10)).toBe('2026-06');
+  });
+
+  it('is the calendar month when the cycle starts on the 1st', () => {
+    expect(transactionBudgetMonth('2026-06-01', 'credit_card', 1)).toBe('2026-06');
+  });
+
+  it('returns null for an unparseable date', () => {
+    expect(transactionBudgetMonth('garbage', 'credit_card', 10)).toBeNull();
   });
 });
