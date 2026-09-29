@@ -494,7 +494,7 @@ describe('TransactionRow', () => {
           </tbody>
         </table>
       );
-      expect(screen.getByText('Income')).toBeInTheDocument();
+      expect(screen.getAllByText('Income')).toHaveLength(2);
     });
 
     it('should show "Select category" instead of "Uncategorized" for tagged uncategorized expense', () => {
@@ -510,8 +510,9 @@ describe('TransactionRow', () => {
           </tbody>
         </table>
       );
-      // Sub-lg picker button shows "Select category". (The lg: CategorySelect
-      // trigger still renders its noneLabel for value === '', so not asserted here.)
+      // Neither the sub-lg picker button nor the lg: CategorySelect trigger
+      // says "Uncategorized".
+      expect(screen.queryByText('Uncategorized')).not.toBeInTheDocument();
       const pickerButton = screen.getByRole('button', {
         name: 'Select category for Test Payee',
       });

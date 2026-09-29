@@ -29,7 +29,7 @@ export function CategorySelect({
   value,
   onValueChange,
   categoryGroups,
-  placeholder = 'Select category',
+  placeholder,
   allowNone = false,
   noneLabel = 'None',
   disabled = false,
@@ -40,9 +40,7 @@ export function CategorySelect({
 
   const displayLabel = selectedCategory
     ? selectedCategory.name
-    : allowNone && value === ''
-      ? noneLabel
-      : placeholder;
+    : (placeholder ?? (allowNone && value === '' ? noneLabel : 'Select category'));
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
