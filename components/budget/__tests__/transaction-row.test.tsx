@@ -71,7 +71,7 @@ jest.mock('@/lib/utils', () => ({
 }));
 
 // Import after mocks
-import { TransactionRow } from '../transaction-row';
+import { TransactionRow, TransactionRowMobile } from '../transaction-row';
 import { useUpdateTransaction } from '@/lib/hooks/use-budget';
 
 const mockUseUpdateTransaction = useUpdateTransaction as jest.MockedFunction<
@@ -497,6 +497,28 @@ describe('TransactionRow', () => {
       expect(screen.getByText('Income')).toBeInTheDocument();
     });
 
+    it('should show "Select category" instead of "Uncategorized" for tagged uncategorized expense', () => {
+      const transaction = createMockTransaction({
+        categoryId: null,
+        type: 'expense',
+        tagIds: ['tag-1'],
+      });
+      render(
+        <table>
+          <tbody>
+            <TransactionRow transaction={transaction} {...defaultProps} />
+          </tbody>
+        </table>
+      );
+      // Sub-lg picker button shows "Select category". (The lg: CategorySelect
+      // trigger still renders its noneLabel for value === '', so not asserted here.)
+      const pickerButton = screen.getByRole('button', {
+        name: 'Select category for Test Payee',
+      });
+      expect(pickerButton).toHaveTextContent('Select category');
+      expect(pickerButton).not.toHaveTextContent('Uncategorized');
+    });
+
     it('should have correct aria-label for accessibility', () => {
       const transaction = createMockTransaction({ payeeId: 'payee-1' });
       render(
@@ -639,5 +661,33 @@ describe('TransactionRow', () => {
       const row = screen.getByRole('row');
       expect(row.className).toContain('hover:bg-muted');
     });
+  });
+});
+
+describe('TransactionRowMobile category badge', () => {
+  it('should hide "Uncategorized" badge for tagged uncategorized expense', () => {
+    const transaction = createMockTransaction({
+      categoryId: null,
+      type: 'expense',
+      tagIds: ['tag-1'],
+    });
+    render(<TransactionRowMobile transaction={transaction} {...defaultProps} />);
+    expect(screen.queryByText('Uncategorized')).not.toBeInTheDocument();
+  });
+
+  it('should still show "Uncategorized" badge for untagged uncategorized expense', () => {
+    const transaction = createMockTransaction({ categoryId: null, type: 'expense', tagIds: [] });
+    render(<TransactionRowMobile transaction={transaction} {...defaultProps} />);
+    expect(screen.getByText('Uncategorized')).toBeInTheDocument();
+  });
+
+  it('should still show "Income" badge for tagged uncategorized income', () => {
+    const transaction = createMockTransaction({
+      categoryId: null,
+      type: 'income',
+      tagIds: ['tag-1'],
+    });
+    render(<TransactionRowMobile transaction={transaction} {...defaultProps} />);
+    expect(screen.getByText('Income')).toBeInTheDocument();
   });
 });

@@ -173,7 +173,13 @@ export function TransactionActionsPanel({
               !groupInfo && 'text-muted-foreground italic'
             )}
           >
-            {groupInfo ? groupInfo.categoryName : isIncome ? 'Income' : 'Uncategorized'}
+            {groupInfo
+              ? groupInfo.categoryName
+              : isIncome
+                ? 'Income'
+                : transaction.tagIds.length > 0
+                  ? 'Select category'
+                  : 'Uncategorized'}
           </div>
           <ChevronRight className="text-muted-foreground h-4 w-4 shrink-0" />
         </button>

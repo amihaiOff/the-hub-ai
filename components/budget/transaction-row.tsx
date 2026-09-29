@@ -287,7 +287,13 @@ export function TransactionRow({
     onPromptPayeeCategory
   );
   const groupInfo = getCategoryWithGroup(transaction.categoryId, categoryGroups);
-  const categoryLabel = groupInfo ? groupInfo.categoryName : isIncome ? 'Income' : 'Uncategorized';
+  // Tagged-but-uncategorized expenses count as handled, so don't flag them "Uncategorized".
+  const uncategorizedLabel = transaction.tagIds.length > 0 ? 'Select category' : 'Uncategorized';
+  const categoryLabel = groupInfo
+    ? groupInfo.categoryName
+    : isIncome
+      ? 'Income'
+      : uncategorizedLabel;
   const hasSuggestion = !!transaction.suggestedCategoryId;
 
   return (
@@ -347,7 +353,7 @@ export function TransactionRow({
             value={transaction.categoryId ?? ''}
             onValueChange={handleCategoryChange}
             categoryGroups={categoryGroups}
-            placeholder={isIncome ? 'Income' : 'Uncategorized'}
+            placeholder={isIncome ? 'Income' : uncategorizedLabel}
             allowNone
             noneLabel="Uncategorized"
             disabled={updateTransaction.isPending}
@@ -483,11 +489,14 @@ export function TransactionRowMobile({
     }
   };
 
+  // Tagged-but-uncategorized expenses count as handled — no "Uncategorized" badge.
   const categoryBadgeText = groupInfo
     ? groupInfo.categoryName
     : isIncome
       ? 'Income'
-      : 'Uncategorized';
+      : transaction.tagIds.length > 0
+        ? null
+        : 'Uncategorized';
   const hasSuggestion = !!transaction.suggestedCategoryId;
 
   return (
@@ -543,16 +552,18 @@ export function TransactionRowMobile({
             </span>
           )}
         </div>
-        <div className="mt-0.5 flex items-center gap-2">
-          <span
-            className={cn(
-              'bg-muted/70 text-muted-foreground inline-flex max-w-full items-center truncate rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase',
-              !groupInfo && 'italic'
-            )}
-          >
-            {categoryBadgeText}
-          </span>
-        </div>
+        {categoryBadgeText && (
+          <div className="mt-0.5 flex items-center gap-2">
+            <span
+              className={cn(
+                'bg-muted/70 text-muted-foreground inline-flex max-w-full items-center truncate rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase',
+                !groupInfo && 'italic'
+              )}
+            >
+              {categoryBadgeText}
+            </span>
+          </div>
+        )}
         {hasSuggestion && (
           <div className="mt-1.5">
             <SuggestionBar transaction={transaction} stopEvents />
