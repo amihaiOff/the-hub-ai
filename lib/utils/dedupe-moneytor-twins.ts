@@ -11,9 +11,10 @@ import { formatCurrencyForTransaction } from '@/lib/utils/budget';
  * pending's date, but historical pairs (and any that slip through the
  * date-alignment) still need collapsing.
  *
- * Three matching rules, all scoped to same householdId + payeeId,
- * source = 'moneytor_sync' on both rows, neither already soft-deleted
- * (rules 1/2 also require matching amountIls; rule 3 doesn't, see below):
+ * Four matching rules, all scoped to same householdId,
+ * source = 'moneytor_sync' on both rows, neither already soft-deleted.
+ * Rules 1-3 also require the same payeeId (rule 4 exists because the payee
+ * differs); rules 1/2/4 require matching amountIls, rule 3 doesn't:
  *
  * 1. Null-moneytorId case (TWIN_WINDOW_DAYS): the candidate "pending" row has
  *    moneytorId = NULL (its id was dropped when Moneytor's side deleted the
@@ -58,6 +59,32 @@ import { formatCurrencyForTransaction } from '@/lib/utils/budget';
  *    amount isn't lost once converted, though — it's appended to the
  *    survivor's notes ("Originally $100 USD") so it stays visible even
  *    after the row switches over to ILS.
+ *
+ * 4. Renamed case (TWIN_WINDOW_DAYS, runs before rule 3 so the FX pass
+ *    only sees what's left): the card issuer often names the pending charge
+ *    differently from the settled one ("Google YouTube Premium" → "Google
+ *    YouTubePremium Mount..."), so they land under two payees and rules 1-3
+ *    never pair them. Matches when the earlier row is still pending (see
+ *    below) and the later one isn't, amount/currency/type/card all agree,
+ *    and one name starts with the other once case, spaces and punctuation
+ *    are ignored. The pending signal is required because a name prefix
+ *    alone ("Google" vs "Google Play") can't tell a renamed charge from a
+ *    different merchant, and a pending row with more than one qualifying
+ *    partner is left alone rather than guessed at. Survivor is the earlier
+ *    row as usual, but it switches to the settled row's payee and takes the
+ *    settled row's moneytorId: the pending id is the one Moneytor drops, and
+ *    a survivor left holding it would be deleted by the next re-align. The
+ *    ids are swapped rather than cleared so the soft-deleted twin still
+ *    marks the pending id as promoted.
+ *
+ * "Still pending" means the row's notes have a PENDING_NOTE line, it isn't
+ * itself a merge survivor, and — when it's still linked to Moneytor — the
+ * current Moneytor row still carries the note. Budget notes are seeded once
+ * at import and never refreshed, so a charge that settled under the same id
+ * would otherwise keep looking pending forever. The signal also widens rule 2
+ * from WIDENED_TWIN_WINDOW_DAYS to TWIN_WINDOW_DAYS, since it's exactly the
+ * "this is a pending copy" evidence rule 2 otherwise lacks. Every merge
+ * strips the note line from the survivor, since the charge has settled.
  */
 export const TWIN_WINDOW_DAYS = 7;
 const TWIN_WINDOW_MS = TWIN_WINDOW_DAYS * 24 * 60 * 60 * 1000;
@@ -65,6 +92,41 @@ export const WIDENED_TWIN_WINDOW_DAYS = 4;
 const WIDENED_TWIN_WINDOW_MS = WIDENED_TWIN_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 /** Tolerance on the FX-converted amount for rule 3 (cross-currency pairs). */
 export const FX_MARGIN = 0.07;
+/** Moneytor's note on a card charge that hasn't settled yet. */
+export const PENDING_NOTE = 'רגילה';
+/** Shortest normalized name rule 4 will match on, so a short generic name
+ *  can't prefix half the payee list. */
+const MIN_RENAMED_NAME_LENGTH = 6;
+
+/** The marker is a whole note line — a free-text note that merely uses the
+ *  word (it means "regular") doesn't count. */
+const hasPendingNote = (notes: string | null | undefined) =>
+  !!notes?.split('\n').some((line) => line.trim() === PENDING_NOTE);
+
+/** Survivor notes without the pending marker line (null when nothing else is left). */
+function stripPendingNote(notes: string | null): string | null {
+  if (!notes) return notes;
+  const cleaned = notes
+    .split('\n')
+    .filter((line) => line.trim() !== PENDING_NOTE)
+    .join('\n')
+    .trim();
+  return cleaned || null;
+}
+
+/** Spread into a survivor update so its notes only change when they carry the marker. */
+const pendingNoteCleanup = (notes: string | null) =>
+  hasPendingNote(notes) ? { notes: stripPendingNote(notes) } : {};
+
+const normalizeName = (name: string) => name.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+
+/** True when one payee name starts with the other, ignoring case, spaces and punctuation. */
+export function namesOverlap(a: string | undefined, b: string | undefined): boolean {
+  const x = normalizeName(a ?? '');
+  const y = normalizeName(b ?? '');
+  if (x.length < MIN_RENAMED_NAME_LENGTH || y.length < MIN_RENAMED_NAME_LENGTH) return false;
+  return x.startsWith(y) || y.startsWith(x);
+}
 
 export interface MergeSummary {
   merged: number;
@@ -97,8 +159,33 @@ export async function dedupeMoneytorTwinsForHousehold(householdId: string): Prom
       currency: true,
       amountOriginal: true,
       notes: true,
+      type: true,
+      paymentIdentifier: true,
+      payee: { select: { name: true } },
     },
   });
+
+  // Rows whose note says pending but that are still linked to Moneytor: only
+  // trust the note if Moneytor's current copy still says so (see policy).
+  const notedIds = rows
+    .filter((r) => r.moneytorId && hasPendingNote(r.notes))
+    .map((r) => r.moneytorId as string);
+  const stillPendingIds = new Set(
+    notedIds.length === 0
+      ? []
+      : (
+          await prisma.moneytorTransaction.findMany({
+            where: { householdId, id: { in: notedIds } },
+            select: { id: true, extraInfo: true },
+          })
+        )
+          .filter((m) => hasPendingNote(m.extraInfo))
+          .map((m) => m.id)
+  );
+  const isPending = (r: (typeof rows)[number]) =>
+    r.mergedFromId === null &&
+    hasPendingNote(r.notes) &&
+    (r.moneytorId === null || stillPendingIds.has(r.moneytorId));
 
   // Group by (payeeId|amount). Within each group, look for a (nullMoneytor,
   // notNullMoneytor) pair within the window. When found, merge.
@@ -113,13 +200,13 @@ export async function dedupeMoneytorTwinsForHousehold(householdId: string): Prom
 
   let merged = 0;
   let candidates = 0;
-  // Every id counted into `candidates` so far, across all three rules — a row
+  // Every id counted into `candidates` so far, across all four rules — a row
   // considered by rule 1/2's grouping but left unmerged (e.g. the odd one out
-  // in a 3-way cluster) can also surface in rule 3's payee grouping, and
+  // in a 3-way cluster) can also surface in rule 4's or rule 3's grouping, and
   // without this it would be tallied twice.
   const countedIds = new Set<string>();
-  // Ids merged by rules 1/2 above, fed into rule 3 below so a row already
-  // paired on exact amount isn't reconsidered for a looser FX-based pair.
+  // Ids merged so far, fed into each later rule so a row already paired on a
+  // stricter rule isn't reconsidered for a looser one.
   const globalConsumed = new Set<string>();
 
   for (const group of byKey.values()) {
@@ -180,6 +267,7 @@ export async function dedupeMoneytorTwinsForHousehold(householdId: string): Prom
             moneytorId: survivingMoneytorId,
             categoryId: winningCategoryId,
             mergedFromId: twin.id,
+            ...pendingNoteCleanup(survivor.notes),
           },
         }),
       ]);
@@ -207,7 +295,7 @@ export async function dedupeMoneytorTwinsForHousehold(householdId: string): Prom
           (r) =>
             !consumed.has(r.id) &&
             r.transactionDate.getTime() - earlier.transactionDate.getTime() <=
-              WIDENED_TWIN_WINDOW_MS
+              (isPending(earlier) ? TWIN_WINDOW_MS : WIDENED_TWIN_WINDOW_MS)
         );
       if (!later) continue;
 
@@ -220,7 +308,11 @@ export async function dedupeMoneytorTwinsForHousehold(householdId: string): Prom
         }),
         prisma.budgetTransaction.update({
           where: { id: earlier.id },
-          data: { categoryId: winningCategoryId, mergedFromId: later.id },
+          data: {
+            categoryId: winningCategoryId,
+            mergedFromId: later.id,
+            ...pendingNoteCleanup(earlier.notes),
+          },
         }),
       ]);
 
@@ -230,6 +322,85 @@ export async function dedupeMoneytorTwinsForHousehold(householdId: string): Prom
     }
 
     for (const id of consumed) globalConsumed.add(id);
+  }
+
+  // Rule 4: renamed pairs (see policy comment above). The two rows sit under
+  // different payees, so group by amount alone and match on the names.
+  const byAmount = new Map<string, typeof rows>();
+  for (const r of rows) {
+    if (globalConsumed.has(r.id)) continue;
+    const key = Number(r.amountIls).toFixed(2);
+    const arr = byAmount.get(key) ?? [];
+    arr.push(r);
+    byAmount.set(key, arr);
+  }
+
+  for (const group of byAmount.values()) {
+    if (group.length < 2) continue;
+
+    for (const pending of group) {
+      if (globalConsumed.has(pending.id) || !isPending(pending)) continue;
+      const partners = group.filter(
+        (r) =>
+          r.id !== pending.id &&
+          !globalConsumed.has(r.id) &&
+          !isPending(r) &&
+          r.payeeId !== pending.payeeId &&
+          r.currency.toUpperCase() === pending.currency.toUpperCase() &&
+          r.type === pending.type &&
+          r.paymentIdentifier === pending.paymentIdentifier &&
+          r.transactionDate >= pending.transactionDate &&
+          r.transactionDate.getTime() - pending.transactionDate.getTime() <= TWIN_WINDOW_MS &&
+          namesOverlap(pending.payee?.name, r.payee?.name)
+      );
+      // More than one plausible settled copy is ambiguous — a miss just leaves
+      // a visible duplicate, a wrong pick hides a real charge.
+      if (partners.length !== 1) continue;
+      const settled = partners[0];
+
+      for (const r of [pending, settled]) {
+        if (!countedIds.has(r.id)) {
+          countedIds.add(r.id);
+          candidates += 1;
+        }
+      }
+
+      // Survivor takes the settled id; the twin takes the pending id (null or
+      // real) so it's still marked promoted. With two real ids the survivor's
+      // is cleared first so the unique constraint on moneytor_id never sees
+      // the same id twice mid-swap.
+      const keptId = settled.moneytorId ?? pending.moneytorId;
+      const twinId = settled.moneytorId ? pending.moneytorId : null;
+
+      await prisma.$transaction([
+        ...(pending.moneytorId && settled.moneytorId
+          ? [
+              prisma.budgetTransaction.update({
+                where: { id: pending.id },
+                data: { moneytorId: null },
+              }),
+            ]
+          : []),
+        prisma.budgetTransaction.update({
+          where: { id: settled.id },
+          data: { moneytorId: twinId, isDeleted: true },
+        }),
+        prisma.budgetTransaction.update({
+          where: { id: pending.id },
+          data: {
+            moneytorId: keptId,
+            payeeId: settled.payeeId,
+            categoryId: pending.categoryId ?? settled.categoryId ?? null,
+            mergedFromId: settled.id,
+            notes: stripPendingNote(pending.notes),
+          },
+        }),
+      ]);
+
+      globalConsumed.add(pending.id);
+      globalConsumed.add(settled.id);
+      merged += 1;
+    }
   }
 
   // Rule 3: cross-currency pairs (see policy comment above). Grouped by
@@ -314,8 +485,9 @@ export async function dedupeMoneytorTwinsForHousehold(householdId: string): Prom
         Number(pending.amountOriginal),
         pending.currency
       )} ${pending.currency.toUpperCase()}`;
-      const notesWithOriginal = survivor.notes
-        ? `${survivor.notes}\n${originalAmountNote}`
+      const survivorNotes = stripPendingNote(survivor.notes);
+      const notesWithOriginal = survivorNotes
+        ? `${survivorNotes}\n${originalAmountNote}`
         : originalAmountNote;
 
       await prisma.$transaction([

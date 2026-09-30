@@ -1,5 +1,6 @@
 import {
   dedupeMoneytorTwinsForHousehold,
+  namesOverlap,
   TWIN_WINDOW_DAYS,
   WIDENED_TWIN_WINDOW_DAYS,
 } from '../dedupe-moneytor-twins';
@@ -24,6 +25,10 @@ type Row = {
   currency?: string;
   amountOriginal?: number;
   notes?: string | null;
+  payee?: { name: string };
+  // Moneytor's current extra_info for this row's moneytorId. Defaults to the
+  // row's own notes, i.e. Moneytor still says what the budget row says.
+  extraInfo?: string | null;
 };
 
 function makeMockPrisma(rows: Row[]) {
@@ -51,7 +56,17 @@ function makeMockPrisma(rows: Row[]) {
     for (const op of ops) await op;
     return [];
   };
-  return { budgetTransaction, $transaction, updates };
+  const moneytorTransaction = {
+    async findMany({ where }: { where: { id: { in: string[] } } }) {
+      return rows
+        .filter((r) => r.moneytorId && where.id.in.includes(r.moneytorId))
+        .map((r) => ({
+          id: r.moneytorId,
+          extraInfo: r.extraInfo !== undefined ? r.extraInfo : (r.notes ?? null),
+        }));
+    },
+  };
+  return { budgetTransaction, moneytorTransaction, $transaction, updates };
 }
 
 jest.mock('@/lib/db', () => {
@@ -60,6 +75,9 @@ jest.mock('@/lib/db', () => {
       budgetTransaction: {
         findMany: jest.fn(),
         update: jest.fn(),
+      },
+      moneytorTransaction: {
+        findMany: jest.fn(),
       },
       $transaction: jest.fn(),
     },
@@ -94,6 +112,9 @@ describe('dedupeMoneytorTwinsForHousehold', () => {
     );
     (prisma.budgetTransaction.update as jest.Mock).mockImplementation(
       state.budgetTransaction.update
+    );
+    (prisma.moneytorTransaction.findMany as jest.Mock).mockImplementation(
+      state.moneytorTransaction.findMany
     );
     (prisma.$transaction as jest.Mock).mockImplementation(state.$transaction);
     return state;
@@ -1148,6 +1169,640 @@ describe('dedupeMoneytorTwinsForHousehold', () => {
       expect(notes).toMatch(/^Hotel deposit\nOriginally /);
       expect(notes).toContain('100');
       expect(notes).toContain('USD');
+    });
+  });
+
+  describe('pending note (רגילה) and renamed pairs', () => {
+    const row = (r: Partial<Row> & Pick<Row, 'id' | 'payeeId' | 'transactionDate'>): Row => ({
+      amountIls: 45,
+      moneytorId: null,
+      categoryId: null,
+      mergedFromId: null,
+      isDeleted: false,
+      ...r,
+    });
+
+    it('merges a renamed pending/settled pair and takes the settled payee', async () => {
+      const rows: Row[] = [
+        row({
+          id: 'pending',
+          payeeId: 'p_short',
+          payee: { name: 'Google YouTube Premium' },
+          transactionDate: new Date('2026-08-01'),
+          categoryId: 'cat_subs',
+          notes: 'רגילה',
+        }),
+        row({
+          id: 'settled',
+          payeeId: 'p_long',
+          payee: { name: 'Google YouTubePremium Mountain View' },
+          transactionDate: new Date('2026-08-04'),
+          moneytorId: 'MT_SETTLED',
+        }),
+      ];
+      const state = wire(rows);
+
+      const result = await dedupeMoneytorTwinsForHousehold(HH);
+      expect(result.merged).toBe(1);
+      expect(state.updates.find((u) => u.id === 'settled')?.data).toEqual({
+        moneytorId: null,
+        isDeleted: true,
+      });
+      expect(state.updates.find((u) => u.id === 'pending')?.data).toEqual({
+        moneytorId: 'MT_SETTLED',
+        payeeId: 'p_long',
+        categoryId: 'cat_subs',
+        mergedFromId: 'settled',
+        notes: null,
+      });
+    });
+
+    it('swaps ids so the survivor keeps the settled id when both rows have one', async () => {
+      const rows: Row[] = [
+        row({
+          id: 'pending',
+          payeeId: 'p_short',
+          payee: { name: 'Google G1AI103M' },
+          transactionDate: new Date('2026-08-01'),
+          moneytorId: 'MT_PENDING',
+          notes: 'רגילה',
+        }),
+        row({
+          id: 'settled',
+          payeeId: 'p_long',
+          payee: { name: 'Google G1AI103M 650-2530000 CA' },
+          transactionDate: new Date('2026-08-02'),
+          moneytorId: 'MT_SETTLED',
+        }),
+      ];
+      const state = wire(rows);
+
+      expect((await dedupeMoneytorTwinsForHousehold(HH)).merged).toBe(1);
+      // Survivor's id is freed first, then the twin takes it, then the
+      // survivor takes the settled id — never two rows on one id.
+      expect(state.updates.map((u) => [u.id, u.data.moneytorId])).toEqual([
+        ['pending', null],
+        ['settled', 'MT_PENDING'],
+        ['pending', 'MT_SETTLED'],
+      ]);
+      expect(state.updates.find((u) => u.id === 'settled')?.data).toEqual({
+        moneytorId: 'MT_PENDING',
+        isDeleted: true,
+      });
+      expect(state.updates.at(-1)?.data).toMatchObject({ payeeId: 'p_long' });
+    });
+
+    it('does not merge renamed pairs without the pending note', async () => {
+      const rows: Row[] = [
+        row({
+          id: 'a',
+          payeeId: 'p1',
+          payee: { name: 'Google' },
+          transactionDate: new Date('2026-08-01'),
+          moneytorId: 'MT_A',
+        }),
+        row({
+          id: 'b',
+          payeeId: 'p2',
+          payee: { name: 'Google Play' },
+          transactionDate: new Date('2026-08-02'),
+          moneytorId: 'MT_B',
+        }),
+      ];
+      wire(rows);
+
+      expect((await dedupeMoneytorTwinsForHousehold(HH)).merged).toBe(0);
+      expect(prisma.budgetTransaction.update).not.toHaveBeenCalled();
+    });
+
+    it('does not merge when neither name contains the other', async () => {
+      const rows: Row[] = [
+        row({
+          id: 'a',
+          payeeId: 'p1',
+          payee: { name: 'Spotify' },
+          transactionDate: new Date('2026-08-01'),
+          notes: 'רגילה',
+        }),
+        row({
+          id: 'b',
+          payeeId: 'p2',
+          payee: { name: 'Netflix' },
+          transactionDate: new Date('2026-08-02'),
+          moneytorId: 'MT_B',
+        }),
+      ];
+      wire(rows);
+
+      expect((await dedupeMoneytorTwinsForHousehold(HH)).merged).toBe(0);
+    });
+
+    it('does not merge when the noted row is the later one', async () => {
+      const rows: Row[] = [
+        row({
+          id: 'a',
+          payeeId: 'p1',
+          payee: { name: 'Google YouTubePremium Mountain View' },
+          transactionDate: new Date('2026-08-01'),
+          moneytorId: 'MT_A',
+        }),
+        row({
+          id: 'b',
+          payeeId: 'p2',
+          payee: { name: 'Google YouTube Premium' },
+          transactionDate: new Date('2026-08-03'),
+          notes: 'רגילה',
+        }),
+      ];
+      wire(rows);
+
+      expect((await dedupeMoneytorTwinsForHousehold(HH)).merged).toBe(0);
+    });
+
+    it('widens the same-payee window to 7 days when the earlier row has the note', async () => {
+      const rows: Row[] = [
+        row({
+          id: 'earlier',
+          payeeId: 'p1',
+          transactionDate: new Date('2026-08-01'),
+          moneytorId: 'MT_A',
+          notes: 'רגילה\nfor the office',
+        }),
+        row({
+          id: 'later',
+          payeeId: 'p1',
+          transactionDate: new Date('2026-08-07'),
+          moneytorId: 'MT_B',
+        }),
+      ];
+      const state = wire(rows);
+
+      expect((await dedupeMoneytorTwinsForHousehold(HH)).merged).toBe(1);
+      expect(state.updates.find((u) => u.id === 'earlier')?.data).toEqual({
+        categoryId: null,
+        mergedFromId: 'later',
+        notes: 'for the office',
+      });
+    });
+
+    it('keeps the 4-day same-payee window when there is no note', async () => {
+      const rows: Row[] = [
+        row({
+          id: 'earlier',
+          payeeId: 'p1',
+          transactionDate: new Date('2026-08-01'),
+          moneytorId: 'MT_A',
+        }),
+        row({
+          id: 'later',
+          payeeId: 'p1',
+          transactionDate: new Date('2026-08-07'),
+          moneytorId: 'MT_B',
+        }),
+      ];
+      wire(rows);
+
+      expect((await dedupeMoneytorTwinsForHousehold(HH)).merged).toBe(0);
+    });
+
+    it('strips the note when a null-id pending row merges', async () => {
+      const rows: Row[] = [
+        row({
+          id: 'pending',
+          payeeId: 'p1',
+          transactionDate: new Date('2026-08-01'),
+          notes: 'רגילה',
+        }),
+        row({
+          id: 'settled',
+          payeeId: 'p1',
+          transactionDate: new Date('2026-08-03'),
+          moneytorId: 'MT_S',
+        }),
+      ];
+      const state = wire(rows);
+
+      await dedupeMoneytorTwinsForHousehold(HH);
+      expect(state.updates.find((u) => u.id === 'pending')?.data.notes).toBeNull();
+    });
+
+    it('does not merge a renamed pair when the amounts differ', async () => {
+      const rows: Row[] = [
+        row({
+          id: 'pending',
+          payeeId: 'p_short',
+          payee: { name: 'Google YouTube Premium' },
+          transactionDate: new Date('2026-08-01'),
+          notes: 'רגילה',
+          amountIls: 45,
+        }),
+        row({
+          id: 'settled',
+          payeeId: 'p_long',
+          payee: { name: 'Google YouTubePremium Mountain View' },
+          transactionDate: new Date('2026-08-02'),
+          moneytorId: 'MT_S',
+          amountIls: 45.01,
+        }),
+      ];
+      wire(rows);
+
+      expect((await dedupeMoneytorTwinsForHousehold(HH)).merged).toBe(0);
+      expect(prisma.budgetTransaction.update).not.toHaveBeenCalled();
+    });
+
+    it('merges a same-day renamed pair, takes the settled category, and is idempotent', async () => {
+      const rows: Row[] = [
+        row({
+          id: 'pending',
+          payeeId: 'p_short',
+          payee: { name: 'Wolt Tel Aviv' },
+          transactionDate: new Date('2026-08-01'),
+          notes: 'רגילה',
+        }),
+        row({
+          id: 'settled',
+          payeeId: 'p_long',
+          payee: { name: 'WOLT-TEL-AVIV IL' },
+          transactionDate: new Date('2026-08-01'),
+          moneytorId: 'MT_S',
+          categoryId: 'cat_food',
+        }),
+      ];
+      const state = wire(rows);
+
+      expect((await dedupeMoneytorTwinsForHousehold(HH)).merged).toBe(1);
+      expect(state.updates.find((u) => u.id === 'pending')?.data).toMatchObject({
+        moneytorId: 'MT_S',
+        payeeId: 'p_long',
+        categoryId: 'cat_food',
+        notes: null,
+      });
+
+      const second = await dedupeMoneytorTwinsForHousehold(HH);
+      expect(second.merged).toBe(0);
+    });
+
+    it('does not merge a renamed pair more than 7 days apart', async () => {
+      const start = new Date('2026-08-01T00:00:00Z');
+      const rows: Row[] = [
+        row({
+          id: 'pending',
+          payeeId: 'p_short',
+          payee: { name: 'Google YouTube Premium' },
+          transactionDate: start,
+          notes: 'רגילה',
+        }),
+        row({
+          id: 'settled',
+          payeeId: 'p_long',
+          payee: { name: 'Google YouTubePremium Mountain View' },
+          transactionDate: new Date(start.getTime() + TWIN_WINDOW_DAYS * DAY_MS + 1),
+          moneytorId: 'MT_S',
+        }),
+      ];
+      wire(rows);
+
+      expect((await dedupeMoneytorTwinsForHousehold(HH)).merged).toBe(0);
+    });
+
+    it('lets only the earliest of two noted pendings claim a single renamed settled row', async () => {
+      // The two pending names don't contain each other, but both are
+      // contained in the settled name.
+      const rows: Row[] = [
+        row({
+          id: 'pending_b',
+          payeeId: 'p_b',
+          payee: { name: 'YouTubePremium Mountain' },
+          transactionDate: new Date('2026-08-02'),
+          notes: 'רגילה',
+        }),
+        row({
+          id: 'pending_a',
+          payeeId: 'p_a',
+          payee: { name: 'Google YouTube Premium' },
+          transactionDate: new Date('2026-08-01'),
+          notes: 'רגילה',
+        }),
+        row({
+          id: 'settled',
+          payeeId: 'p_long',
+          payee: { name: 'Google YouTubePremium Mountain View' },
+          transactionDate: new Date('2026-08-04'),
+          moneytorId: 'MT_S',
+        }),
+      ];
+      const state = wire(rows);
+
+      const result = await dedupeMoneytorTwinsForHousehold(HH);
+      expect(result.merged).toBe(1);
+      expect(result.candidates).toBe(2);
+      expect(state.updates.find((u) => u.id === 'pending_a')?.data).toMatchObject({
+        mergedFromId: 'settled',
+        payeeId: 'p_long',
+      });
+      expect(state.updates.some((u) => u.id === 'pending_b')).toBe(false);
+    });
+
+    it('does not pair a noted pending row with another noted pending row', async () => {
+      const rows: Row[] = [
+        row({
+          id: 'pending_a',
+          payeeId: 'p_a',
+          payee: { name: 'Google YouTube Premium' },
+          transactionDate: new Date('2026-08-01'),
+          notes: 'רגילה',
+        }),
+        row({
+          id: 'pending_b',
+          payeeId: 'p_b',
+          payee: { name: 'Google YouTube' },
+          transactionDate: new Date('2026-08-02'),
+          notes: 'רגילה',
+        }),
+        row({
+          id: 'settled',
+          payeeId: 'p_long',
+          payee: { name: 'Google YouTubePremium Mountain View' },
+          transactionDate: new Date('2026-08-04'),
+          moneytorId: 'MT_S',
+        }),
+      ];
+      const state = wire(rows);
+
+      await dedupeMoneytorTwinsForHousehold(HH);
+      expect(state.updates.find((u) => u.id === 'pending_a')?.data.mergedFromId).toBe('settled');
+      expect(state.updates.some((u) => u.id === 'pending_b')).toBe(false);
+    });
+
+    it('leaves a renamed pending row alone when two settled rows qualify', async () => {
+      const rows: Row[] = [
+        row({
+          id: 'pending',
+          payeeId: 'p_short',
+          payee: { name: 'Google YouTube Premium' },
+          transactionDate: new Date('2026-08-01'),
+          notes: 'רגילה',
+        }),
+        row({
+          id: 'far',
+          payeeId: 'p_long',
+          payee: { name: 'Google YouTubePremium Mountain View' },
+          transactionDate: new Date('2026-08-06'),
+          moneytorId: 'MT_FAR',
+        }),
+        row({
+          id: 'near',
+          payeeId: 'p_long2',
+          payee: { name: 'Google YouTube Premium CA' },
+          transactionDate: new Date('2026-08-03'),
+          moneytorId: 'MT_NEAR',
+        }),
+      ];
+      const state = wire(rows);
+
+      expect((await dedupeMoneytorTwinsForHousehold(HH)).merged).toBe(0);
+      expect(state.updates).toEqual([]);
+    });
+
+    it('does not let rule 4 steal rows already merged by rule 1', async () => {
+      const rows: Row[] = [
+        row({
+          id: 'pending',
+          payeeId: 'p_short',
+          payee: { name: 'Google YouTube Premium' },
+          transactionDate: new Date('2026-08-01'),
+          notes: 'רגילה',
+        }),
+        row({
+          id: 'same_payee_settled',
+          payeeId: 'p_short',
+          payee: { name: 'Google YouTube Premium' },
+          transactionDate: new Date('2026-08-03'),
+          moneytorId: 'MT_SAME',
+        }),
+        row({
+          id: 'renamed_settled',
+          payeeId: 'p_long',
+          payee: { name: 'Google YouTubePremium Mountain View' },
+          transactionDate: new Date('2026-08-02'),
+          moneytorId: 'MT_RENAMED',
+        }),
+      ];
+      const state = wire(rows);
+
+      const result = await dedupeMoneytorTwinsForHousehold(HH);
+      expect(result.merged).toBe(1);
+      expect(state.updates.find((u) => u.id === 'pending')?.data).toEqual({
+        moneytorId: 'MT_SAME',
+        categoryId: null,
+        mergedFromId: 'same_payee_settled',
+        notes: null,
+      });
+      expect(state.updates.some((u) => u.id === 'renamed_settled')).toBe(false);
+    });
+
+    it('lets rule 4 pick up a rule-2 leftover without double-counting candidates', async () => {
+      const rows: Row[] = [
+        // Same payee + amount, but 10 days apart: rule 2 leaves both alone
+        // even with the widened (noted) 7-day window.
+        row({
+          id: 'noted',
+          payeeId: 'p_short',
+          payee: { name: 'Google YouTube Premium' },
+          transactionDate: new Date('2026-08-01'),
+          moneytorId: 'MT_NOTED',
+          notes: 'רגילה',
+        }),
+        row({
+          id: 'next_month',
+          payeeId: 'p_short',
+          payee: { name: 'Google YouTube Premium' },
+          transactionDate: new Date('2026-08-11'),
+          moneytorId: 'MT_NEXT',
+        }),
+        row({
+          id: 'renamed_settled',
+          payeeId: 'p_long',
+          payee: { name: 'Google YouTubePremium Mountain View' },
+          transactionDate: new Date('2026-08-03'),
+          moneytorId: 'MT_RENAMED',
+        }),
+      ];
+      const state = wire(rows);
+
+      const result = await dedupeMoneytorTwinsForHousehold(HH);
+      expect(result.merged).toBe(1);
+      // 2 from the rule-1/2 group + the renamed row; 'noted' is not re-counted.
+      expect(result.candidates).toBe(3);
+      expect(state.updates.filter((u) => u.id === 'noted').at(-1)?.data).toMatchObject({
+        moneytorId: 'MT_RENAMED',
+        payeeId: 'p_long',
+        mergedFromId: 'renamed_settled',
+      });
+      expect(state.updates.some((u) => u.id === 'next_month')).toBe(false);
+    });
+
+    it('strips the note before appending the original amount in a rule-3 merge', async () => {
+      const rows: Row[] = [
+        row({
+          id: 'pending-usd',
+          payeeId: 'p1',
+          amountIls: 375,
+          amountOriginal: 100,
+          currency: 'USD',
+          transactionDate: new Date('2026-08-01'),
+          moneytorId: 'MT_FX_A',
+          notes: 'רגילה\nHotel deposit',
+        }),
+        row({
+          id: 'settled-ils',
+          payeeId: 'p1',
+          amountIls: 370,
+          transactionDate: new Date('2026-08-02'),
+          moneytorId: 'MT_FX_B',
+        }),
+      ];
+      const state = wire(rows);
+
+      expect((await dedupeMoneytorTwinsForHousehold(HH)).merged).toBe(1);
+      const notes = state.updates.find((u) => u.id === 'pending-usd')?.data.notes as string;
+      expect(notes).toMatch(/^Hotel deposit\nOriginally /);
+      expect(notes).not.toContain('רגילה');
+    });
+
+    it('rule-3 survivor whose only note is the marker ends up with just the original amount', async () => {
+      const rows: Row[] = [
+        row({
+          id: 'pending-usd',
+          payeeId: 'p1',
+          amountIls: 375,
+          amountOriginal: 100,
+          currency: 'USD',
+          transactionDate: new Date('2026-08-01'),
+          moneytorId: 'MT_FX_A',
+          notes: 'רגילה',
+        }),
+        row({
+          id: 'settled-ils',
+          payeeId: 'p1',
+          amountIls: 370,
+          transactionDate: new Date('2026-08-02'),
+          moneytorId: 'MT_FX_B',
+        }),
+      ];
+      const state = wire(rows);
+
+      await dedupeMoneytorTwinsForHousehold(HH);
+      const notes = state.updates.find((u) => u.id === 'pending-usd')?.data.notes as string;
+      expect(notes).toMatch(/^Originally /);
+    });
+  });
+
+  describe('namesOverlap', () => {
+    it('ignores case, spaces and punctuation', () => {
+      expect(namesOverlap('Google YouTube Premium', 'Google YouTubePremium Mount')).toBe(true);
+      expect(namesOverlap('Google G1AI103M', 'google g1ai103m 650-2530000')).toBe(true);
+    });
+
+    it('rejects names shorter than 4 characters and missing names', () => {
+      expect(namesOverlap('Bit', 'Bit transfer')).toBe(false);
+      expect(namesOverlap(undefined, 'Google')).toBe(false);
+    });
+  });
+
+  describe('pending-signal safeguards', () => {
+    const renamedPair = (pending: Partial<Row> = {}, settled: Partial<Row> = {}): Row[] => [
+      {
+        id: 'pending',
+        payeeId: 'p_short',
+        payee: { name: 'Google YouTube Premium' },
+        amountIls: 45,
+        transactionDate: new Date('2026-08-01'),
+        moneytorId: null,
+        categoryId: null,
+        mergedFromId: null,
+        isDeleted: false,
+        notes: 'רגילה',
+        ...pending,
+      },
+      {
+        id: 'settled',
+        payeeId: 'p_long',
+        payee: { name: 'Google YouTubePremium Mountain View' },
+        amountIls: 45,
+        transactionDate: new Date('2026-08-03'),
+        moneytorId: 'MT_S',
+        categoryId: null,
+        mergedFromId: null,
+        isDeleted: false,
+        ...settled,
+      },
+    ];
+
+    it('ignores a stale note once Moneytor no longer marks the row pending', async () => {
+      // Settled under the same id: the budget note was seeded at import and
+      // never refreshed, but Moneytor's current copy has dropped the marker.
+      wire(renamedPair({ moneytorId: 'MT_P', extraInfo: null }));
+      expect((await dedupeMoneytorTwinsForHousehold(HH)).merged).toBe(0);
+    });
+
+    it('does not widen rule 2 on a stale note', async () => {
+      const rows: Row[] = [
+        {
+          id: 'earlier',
+          payeeId: 'p1',
+          amountIls: 12,
+          transactionDate: new Date('2026-08-01'),
+          moneytorId: 'MT_A',
+          categoryId: null,
+          mergedFromId: null,
+          isDeleted: false,
+          notes: 'רגילה',
+          extraInfo: null,
+        },
+        {
+          id: 'later',
+          payeeId: 'p1',
+          amountIls: 12,
+          transactionDate: new Date('2026-08-07'),
+          moneytorId: 'MT_B',
+          categoryId: null,
+          mergedFromId: null,
+          isDeleted: false,
+        },
+      ];
+      wire(rows);
+      expect((await dedupeMoneytorTwinsForHousehold(HH)).merged).toBe(0);
+    });
+
+    it('does not treat an earlier merge survivor as pending', async () => {
+      wire(renamedPair({ mergedFromId: 'old_twin' }));
+      expect((await dedupeMoneytorTwinsForHousehold(HH)).merged).toBe(0);
+    });
+
+    it('only counts the note as a whole line, not a word inside free text', async () => {
+      wire(renamedPair({ notes: 'ארוחה רגילה עם הצוות' }));
+      expect((await dedupeMoneytorTwinsForHousehold(HH)).merged).toBe(0);
+    });
+
+    it('requires the same currency', async () => {
+      wire(renamedPair({}, { currency: 'USD' }));
+      expect((await dedupeMoneytorTwinsForHousehold(HH)).merged).toBe(0);
+    });
+
+    it('keeps other note lines when stripping the marker', async () => {
+      const state = wire(renamedPair({ notes: 'family plan\nרגילה' }));
+      expect((await dedupeMoneytorTwinsForHousehold(HH)).merged).toBe(1);
+      expect(state.updates.at(-1)?.data.notes).toBe('family plan');
+    });
+
+    it('matches Hebrew names that start with one another', () => {
+      expect(namesOverlap('שופרסל דיל', 'שופרסל דיל תל אביב')).toBe(true);
+    });
+
+    it('does not match a name found only in the middle of the other', () => {
+      expect(namesOverlap('YouTube Premium', 'Google YouTube Premium')).toBe(false);
     });
   });
 });
