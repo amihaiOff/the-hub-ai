@@ -118,17 +118,18 @@ export function TaskCarouselView({
   useEffect(() => {
     const column = columnRefs.current[activeIndex];
     if (!column || typeof ResizeObserver === 'undefined') return;
-    // On md+ several columns are visible at once, so pinning the track to the
-    // active column's height would crop the others. Let the flex row grow to
-    // its tallest child instead; we only track a single column's height on
-    // narrow screens where exactly one is dominant.
+    // From 600px (an unfolded foldable) up, two or more columns are visible at
+    // once, so pinning the track to the active column's height would crop the
+    // others. Let the flex row grow to its tallest child instead; we only
+    // track a single column's height on phone-width screens where exactly one
+    // is dominant.
     const isNarrow = () => {
       if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
         // Tests (jsdom) don't ship matchMedia; assume mobile so the existing
         // height-tracking assertions keep passing.
         return true;
       }
-      return window.matchMedia('(max-width: 767px)').matches;
+      return window.matchMedia('(width < 600px)').matches;
     };
     const measure = () => setTrackHeight(isNarrow() ? column.offsetHeight : undefined);
     measure();
@@ -202,10 +203,11 @@ export function TaskCarouselView({
               columnRefs.current[i] = el;
             }}
             // Mobile: narrower than the viewport so the next column peeks in
-            // on both edges. md+: fixed 320px so as many columns as the
+            // on both edges. 600px+ (unfolded foldable): two columns side by
+            // side with the third peeking in. md+: fixed 320px so as many columns as the
             // viewport can hold sit side by side — on a wide screen the whole
             // set fits, on a small laptop only part, and the rest scroll.
-            className="w-[calc(100%-3.5rem)] shrink-0 snap-start md:w-80"
+            className="w-[calc(100%-3.5rem)] shrink-0 snap-start min-[600px]:w-[calc(50%-1.75rem)] md:w-80"
           >
             <div className="flex items-center gap-2.5 px-1 pb-2">
               {col.icon ? (
@@ -216,7 +218,9 @@ export function TaskCarouselView({
                   style={{ backgroundColor: col.color ?? 'var(--muted-foreground)' }}
                 />
               )}
-              <span className="flex-1 truncate text-lg font-bold">{col.label}</span>
+              <span dir="auto" className="min-w-0 flex-1 text-lg font-bold break-words">
+                {col.label}
+              </span>
               <span className="text-muted-foreground text-sm tabular-nums">{col.tasks.length}</span>
               <ColumnAddButton column={col} groupBy={groupBy} categories={categories} />
             </div>
@@ -462,7 +466,7 @@ function CarouselTaskRow({
                   <span
                     dir="auto"
                     className={cn(
-                      'min-w-0 flex-1 truncate text-sm',
+                      'min-w-0 flex-1 text-sm break-words',
                       sub.done && 'text-muted-foreground line-through'
                     )}
                   >

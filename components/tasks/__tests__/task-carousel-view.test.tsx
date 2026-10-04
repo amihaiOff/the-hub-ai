@@ -353,3 +353,40 @@ describe('relativeDueLabel', () => {
     expect(relativeDueLabel('2027-06-02T00:00:00.000Z', now)).toBe('Jun 27');
   });
 });
+
+describe('TaskCarouselView — track height pinning', () => {
+  const originalMatchMedia = window.matchMedia;
+  let heightSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    heightSpy = jest.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(240);
+  });
+  afterEach(() => {
+    heightSpy.mockRestore();
+    window.matchMedia = originalMatchMedia;
+  });
+
+  function mockPhoneWidth(matches: boolean) {
+    window.matchMedia = jest.fn((query: string) => ({
+      matches: query === '(width < 600px)' ? matches : false,
+      media: query,
+    })) as unknown as typeof window.matchMedia;
+  }
+
+  /** The scroll track is the parent of the column holding a given task. */
+  function track(): HTMLElement {
+    return row('Call Tiaa about taxes').closest('.snap-x') as HTMLElement;
+  }
+
+  it('pins the track to the active column height on phone widths (<600px)', () => {
+    mockPhoneWidth(true);
+    setup();
+    expect(track().style.height).toBe('240px');
+  });
+
+  it('leaves the track height unpinned from 600px up (two columns visible)', () => {
+    mockPhoneWidth(false);
+    setup();
+    expect(track().style.height).toBe('');
+  });
+});
