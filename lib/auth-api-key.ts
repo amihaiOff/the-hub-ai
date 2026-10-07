@@ -160,3 +160,17 @@ export async function getHouseholdIdFromBackupToken(request: NextRequest): Promi
   if (!matchesAny(token, [process.env.BACKUP_TOKEN, process.env.API_SECRET])) return null;
   return firstHouseholdId();
 }
+
+/**
+ * Validate the token for the read-only home-screen widget feed
+ * (`/api/widget/tasks`). Unlike every other key here it arrives as a `?token=`
+ * query param, because KWGT's web fetch can't send headers. URLs end up in
+ * logs and phone history, so this deliberately accepts ONLY `WIDGET_TOKEN` —
+ * never `API_SECRET` — and that token only unlocks the widget feed.
+ *
+ * @returns householdId if authenticated, null otherwise
+ */
+export async function getHouseholdIdFromWidgetToken(token: string | null): Promise<string | null> {
+  if (!token || !matchesAny(token, [process.env.WIDGET_TOKEN])) return null;
+  return firstHouseholdId();
+}

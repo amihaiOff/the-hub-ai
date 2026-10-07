@@ -320,6 +320,10 @@ AGENT_PAGES_TOKEN="..."                  # Scoped token: read+write the Areas Pa
 AGENT_TASKS_TOKEN="..."                  # Scoped token: read tasks + CREATE tasks, read categories/tags.
                                          # Cannot edit or delete existing tasks, cannot create
                                          # categories or tags.
+WIDGET_TOKEN="..."                       # Read-only, for the KWGT home-screen widget feed
+                                         # (GET /api/widget/tasks?token=...). Sent in the URL (so it
+                                         # shows up in Vercel request logs) and
+                                         # unlocks nothing else.
 BACKUP_TOKEN="..."                       # Lets the scheduled Drive backup fetch /api/backup unattended.
                                          # CAN PULL THE ENTIRE DATABASE — keep it as closely held as
                                          # API_SECRET. Separate from the agent/pages tokens so it can be

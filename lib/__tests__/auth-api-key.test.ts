@@ -18,6 +18,7 @@ import {
   getPagesHouseholdIdFromToken,
   getTasksHouseholdIdFromToken,
   getHouseholdIdFromBackupToken,
+  getHouseholdIdFromWidgetToken,
   resolveHouseholdOwnerUserId,
 } from '@/lib/auth-api-key';
 
@@ -344,5 +345,49 @@ describe('getHouseholdIdFromBackupToken', () => {
 
     await expect(getHouseholdIdFromBackupToken(makeRequest('Bearer anything'))).resolves.toBeNull();
     await expect(getHouseholdIdFromBackupToken(makeRequest('Bearer '))).resolves.toBeNull();
+  });
+});
+
+describe('getHouseholdIdFromWidgetToken', () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    jest.resetAllMocks();
+    process.env = { ...originalEnv };
+    (mockPrisma.household.findFirst as jest.Mock).mockResolvedValue({ id: 'hh-1' });
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  it('returns the household for the correct widget token', async () => {
+    process.env.WIDGET_TOKEN = 'widget-secret';
+    await expect(getHouseholdIdFromWidgetToken('widget-secret')).resolves.toBe('hh-1');
+  });
+
+  it('rejects a null or empty token', async () => {
+    process.env.WIDGET_TOKEN = 'widget-secret';
+    await expect(getHouseholdIdFromWidgetToken(null)).resolves.toBeNull();
+    await expect(getHouseholdIdFromWidgetToken('')).resolves.toBeNull();
+    expect(mockPrisma.household.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('rejects a wrong token', async () => {
+    process.env.WIDGET_TOKEN = 'widget-secret';
+    await expect(getHouseholdIdFromWidgetToken('nope')).resolves.toBeNull();
+  });
+
+  it('does NOT accept API_SECRET (token travels in a URL)', async () => {
+    process.env.WIDGET_TOKEN = 'widget-secret';
+    process.env.API_SECRET = 'admin-secret';
+    await expect(getHouseholdIdFromWidgetToken('admin-secret')).resolves.toBeNull();
+  });
+
+  it('rejects everything when WIDGET_TOKEN is unset', async () => {
+    delete process.env.WIDGET_TOKEN;
+    process.env.API_SECRET = 'admin-secret';
+    await expect(getHouseholdIdFromWidgetToken('anything')).resolves.toBeNull();
+    await expect(getHouseholdIdFromWidgetToken('admin-secret')).resolves.toBeNull();
   });
 });
