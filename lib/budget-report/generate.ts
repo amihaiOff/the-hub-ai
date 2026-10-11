@@ -20,6 +20,8 @@ import {
   type AgentState,
 } from './agent';
 import { buildSystemPrompt } from './prompt';
+import { formatMonth } from '@/lib/utils/budget';
+import { computeCost, REPORT_AGENT_PER_MTOK } from '@/lib/ai/pricing';
 import { MAX_RUNS } from './shared';
 
 /**
@@ -176,8 +178,57 @@ function buildFiles(data: Awaited<ReturnType<typeof loadReportData>>) {
   ];
 }
 
+export type ReportEventType =
+  | 'report_started'
+  | 'report_continued'
+  | 'report_resumed'
+  | 'report_ready'
+  | 'report_failed'
+  | 'report_handoff_failed';
+
+/**
+ * Record a report lifecycle event in Labs → Activity. Problems are left
+ * unread (they show the badge); routine progress is pre-read so a monthly
+ * report doesn't nag. Best-effort: logging never breaks a report.
+ */
+export async function logReportEvent(
+  householdId: string,
+  type: ReportEventType,
+  month: string,
+  description: string,
+  needsAttention = false
+) {
+  try {
+    // One unread entry per problem is enough: a report that stays stalled is
+    // retried on every Budget page visit, which mustn't pile up the badge.
+    if (needsAttention) {
+      const open = await prisma.generalLog.findFirst({
+        where: { householdId, type, subjectId: month, readAt: null },
+        select: { id: true },
+      });
+      if (open) return;
+    }
+    await prisma.generalLog.create({
+      data: {
+        householdId,
+        type,
+        subjectType: 'budget_report',
+        subjectId: month,
+        description,
+        readAt: needsAttention ? null : new Date(),
+      },
+    });
+  } catch (err) {
+    console.error('Failed to log budget report event:', err);
+  }
+}
+
 /** Compute the baseline and (re)start the report row for `month`. */
-export async function createReport(householdId: string, month: string) {
+export async function createReport(
+  householdId: string,
+  month: string,
+  trigger: 'scheduled' | 'manual' = 'manual'
+) {
   const data = await loadReportData(householdId, month);
   const stats = data.stats as unknown as Prisma.InputJsonValue;
   const reset = {
@@ -199,12 +250,21 @@ export async function createReport(householdId: string, month: string) {
   if (existing?.agentState && apiKey) {
     await deleteAgentFiles(createClient(apiKey), existing.agentState as unknown as AgentState);
   }
-  return prisma.budgetReport.upsert({
+  const report = await prisma.budgetReport.upsert({
     where: { householdId_month: { householdId, month } },
     create: { householdId, month, ...reset },
     update: reset,
     select: { id: true, month: true, status: true },
   });
+  await logReportEvent(
+    householdId,
+    'report_started',
+    month,
+    `${existing ? 'Regenerating' : 'Started'} the ${formatMonth(month)} budget report (${
+      trigger === 'scheduled' ? 'monthly schedule' : 'requested in the app'
+    }).`
+  );
+  return report;
 }
 
 const resolveApiKey = (h: { anthropicApiKey: string | null }) =>
@@ -218,11 +278,12 @@ const resolveApiKey = (h: { anthropicApiKey: string | null }) =>
 const heldBy = (id: string, claim: Date) => ({ id, lastRunAt: claim });
 
 async function finish(
-  id: string,
+  row: { id: string; householdId: string; month: string },
   claim: Date,
   data: { report?: unknown; reportError?: string | null; usage: UsageCounts }
 ) {
-  await prisma.budgetReport.updateMany({
+  const { id } = row;
+  const saved = await prisma.budgetReport.updateMany({
     where: heldBy(id, claim),
     data: {
       status: 'ready',
@@ -234,6 +295,26 @@ async function finish(
       lastRunAt: null,
     },
   });
+  if (saved.count === 0) return; // lost the lock; the newer run reports its own outcome
+  const cost = computeCost(data.usage, REPORT_AGENT_PER_MTOK).totalUsd;
+  const costNote = cost > 0 ? ` AI cost $${cost.toFixed(2)}.` : '';
+  const name = `${formatMonth(row.month)} budget report`;
+  if (data.reportError) {
+    await logReportEvent(
+      row.householdId,
+      'report_failed',
+      row.month,
+      `The ${name} has numbers only: ${data.reportError}${costNote}`,
+      true
+    );
+  } else {
+    await logReportEvent(
+      row.householdId,
+      'report_ready',
+      row.month,
+      `The ${name} is ready.${costNote}`
+    );
+  }
 }
 
 /**
@@ -254,6 +335,14 @@ export async function runReportStep(id: string): Promise<'done' | 'continue' | '
   if (claimed.count === 0) return 'busy';
 
   const row = await prisma.budgetReport.findUniqueOrThrow({ where: { id } });
+  if (row.runCount > 1 && row.runCount <= MAX_RUNS) {
+    await logReportEvent(
+      row.householdId,
+      'report_continued',
+      row.month,
+      `Continued writing the ${formatMonth(row.month)} budget report (run ${row.runCount} of ${MAX_RUNS}).`
+    );
+  }
   const prevUsage = (row.usage as unknown as UsageCounts | null) ?? emptyUsage();
   const household = await prisma.household.findUniqueOrThrow({
     where: { id: row.householdId },
@@ -261,7 +350,7 @@ export async function runReportStep(id: string): Promise<'done' | 'continue' | '
   });
   const apiKey = resolveApiKey(household);
   if (!apiKey) {
-    await finish(id, claim, {
+    await finish(row, claim, {
       usage: prevUsage,
       reportError: 'No Anthropic API key is set (Settings), so only the numbers are shown.',
     });
@@ -276,7 +365,7 @@ export async function runReportStep(id: string): Promise<'done' | 'continue' | '
   // without this, a report could be resumed and re-billed indefinitely.
   if (row.runCount > MAX_RUNS) {
     await deleteAgentFiles(client, state);
-    await finish(id, claim, {
+    await finish(row, claim, {
       usage: prevUsage,
       reportError: `The agent didn't finish within ${MAX_RUNS} runs.`,
     });
@@ -331,7 +420,7 @@ export async function runReportStep(id: string): Promise<'done' | 'continue' | '
       return saved.count > 0 ? 'continue' : 'done';
     }
     await deleteAgentFiles(client, result.state);
-    await finish(id, claim, {
+    await finish(row, claim, {
       usage,
       report: result.report,
       reportError:
@@ -343,7 +432,7 @@ export async function runReportStep(id: string): Promise<'done' | 'continue' | '
   } catch (err) {
     console.error('Budget report step failed:', err);
     await deleteAgentFiles(client, state);
-    await finish(id, claim, {
+    await finish(row, claim, {
       usage: latestUsage,
       reportError: `The report agent failed: ${err instanceof Error ? err.message : String(err)}`,
     });
@@ -389,6 +478,18 @@ export async function triggerContinue(id: string): Promise<boolean> {
   console.error(
     `Budget report ${id}: hand-off failed; it will resume on the next Budget page visit.`
   );
+  const row = await prisma.budgetReport
+    .findUnique({ where: { id }, select: { householdId: true, month: true } })
+    .catch(() => null);
+  if (row) {
+    await logReportEvent(
+      row.householdId,
+      'report_handoff_failed',
+      row.month,
+      `Couldn't hand the ${formatMonth(row.month)} budget report to its next run. Opening a Budget page retries it; Regenerate starts it over.`,
+      true
+    );
+  }
   return false;
 }
 
@@ -397,15 +498,33 @@ export async function runAndHandOff(id: string) {
   if ((await runReportStep(id)) === 'continue') await triggerContinue(id);
 }
 
-/** Report ids stuck in "generating" (a lost hand-off) for this household. */
-export async function findStuckReports(householdId: string): Promise<string[]> {
-  const rows = await prisma.budgetReport.findMany({
+/** Reports stuck in "generating" (a lost hand-off) for this household. */
+export async function findStuckReports(householdId: string) {
+  return prisma.budgetReport.findMany({
     where: {
       householdId,
       status: 'generating',
       updatedAt: { lt: new Date(Date.now() - STUCK_MS) },
     },
-    select: { id: true },
+    select: { id: true, month: true },
   });
-  return rows.map((r) => r.id);
+}
+
+/** Resume stuck reports from their saved progress, noting it in Activity. */
+export async function resumeStuckReports(
+  householdId: string,
+  stuck: { id: string; month: string }[]
+) {
+  for (const r of stuck) {
+    // Logged only once the hand-off is accepted; a failed one logs its own
+    // (deduplicated) "stalled" entry instead.
+    if (await triggerContinue(r.id)) {
+      await logReportEvent(
+        householdId,
+        'report_resumed',
+        r.month,
+        `Resumed the ${formatMonth(r.month)} budget report from its saved progress after it stalled.`
+      );
+    }
+  }
 }

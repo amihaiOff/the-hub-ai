@@ -2,7 +2,16 @@
 
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ArrowRight, Loader2, Pencil, Trash2 } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  FileText,
+  Loader2,
+  Pencil,
+  RotateCw,
+  Trash2,
+} from 'lucide-react';
 
 interface GeneralLogEntry {
   id: string;
@@ -31,6 +40,8 @@ function formatTs(iso: string): string {
   });
 }
 
+const SUBJECT_LABELS: Record<string, string> = { budget_report: 'Budget report' };
+
 function typeMeta(type: string): {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
@@ -40,6 +51,23 @@ function typeMeta(type: string): {
       return { icon: Pencil, label: 'Renamed' };
     case 'hard_delete':
       return { icon: Trash2, label: 'Removed' };
+    case 'backup_succeeded':
+      return { icon: CheckCircle2, label: 'Backup saved' };
+    case 'backup_failed':
+      return { icon: AlertCircle, label: 'Backup failed' };
+    // Monthly budget report lifecycle (lib/budget-report/generate.ts)
+    case 'report_started':
+      return { icon: FileText, label: 'Report started' };
+    case 'report_continued':
+      return { icon: RotateCw, label: 'Report continued' };
+    case 'report_resumed':
+      return { icon: RotateCw, label: 'Report resumed' };
+    case 'report_ready':
+      return { icon: CheckCircle2, label: 'Report ready' };
+    case 'report_failed':
+      return { icon: AlertCircle, label: 'Report incomplete' };
+    case 'report_handoff_failed':
+      return { icon: AlertCircle, label: 'Report stalled' };
     default:
       return { icon: AlertCircle, label: type };
   }
@@ -93,7 +121,7 @@ export default function ActivityPage() {
 
       {data && data.entries.length === 0 && (
         <div className="text-muted-foreground rounded-md border px-3 py-4 text-sm">
-          No activity yet. Rename events and other notable sync outcomes will show up here.
+          No activity yet. Account renames, backups and monthly budget reports will show up here.
         </div>
       )}
 
@@ -115,7 +143,7 @@ export default function ActivityPage() {
                     <span className="text-sm font-medium">{label}</span>
                     {entry.subjectType && (
                       <span className="text-muted-foreground bg-muted rounded-full px-1.5 py-0.5 text-[10px] tracking-wider uppercase">
-                        {entry.subjectType}
+                        {SUBJECT_LABELS[entry.subjectType] ?? entry.subjectType}
                       </span>
                     )}
                     {isUnread && (

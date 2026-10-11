@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       });
       if (exists) continue;
       try {
-        const report = await createReport(h.id, month);
+        const report = await createReport(h.id, month, 'scheduled');
         await triggerContinue(report.id);
         started.push(`${h.id}:${month}`);
       } catch (err) {

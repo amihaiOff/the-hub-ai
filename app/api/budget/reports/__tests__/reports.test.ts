@@ -23,6 +23,7 @@ jest.mock('@/lib/budget-report/generate', () => ({
   triggerContinue: jest.fn(),
   runAndHandOff: jest.fn(),
   findStuckReports: jest.fn(),
+  resumeStuckReports: jest.fn(),
 }));
 
 // Keep NextRequest/NextResponse real but stub after() — it throws outside a
@@ -38,6 +39,7 @@ import { getCurrentContext } from '@/lib/auth-utils';
 import {
   createReport,
   findStuckReports,
+  resumeStuckReports,
   runAndHandOff,
   triggerContinue,
 } from '@/lib/budget-report/generate';
@@ -56,6 +58,7 @@ const mockCreateReport = createReport as jest.MockedFunction<typeof createReport
 const mockTriggerContinue = triggerContinue as jest.MockedFunction<typeof triggerContinue>;
 const mockRunAndHandOff = runAndHandOff as jest.MockedFunction<typeof runAndHandOff>;
 const mockFindStuck = findStuckReports as jest.MockedFunction<typeof findStuckReports>;
+const mockResume = resumeStuckReports as jest.MockedFunction<typeof resumeStuckReports>;
 
 const mockContext = {
   user: { id: 'user-1', email: 'test@example.com', name: 'Test User' },
@@ -129,19 +132,23 @@ describe('GET /api/budget/reports', () => {
     expect(mockAfter).not.toHaveBeenCalled();
   });
 
-  it('schedules triggerContinue for each stuck report via after()', async () => {
+  it('resumes stuck reports after responding, via after()', async () => {
+    const stuck = [
+      { id: 'rep-a', month: '2026-08' },
+      { id: 'rep-b', month: '2026-09' },
+    ];
     mockGetCurrentContext.mockResolvedValueOnce(mockContext);
-    mockFindStuck.mockResolvedValueOnce(['rep-a', 'rep-b']);
+    mockFindStuck.mockResolvedValueOnce(stuck);
     mockPrisma.budgetReport.findMany.mockResolvedValueOnce([]);
-    mockTriggerContinue.mockResolvedValue(true);
+    mockResume.mockResolvedValue(undefined);
 
     const res = await LIST();
     expect(res.status).toBe(200);
     expect(mockAfter).toHaveBeenCalledTimes(1);
-    expect(mockTriggerContinue).not.toHaveBeenCalled();
+    expect(mockResume).not.toHaveBeenCalled();
 
     await runAfterCallback();
-    expect(mockTriggerContinue.mock.calls.map((c) => c[0])).toEqual(['rep-a', 'rep-b']);
+    expect(mockResume).toHaveBeenCalledWith('household-1', stuck);
   });
 });
 

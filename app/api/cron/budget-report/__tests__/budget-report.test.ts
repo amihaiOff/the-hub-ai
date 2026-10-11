@@ -100,7 +100,7 @@ describe('GET /api/cron/budget-report', () => {
       })
     );
     expect(mockCreateReport).toHaveBeenCalledTimes(1);
-    expect(mockCreateReport).toHaveBeenCalledWith('hh-new', monthNew);
+    expect(mockCreateReport).toHaveBeenCalledWith('hh-new', monthNew, 'scheduled');
     expect(mockTriggerContinue).toHaveBeenCalledWith('rep-new');
     expect(body).toEqual({ success: true, started: [`hh-new:${monthNew}`], failed: [] });
 

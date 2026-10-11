@@ -11,7 +11,10 @@ jest.mock('@/lib/db', () => ({
       findUniqueOrThrow: jest.fn(),
       update: jest.fn(),
       findMany: jest.fn(),
+      findUnique: jest.fn(),
+      upsert: jest.fn(),
     },
+    generalLog: { create: jest.fn(), findFirst: jest.fn() },
     household: { findUniqueOrThrow: jest.fn() },
     budgetCategory: { findMany: jest.fn() },
     budgetTransaction: { findMany: jest.fn() },
@@ -40,10 +43,21 @@ import {
   type AgentState,
 } from '../agent';
 import { MAX_RUNS } from '../shared';
-import { STUCK_MS, findStuckReports, runReportStep, triggerContinue } from '../generate';
+import {
+  STUCK_MS,
+  createReport,
+  findStuckReports,
+  resumeStuckReports,
+  runReportStep,
+  triggerContinue,
+} from '../generate';
 
 const mockPrisma = prisma as unknown as {
-  budgetReport: Record<'updateMany' | 'findUniqueOrThrow' | 'update' | 'findMany', jest.Mock>;
+  budgetReport: Record<
+    'updateMany' | 'findUniqueOrThrow' | 'update' | 'findMany' | 'findUnique' | 'upsert',
+    jest.Mock
+  >;
+  generalLog: { create: jest.Mock; findFirst: jest.Mock };
   household: { findUniqueOrThrow: jest.Mock };
   budgetCategory: { findMany: jest.Mock };
   budgetTransaction: { findMany: jest.Mock };
@@ -210,6 +224,110 @@ describe('runReportStep', () => {
       .mockResolvedValueOnce({ count: 0 }); // save: lock lost
 
     await expect(runReportStep('rep-1')).resolves.toBe('done');
+  });
+
+  describe('Labs → Activity events', () => {
+    const events = () =>
+      mockPrisma.generalLog.create.mock.calls.map((c) => c[0].data as Record<string, unknown>);
+
+    it('records a continued run (pre-read) from run 2 onwards', async () => {
+      mockPrisma.budgetReport.findUniqueOrThrow.mockResolvedValueOnce(
+        row({ agentState: savedState, runCount: 2 })
+      );
+      mockRun.mockResolvedValueOnce({ status: 'paused', state: nextState, usage: usage(1) });
+
+      await runReportStep('rep-1');
+
+      expect(events()).toEqual([
+        expect.objectContaining({
+          householdId: 'hh-1',
+          type: 'report_continued',
+          subjectType: 'budget_report',
+          subjectId: '2026-09',
+          description: expect.stringContaining('run 2 of 4'),
+          readAt: expect.any(Date),
+        }),
+      ]);
+    });
+
+    it('does not record "continued" for the first run', async () => {
+      mockPrisma.budgetReport.findUniqueOrThrow.mockResolvedValueOnce(
+        row({ agentState: savedState })
+      );
+      mockRun.mockResolvedValueOnce({ status: 'paused', state: nextState, usage: usage(1) });
+
+      await runReportStep('rep-1');
+
+      expect(events()).toEqual([]);
+    });
+
+    it('records a finished report (pre-read)', async () => {
+      mockPrisma.budgetReport.findUniqueOrThrow.mockResolvedValueOnce(
+        row({ agentState: savedState })
+      );
+      mockRun.mockResolvedValueOnce({
+        status: 'done',
+        state: nextState,
+        usage: usage(1),
+        report: undefined,
+      });
+
+      await runReportStep('rep-1');
+
+      expect(events()).toEqual([
+        expect.objectContaining({
+          type: 'report_ready',
+          description: expect.stringContaining('September 2026 budget report is ready'),
+          readAt: expect.any(Date),
+        }),
+      ]);
+    });
+
+    it('records a failure as unread so it shows the badge', async () => {
+      mockPrisma.budgetReport.findUniqueOrThrow.mockResolvedValueOnce(
+        row({ agentState: savedState })
+      );
+      mockRun.mockResolvedValueOnce({
+        status: 'failed',
+        state: nextState,
+        usage: usage(1),
+        error: 'boom',
+      });
+
+      await runReportStep('rep-1');
+
+      expect(events()).toEqual([
+        expect.objectContaining({
+          type: 'report_failed',
+          description: expect.stringContaining('boom'),
+          readAt: null,
+        }),
+      ]);
+    });
+
+    it('records nothing when the run lost the lock before finishing', async () => {
+      mockPrisma.budgetReport.findUniqueOrThrow.mockResolvedValueOnce(
+        row({ agentState: savedState })
+      );
+      mockRun.mockResolvedValueOnce({ status: 'done', state: nextState, usage: usage(1) });
+      mockPrisma.budgetReport.updateMany
+        .mockResolvedValueOnce({ count: 1 }) // claim
+        .mockResolvedValueOnce({ count: 0 }); // finish: lock lost
+
+      await runReportStep('rep-1');
+
+      expect(events()).toEqual([]);
+    });
+
+    it('never lets a logging failure break the report', async () => {
+      mockPrisma.budgetReport.findUniqueOrThrow.mockResolvedValueOnce(
+        row({ agentState: savedState })
+      );
+      mockRun.mockResolvedValueOnce({ status: 'done', state: nextState, usage: usage(1) });
+      mockPrisma.generalLog.create.mockRejectedValueOnce(new Error('db down'));
+
+      await expect(runReportStep('rep-1')).resolves.toBe('done');
+    });
   });
 
   it("'paused' on the final run finishes with a reportError", async () => {
@@ -397,12 +515,25 @@ describe('triggerContinue', () => {
 
   it('gives up after 3 attempts and returns false', async () => {
     fetchMock.mockResolvedValue({ ok: false });
+    mockPrisma.budgetReport.findUnique.mockResolvedValueOnce({
+      householdId: 'hh-1',
+      month: '2026-09',
+    });
 
     const p = triggerContinue('rep-1');
     await jest.advanceTimersByTimeAsync(1000 + 2000 + 4000);
     await expect(p).resolves.toBe(false);
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('hand-off failed'));
+    // Left unread in Labs → Activity so the stall is visible.
+    expect(mockPrisma.generalLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        householdId: 'hh-1',
+        type: 'report_handoff_failed',
+        subjectId: '2026-09',
+        readAt: null,
+      }),
+    });
   });
 });
 
@@ -412,9 +543,13 @@ describe('findStuckReports', () => {
   it('returns ids of generating reports untouched for STUCK_MS', async () => {
     const now = new Date('2026-10-11T12:00:00Z').getTime();
     jest.spyOn(Date, 'now').mockReturnValue(now);
-    mockPrisma.budgetReport.findMany.mockResolvedValueOnce([{ id: 'a' }, { id: 'b' }]);
+    const stuck = [
+      { id: 'a', month: '2026-08' },
+      { id: 'b', month: '2026-09' },
+    ];
+    mockPrisma.budgetReport.findMany.mockResolvedValueOnce(stuck);
 
-    await expect(findStuckReports('hh-1')).resolves.toEqual(['a', 'b']);
+    await expect(findStuckReports('hh-1')).resolves.toEqual(stuck);
 
     const { where } = mockPrisma.budgetReport.findMany.mock.calls[0][0];
     expect(where.householdId).toBe('hh-1');
@@ -426,5 +561,92 @@ describe('findStuckReports', () => {
   it('returns an empty list when nothing is stuck', async () => {
     mockPrisma.budgetReport.findMany.mockResolvedValueOnce([]);
     await expect(findStuckReports('hh-1')).resolves.toEqual([]);
+  });
+});
+
+describe('createReport activity events', () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+    mockPrisma.household.findUniqueOrThrow.mockResolvedValue({
+      anthropicApiKey: null,
+      reportPrompt: null,
+      billingCycleStartDay: 10,
+    });
+    mockPrisma.budgetCategory.findMany.mockResolvedValue([]);
+    mockPrisma.budgetTransaction.findMany.mockResolvedValue([]);
+    mockPrisma.budgetReport.upsert.mockResolvedValue({
+      id: 'rep-1',
+      month: '2026-09',
+      status: 'generating',
+    });
+  });
+
+  it('records a scheduled start', async () => {
+    mockPrisma.budgetReport.findUnique.mockResolvedValueOnce(null);
+    await createReport('hh-1', '2026-09', 'scheduled');
+    expect(mockPrisma.generalLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        type: 'report_started',
+        subjectId: '2026-09',
+        description: 'Started the September 2026 budget report (monthly schedule).',
+        readAt: expect.any(Date),
+      }),
+    });
+  });
+
+  it('records a regeneration requested in the app', async () => {
+    mockPrisma.budgetReport.findUnique.mockResolvedValueOnce({ agentState: null });
+    await createReport('hh-1', '2026-09');
+    expect(mockPrisma.generalLog.create.mock.calls[0][0].data.description).toBe(
+      'Regenerating the September 2026 budget report (requested in the app).'
+    );
+  });
+});
+
+describe('resumeStuckReports', () => {
+  const originalFetch = global.fetch;
+  beforeEach(() => {
+    jest.resetAllMocks();
+    global.fetch = jest.fn().mockResolvedValue({ ok: true }) as unknown as typeof fetch;
+  });
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('does not log "resumed" when the hand-off fails, and keeps one unread "stalled" entry', async () => {
+    jest.useFakeTimers();
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    global.fetch = jest.fn().mockResolvedValue({ ok: false }) as unknown as typeof fetch;
+    mockPrisma.budgetReport.findUnique.mockResolvedValue({ householdId: 'hh-1', month: '2026-08' });
+    // An unread "stalled" entry for this report already exists.
+    mockPrisma.generalLog.findFirst.mockResolvedValue({ id: 'log-1' });
+
+    const p = resumeStuckReports('hh-1', [{ id: 'rep-a', month: '2026-08' }]);
+    await jest.advanceTimersByTimeAsync(7000);
+    await p;
+
+    expect(mockPrisma.generalLog.findFirst).toHaveBeenCalledWith({
+      where: {
+        householdId: 'hh-1',
+        type: 'report_handoff_failed',
+        subjectId: '2026-08',
+        readAt: null,
+      },
+      select: { id: true },
+    });
+    expect(mockPrisma.generalLog.create).not.toHaveBeenCalled();
+    jest.useRealTimers();
+    (console.error as jest.Mock).mockRestore();
+  });
+
+  it('records each resume and hands the report to a fresh run', async () => {
+    await resumeStuckReports('hh-1', [{ id: 'rep-a', month: '2026-08' }]);
+    expect(mockPrisma.generalLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ type: 'report_resumed', subjectId: '2026-08' }),
+    });
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/budget/reports/continue'),
+      expect.objectContaining({ body: JSON.stringify({ id: 'rep-a' }) })
+    );
   });
 });

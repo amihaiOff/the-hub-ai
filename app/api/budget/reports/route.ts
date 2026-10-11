@@ -1,7 +1,7 @@
 import { NextResponse, after } from 'next/server';
 import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
-import { findStuckReports, triggerContinue } from '@/lib/budget-report/generate';
+import { findStuckReports, resumeStuckReports } from '@/lib/budget-report/generate';
 
 /**
  * GET /api/budget/reports
@@ -18,7 +18,7 @@ export async function GET() {
   const householdId = context.activeHousehold.id;
 
   const stuck = await findStuckReports(householdId);
-  if (stuck.length) after(() => Promise.all(stuck.map(triggerContinue)));
+  if (stuck.length) after(() => resumeStuckReports(householdId, stuck));
 
   const reports = await prisma.budgetReport.findMany({
     where: { householdId },
