@@ -87,7 +87,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { name, groupId, budget, isMust, sortOrder } = validation.data;
+    const { name, groupId, budget, isMust, sortOrder, reportExcluded, reportEveryMonths } =
+      validation.data;
 
     // If changing group, verify new group belongs to household
     if (groupId && groupId !== existingCategory.groupId) {
@@ -111,6 +112,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         ...(budget !== undefined && { budget }),
         ...(isMust !== undefined && { isMust }),
         ...(sortOrder !== undefined && { sortOrder }),
+        ...(reportExcluded !== undefined && { reportExcluded }),
+        ...(reportEveryMonths !== undefined && { reportEveryMonths }),
       },
     });
 

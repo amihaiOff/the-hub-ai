@@ -11,6 +11,7 @@ import {
   Users,
   BarChart3,
   PiggyBank,
+  FileText,
   Shield,
   Calculator,
   Sparkles,
@@ -80,6 +81,7 @@ export const navItems: NavEntry[] = [
       { href: '/budget/payees', label: 'Payees', icon: Users },
       { href: '/budget/analysis', label: 'Analysis', icon: BarChart3 },
       { href: '/budget/savings', label: 'Savings', icon: PiggyBank },
+      { href: '/budget/reports', label: 'Reports', icon: FileText },
     ],
   },
   {

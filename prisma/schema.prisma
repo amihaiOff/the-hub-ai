@@ -108,6 +108,9 @@ model Household {
   // Household-scoped dashboard scratchpad — a single markdown block for
   // rough notes / TODOs the user wants to sweep into a real task later.
   dashboardNotes       String?  @map("dashboard_notes") @db.Text
+  // Prompt for the monthly budget-report agent. Null falls back to the
+  // built-in default in lib/budget-report/prompt.ts.
+  reportPrompt         String?  @map("report_prompt") @db.Text
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
@@ -171,6 +174,9 @@ model Household {
 
   // AI transaction categorization query log
   categorizationLogs BudgetCategorizationLog[]
+
+  // Monthly budget reports
+  budgetReports BudgetReport[]
 
   @@map("households")
 }
@@ -622,6 +628,8 @@ model BudgetCategory {
   groupId     String   @map("group_id")
   budget      Decimal? @db.Decimal(18, 2) // Monthly budget amount (null = no budget)
   isMust      Boolean  @default(false) @map("is_must") // Essential vs discretionary
+  reportExcluded    Boolean @default(false) @map("report_excluded") // Left out of monthly reports (income and expense)
+  reportEveryMonths Int     @default(1) @map("report_every_months") // 2 = billed every other month; reports judge it on its average
   sortOrder   Int      @default(0) @map("sort_order")
   householdId String   @map("household_id")
   createdAt   DateTime @default(now()) @map("created_at")
@@ -780,6 +788,32 @@ model PayeeCategoryRule {
   @@index([householdId])
   @@index([categoryId])
   @@map("payee_category_rules")
+}
+
+// Monthly budget report — one per household per budget cycle ('YYYY-MM').
+// `stats` is the app's deterministic baseline; `report` is what the agent
+// submitted. `agentState` holds the agent's conversation so a run that hits
+// the function time limit can be resumed by the next run.
+model BudgetReport {
+  id          String    @id @default(cuid())
+  householdId String    @map("household_id")
+  month       String // 'YYYY-MM' budget cycle
+  status      String    @default("generating") // 'generating' | 'ready'
+  stats       Json
+  report      Json?
+  reportError String?   @map("report_error")
+  model       String?
+  usage       Json?
+  agentState  Json?     @map("agent_state")
+  runCount    Int       @default(0) @map("run_count")
+  lastRunAt   DateTime? @map("last_run_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, month])
+  @@map("budget_reports")
 }
 
 // Log of AI auto-categorization queries — one row per transaction the model

@@ -34,6 +34,8 @@ function EditCategoryForm({
   const [name, setName] = useState(category.name);
   const [budget, setBudget] = useState(category.budget?.toString() || '');
   const [isMust, setIsMust] = useState(category.isMust);
+  const [reportExcluded, setReportExcluded] = useState(category.reportExcluded ?? false);
+  const [bimonthly, setBimonthly] = useState((category.reportEveryMonths ?? 1) > 1);
 
   const updateCategory = useUpdateCategory();
 
@@ -48,6 +50,8 @@ function EditCategoryForm({
       name: name.trim(),
       budget: budgetNum,
       isMust,
+      reportExcluded,
+      reportEveryMonths: bimonthly ? 2 : 1,
     });
 
     onOpenChange(false);
@@ -94,6 +98,29 @@ function EditCategoryForm({
             <p className="text-muted-foreground text-xs">Mark as a must-have expense</p>
           </div>
           <Switch id="edit-cat-must" checked={isMust} onCheckedChange={setIsMust} />
+        </div>
+
+        {/* Monthly report options */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label htmlFor="edit-cat-bimonthly">Billed every other month</Label>
+            <p className="text-muted-foreground text-xs">Reports judge it on its monthly average</p>
+          </div>
+          <Switch id="edit-cat-bimonthly" checked={bimonthly} onCheckedChange={setBimonthly} />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label htmlFor="edit-cat-report-excluded">Leave out of monthly reports</Label>
+            <p className="text-muted-foreground text-xs">
+              Both spending and income in this category are skipped
+            </p>
+          </div>
+          <Switch
+            id="edit-cat-report-excluded"
+            checked={reportExcluded}
+            onCheckedChange={setReportExcluded}
+          />
         </div>
       </div>
 

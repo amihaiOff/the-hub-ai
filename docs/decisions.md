@@ -47,11 +47,36 @@ _Seeded 2026-09-01 by salvaging `docs/the_hub_ai_spec.md` before deleting it._
 - **Each row is attempted exactly once** (`categorizationAttemptedAt`) instead of re-querying
   every run; after a few errors a row is marked attempted so a persistent failure (e.g. a bad
   API key) can't re-bill it.
-- **Scheduling is shaped by the Vercel Hobby plan** (crons capped at once/day, 2 total): the
+- **Scheduling is shaped by the Vercel Hobby plan** (crons at most once/day): the
   post-response `after()` / read-triggered / folded-into-daily-cron design deliberately avoids
-  needing a frequent cron.
+  needing a frequent cron. (This note used to say "2 crons, 60s functions" — Vercel lifted both
+  in 2025: Hobby now allows 100 crons/project, and functions run up to 300s with Fluid compute,
+  which is on for this project. Checked against Vercel's docs on 2026-10-11.)
 - **Approving a guess sets the payee default** (except `neverDefault`/blacklisted payees);
   dismissing leaves the row uncategorized.
+
+## Monthly budget reports
+
+- **Numbers first, agent second.** The app computes a deterministic baseline (`lib/budget-report/compute.ts`)
+  and saves it before the agent starts, so a report always exists even if the AI fails, and the
+  core figures are reproducible month to month. The agent gets those numbers _plus_ the raw
+  transactions in a code sandbox and is explicitly told they're a starting point — the user wanted
+  it free to run its own checks, not just narrate our numbers. Where it disagrees, it says so
+  (`statsCorrections`) instead of silently overwriting.
+- **A report month is the 10→9 billing cycle for every payment method**, bank rows included — the
+  user's rule for reports. The Budget summary still uses calendar months for bank rows.
+- **Compared against the last 3 cycles only** (user's choice), not a longer history.
+- **Runs inside Vercel, not GitHub Actions**, to avoid spreading DB/API credentials. Each run is
+  ≤300s, so the agent stops starting turns at ~3 min, saves its conversation, and hands off to a
+  fresh invocation (up to 4). A lost hand-off is recovered by reading the report list, which every
+  Budget page does — no daily cron, since reports are monthly (cron on the 12th, tied to the 10th
+  cycle start).
+- **The whole prompt is editable in Settings**, except a fixed technical contract (files, output
+  tool, time budget) so an edited prompt can't break saving/rendering.
+- **Refunds are matched only for insurer payouts and card cancellations.** Matching any income of
+  an equal amount would hide real income (standing orders, transfers); the agent can find others.
+- **Share as PDF goes through the system share sheet**: a wa.me link can't carry a file, and the
+  WhatsApp Business API needs a business account and approved templates.
 
 ## Backup / Restore
 

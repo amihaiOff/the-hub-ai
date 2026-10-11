@@ -59,6 +59,10 @@ export interface BudgetCategory {
   isMust: boolean;
   sortOrder: number;
   householdId: string;
+  /** Left out of monthly reports. */
+  reportExcluded?: boolean;
+  /** 2 = billed every other month (reports judge it on its average). */
+  reportEveryMonths?: number;
 }
 
 export interface BudgetCategoryGroup {

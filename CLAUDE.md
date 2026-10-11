@@ -197,6 +197,11 @@ Configured in `vercel.json`:
    - Calculates total net worth from all sources
    - Saves to `net_worth_snapshots` for historical graph
 
+4. **Monthly Budget Report** - Monthly on the 12th (`0 4 12 * *`)
+   - Route: `/api/cron/budget-report`
+   - Creates the just-closed cycle's report (baseline numbers + Claude report agent)
+   - Agent work continues in `/api/budget/reports/continue` (≤300s per run, up to 4)
+
 ### Key Features
 
 **Stock Portfolio:**

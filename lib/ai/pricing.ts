@@ -16,6 +16,15 @@ const PER_MTOK = {
   cacheRead: 0.1, // reading from the prompt cache (0.1× input)
 } as const;
 
+// Claude Opus 5.5 — the monthly budget-report agent. Published rates (cache
+// reads are $0.20/MTok for this model, not the 0.1× ratio used above).
+export const REPORT_AGENT_PER_MTOK = {
+  input: 4.0,
+  output: 20.0,
+  cacheWrite5m: 5.0,
+  cacheRead: 0.2,
+} as const;
+
 // Web search server tool: $10 per 1,000 searches.
 const PER_WEB_SEARCH = 10 / 1000;
 
@@ -39,11 +48,14 @@ export interface CostBreakdown {
 }
 
 /** Compute the USD cost of a set of usage counts, broken down by component. */
-export function computeCost(u: UsageCounts): CostBreakdown {
-  const inputUsd = (u.inputTokens / MTOK) * PER_MTOK.input;
-  const outputUsd = (u.outputTokens / MTOK) * PER_MTOK.output;
-  const cacheWriteUsd = (u.cacheCreationTokens / MTOK) * PER_MTOK.cacheWrite5m;
-  const cacheReadUsd = (u.cacheReadTokens / MTOK) * PER_MTOK.cacheRead;
+export function computeCost(
+  u: UsageCounts,
+  rates: { input: number; output: number; cacheWrite5m: number; cacheRead: number } = PER_MTOK
+): CostBreakdown {
+  const inputUsd = (u.inputTokens / MTOK) * rates.input;
+  const outputUsd = (u.outputTokens / MTOK) * rates.output;
+  const cacheWriteUsd = (u.cacheCreationTokens / MTOK) * rates.cacheWrite5m;
+  const cacheReadUsd = (u.cacheReadTokens / MTOK) * rates.cacheRead;
   const searchUsd = u.webSearches * PER_WEB_SEARCH;
   return {
     inputUsd,

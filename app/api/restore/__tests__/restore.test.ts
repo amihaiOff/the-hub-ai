@@ -68,6 +68,7 @@ const mockPrisma = {
   partnerContact: createMockFns('partnerContact'),
   ccGenericPayeeName: createMockFns('ccGenericPayeeName'),
   budgetAccountName: createMockFns('budgetAccountName'),
+  budgetReport: createMockFns('budgetReport'),
   generalLog: createMockFns('generalLog'),
   moneytorRealEstate: createMockFns('moneytorRealEstate'),
   moneytorRealEstateSnapshot: createMockFns('moneytorRealEstateSnapshot'),

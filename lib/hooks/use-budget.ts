@@ -1,5 +1,8 @@
 'use client';
 
+import type { ReportStats } from '@/lib/budget-report/compute';
+import type { ReportContent } from '@/lib/budget-report/agent';
+import type { UsageCounts } from '@/lib/ai/pricing';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useCallback } from 'react';
 import {
@@ -112,6 +115,9 @@ export const budgetKeys = {
   allMonthSummaries: () => [...budgetKeys.all, 'month'] as const,
   categorizationLogs: () => [...budgetKeys.all, 'categorizationLogs'] as const,
   aiUsage: () => [...budgetKeys.all, 'aiUsage'] as const,
+  reports: () => [...budgetKeys.all, 'reports'] as const,
+  report: (month: string) => [...budgetKeys.all, 'reports', month] as const,
+  reportPrompt: () => [...budgetKeys.all, 'reportPrompt'] as const,
 };
 
 // Account name mapping types
@@ -415,6 +421,8 @@ interface UpdateCategoryInput {
   name?: string;
   budget?: number | null;
   isMust?: boolean;
+  reportExcluded?: boolean;
+  reportEveryMonths?: number;
 }
 
 interface CreateCategoryGroupInput {
@@ -1417,4 +1425,85 @@ export function useExpandedCategories() {
   );
 
   return { expandedCategories, toggleCategory, isCategoryExpanded };
+}
+
+// ── Monthly reports ────────────────────────────────────────────────────────
+
+export interface BudgetReportListItem {
+  month: string;
+  status: 'generating' | 'ready';
+  runCount: number;
+  reportError: string | null;
+  updatedAt: string;
+}
+
+export interface BudgetReportDetail extends Omit<BudgetReportListItem, 'status'> {
+  status: 'generating' | 'ready';
+  stats: ReportStats;
+  report: ReportContent | null;
+  model: string | null;
+  usage: UsageCounts | null;
+  createdAt: string;
+}
+
+const REPORT_POLL_MS = 10_000;
+
+/**
+ * Months with a report. Also called from the Budget layout on every Budget
+ * page: the route resumes a report whose hand-off was lost. Polls while any
+ * report is generating.
+ */
+export function useBudgetReports() {
+  return useQuery({
+    queryKey: budgetKeys.reports(),
+    queryFn: () => fetchApi<BudgetReportListItem[]>('/api/budget/reports'),
+    refetchInterval: (q) =>
+      q.state.data?.some((r) => r.status === 'generating') ? REPORT_POLL_MS : false,
+  });
+}
+
+export function useBudgetReport(month: string | null) {
+  return useQuery({
+    queryKey: budgetKeys.report(month ?? ''),
+    queryFn: () => fetchApi<BudgetReportDetail>(`/api/budget/reports/${month}`),
+    enabled: !!month,
+    refetchInterval: (q) => (q.state.data?.status === 'generating' ? REPORT_POLL_MS : false),
+  });
+}
+
+export function useGenerateBudgetReport() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (month: string) =>
+      fetchApi<{ id: string; month: string }>('/api/budget/reports/run', {
+        method: 'POST',
+        body: JSON.stringify({ month }),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: budgetKeys.reports() }),
+  });
+}
+
+export interface ReportPromptResponse {
+  prompt: string | null;
+  defaultPrompt: string;
+  contract: string;
+}
+
+export function useReportPrompt() {
+  return useQuery({
+    queryKey: budgetKeys.reportPrompt(),
+    queryFn: () => fetchApi<ReportPromptResponse>('/api/settings/report-prompt'),
+  });
+}
+
+export function useUpdateReportPrompt() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (prompt: string | null) =>
+      fetchApi<{ prompt: string | null }>('/api/settings/report-prompt', {
+        method: 'PUT',
+        body: JSON.stringify({ prompt }),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: budgetKeys.reportPrompt() }),
+  });
 }

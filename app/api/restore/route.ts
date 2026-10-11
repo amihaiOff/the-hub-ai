@@ -80,6 +80,7 @@ export async function POST(request: NextRequest) {
       '2.8',
       '2.9',
       '3.0',
+      '3.1',
     ];
     if (!supportedVersions.includes(metadata.schemaVersion)) {
       return NextResponse.json(
@@ -170,6 +171,7 @@ export async function POST(request: NextRequest) {
     const budgetAccountNames = await parseFile<Record<string, unknown>>(
       'budget_account_names.json'
     );
+    const budgetReports = await parseFile<Record<string, unknown>>('budget_reports.json');
     const moneytorDropLogs = await parseFile<Record<string, unknown>>('moneytor_drop_logs.json');
     const moneytorRealEstate = await parseFile<Record<string, unknown>>(
       'moneytor_real_estate.json'
@@ -238,6 +240,7 @@ export async function POST(request: NextRequest) {
     await prisma.partnerContact.deleteMany();
     await prisma.ccGenericPayeeName.deleteMany();
     await prisma.budgetAccountName.deleteMany();
+    await prisma.budgetReport.deleteMany();
     await prisma.generalLog.deleteMany();
     await prisma.moneytorDropLog.deleteMany();
     await prisma.moneytorSyncLog.deleteMany();
@@ -559,6 +562,8 @@ export async function POST(request: NextRequest) {
           groupId: bc.groupId as string,
           budget: bc.budget != null ? (bc.budget as string) : null,
           isMust: bc.isMust as boolean,
+          reportExcluded: (bc.reportExcluded as boolean | undefined) ?? false,
+          reportEveryMonths: (bc.reportEveryMonths as number | undefined) ?? 1,
           sortOrder: bc.sortOrder as number,
           householdId: bc.householdId as string,
           createdAt: new Date(bc.createdAt as string),
@@ -973,6 +978,30 @@ export async function POST(request: NextRequest) {
           householdId: ban.householdId as string,
           createdAt: new Date(ban.createdAt as string),
           updatedAt: new Date(ban.updatedAt as string),
+        },
+      });
+    }
+
+    // 35b. Monthly budget reports. An in-progress agent run can't be resumed
+    // from a backup, so its saved conversation isn't restored.
+    for (const br of budgetReports) {
+      await prisma.budgetReport.create({
+        data: {
+          id: br.id as string,
+          householdId: br.householdId as string,
+          month: br.month as string,
+          status: 'ready',
+          stats: br.stats as Prisma.InputJsonValue,
+          report: br.report == null ? Prisma.DbNull : (br.report as Prisma.InputJsonValue),
+          reportError:
+            br.status === 'ready'
+              ? ((br.reportError as string | null) ?? null)
+              : 'This report was still being written when the backup was taken. Use Regenerate.',
+          model: (br.model as string | null) ?? null,
+          usage: br.usage == null ? Prisma.DbNull : (br.usage as Prisma.InputJsonValue),
+          runCount: (br.runCount as number) ?? 0,
+          createdAt: new Date(br.createdAt as string),
+          updatedAt: new Date(br.updatedAt as string),
         },
       });
     }

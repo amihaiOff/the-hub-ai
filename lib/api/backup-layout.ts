@@ -56,6 +56,7 @@ const FOLDER_BY_FILE: Record<string, BackupFolder> = {
   'budget_payees.json': 'budget',
   'budget_tags.json': 'budget',
   'budget_account_names.json': 'budget',
+  'budget_reports.json': 'budget',
   'cc_generic_payee_names.json': 'budget',
   'riseup_categories.json': 'budget',
   'payee_category_rules.json': 'budget',

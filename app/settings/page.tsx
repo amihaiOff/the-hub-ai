@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import Link from 'next/link';
 import {
   BookOpen,
+  FileText,
   ChevronRight,
   Download,
   Home,
@@ -56,6 +57,12 @@ const settingsLinks = [
     title: 'Wiki Prompt',
     description: 'System prompt for wiki source summarization',
     icon: BookOpen,
+  },
+  {
+    href: '/settings/report-prompt',
+    title: 'Report Prompt',
+    description: 'What the monthly budget report agent looks for',
+    icon: FileText,
   },
 ];
 

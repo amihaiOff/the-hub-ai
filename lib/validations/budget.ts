@@ -75,6 +75,8 @@ export const updateCategorySchema = z.object({
   budget: nonNegativeNumber('Budget must be a non-negative number').nullable().optional(),
   isMust: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
+  reportExcluded: z.boolean().optional(),
+  reportEveryMonths: z.number().int().min(1).max(2).optional(),
 });
 
 export const reorderCategoriesSchema = z.object({

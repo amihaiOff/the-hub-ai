@@ -756,6 +756,119 @@ describe('Categories API', () => {
       );
     });
 
+    describe('report settings (reportExcluded / reportEveryMonths)', () => {
+      const mockExisting = {
+        id: 'cat-1',
+        name: 'Car insurance',
+        groupId: 'group-1',
+        householdId: 'household-1',
+      };
+      const updatedWith = (fields: Record<string, unknown>) => ({
+        id: 'cat-1',
+        name: 'Car insurance',
+        budget: createDecimal(800),
+        isMust: true,
+        sortOrder: 1,
+        groupId: 'group-1',
+        householdId: 'household-1',
+        reportExcluded: false,
+        reportEveryMonths: 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        group: { id: 'group-1', name: 'Essential' },
+        ...fields,
+      });
+      const putBody = (body: unknown) =>
+        PUT(
+          new NextRequest('http://localhost:3000/api/budget/categories/cat-1', {
+            method: 'PUT',
+            body: JSON.stringify(body),
+          }),
+          { params: Promise.resolve({ id: 'cat-1' }) }
+        );
+
+      it('should update reportExcluded only', async () => {
+        mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+        (mockPrisma.budgetCategory.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
+        (mockPrisma.budgetCategory.update as jest.Mock).mockResolvedValueOnce({});
+        (mockPrisma.budgetCategory.findUnique as jest.Mock).mockResolvedValueOnce(
+          updatedWith({ reportExcluded: true })
+        );
+
+        const response = await putBody({ reportExcluded: true });
+        const data = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(data.data.reportExcluded).toBe(true);
+        expect(mockPrisma.budgetCategory.update).toHaveBeenCalledWith(
+          expect.objectContaining({ data: { reportExcluded: true } })
+        );
+      });
+
+      it.each([1, 2])('should accept reportEveryMonths = %i', async (n) => {
+        mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+        (mockPrisma.budgetCategory.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
+        (mockPrisma.budgetCategory.update as jest.Mock).mockResolvedValueOnce({});
+        (mockPrisma.budgetCategory.findUnique as jest.Mock).mockResolvedValueOnce(
+          updatedWith({ reportEveryMonths: n })
+        );
+
+        const response = await putBody({ reportEveryMonths: n });
+
+        expect(response.status).toBe(200);
+        expect(mockPrisma.budgetCategory.update).toHaveBeenCalledWith(
+          expect.objectContaining({ data: { reportEveryMonths: n } })
+        );
+      });
+
+      it('should update both report fields together with other fields', async () => {
+        mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+        (mockPrisma.budgetCategory.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
+        (mockPrisma.budgetCategory.update as jest.Mock).mockResolvedValueOnce({});
+        (mockPrisma.budgetCategory.findUnique as jest.Mock).mockResolvedValueOnce(
+          updatedWith({ reportExcluded: false, reportEveryMonths: 2, budget: createDecimal(900) })
+        );
+
+        const response = await putBody({
+          budget: 900,
+          reportExcluded: false,
+          reportEveryMonths: 2,
+        });
+
+        expect(response.status).toBe(200);
+        expect(mockPrisma.budgetCategory.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: { budget: 900, reportExcluded: false, reportEveryMonths: 2 },
+          })
+        );
+      });
+
+      it.each([[3], [0], [1.5], ['2']])(
+        'should reject reportEveryMonths = %p with 400',
+        async (value) => {
+          mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+          (mockPrisma.budgetCategory.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
+
+          const response = await putBody({ reportEveryMonths: value });
+          const data = await response.json();
+
+          expect(response.status).toBe(400);
+          expect(data.success).toBe(false);
+          expect(mockPrisma.budgetCategory.update).not.toHaveBeenCalled();
+        }
+      );
+
+      it('should reject a non-boolean reportExcluded with 400', async () => {
+        mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+        (mockPrisma.budgetCategory.findFirst as jest.Mock).mockResolvedValueOnce(mockExisting);
+
+        const response = await putBody({ reportExcluded: 'yes' });
+
+        expect(response.status).toBe(400);
+        expect(mockPrisma.budgetCategory.update).not.toHaveBeenCalled();
+      });
+    });
+
     it('should return 401 when not authenticated', async () => {
       mockGetCurrentContext.mockResolvedValueOnce(null);
 

@@ -64,6 +64,7 @@ export async function GET(request: NextRequest) {
       budgetTransactionTags,
       ccGenericPayeeNames,
       budgetAccountNames,
+      budgetReports,
       partnerContacts,
       moneytorDropLogs,
       moneytorRealEstate,
@@ -122,6 +123,7 @@ export async function GET(request: NextRequest) {
       prisma.budgetTransactionTag.findMany(),
       prisma.ccGenericPayeeName.findMany(),
       prisma.budgetAccountName.findMany(),
+      prisma.budgetReport.findMany(),
       prisma.partnerContact.findMany(),
       prisma.moneytorDropLog.findMany(),
       prisma.moneytorRealEstate.findMany(),
@@ -165,7 +167,7 @@ export async function GET(request: NextRequest) {
     // Create backup metadata
     const metadata = {
       backupDate: new Date().toISOString(),
-      schemaVersion: '3.0',
+      schemaVersion: '3.1',
       createdBy: user?.email ?? 'scheduled-backup',
       counts: {
         users: users.length,
@@ -187,6 +189,7 @@ export async function GET(request: NextRequest) {
         budgetTransactionTags: budgetTransactionTags.length,
         ccGenericPayeeNames: ccGenericPayeeNames.length,
         budgetAccountNames: budgetAccountNames.length,
+        budgetReports: budgetReports.length,
         partnerContacts: partnerContacts.length,
         moneytorDropLogs: moneytorDropLogs.length,
         moneytorRealEstate: moneytorRealEstate.length,
@@ -293,6 +296,10 @@ export async function GET(request: NextRequest) {
     zip.file(
       pathInArchive('budget_account_names.json'),
       JSON.stringify(budgetAccountNames, jsonSerializer, 2)
+    );
+    zip.file(
+      pathInArchive('budget_reports.json'),
+      JSON.stringify(budgetReports, jsonSerializer, 2)
     );
     zip.file(
       pathInArchive('partner_contacts.json'),

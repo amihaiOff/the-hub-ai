@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { navItems, isNavHeader, type NavItem } from '@/lib/constants/navigation';
-import { useUncategorizedCount } from '@/lib/hooks/use-budget';
+import { useBudgetReports, useUncategorizedCount } from '@/lib/hooks/use-budget';
 
 const budgetNavItems =
   navItems.find((item): item is NavItem => !isNavHeader(item) && item.href === '/budget')
@@ -14,6 +14,9 @@ export default function BudgetLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname();
   const { data: countData } = useUncategorizedCount();
   const uncategorizedCount = countData?.uncategorized ?? 0;
+  // Reading the report list resumes any monthly report whose hand-off between
+  // agent runs was lost, so opening any Budget page is the recovery trigger.
+  useBudgetReports();
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] flex-col">

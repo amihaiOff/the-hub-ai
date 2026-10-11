@@ -42,6 +42,7 @@ jest.mock('@/lib/db', () => ({
     budgetTransactionTag: { findMany: jest.fn() },
     ccGenericPayeeName: { findMany: jest.fn() },
     budgetAccountName: { findMany: jest.fn() },
+    budgetReport: { findMany: jest.fn() },
     partnerContact: { findMany: jest.fn() },
     moneytorDropLog: { findMany: jest.fn() },
     moneytorRealEstate: { findMany: jest.fn() },
@@ -330,6 +331,7 @@ describe('Backup API', () => {
       );
       (mockPrisma.ccGenericPayeeName.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.budgetAccountName.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetReport.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.partnerContact.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorDropLog.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorRealEstate.findMany as jest.Mock).mockResolvedValueOnce([]);
@@ -445,7 +447,7 @@ describe('Backup API', () => {
       // Verify metadata content
       const metadataContent = await zip.file(pathInArchive('metadata.json'))!.async('string');
       const metadata = JSON.parse(metadataContent);
-      expect(metadata.schemaVersion).toBe('3.0');
+      expect(metadata.schemaVersion).toBe('3.1');
       expect(metadata.createdBy).toBe('test@example.com');
       expect(metadata.counts).toEqual({
         users: 1,
@@ -467,6 +469,7 @@ describe('Backup API', () => {
         budgetTransactionTags: 1,
         ccGenericPayeeNames: 0,
         budgetAccountNames: 0,
+        budgetReports: 0,
         partnerContacts: 0,
         moneytorDropLogs: 0,
         moneytorRealEstate: 0,
@@ -544,6 +547,7 @@ describe('Backup API', () => {
       (mockPrisma.budgetTransactionTag.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.ccGenericPayeeName.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.budgetAccountName.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetReport.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.partnerContact.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorDropLog.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorRealEstate.findMany as jest.Mock).mockResolvedValueOnce([]);
@@ -639,6 +643,7 @@ describe('Backup API', () => {
       (mockPrisma.budgetTransactionTag.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.ccGenericPayeeName.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.budgetAccountName.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetReport.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.partnerContact.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorDropLog.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.moneytorRealEstate.findMany as jest.Mock).mockResolvedValueOnce([]);
