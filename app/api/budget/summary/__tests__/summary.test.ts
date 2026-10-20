@@ -31,7 +31,10 @@ jest.mock('@/lib/utils/billing-cycle-server', () => ({
   __esModule: true,
   getCycleRangeForHousehold: (_id: string, month: string) => {
     const [y, m] = month.split('-').map(Number);
-    return Promise.resolve({ from: new Date(y, m - 1, 1), to: new Date(y, m, 1) });
+    return Promise.resolve({
+      from: new Date(Date.UTC(y, m - 1, 1)),
+      to: new Date(Date.UTC(y, m, 1)),
+    });
   },
   getMonthTransactionWhereForHousehold: (_id: string, month: string) => {
     const [y, m] = month.split('-').map(Number);
@@ -324,7 +327,7 @@ describe('Budget Summary API', () => {
       expect(uncategorizedGroup.categories[0].transactions[0].id).toBe('tx-plain');
     });
 
-    it('should aggregate expenses per day into ascending dailySpent', async () => {
+    it('should build a zero-filled per-day credit-card series for the whole cycle', async () => {
       const tx = (id: string, type: string, date: string, amount: number) => ({
         id,
         type,
@@ -332,7 +335,7 @@ describe('Budget Summary API', () => {
         amountIls: createDecimal(amount),
         categoryId: 'cat-1',
         payeeId: null,
-        paymentMethod: 'cash',
+        paymentMethod: 'credit_card',
         notes: null,
         payee: null,
       });
@@ -344,6 +347,7 @@ describe('Budget Summary API', () => {
         tx('tx-2', 'expense', '2024-01-05', 120.5),
         tx('tx-3', 'expense', '2024-01-20', 30.25),
         tx('tx-4', 'income', '2024-01-05', 5000), // income never counts as spend
+        { ...tx('tx-5', 'expense', '2024-01-05', 999), paymentMethod: 'bank_transfer' }, // CC only
       ]);
 
       const request = new NextRequest('http://localhost:3000/api/budget/summary?month=2024-01');
@@ -351,10 +355,12 @@ describe('Budget Summary API', () => {
       const data = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.data.dailySpent).toEqual([
-        { date: '2024-01-05', amount: 120.5 },
-        { date: '2024-01-20', amount: 80.25 },
-      ]);
+      const daily = data.data.dailySpent as { date: string; amount: number }[];
+      expect(daily).toHaveLength(31);
+      expect(daily[0]).toEqual({ date: '2024-01-01', amount: 0 });
+      expect(daily[30]).toEqual({ date: '2024-01-31', amount: 0 });
+      expect(daily.find((d) => d.date === '2024-01-05')?.amount).toBe(120.5);
+      expect(daily.find((d) => d.date === '2024-01-20')?.amount).toBe(80.25);
     });
 
     it('should handle empty transactions', async () => {
@@ -389,7 +395,8 @@ describe('Budget Summary API', () => {
       expect(response.status).toBe(200);
       expect(data.data.totalIncome).toBe(0);
       expect(data.data.totalSpent).toBe(0);
-      expect(data.data.dailySpent).toEqual([]);
+      expect(data.data.dailySpent).toHaveLength(31);
+      expect(data.data.dailySpent.every((d: { amount: number }) => d.amount === 0)).toBe(true);
       expect(data.data.totalBudgeted).toBe(1000);
       expect(data.data.categoryGroups[0].categories[0].spent).toBe(0);
       expect(data.data.categoryGroups[0].categories[0].available).toBe(1000);

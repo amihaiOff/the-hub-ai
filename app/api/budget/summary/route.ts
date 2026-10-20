@@ -3,7 +3,10 @@ import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { summaryQuerySchema } from '@/lib/validations/budget';
 import { getFirstZodError } from '@/lib/validations/common';
-import { getMonthTransactionWhereForHousehold } from '@/lib/utils/billing-cycle-server';
+import {
+  getCycleRangeForHousehold,
+  getMonthTransactionWhereForHousehold,
+} from '@/lib/utils/billing-cycle-server';
 import type { BudgetSummaryTransaction } from '@/lib/utils/budget';
 
 /**
@@ -36,7 +39,10 @@ export async function GET(request: NextRequest) {
     // The month window is payment-method-aware: credit cards use the household
     // billing cycle, bank/other use the calendar month. Merged via AND below so
     // it composes with the payee-blacklist OR (the fragment carries its own OR).
-    const monthWhere = await getMonthTransactionWhereForHousehold(householdId, month);
+    const [monthWhere, cycle] = await Promise.all([
+      getMonthTransactionWhereForHousehold(householdId, month),
+      getCycleRangeForHousehold(householdId, month),
+    ]);
 
     // Fetch category groups and transactions in parallel (no dependency between them)
     const [categoryGroups, transactions] = await Promise.all([
@@ -93,15 +99,20 @@ export async function GET(request: NextRequest) {
     const totalIncome = incomeTransactions.reduce((sum, tx) => sum + Number(tx.amountIls), 0);
     const totalSpent = expenseTransactions.reduce((sum, tx) => sum + Number(tx.amountIls), 0);
 
-    // Per-day expense totals for the Overview's spend-over-days chart
+    // Spend-over-days chart: credit-card expenses only (so the window is exactly
+    // the billing cycle), one entry per cycle day, zero-filled. The client trims
+    // days that haven't finished yet.
     const dailyMap = new Map<string, number>();
     for (const tx of expenseTransactions) {
+      if (tx.paymentMethod !== 'credit_card') continue;
       const date = tx.transactionDate.toISOString().split('T')[0];
       dailyMap.set(date, (dailyMap.get(date) ?? 0) + Number(tx.amountIls));
     }
-    const dailySpent = [...dailyMap]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, amount]) => ({ date, amount }));
+    const dailySpent: { date: string; amount: number }[] = [];
+    for (const d = new Date(cycle.from); d < cycle.to; d.setUTCDate(d.getUTCDate() + 1)) {
+      const date = d.toISOString().split('T')[0];
+      dailySpent.push({ date, amount: dailyMap.get(date) ?? 0 });
+    }
 
     // Build category spending map
     const categorySpendingMap = new Map<

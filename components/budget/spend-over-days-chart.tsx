@@ -8,22 +8,27 @@ interface SpendOverDaysChartProps {
   dailySpent: { date: string; amount: number }[];
 }
 
-/** Fill gap days with 0 and add a running total. Dates are YYYY-MM-DD, ascending. */
-export function buildDailySeries(dailySpent: { date: string; amount: number }[]) {
-  if (dailySpent.length === 0) return [];
-  const byDate = new Map(dailySpent.map((d) => [d.date, d.amount]));
-  const series: { date: string; label: string; amount: number; cumulative: number }[] = [];
-  const last = dailySpent[dailySpent.length - 1].date;
+/** Local `YYYY-MM-DD` for today. */
+function localToday(now = new Date()): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Drop days from `today` on (today isn't over yet) and add a running total.
+ * Input is the server's zero-filled, ascending per-day series for the cycle.
+ */
+export function buildDailySeries(
+  dailySpent: { date: string; amount: number }[],
+  today: string = localToday()
+) {
   let cumulative = 0;
-  // UTC throughout so the day step never shifts across DST
-  for (let d = new Date(`${dailySpent[0].date}T00:00:00Z`); ; d.setUTCDate(d.getUTCDate() + 1)) {
-    const date = d.toISOString().slice(0, 10);
-    const amount = byDate.get(date) ?? 0;
-    cumulative += amount;
-    series.push({ date, label: `${d.getUTCDate()}/${d.getUTCMonth() + 1}`, amount, cumulative });
-    if (date >= last) break;
-  }
-  return series;
+  return dailySpent
+    .filter((d) => d.date < today)
+    .map(({ date, amount }) => {
+      cumulative += amount;
+      const [, m, day] = date.split('-').map(Number);
+      return { date, label: `${day}/${m}`, amount, cumulative };
+    });
 }
 
 export function SpendOverDaysChart({ dailySpent }: SpendOverDaysChartProps) {
@@ -31,13 +36,21 @@ export function SpendOverDaysChart({ dailySpent }: SpendOverDaysChartProps) {
 
   if (data.length === 0) {
     return (
-      <p className="text-muted-foreground py-12 text-center text-sm">No spending in this period</p>
+      <p className="text-muted-foreground py-12 text-center text-sm">
+        No completed days in this cycle yet
+      </p>
     );
   }
 
   return (
-    <div className="h-72 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="w-full">
+      <p className="text-muted-foreground mb-2 text-xs">
+        <span className="text-foreground font-semibold tabular-nums">
+          {formatCurrencyILS(data[data.length - 1].cumulative)}
+        </span>{' '}
+        on credit card through {data[data.length - 1].label}
+      </p>
+      <ResponsiveContainer width="100%" height={288}>
         <ComposedChart data={data} margin={{ top: 10, right: 0, left: 0, bottom: 5 }}>
           <XAxis
             dataKey="label"

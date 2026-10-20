@@ -69,7 +69,7 @@ export function BudgetSummary({
           <DialogHeader>
             <DialogTitle>Spending over days</DialogTitle>
             <DialogDescription>
-              Daily spend (bars) and running total (line) — {formatCurrencyILS(totalSpent)} total
+              Credit-card spend per day (bars) and running total (line) across the billing cycle
             </DialogDescription>
           </DialogHeader>
           <SpendOverDaysChart dailySpent={dailySpent} />

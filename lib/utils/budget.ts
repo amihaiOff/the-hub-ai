@@ -125,7 +125,7 @@ export interface BudgetMonthSummary {
   totalBudgeted: number;
   totalSpent: number;
   totalIncome: number;
-  /** Expense total per transaction date (YYYY-MM-DD), ascending, days with spend only. */
+  /** Credit-card expense total for every day of the billing cycle (YYYY-MM-DD), ascending, zero-filled. */
   dailySpent?: { date: string; amount: number }[];
   categoryGroups: CategoryGroupSummary[];
 }
