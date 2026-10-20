@@ -5,13 +5,20 @@
  *
  * Metrics (raw bytes from the build output):
  *   - sharedFirstLoadKB: JS loaded on EVERY page (build-manifest rootMainFiles).
- *   - totalClientKB:     all client chunks (.next/static/chunks).
+ *   - routeFirstLoadKB:  JS a page downloads when it opens (shared + that
+ *                        route's entry chunks) — the heaviest route is checked.
+ *                        This is the one that tracks what users actually wait for.
+ *   - totalClientKB:     all client chunks (.next/static/chunks), lazy ones
+ *                        included. A loose cap on overall growth only: splitting
+ *                        code into on-demand chunks can RAISE it while making
+ *                        pages faster.
  *
  * Budgets live in perf-budgets.json. If growth is intentional (a real new
  * feature), bump the budget in that file and say why in the commit.
  */
 import { readFileSync, statSync, readdirSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
+import vm from 'node:vm';
 
 const NEXT = '.next';
 
@@ -48,8 +55,56 @@ const sharedKB = Math.round(
 );
 const totalKB = Math.round(dirJsTotal(join(NEXT, 'static', 'chunks')) / 1024);
 
+// Per-route first load, from each page's client-reference manifest (a JS file
+// that assigns globalThis.__RSC_MANIFEST[route] = { entryJSFiles, ... }).
+const routes = [];
+const findManifests = (d) => {
+  for (const e of readdirSync(d, { withFileTypes: true })) {
+    const p = join(d, e.name);
+    if (e.isDirectory()) findManifests(p);
+    else if (e.name === 'page_client-reference-manifest.js') routes.push(p);
+  }
+};
+findManifests(join(NEXT, 'server', 'app'));
+if (routes.length === 0) {
+  console.error('No page client-reference manifests found under .next/server/app.');
+  process.exit(1);
+}
+let heaviest = { route: '', kb: 0 };
+for (const file of routes) {
+  const ctx = {};
+  vm.runInNewContext(readFileSync(file, 'utf8'), ctx);
+  const m = Object.values(ctx.__RSC_MANIFEST ?? {})[0];
+  if (!m?.entryJSFiles || Object.keys(m.entryJSFiles).length === 0) {
+    // Manifest format changed (Next upgrade?) — fail loudly rather than report 0.
+    console.error(`Unrecognised client-reference manifest: ${file}`);
+    process.exit(1);
+  }
+  const files = new Set([
+    ...(manifest.rootMainFiles ?? []),
+    ...Object.values(m.entryJSFiles).flat(),
+  ]);
+  // Includes favicon/not-found entries too — slight overcount, on the safe side.
+  let bytes = 0;
+  for (const f of files) {
+    const size = fileSize(f);
+    if (!size) {
+      // A path-format change would otherwise count as 0 and pass silently.
+      console.error(`Chunk not found: ${f} (from ${file})`);
+      process.exit(1);
+    }
+    bytes += size;
+  }
+  const kb = Math.round(bytes / 1024);
+  if (kb > heaviest.kb) heaviest = { route: relative(join(NEXT, 'server', 'app'), file), kb };
+}
 const checks = [
   ['sharedFirstLoadKB', sharedKB, budgets.sharedFirstLoadKB],
+  [
+    `routeFirstLoadKB (heaviest: /${heaviest.route.replace(/\/page_client-reference-manifest\.js$/, '')})`,
+    heaviest.kb,
+    budgets.routeFirstLoadKB,
+  ],
   ['totalClientKB', totalKB, budgets.totalClientKB],
 ];
 

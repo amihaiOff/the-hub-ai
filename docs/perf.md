@@ -27,10 +27,21 @@ optimizations, the guardrails that keep them from eroding, and how to re-measure
    - Route files (`app/**/page.tsx`, `app/**/layout.tsx`) can't import `recharts`
      directly — extract a client chart component and `next/dynamic` it.
 2. **Hard-fail bundle budget** (`scripts/check-bundle-budget.mjs` +
-   `perf-budgets.json`), run in the CI **Build** job after `next build`. Fails
-   the build if shared or total client JS exceeds the committed budget. If a real
-   feature legitimately grows the bundle, raise the limit in `perf-budgets.json`
-   and explain why in the commit.
+   `perf-budgets.json`), run in the CI **Build** job after `next build`. Three
+   metrics, each protecting something different:
+   - `sharedFirstLoadKB` — JS every page loads.
+   - `routeFirstLoadKB` — JS the **heaviest route** downloads when it opens
+     (shared + that route's entry chunks, read from each page's
+     client-reference manifest). **This is the one that tracks page-load
+     speed**; a static import of a heavy library into a page shows up here.
+   - `totalClientKB` — every client chunk on disk, lazy ones included. A loose
+     cap on overall growth only. Moving code behind `next/dynamic` can **raise**
+     it (Turbopack writes a copy of a shared lazy chunk per async boundary)
+     while making pages faster, so don't "fix" it by un-lazying code.
+
+   If a real feature legitimately grows the bundle, raise the limit in
+   `perf-budgets.json` and explain why in the commit. If the script reports an
+   unrecognised manifest after a Next upgrade, update its manifest reader.
 
 ## How to re-measure
 
@@ -47,6 +58,12 @@ npm run start -p 3002`, `SKIP_AUTH` on) and drive it with Playwright: cold-load
 - Shared (every-page) JS: ~401 KB · Total client JS: ~8.2 MB
 - `/api/context`: 1 request per soft-navigation session (was once per mount)
 - Budget Overview navigation: ~32 ms
+
+Budget history: `totalClientKB` 8900 → 9800 (2026-10) — `jspdf` +
+`html-to-image` for Share PDF on budget reports (~660 KB, loaded only on tap)
+and the on-demand spend-over-days chart (~330 KB extra recharts copy on disk).
+Initial page JS unchanged. `routeFirstLoadKB` added at the same time at 2650
+(heaviest route `/tasks` measured 2516).
 
 ## Known follow-ups (not done)
 
