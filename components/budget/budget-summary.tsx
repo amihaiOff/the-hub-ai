@@ -10,7 +10,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { SpendOverDaysChart } from './spend-over-days-chart';
+import dynamic from 'next/dynamic';
+import { ChartSkeleton } from '@/components/shared/chart-skeleton';
+
+// Recharts loads only when the modal opens (see docs/perf.md)
+const SpendOverDaysChart = dynamic(
+  () => import('./spend-over-days-chart').then((m) => m.SpendOverDaysChart),
+  { ssr: false, loading: () => <ChartSkeleton height={288} /> }
+);
 
 interface BudgetSummaryProps {
   totalBudgeted: number;
