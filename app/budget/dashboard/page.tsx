@@ -507,6 +507,7 @@ export default function BudgetDashboardPage() {
         totalBudgeted={monthSummary?.totalBudgeted ?? 0}
         totalSpent={monthSummary?.totalSpent ?? 0}
         totalIncome={monthSummary?.totalIncome ?? 0}
+        dailySpent={monthSummary?.dailySpent}
         isLoading={isLoading}
       />
 

@@ -22,8 +22,13 @@ jest.mock('@/lib/utils/budget', () => ({
   }),
 }));
 
+// Calendar-month cycle (startDay 1) keeps the date-indicator expectations calendar-based
+jest.mock('@/lib/hooks/use-budget', () => ({
+  useBillingCycleStartDay: () => 1,
+}));
+
 // Import after mocks
-import { CategoryProgressBar, StatusBadge } from '../category-progress-bar';
+import { CategoryProgressBar, StatusBadge, cycleProgressPercent } from '../category-progress-bar';
 
 describe('CategoryProgressBar', () => {
   beforeEach(() => {
@@ -102,39 +107,18 @@ describe('CategoryProgressBar', () => {
     });
 
     it('should calculate date indicator position correctly', () => {
-      // Mock Date to control the day
-      const mockDate = new Date(2024, 0, 15); // January 15, 2024
-      const originalDate = global.Date;
-
-      // @ts-expect-error - Mocking Date constructor
-      global.Date = class extends originalDate {
-        constructor() {
-          super();
-          return mockDate;
-        }
-        static now() {
-          return mockDate.getTime();
-        }
-        getDate() {
-          return 15;
-        }
-        getFullYear() {
-          return 2024;
-        }
-        getMonth() {
-          return 0;
-        }
-      };
-
-      const { container } = render(<CategoryProgressBar budgeted={1000} spent={500} />);
-      const dateIndicator = container.querySelector('.absolute');
-
-      // January has 31 days, day 15 = 15/31 * 100 = ~48.39%
-      const style = dateIndicator?.getAttribute('style');
-      // Check that the style contains a percentage value for left
-      expect(style).toMatch(/left:\s*[\d.]+%/);
-
-      global.Date = originalDate;
+      jest.useFakeTimers().setSystemTime(new Date(2024, 0, 15, 12)); // January 15, 2024
+      try {
+        const { container } = render(<CategoryProgressBar budgeted={1000} spent={500} />);
+        const dateIndicator = container.querySelector('.absolute');
+        // January has 31 days, day 15 = 15/31 * 100 = ~48.39%
+        const left = parseFloat(
+          dateIndicator?.getAttribute('style')?.match(/left:\s*([\d.]+)%/)?.[1] ?? ''
+        );
+        expect(left).toBeCloseTo((15 / 31) * 100, 2);
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 
@@ -279,6 +263,37 @@ describe('CategoryProgressBar', () => {
       const statsContainer = container.querySelector('.w-16');
       expect(statsContainer).toBeInTheDocument();
     });
+  });
+});
+
+describe('cycleProgressPercent', () => {
+  it('counts from the cycle start day (startDay 10, Oct 20 → cycle 2026-10)', () => {
+    // Oct 10..Oct 20 = 11 days elapsed of Oct 10..Nov 9 = 31 days
+    expect(cycleProgressPercent(new Date(2026, 9, 20), 10, '2026-10')).toBeCloseTo(
+      (11 / 31) * 100,
+      10
+    );
+  });
+
+  it('attributes days before startDay to the previous cycle (Oct 5 → 2026-09)', () => {
+    // Sep 10..Oct 5 = 21 + 5 = 26 days of Sep 10..Oct 9 = 30 days
+    const expected = (26 / 30) * 100;
+    expect(cycleProgressPercent(new Date(2026, 9, 5), 10, '2026-09')).toBeCloseTo(expected, 10);
+    expect(cycleProgressPercent(new Date(2026, 9, 5), 10)).toBeCloseTo(expected, 10);
+  });
+
+  it('returns null when selectedMonth is not the current cycle', () => {
+    expect(cycleProgressPercent(new Date(2026, 9, 5), 10, '2026-10')).toBeNull();
+    expect(cycleProgressPercent(new Date(2026, 9, 20), 10, '2020-01')).toBeNull();
+  });
+
+  it('matches calendar-month progress when startDay is 1', () => {
+    expect(cycleProgressPercent(new Date(2024, 0, 15), 1, '2024-01')).toBeCloseTo(
+      (15 / 31) * 100,
+      10
+    );
+    expect(cycleProgressPercent(new Date(2024, 1, 29), 1, '2024-02')).toBe(100); // leap Feb
+    expect(cycleProgressPercent(new Date(2026, 9, 1), 1)).toBeCloseTo((1 / 31) * 100, 10);
   });
 });
 

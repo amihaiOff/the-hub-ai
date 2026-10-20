@@ -3,6 +3,8 @@
 import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { type BudgetStatus, getBudgetStatus } from '@/lib/utils/budget';
+import { getCurrentCycleMonth } from '@/lib/utils/billing-cycle';
+import { useBillingCycleStartDay } from '@/lib/hooks/use-budget';
 
 interface CategoryProgressBarProps {
   budgeted: number;
@@ -14,29 +16,26 @@ interface CategoryProgressBarProps {
 }
 
 /**
- * Compute date indicator position and month completion percentage
- * Returns null for both if not current month
+ * Percent of the current billing cycle elapsed (today counts as a full day),
+ * or null when `selectedMonth` isn't the current cycle. With startDay=10 the
+ * cycle runs from the 10th through the 9th of the next month.
  */
-function computeMonthProgress(selectedMonth?: string): {
-  indicatorPercent: number | null;
-  monthPercent: number | null;
-} {
-  // Only run on client
-  if (typeof window === 'undefined') return { indicatorPercent: null, monthPercent: null };
-
-  const now = new Date();
-  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
-  // Only show date indicator for current month
-  if (selectedMonth && selectedMonth !== currentMonth) {
-    return { indicatorPercent: null, monthPercent: null };
-  }
-
-  const dayOfMonth = now.getDate();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const percent = (dayOfMonth / daysInMonth) * 100;
-
-  return { indicatorPercent: percent, monthPercent: percent };
+export function cycleProgressPercent(
+  now: Date,
+  startDay: number,
+  selectedMonth?: string
+): number | null {
+  const current = getCurrentCycleMonth(now, startDay);
+  if (selectedMonth && selectedMonth !== current) return null;
+  const [y, m] = current.split('-').map(Number);
+  const start = new Date(y, m - 1, startDay);
+  const end = new Date(y, m, startDay);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const DAY = 86_400_000;
+  // Math.round absorbs DST hour shifts
+  const elapsed = Math.round((today.getTime() - start.getTime()) / DAY) + 1;
+  const total = Math.round((end.getTime() - start.getTime()) / DAY);
+  return (elapsed / total) * 100;
 }
 
 export function CategoryProgressBar({
@@ -53,11 +52,16 @@ export function CategoryProgressBar({
   const spentPercent = budgeted > 0 ? (spent / budgeted) * 100 : 0;
   const displaySpentPercent = Math.min(spentPercent, 100);
 
-  // Calculate date indicator position - memoize to avoid recalculating on every render
-  const { indicatorPercent, monthPercent } = useMemo(
-    () => computeMonthProgress(selectedMonth),
-    [selectedMonth]
+  const startDay = useBillingCycleStartDay();
+  // Client-only (avoids hydration mismatch on the date)
+  const indicatorPercent = useMemo(
+    () =>
+      typeof window === 'undefined'
+        ? null
+        : cycleProgressPercent(new Date(), startDay, selectedMonth),
+    [selectedMonth, startDay]
   );
+  const monthPercent = indicatorPercent;
 
   const shouldShowIndicator = showDateIndicator && indicatorPercent !== null;
 

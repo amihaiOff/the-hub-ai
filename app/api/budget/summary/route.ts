@@ -93,6 +93,16 @@ export async function GET(request: NextRequest) {
     const totalIncome = incomeTransactions.reduce((sum, tx) => sum + Number(tx.amountIls), 0);
     const totalSpent = expenseTransactions.reduce((sum, tx) => sum + Number(tx.amountIls), 0);
 
+    // Per-day expense totals for the Overview's spend-over-days chart
+    const dailyMap = new Map<string, number>();
+    for (const tx of expenseTransactions) {
+      const date = tx.transactionDate.toISOString().split('T')[0];
+      dailyMap.set(date, (dailyMap.get(date) ?? 0) + Number(tx.amountIls));
+    }
+    const dailySpent = [...dailyMap]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, amount]) => ({ date, amount }));
+
     // Build category spending map
     const categorySpendingMap = new Map<
       string,
@@ -202,6 +212,7 @@ export async function GET(request: NextRequest) {
         totalBudgeted,
         totalSpent,
         totalIncome,
+        dailySpent,
         categoryGroups: categoryGroupSummaries,
       },
     });

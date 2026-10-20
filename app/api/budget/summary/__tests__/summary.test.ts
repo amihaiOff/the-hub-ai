@@ -324,6 +324,39 @@ describe('Budget Summary API', () => {
       expect(uncategorizedGroup.categories[0].transactions[0].id).toBe('tx-plain');
     });
 
+    it('should aggregate expenses per day into ascending dailySpent', async () => {
+      const tx = (id: string, type: string, date: string, amount: number) => ({
+        id,
+        type,
+        transactionDate: new Date(date),
+        amountIls: createDecimal(amount),
+        categoryId: 'cat-1',
+        payeeId: null,
+        paymentMethod: 'cash',
+        notes: null,
+        payee: null,
+      });
+
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (mockPrisma.budgetCategoryGroup.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValueOnce([
+        tx('tx-1', 'expense', '2024-01-20', 50),
+        tx('tx-2', 'expense', '2024-01-05', 120.5),
+        tx('tx-3', 'expense', '2024-01-20', 30.25),
+        tx('tx-4', 'income', '2024-01-05', 5000), // income never counts as spend
+      ]);
+
+      const request = new NextRequest('http://localhost:3000/api/budget/summary?month=2024-01');
+      const response = await GET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.dailySpent).toEqual([
+        { date: '2024-01-05', amount: 120.5 },
+        { date: '2024-01-20', amount: 80.25 },
+      ]);
+    });
+
     it('should handle empty transactions', async () => {
       const mockCategoryGroups = [
         {
@@ -356,6 +389,7 @@ describe('Budget Summary API', () => {
       expect(response.status).toBe(200);
       expect(data.data.totalIncome).toBe(0);
       expect(data.data.totalSpent).toBe(0);
+      expect(data.data.dailySpent).toEqual([]);
       expect(data.data.totalBudgeted).toBe(1000);
       expect(data.data.categoryGroups[0].categories[0].spent).toBe(0);
       expect(data.data.categoryGroups[0].categories[0].available).toBe(1000);

@@ -125,6 +125,8 @@ export interface BudgetMonthSummary {
   totalBudgeted: number;
   totalSpent: number;
   totalIncome: number;
+  /** Expense total per transaction date (YYYY-MM-DD), ascending, days with spend only. */
+  dailySpent?: { date: string; amount: number }[];
   categoryGroups: CategoryGroupSummary[];
 }
 
