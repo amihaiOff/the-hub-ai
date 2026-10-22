@@ -84,6 +84,7 @@ export const moneytorKeys = {
   accountsHistory: (range: string) => [...moneytorKeys.all, 'accounts', 'history', range] as const,
   pension: () => [...moneytorKeys.all, 'pension'] as const,
   pensionHistory: () => [...moneytorKeys.all, 'pension', 'history'] as const,
+  insurance: () => [...moneytorKeys.all, 'insurance'] as const,
   realEstate: () => [...moneytorKeys.all, 'real-estate'] as const,
 };
 
@@ -338,6 +339,47 @@ export function useMoneytorPensionHistory() {
     queryFn: async (): Promise<MoneytorPensionHistoryResponse> => {
       return getJson<MoneytorPensionHistoryResponse>('/api/moneytor/pension/history');
     },
+  });
+}
+
+export interface MoneytorInsuranceCoverageRow {
+  mainBranch?: string;
+  subBranch?: string;
+  displayLabel?: string;
+  monthlyPremium?: number;
+  planClassification?: string;
+  premiumType?: string;
+  productType?: string;
+}
+
+export interface MoneytorInsurancePolicyRow {
+  id: string;
+  policyNumber: string | null;
+  title: string;
+  company: string | null;
+  companyShort: string | null;
+  categoryLabelHeb: string | null;
+  categoryLabelEng: string | null;
+  status: string | null;
+  monthlyPremium: number;
+  annualPremium: number;
+  renewalPeriod: string | null;
+  insuredName: string | null;
+  coverages: MoneytorInsuranceCoverageRow[];
+}
+
+export interface MoneytorInsuranceResponse {
+  ok: true;
+  asOf: string | null;
+  policies: MoneytorInsurancePolicyRow[];
+  totals: { monthly: number; annual: number; policies: number; companies: number };
+}
+
+export function useMoneytorInsurance() {
+  return useQuery({
+    queryKey: moneytorKeys.insurance(),
+    staleTime: 60_000,
+    queryFn: () => getJson<MoneytorInsuranceResponse>('/api/moneytor/insurance'),
   });
 }
 

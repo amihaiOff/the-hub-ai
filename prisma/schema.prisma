@@ -143,6 +143,7 @@ model Household {
   moneytorAccountSnapshots    MoneytorAccountSnapshot[]
   moneytorPensionFunds        MoneytorPensionFund[]
   moneytorPensionSnapshots    MoneytorPensionSnapshot[]
+  moneytorInsurancePolicies   MoneytorInsurancePolicy[]
   moneytorRealEstate          MoneytorRealEstate[]
   moneytorRealEstateSnapshots MoneytorRealEstateSnapshot[]
   moneytorDropLogs            MoneytorDropLog[]
@@ -1761,4 +1762,35 @@ model WikiQuestionAttempt {
 
   @@index([userId, questionId])
   @@map("wiki_question_attempts")
+}
+
+/// Insurance policies synced from Moneytor's /api/v1/insurance. Full refresh
+/// on each sync (rows missing from the response are removed).
+model MoneytorInsurancePolicy {
+  id               String   @id @default(cuid())
+  policyKey        String   @map("policy_key") // Moneytor's policy id
+  policyNumber     String?  @map("policy_number")
+  title            String
+  company          String?
+  companyShort     String?  @map("company_short")
+  categoryKey      String?  @map("category_key")
+  categoryLabelHeb String?  @map("category_label_heb")
+  categoryLabelEng String?  @map("category_label_eng")
+  status           String?
+  monthlyPremium   Decimal  @map("monthly_premium") @db.Decimal(18, 2)
+  annualPremium    Decimal  @map("annual_premium") @db.Decimal(18, 2)
+  renewalPeriod    String?  @map("renewal_period")
+  personId         String?  @map("person_id")
+  insuredName      String?  @map("insured_name")
+  coverages        Json     @default("[]")
+  rawData          Json?    @map("raw_data")
+  householdId      String   @map("household_id")
+  syncedAt         DateTime @default(now()) @map("synced_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, policyKey])
+  @@index([householdId])
+  @@map("moneytor_insurance_policies")
 }

@@ -6,6 +6,7 @@ import {
   AlertCircle,
   ArrowLeftRight,
   Building2,
+  Shield,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -181,6 +182,12 @@ function LogCard({ entry }: { entry: SyncLogEntry }) {
               ['Properties upserted', n(r, 'realEstateUpserted')],
               ['Snapshots upserted', n(r, 'realEstateSnapshotsUpserted')],
             ]}
+          />
+
+          <Section
+            icon={Shield}
+            title="Insurance"
+            items={[['Policies synced', n(r, 'insurancePoliciesUpserted')]]}
           />
         </div>
       )}

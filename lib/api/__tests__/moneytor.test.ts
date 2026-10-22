@@ -28,6 +28,7 @@ import {
   fetchMoneytorTransactions,
   fetchMoneytorAssets,
   fetchMoneytorShareAssets,
+  fetchMoneytorInsurance,
   MoneytorApiError,
   type MoneytorTransaction,
 } from '../moneytor';
@@ -362,5 +363,42 @@ describe('fetchMoneytorAssets', () => {
     const shares = await fetchMoneytorShareAssets();
     expect(shares).toHaveLength(1);
     expect(shares[0].form).toBe('share');
+  });
+});
+
+describe('fetchMoneytorInsurance', () => {
+  const ORIGINAL_TOKEN = process.env.MONEYTOR_API_TOKEN;
+
+  beforeEach(() => {
+    jest.resetAllMocks();
+    process.env.MONEYTOR_API_TOKEN = 'test-moneytor-token';
+  });
+
+  afterAll(() => {
+    if (ORIGINAL_TOKEN === undefined) {
+      delete process.env.MONEYTOR_API_TOKEN;
+    } else {
+      process.env.MONEYTOR_API_TOKEN = ORIGINAL_TOKEN;
+    }
+  });
+
+  const respond = (body: unknown) =>
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => body });
+
+  it('calls /insurance and is complete when failedSubjects is empty or missing', async () => {
+    respond({ ok: true, policies: [{ id: 'p1', title: 'Health' }], failedSubjects: [] });
+    const first = await fetchMoneytorInsurance();
+    expect(first).toEqual({ policies: [{ id: 'p1', title: 'Health' }], complete: true });
+    expect(String(mockFetch.mock.calls[0][0])).toMatch(/\/insurance$/);
+
+    respond({ ok: true });
+    expect(await fetchMoneytorInsurance()).toEqual({ policies: [], complete: true });
+  });
+
+  it('is incomplete when Moneytor reports failed subjects', async () => {
+    respond({ ok: true, policies: [{ id: 'p1', title: 'Health' }], failedSubjects: ['spouse'] });
+    const result = await fetchMoneytorInsurance();
+    expect(result.complete).toBe(false);
+    expect(result.policies).toHaveLength(1);
   });
 });

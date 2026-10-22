@@ -48,6 +48,10 @@ jest.mock('@/lib/db', () => ({
     moneytorRealEstateSnapshot: {
       upsert: jest.fn(),
     },
+    moneytorInsurancePolicy: {
+      deleteMany: jest.fn(),
+      createMany: jest.fn(),
+    },
     budgetTransaction: {
       findMany: jest.fn(),
     },
@@ -58,6 +62,7 @@ jest.mock('@/lib/db', () => ({
 jest.mock('@/lib/api/moneytor', () => ({
   fetchMoneytorTransactions: jest.fn(),
   fetchMoneytorAssets: jest.fn(),
+  fetchMoneytorInsurance: jest.fn().mockResolvedValue({ policies: [], complete: true }),
   fetchMoneytorShareAssets: jest.fn(),
   MoneytorApiError: class extends Error {},
 }));

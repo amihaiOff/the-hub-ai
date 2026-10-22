@@ -76,6 +76,7 @@ const makeSyncSummary = (overrides: Partial<MoneytorSyncSummary> = {}): Moneytor
   pensionSnapshotsUpserted: 0,
   realEstateUpserted: 0,
   realEstateSnapshotsUpserted: 0,
+  insurancePoliciesUpserted: 0,
   budgetCreated: 10,
   budgetSkipped: 5,
   latestDate: '2026-06-12',

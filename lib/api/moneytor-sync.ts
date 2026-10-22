@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import {
   fetchMoneytorTransactions,
   fetchMoneytorAssets,
+  fetchMoneytorInsurance,
   type MoneytorAsset,
   type MoneytorBankAsset,
   type MoneytorDebtAsset,
@@ -55,6 +56,7 @@ export interface MoneytorSyncSummary {
   pensionSnapshotsUpserted: number;
   realEstateUpserted: number;
   realEstateSnapshotsUpserted: number;
+  insurancePoliciesUpserted: number;
   // Promotion of moneytor_transactions → budget_transactions
   budgetCreated: number;
   budgetSkipped: number;
@@ -785,6 +787,15 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
     }
   }
 
+  // ----- Insurance policies (full refresh) -----
+  // Optional extra: a failure here must not break the rest of the sync.
+  let insurancePoliciesUpserted = 0;
+  try {
+    insurancePoliciesUpserted = await syncMoneytorInsurance(householdId);
+  } catch (err) {
+    console.error('Insurance sync failed (continuing):', err);
+  }
+
   return {
     householdId,
     fetched: transactions.length + (rollingResync?.fetched ?? 0),
@@ -798,11 +809,49 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
     pensionSnapshotsUpserted,
     realEstateUpserted,
     realEstateSnapshotsUpserted,
+    insurancePoliciesUpserted,
     budgetCreated: budgetCreated + (rollingResync?.budgetCreated ?? 0),
     budgetSkipped,
     latestDate: newLatest?.transactionDate.toISOString().split('T')[0] ?? null,
     syncedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * Replaces the household's Moneytor insurance policies with the current
+ * response. Skipped when the response is partial or empty, so a Moneytor
+ * hiccup can't wipe the stored policies (tradeoff: if every policy is really
+ * cancelled, the last ones stay until Moneytor returns something again).
+ */
+async function syncMoneytorInsurance(householdId: string): Promise<number> {
+  const { policies, complete } = await fetchMoneytorInsurance();
+  if (!complete || policies.length === 0) return 0;
+
+  const rows = policies.map((p) => ({
+    policyKey: p.id,
+    policyNumber: p.policyNumber != null ? String(p.policyNumber) : null,
+    title: p.title,
+    company: p.company ?? null,
+    companyShort: p.companyShort ?? null,
+    categoryKey: p.categoryKey ?? null,
+    categoryLabelHeb: p.categoryLabelHeb ?? null,
+    categoryLabelEng: p.categoryLabelEng ?? null,
+    status: p.status ?? null,
+    monthlyPremium: p.monthlyPremium ?? (p.annualPremium != null ? p.annualPremium / 12 : 0),
+    annualPremium: p.annualPremium ?? (p.monthlyPremium != null ? p.monthlyPremium * 12 : 0),
+    renewalPeriod: p.renewalPeriod ?? null,
+    personId: p.personId ?? null,
+    insuredName: p.insuredName ?? null,
+    coverages: (Array.isArray(p.coverages) ? p.coverages : []) as unknown as Prisma.InputJsonValue,
+    rawData: p as unknown as Prisma.InputJsonValue,
+    householdId,
+  }));
+
+  await prisma.$transaction([
+    prisma.moneytorInsurancePolicy.deleteMany({ where: { householdId } }),
+    prisma.moneytorInsurancePolicy.createMany({ data: rows }),
+  ]);
+  return rows.length;
 }
 
 /**

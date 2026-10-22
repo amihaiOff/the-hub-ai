@@ -13,6 +13,8 @@ import {
   PiggyBank,
   FileText,
   Shield,
+  FileSpreadsheet,
+  RefreshCw,
   Calculator,
   Sparkles,
   ShoppingCart,
@@ -68,7 +70,15 @@ export const navItems: NavEntry[] = [
   { href: '/portfolio', label: 'Portfolio', icon: TrendingUp },
   { href: '/pension', label: 'Pension', icon: Building2 },
   { href: '/assets', label: 'Assets', icon: Wallet },
-  { href: '/insurance', label: 'Insurance', icon: Shield },
+  {
+    href: '/insurance',
+    label: 'Insurance',
+    icon: Shield,
+    subItems: [
+      { href: '/insurance', label: 'Insurance (Excel)', icon: FileSpreadsheet },
+      { href: '/insurance/moneytor', label: 'Insurance (Moneytor)', icon: RefreshCw },
+    ],
+  },
   {
     href: '/budget',
     label: 'Budget',

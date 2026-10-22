@@ -47,6 +47,10 @@ jest.mock('@/lib/db', () => ({
     moneytorRealEstateSnapshot: {
       upsert: jest.fn(),
     },
+    moneytorInsurancePolicy: {
+      deleteMany: jest.fn(),
+      createMany: jest.fn(),
+    },
     budgetTransaction: {
       findMany: jest.fn(),
       deleteMany: jest.fn(),
@@ -62,6 +66,7 @@ jest.mock('@/lib/db', () => ({
 jest.mock('@/lib/api/moneytor', () => ({
   fetchMoneytorTransactions: jest.fn(),
   fetchMoneytorAssets: jest.fn(),
+  fetchMoneytorInsurance: jest.fn().mockResolvedValue({ policies: [], complete: true }),
   MoneytorApiError: class extends Error {},
 }));
 
@@ -75,7 +80,11 @@ import {
   ForceResyncRangeError,
 } from '../moneytor-sync';
 import { prisma } from '@/lib/db';
-import { fetchMoneytorTransactions, fetchMoneytorAssets } from '../moneytor';
+import {
+  fetchMoneytorTransactions,
+  fetchMoneytorAssets,
+  fetchMoneytorInsurance,
+} from '../moneytor';
 import { importTransactions } from '@/lib/utils/import-transactions';
 
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
@@ -84,6 +93,9 @@ const mockFetchTransactions = fetchMoneytorTransactions as jest.MockedFunction<
 >;
 const mockFetchAssets = fetchMoneytorAssets as jest.MockedFunction<typeof fetchMoneytorAssets>;
 const mockImportTransactions = importTransactions as jest.MockedFunction<typeof importTransactions>;
+const mockFetchInsurance = fetchMoneytorInsurance as jest.MockedFunction<
+  typeof fetchMoneytorInsurance
+>;
 
 describe('syncMoneytorForHousehold → budget_transactions promotion', () => {
   beforeEach(() => {
@@ -805,5 +817,81 @@ describe('forceResyncMoneytorTransactionsForHousehold', () => {
         transactionDate: new Date('2026-06-06T00:00:00Z'),
       },
     });
+  });
+});
+
+describe('syncMoneytorForHousehold → insurance policies', () => {
+  const policy = {
+    id: 'pol-1',
+    policyNumber: 12345,
+    title: 'Health',
+    company: 'Harel',
+    monthlyPremium: 120.5,
+    annualPremium: 1446,
+    insuredName: 'Alice',
+    coverages: [{ displayLabel: 'Surgery', monthlyPremium: 120.5 }],
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (mockPrisma.moneytorTransaction.findFirst as jest.Mock).mockResolvedValue(null);
+    (mockPrisma.moneytorTransaction.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.budgetTransaction.findMany as jest.Mock).mockResolvedValue([]);
+    mockFetchTransactions.mockResolvedValue([]);
+    mockFetchAssets.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    // Restore the module-level default so other describes see an empty, complete response.
+    mockFetchInsurance.mockResolvedValue({ policies: [], complete: true });
+  });
+
+  it('replaces the household rows with the fetched policies', async () => {
+    mockFetchInsurance.mockResolvedValue({ policies: [policy], complete: true });
+
+    const summary = await syncMoneytorForHousehold('household-1');
+
+    expect(summary.insurancePoliciesUpserted).toBe(1);
+    expect(mockPrisma.moneytorInsurancePolicy.deleteMany).toHaveBeenCalledWith({
+      where: { householdId: 'household-1' },
+    });
+    const { data } = (mockPrisma.moneytorInsurancePolicy.createMany as jest.Mock).mock.calls[0][0];
+    expect(data).toHaveLength(1);
+    expect(data[0]).toMatchObject({
+      policyKey: 'pol-1',
+      policyNumber: '12345', // stringified
+      title: 'Health',
+      company: 'Harel',
+      companyShort: null,
+      monthlyPremium: 120.5,
+      annualPremium: 1446,
+      insuredName: 'Alice',
+      householdId: 'household-1',
+    });
+  });
+
+  it.each([
+    ['incomplete', { policies: [policy], complete: false }],
+    ['empty', { policies: [], complete: true }],
+  ])('skips the refresh when the response is %s', async (_label, response) => {
+    mockFetchInsurance.mockResolvedValue(response);
+
+    const summary = await syncMoneytorForHousehold('household-1');
+
+    expect(summary.insurancePoliciesUpserted).toBe(0);
+    expect(mockPrisma.moneytorInsurancePolicy.deleteMany).not.toHaveBeenCalled();
+    expect(mockPrisma.moneytorInsurancePolicy.createMany).not.toHaveBeenCalled();
+  });
+
+  it('does not fail the whole sync when the insurance fetch throws', async () => {
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockFetchInsurance.mockRejectedValue(new Error('moneytor down'));
+
+    const summary = await syncMoneytorForHousehold('household-1');
+
+    expect(summary.householdId).toBe('household-1');
+    expect(summary.insurancePoliciesUpserted).toBe(0);
+    expect(errSpy).toHaveBeenCalledWith('Insurance sync failed (continuing):', expect.any(Error));
+    errSpy.mockRestore();
   });
 });

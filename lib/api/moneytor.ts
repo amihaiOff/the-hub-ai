@@ -258,9 +258,64 @@ export async function fetchMoneytorShareAssets(): Promise<MoneytorShareAsset[]> 
   return assets.filter((a): a is MoneytorAsset & MoneytorShareAsset => a.form === 'share');
 }
 
+export interface MoneytorInsuranceCoverage {
+  mainBranch?: string;
+  subBranch?: string;
+  displayLabel?: string;
+  monthlyPremium?: number;
+  planClassification?: string;
+  premiumType?: string;
+  productType?: string;
+}
+
+export interface MoneytorInsurancePolicy {
+  id: string;
+  policyNumber?: number | string | null;
+  title: string;
+  company?: string | null;
+  companyShort?: string | null;
+  categoryKey?: string | null;
+  categoryLabelHeb?: string | null;
+  categoryLabelEng?: string | null;
+  status?: string | null;
+  monthlyPremium?: number | null;
+  annualPremium?: number | null;
+  renewalPeriod?: string | null;
+  personId?: string | null;
+  insuredName?: string | null;
+  coverages?: MoneytorInsuranceCoverage[];
+}
+
+interface MoneytorInsuranceResponse {
+  ok: boolean;
+  policies?: MoneytorInsurancePolicy[];
+  failedSubjects?: unknown[];
+  error?: string;
+  code?: string;
+  message?: string;
+  renew_url?: string;
+}
+
+/** /api/v1/insurance. `complete` is false when Moneytor failed to load some subjects. */
+export async function fetchMoneytorInsurance(): Promise<{
+  policies: MoneytorInsurancePolicy[];
+  complete: boolean;
+}> {
+  // One short attempt: this is an optional extra at the end of the sync and
+  // must not eat the cron's time budget when Moneytor is slow.
+  const data = await moneytorGet<MoneytorInsuranceResponse>(
+    new URL(`${MONEYTOR_BASE_URL}/insurance`),
+    { timeoutMs: 8_000, attempts: 1 }
+  );
+  return {
+    policies: Array.isArray(data.policies) ? data.policies : [],
+    complete: (data.failedSubjects?.length ?? 0) === 0,
+  };
+}
+
 async function moneytorGet<
   T extends { ok: boolean; error?: string; code?: string; message?: string; renew_url?: string },
->(url: URL): Promise<T> {
+>(url: URL, { timeoutMs = 10_000, attempts = 3 } = {}): Promise<T> {
   const token = process.env.MONEYTOR_API_TOKEN;
   if (!token) {
     throw new MoneytorApiError(
@@ -276,8 +331,8 @@ async function moneytorGet<
   let response: Response;
   try {
     response = await fetchWithRetry(url.toString(), {
-      timeoutMs: 10_000,
-      attempts: 3,
+      timeoutMs,
+      attempts,
       baseDelayMs: 1_000,
       headers: {
         Authorization: `Bearer ${token}`,
