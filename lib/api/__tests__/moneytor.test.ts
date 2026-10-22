@@ -388,11 +388,29 @@ describe('fetchMoneytorInsurance', () => {
   it('calls /insurance and is complete when failedSubjects is empty or missing', async () => {
     respond({ ok: true, policies: [{ id: 'p1', title: 'Health' }], failedSubjects: [] });
     const first = await fetchMoneytorInsurance();
-    expect(first).toEqual({ policies: [{ id: 'p1', title: 'Health' }], complete: true });
+    expect(first).toEqual({
+      policies: [{ id: 'p1', title: 'Health' }],
+      complete: true,
+      lastUpdated: null,
+    });
     expect(String(mockFetch.mock.calls[0][0])).toMatch(/\/insurance$/);
 
     respond({ ok: true });
-    expect(await fetchMoneytorInsurance()).toEqual({ policies: [], complete: true });
+    expect(await fetchMoneytorInsurance()).toEqual({
+      policies: [],
+      complete: true,
+      lastUpdated: null,
+    });
+  });
+
+  it('parses summary.lastUpdated and ignores garbage', async () => {
+    respond({ ok: true, policies: [], summary: { lastUpdated: '2026-08-19 15:59' } });
+    expect((await fetchMoneytorInsurance()).lastUpdated?.toISOString()).toBe(
+      '2026-08-19T15:59:00.000Z'
+    );
+
+    respond({ ok: true, policies: [], summary: { lastUpdated: 'soon' } });
+    expect((await fetchMoneytorInsurance()).lastUpdated).toBeNull();
   });
 
   it('is incomplete when Moneytor reports failed subjects', async () => {

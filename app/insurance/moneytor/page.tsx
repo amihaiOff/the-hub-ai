@@ -30,7 +30,8 @@ export default function MoneytorInsurancePage() {
         </div>
         <p className="text-muted-foreground text-sm">
           Synced from Moneytor
-          {data?.asOf && ` · updated ${new Date(data.asOf).toLocaleString('en-GB')}`}
+          {data?.asOf &&
+            ` · updated ${new Date(data.asOf).toLocaleString('en-GB', { timeZone: 'UTC', dateStyle: 'medium', timeStyle: 'short' })}`}
         </p>
       </div>
 

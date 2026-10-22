@@ -38,7 +38,8 @@ export async function GET() {
       coverages: Array.isArray(r.coverages) ? r.coverages : [],
     }));
 
-    const asOf = rows.length > 0 ? rows[0].syncedAt.toISOString() : null;
+    // Moneytor's own update stamp (wall-clock-as-UTC; the page renders it in UTC).
+    const asOf = rows[0]?.sourceUpdatedAt?.toISOString() ?? null;
 
     return NextResponse.json({
       ok: true,

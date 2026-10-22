@@ -819,13 +819,23 @@ export async function syncMoneytorForHousehold(householdId: string): Promise<Mon
 
 /**
  * Replaces the household's Moneytor insurance policies with the current
- * response. Skipped when the response is partial or empty, so a Moneytor
+ * response. Skipped when Moneytor's lastUpdated isn't newer than what's stored
+ * (policies rarely change), or when the response is partial or empty, so a Moneytor
  * hiccup can't wipe the stored policies (tradeoff: if every policy is really
  * cancelled, the last ones stay until Moneytor returns something again).
  */
 async function syncMoneytorInsurance(householdId: string): Promise<number> {
-  const { policies, complete } = await fetchMoneytorInsurance();
+  const { policies, complete, lastUpdated } = await fetchMoneytorInsurance();
   if (!complete || policies.length === 0) return 0;
+
+  if (lastUpdated) {
+    const stored = await prisma.moneytorInsurancePolicy.aggregate({
+      where: { householdId },
+      _max: { sourceUpdatedAt: true },
+    });
+    const storedAt = stored._max.sourceUpdatedAt;
+    if (storedAt && lastUpdated <= storedAt) return 0;
+  }
 
   const rows = policies.map((p) => ({
     policyKey: p.id,
@@ -842,6 +852,7 @@ async function syncMoneytorInsurance(householdId: string): Promise<number> {
     renewalPeriod: p.renewalPeriod ?? null,
     personId: p.personId ?? null,
     insuredName: p.insuredName ?? null,
+    sourceUpdatedAt: lastUpdated,
     coverages: (Array.isArray(p.coverages) ? p.coverages : []) as unknown as Prisma.InputJsonValue,
     rawData: p as unknown as Prisma.InputJsonValue,
     householdId,

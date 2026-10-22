@@ -50,6 +50,7 @@ jest.mock('@/lib/db', () => ({
     moneytorInsurancePolicy: {
       deleteMany: jest.fn(),
       createMany: jest.fn(),
+      aggregate: jest.fn().mockResolvedValue({ _max: { sourceUpdatedAt: null } }),
     },
     budgetTransaction: {
       findMany: jest.fn(),
@@ -66,7 +67,9 @@ jest.mock('@/lib/db', () => ({
 jest.mock('@/lib/api/moneytor', () => ({
   fetchMoneytorTransactions: jest.fn(),
   fetchMoneytorAssets: jest.fn(),
-  fetchMoneytorInsurance: jest.fn().mockResolvedValue({ policies: [], complete: true }),
+  fetchMoneytorInsurance: jest
+    .fn()
+    .mockResolvedValue({ policies: [], complete: true, lastUpdated: null }),
   MoneytorApiError: class extends Error {},
 }));
 
@@ -843,11 +846,11 @@ describe('syncMoneytorForHousehold → insurance policies', () => {
 
   afterEach(() => {
     // Restore the module-level default so other describes see an empty, complete response.
-    mockFetchInsurance.mockResolvedValue({ policies: [], complete: true });
+    mockFetchInsurance.mockResolvedValue({ policies: [], complete: true, lastUpdated: null });
   });
 
   it('replaces the household rows with the fetched policies', async () => {
-    mockFetchInsurance.mockResolvedValue({ policies: [policy], complete: true });
+    mockFetchInsurance.mockResolvedValue({ policies: [policy], complete: true, lastUpdated: null });
 
     const summary = await syncMoneytorForHousehold('household-1');
 
@@ -871,8 +874,8 @@ describe('syncMoneytorForHousehold → insurance policies', () => {
   });
 
   it.each([
-    ['incomplete', { policies: [policy], complete: false }],
-    ['empty', { policies: [], complete: true }],
+    ['incomplete', { policies: [policy], complete: false, lastUpdated: null }],
+    ['empty', { policies: [], complete: true, lastUpdated: null }],
   ])('skips the refresh when the response is %s', async (_label, response) => {
     mockFetchInsurance.mockResolvedValue(response);
 
@@ -881,6 +884,40 @@ describe('syncMoneytorForHousehold → insurance policies', () => {
     expect(summary.insurancePoliciesUpserted).toBe(0);
     expect(mockPrisma.moneytorInsurancePolicy.deleteMany).not.toHaveBeenCalled();
     expect(mockPrisma.moneytorInsurancePolicy.createMany).not.toHaveBeenCalled();
+  });
+
+  it('skips the refresh when Moneytor has nothing newer than what is stored', async () => {
+    (mockPrisma.moneytorInsurancePolicy.aggregate as jest.Mock).mockResolvedValueOnce({
+      _max: { sourceUpdatedAt: new Date('2026-08-19T15:59:00Z') },
+    });
+    mockFetchInsurance.mockResolvedValue({
+      policies: [policy],
+      complete: true,
+      lastUpdated: new Date('2026-08-19T15:59:00Z'),
+    });
+
+    const summary = await syncMoneytorForHousehold('household-1');
+
+    expect(summary.insurancePoliciesUpserted).toBe(0);
+    expect(mockPrisma.moneytorInsurancePolicy.createMany).not.toHaveBeenCalled();
+  });
+
+  it('refreshes and stamps rows when Moneytor is newer', async () => {
+    (mockPrisma.moneytorInsurancePolicy.aggregate as jest.Mock).mockResolvedValueOnce({
+      _max: { sourceUpdatedAt: new Date('2026-08-19T15:59:00Z') },
+    });
+    const newer = new Date('2026-10-01T09:00:00Z');
+    mockFetchInsurance.mockResolvedValue({
+      policies: [policy],
+      complete: true,
+      lastUpdated: newer,
+    });
+
+    const summary = await syncMoneytorForHousehold('household-1');
+
+    expect(summary.insurancePoliciesUpserted).toBe(1);
+    const { data } = (mockPrisma.moneytorInsurancePolicy.createMany as jest.Mock).mock.calls[0][0];
+    expect(data[0].sourceUpdatedAt).toEqual(newer);
   });
 
   it('does not fail the whole sync when the insurance fetch throws', async () => {

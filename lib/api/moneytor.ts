@@ -289,6 +289,7 @@ export interface MoneytorInsurancePolicy {
 interface MoneytorInsuranceResponse {
   ok: boolean;
   policies?: MoneytorInsurancePolicy[];
+  summary?: { lastUpdated?: string | null };
   failedSubjects?: unknown[];
   error?: string;
   code?: string;
@@ -296,10 +297,15 @@ interface MoneytorInsuranceResponse {
   renew_url?: string;
 }
 
-/** /api/v1/insurance. `complete` is false when Moneytor failed to load some subjects. */
+/**
+ * /api/v1/insurance. `complete` is false when Moneytor failed to load some
+ * subjects. `lastUpdated` is Moneytor's "YYYY-MM-DD HH:mm" (Israel wall-clock)
+ * read as UTC — only ever compared/displayed against itself, so no TZ math.
+ */
 export async function fetchMoneytorInsurance(): Promise<{
   policies: MoneytorInsurancePolicy[];
   complete: boolean;
+  lastUpdated: Date | null;
 }> {
   // One short attempt: this is an optional extra at the end of the sync and
   // must not eat the cron's time budget when Moneytor is slow.
@@ -310,7 +316,14 @@ export async function fetchMoneytorInsurance(): Promise<{
   return {
     policies: Array.isArray(data.policies) ? data.policies : [],
     complete: (data.failedSubjects?.length ?? 0) === 0,
+    lastUpdated: parseLastUpdated(data.summary?.lastUpdated),
   };
+}
+
+function parseLastUpdated(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const d = new Date(`${value.trim().replace(' ', 'T')}Z`);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 async function moneytorGet<

@@ -69,6 +69,7 @@ const makeRow = (overrides: Partial<Record<string, unknown>> = {}) => ({
   rawData: {},
   householdId: 'household-1',
   syncedAt,
+  sourceUpdatedAt: new Date('2026-08-19T15:59:00.000Z'),
   createdAt: syncedAt,
   ...overrides,
 });
@@ -116,7 +117,7 @@ describe('GET /api/moneytor/insurance', () => {
       expect.objectContaining({ where: { householdId: 'household-1' } })
     );
     expect(data.ok).toBe(true);
-    expect(data.asOf).toBe(syncedAt.toISOString());
+    expect(data.asOf).toBe('2026-08-19T15:59:00.000Z'); // Moneytor's stamp, not syncedAt
     expect(data.policies).toHaveLength(3);
     expect(data.policies[0]).toMatchObject({
       id: 'row-1',
