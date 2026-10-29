@@ -1,5 +1,3 @@
-[dotenv@17.2.3] injecting env (0) from .env.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
-[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
 -- CreateTable
 CREATE TABLE "push_subscriptions" (
     "id" TEXT NOT NULL,

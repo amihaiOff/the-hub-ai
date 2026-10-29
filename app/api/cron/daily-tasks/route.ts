@@ -251,7 +251,9 @@ async function syncMoneytor(results: {
       results.moneytor.failures.push({ householdId, ...error });
       await sendPushToHousehold(householdId, {
         title: 'Bank sync failed',
-        body: `Today's Moneytor sync didn't go through: ${error.error}`,
+        // Fixed text: the raw error would land on lock screens. Details are
+        // in the sync log the notification opens.
+        body: "Today's bank sync didn't go through. Tap to see the sync log.",
         url: '/labs/sync-log',
         tag: 'moneytor-sync',
       });

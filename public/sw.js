@@ -152,17 +152,22 @@ self.addEventListener('push', (event) => {
 });
 
 // Tapping a notification focuses an open app window (navigating it to the
-// notification's page) or opens a new one.
+// notification's page) or opens a new one. Only same-origin pages are opened.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = new URL(event.notification.data?.url || '/', self.location.origin).href;
+  let target = new URL(event.notification.data?.url || '/', self.location.origin);
+  if (target.origin !== self.location.origin) target = new URL('/', self.location.origin);
+  const href = target.href;
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
       const existing = windows.find((w) => new URL(w.url).origin === self.location.origin);
-      if (existing) {
-        return existing.focus().then((w) => (w && 'navigate' in w ? w.navigate(target) : w));
-      }
-      return self.clients.openWindow(target);
+      if (!existing) return self.clients.openWindow(href);
+      // navigate() rejects for a window this worker doesn't control (e.g. the
+      // first load after install) — open the page in a new window instead.
+      return existing
+        .focus()
+        .then((w) => w.navigate(href))
+        .catch(() => self.clients.openWindow(href));
     })
   );
 });

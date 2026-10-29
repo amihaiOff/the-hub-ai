@@ -109,12 +109,8 @@ export async function sendWeeklyEatingOut(householdId: string, now: Date): Promi
 
   const title = `Eating out this week: ${formatCurrencyILS(total)}`;
   const body = `${breakdown}. Last week ${formatCurrencyILS(lastTotal)}.`;
-  await sendPushToHousehold(householdId, {
-    title,
-    body,
-    url: '/budget/transactions',
-    tag: 'weekly-eating-out',
-  });
+  // Record first, then send: the entry is the once-a-week guard, so a
+  // repeated delivery of the same cron run can't send twice.
   await prisma.generalLog.create({
     data: {
       householdId,
@@ -124,6 +120,12 @@ export async function sendWeeklyEatingOut(householdId: string, now: Date): Promi
       description: `${title} (${week.start} – ${week.end}). ${body}`,
       readAt: new Date(),
     },
+  });
+  await sendPushToHousehold(householdId, {
+    title,
+    body,
+    url: '/budget/transactions',
+    tag: 'weekly-eating-out',
   });
   return true;
 }

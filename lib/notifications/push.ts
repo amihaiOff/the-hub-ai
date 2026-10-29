@@ -22,27 +22,60 @@ export interface PushMessage {
 }
 
 export function pushConfigured(): boolean {
-  return !!(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
+  // Apple's push service rejects a placeholder subject, so it's required too.
+  return !!(
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY &&
+    process.env.VAPID_PRIVATE_KEY &&
+    process.env.VAPID_SUBJECT
+  );
+}
+
+/**
+ * Push services the browsers actually use (Chrome/Android, Safari/iOS,
+ * Firefox, Edge). Endpoints are user-supplied and the server POSTs to them,
+ * so anything else is refused.
+ */
+const PUSH_HOSTS = [
+  /^fcm\.googleapis\.com$/,
+  /^android\.googleapis\.com$/,
+  /(^|\.)push\.apple\.com$/,
+  /(^|\.)push\.services\.mozilla\.com$/,
+  /(^|\.)notify\.windows\.com$/,
+];
+
+export function isPushEndpoint(endpoint: string): boolean {
+  try {
+    const url = new URL(endpoint);
+    return url.protocol === 'https:' && PUSH_HOSTS.some((h) => h.test(url.hostname));
+  } catch {
+    return false;
+  }
 }
 
 /** Returns how many devices accepted the message. Never throws. */
 export async function sendPushToHousehold(
   householdId: string,
-  message: PushMessage
+  message: PushMessage,
+  /** Only this device (e.g. "send a test" from its own Settings page). */
+  endpoint?: string
 ): Promise<number> {
   if (!pushConfigured()) {
     console.warn('Push not sent: VAPID keys are not configured.');
     return 0;
   }
-  const subs = await prisma.pushSubscription.findMany({ where: { householdId } }).catch(() => []);
+  const subs = await prisma.pushSubscription
+    .findMany({ where: { householdId, ...(endpoint ? { endpoint } : {}) } })
+    .catch(() => []);
   const payload = JSON.stringify(message);
   const options = {
     vapidDetails: {
-      subject: process.env.VAPID_SUBJECT || 'mailto:admin@example.com',
+      subject: process.env.VAPID_SUBJECT!,
       publicKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
       privateKey: process.env.VAPID_PRIVATE_KEY!,
     },
     TTL: 24 * 60 * 60,
+    // A slow push service mustn't stall the cron that's sending.
+    timeout: 10_000,
   };
 
   let delivered = 0;

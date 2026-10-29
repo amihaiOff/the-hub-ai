@@ -1,9 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getCurrentContext } from '@/lib/auth-utils';
 import { pushConfigured, sendPushToHousehold } from '@/lib/notifications/push';
 
-/** POST /api/push/test — send a test notification to the household's devices. */
-export async function POST() {
+const bodySchema = z.object({ endpoint: z.string().min(1).max(2000) });
+
+/** POST /api/push/test { endpoint } — send a test notification to THIS device only. */
+export async function POST(request: NextRequest) {
   const context = await getCurrentContext();
   if (!context) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -17,11 +20,19 @@ export async function POST() {
       { status: 503 }
     );
   }
-  const delivered = await sendPushToHousehold(context.activeHousehold.id, {
-    title: 'The Hub',
-    body: 'Notifications are working on this device.',
-    url: '/settings/notifications',
-    tag: 'test',
-  });
+  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ success: false, error: 'Invalid body' }, { status: 400 });
+  }
+  const delivered = await sendPushToHousehold(
+    context.activeHousehold.id,
+    {
+      title: 'The Hub',
+      body: 'Notifications are working on this device.',
+      url: '/settings/notifications',
+      tag: 'test',
+    },
+    parsed.data.endpoint
+  );
   return NextResponse.json({ success: true, data: { delivered } });
 }

@@ -15,7 +15,9 @@ jest.mock('@/lib/auth-utils', () => ({
   getCurrentContext: jest.fn(),
 }));
 
+// Keep the real isPushEndpoint validator; stub configuration + sending.
 jest.mock('@/lib/notifications/push', () => ({
+  isPushEndpoint: jest.requireActual('@/lib/notifications/push').isPushEndpoint,
   pushConfigured: jest.fn(),
   sendPushToHousehold: jest.fn(),
 }));
@@ -87,6 +89,8 @@ describe('POST /api/push', () => {
   it.each([
     ['malformed JSON', '{not json'],
     ['a non-URL endpoint', { ...validSub, endpoint: 'not-a-url' }],
+    ['a non-push-service host', { ...validSub, endpoint: 'https://example.com/push' }],
+    ['an http push endpoint', { ...validSub, endpoint: 'http://fcm.googleapis.com/fcm/send/x' }],
     ['missing keys', { endpoint: ENDPOINT }],
     ['an empty auth key', { endpoint: ENDPOINT, keys: { p256dh: 'p', auth: '' } }],
   ])('returns 400 on %s', async (_label, body) => {
@@ -159,6 +163,13 @@ describe('DELETE /api/push', () => {
 });
 
 describe('POST /api/push/test', () => {
+  const testReq = (body: unknown) =>
+    new NextRequest('http://localhost/api/push/test', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body),
+    });
+
   beforeEach(() => {
     jest.resetAllMocks();
     mockGetCurrentContext.mockResolvedValue(mockContext);
@@ -168,7 +179,7 @@ describe('POST /api/push/test', () => {
   it('returns 401 without a context', async () => {
     mockGetCurrentContext.mockResolvedValue(null);
 
-    const res = await TEST();
+    const res = await TEST(testReq({ endpoint: ENDPOINT }));
     expect(res.status).toBe(401);
     expect(mockSend).not.toHaveBeenCalled();
   });
@@ -176,21 +187,35 @@ describe('POST /api/push/test', () => {
   it('returns 503 when VAPID keys are not configured', async () => {
     mockPushConfigured.mockReturnValue(false);
 
-    const res = await TEST();
+    const res = await TEST(testReq({ endpoint: ENDPOINT }));
     expect(res.status).toBe(503);
     expect((await res.json()).success).toBe(false);
     expect(mockSend).not.toHaveBeenCalled();
   });
 
-  it('sends a test push to the active household and returns the delivered count', async () => {
-    mockSend.mockResolvedValue(2);
+  it.each([
+    ['no body', undefined],
+    ['malformed JSON', '{nope'],
+    ['a missing endpoint', {}],
+    ['an empty endpoint', { endpoint: '' }],
+  ])('returns 400 on %s', async (_label, body) => {
+    const res = await TEST(testReq(body));
+    expect(res.status).toBe(400);
+    expect((await res.json()).success).toBe(false);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
 
-    const res = await TEST();
+  it('sends a test push to this device only and returns the delivered count', async () => {
+    mockSend.mockResolvedValue(1);
+
+    const res = await TEST(testReq({ endpoint: ENDPOINT }));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ success: true, data: { delivered: 2 } });
+    expect(await res.json()).toEqual({ success: true, data: { delivered: 1 } });
+    expect(mockSend).toHaveBeenCalledTimes(1);
     expect(mockSend).toHaveBeenCalledWith(
       'household-1',
-      expect.objectContaining({ title: 'The Hub', url: '/settings/notifications' })
+      expect.objectContaining({ title: 'The Hub', url: '/settings/notifications' }),
+      ENDPOINT
     );
   });
 });

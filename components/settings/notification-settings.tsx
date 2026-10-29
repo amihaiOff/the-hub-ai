@@ -17,11 +17,20 @@ function keyBytes(base64: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
-type Support = 'checking' | 'ok' | 'unsupported' | 'ios-needs-install' | 'not-configured';
+type Support =
+  | 'checking'
+  | 'ok'
+  | 'unsupported'
+  | 'ios-needs-install'
+  | 'not-configured'
+  | 'blocked';
 
 function detectSupport(): Support {
   if (!PUBLIC_KEY) return 'not-configured';
-  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  // iPadOS reports itself as a Mac; touch support gives it away.
+  const ios =
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
   const standalone =
     window.matchMedia('(display-mode: standalone)').matches ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true;
@@ -33,6 +42,7 @@ function detectSupport(): Support {
   ) {
     return 'unsupported';
   }
+  if (Notification.permission === 'denied') return 'blocked';
   return 'ok';
 }
 
@@ -65,7 +75,12 @@ export function NotificationSettings() {
       let sub = false;
       if (s === 'ok') {
         const reg = await navigator.serviceWorker.getRegistration();
-        sub = !!(await reg?.pushManager.getSubscription());
+        const existing = await reg?.pushManager.getSubscription();
+        sub = !!existing;
+        // Re-register with the server (idempotent): its copy can be gone
+        // (pruned, moved household, restored backup) while the phone still
+        // thinks it's subscribed.
+        if (existing) await postJson('/api/push', 'POST', existing.toJSON()).catch(() => undefined);
       }
       if (!cancelled) {
         setSupport(s);
@@ -100,8 +115,9 @@ export function NotificationSettings() {
           'Notifications are blocked for this app. Allow them in the phone settings.'
         );
       }
-      const reg = await navigator.serviceWorker.register('/sw.js');
-      await navigator.serviceWorker.ready;
+      await navigator.serviceWorker.register('/sw.js');
+      // Subscribe on the active worker (register() may return one still installing).
+      const reg = await navigator.serviceWorker.ready;
       const sub =
         (await reg.pushManager.getSubscription()) ??
         (await reg.pushManager.subscribe({
@@ -127,10 +143,13 @@ export function NotificationSettings() {
 
   const sendTest = () =>
     run(async () => {
-      const { data } = await postJson('/api/push/test', 'POST');
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = await reg?.pushManager.getSubscription();
+      if (!sub) throw new Error('This device is not registered. Turn notifications on first.');
+      const { data } = await postJson('/api/push/test', 'POST', { endpoint: sub.endpoint });
       return data.delivered > 0
-        ? `Test sent to ${data.delivered} device${data.delivered > 1 ? 's' : ''}.`
-        : 'No device received it. Try turning notifications off and on again.';
+        ? 'Test sent. It should arrive in a few seconds.'
+        : "It didn't go through. Try turning notifications off and on again.";
     });
 
   return (
@@ -148,6 +167,12 @@ export function NotificationSettings() {
       {support === 'not-configured' && (
         <p className="text-muted-foreground text-sm">
           Notifications aren&apos;t set up on the server yet.
+        </p>
+      )}
+      {support === 'blocked' && (
+        <p className="text-muted-foreground text-sm">
+          Notifications are blocked for this app. Allow them in your phone&apos;s settings for The
+          Hub, then reopen this page.
         </p>
       )}
       {support === 'unsupported' && (

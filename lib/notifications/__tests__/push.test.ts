@@ -16,7 +16,7 @@ jest.mock('web-push', () => ({
 
 import webpush from 'web-push';
 import { prisma } from '@/lib/db';
-import { pushConfigured, sendPushToHousehold } from '../push';
+import { isPushEndpoint, pushConfigured, sendPushToHousehold } from '../push';
 
 const mockPrisma = prisma as unknown as {
   pushSubscription: { findMany: jest.Mock; delete: jest.Mock };
@@ -59,6 +59,7 @@ describe('sendPushToHousehold', () => {
   it.each([
     ['public key', 'NEXT_PUBLIC_VAPID_PUBLIC_KEY'],
     ['private key', 'VAPID_PRIVATE_KEY'],
+    ['subject', 'VAPID_SUBJECT'],
   ])('returns 0 and sends nothing when the VAPID %s is unset', async (_label, key) => {
     delete process.env[key];
 
@@ -86,6 +87,7 @@ describe('sendPushToHousehold', () => {
         privateKey: 'priv-key',
       },
       TTL: 86_400,
+      timeout: 10_000,
     };
     expect(mockSend).toHaveBeenCalledWith(
       { endpoint: 'https://push.example/1', keys: { p256dh: 'p1', auth: 'a1' } },
@@ -100,12 +102,16 @@ describe('sendPushToHousehold', () => {
     expect(mockPrisma.pushSubscription.delete).not.toHaveBeenCalled();
   });
 
-  it('falls back to a default VAPID subject when VAPID_SUBJECT is unset', async () => {
-    delete process.env.VAPID_SUBJECT;
+  it('only targets the given endpoint when one is passed', async () => {
+    mockPrisma.pushSubscription.findMany.mockResolvedValue([subs[1]]);
     mockSend.mockResolvedValue({});
 
-    await sendPushToHousehold('hh-1', message);
-    expect(mockSend.mock.calls[0][2].vapidDetails.subject).toMatch(/^mailto:/);
+    await expect(sendPushToHousehold('hh-1', message, 'https://push.example/2')).resolves.toBe(1);
+    expect(mockPrisma.pushSubscription.findMany).toHaveBeenCalledWith({
+      where: { householdId: 'hh-1', endpoint: 'https://push.example/2' },
+    });
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(mockSend.mock.calls[0][0].endpoint).toBe('https://push.example/2');
   });
 
   it('returns 0 when the household has no subscriptions', async () => {
@@ -152,5 +158,31 @@ describe('sendPushToHousehold', () => {
 
     await expect(sendPushToHousehold('hh-1', message)).resolves.toBe(0);
     expect(mockSend).not.toHaveBeenCalled();
+  });
+});
+
+describe('isPushEndpoint', () => {
+  it.each([
+    'https://fcm.googleapis.com/fcm/send/abc123',
+    'https://android.googleapis.com/gcm/send/abc',
+    'https://web.push.apple.com/QGx0abc',
+    'https://updates.push.services.mozilla.com/wpush/v2/abc',
+    'https://wns2-par02p.notify.windows.com/w/?token=abc',
+  ])('accepts %s', (url) => {
+    expect(isPushEndpoint(url)).toBe(true);
+  });
+
+  it.each([
+    ['plain http', 'http://fcm.googleapis.com/fcm/send/abc'],
+    ['an arbitrary host', 'https://example.com/push'],
+    ['localhost', 'https://localhost/push'],
+    ['an internal address', 'https://169.254.169.254/latest/meta-data'],
+    ['a look-alike host', 'https://evil-push.apple.com.attacker.com/x'],
+    ['a suffix-only match', 'https://evilpush.apple.com/x'],
+    ['a subdomain of fcm', 'https://evil.fcm.googleapis.com/x'],
+    ['garbage', 'not a url'],
+    ['an empty string', ''],
+  ])('rejects %s', (_label, url) => {
+    expect(isPushEndpoint(url)).toBe(false);
   });
 });

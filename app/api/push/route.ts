@@ -3,9 +3,10 @@ import { z } from 'zod';
 import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { getFirstZodError } from '@/lib/validations/common';
+import { isPushEndpoint } from '@/lib/notifications/push';
 
 const subscribeSchema = z.object({
-  endpoint: z.string().url().max(2000),
+  endpoint: z.string().max(2000).refine(isPushEndpoint, 'Not a browser push service address'),
   keys: z.object({ p256dh: z.string().min(1).max(500), auth: z.string().min(1).max(500) }),
 });
 const unsubscribeSchema = z.object({ endpoint: z.string().url().max(2000) });
@@ -30,6 +31,8 @@ export async function POST(request: NextRequest) {
     auth: keys.auth,
     userAgent: request.headers.get('user-agent')?.slice(0, 300) ?? null,
   };
+  // Re-registering a known device moves it to the active household (a member
+  // switching households, or the same phone signed in by the other partner).
   await prisma.pushSubscription.upsert({
     where: { endpoint },
     create: { endpoint, ...data },
