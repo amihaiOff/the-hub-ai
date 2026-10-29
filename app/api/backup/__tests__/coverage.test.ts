@@ -32,6 +32,7 @@ const INTENTIONALLY_EXCLUDED = new Set<string>([
   'MarketRateFetchLog', // BoI Prime lookup telemetry (the rates themselves ARE backed up)
   'BudgetCategorizationLog', // AI categorization telemetry (token usage + audit)
   'CronRunLog', // cron runtime telemetry
+  'PushSubscription', // device push endpoints; each phone re-registers in Settings
   'MoneytorInsurancePolicy', // full-refresh mirror of Moneytor, rebuilt on the next sync
 ]);
 

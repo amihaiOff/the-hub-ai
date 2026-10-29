@@ -179,6 +179,9 @@ model Household {
   // Monthly budget reports
   budgetReports BudgetReport[]
 
+  // Phones/browsers registered for push notifications
+  pushSubscriptions PushSubscription[]
+
   @@map("households")
 }
 
@@ -1794,4 +1797,21 @@ model MoneytorInsurancePolicy {
   @@unique([householdId, policyKey])
   @@index([householdId])
   @@map("moneytor_insurance_policies")
+}
+
+// A browser/phone that agreed to receive push notifications (Web Push).
+// Every member's devices in a household get that household's notifications.
+model PushSubscription {
+  id          String   @id @default(cuid())
+  householdId String   @map("household_id")
+  endpoint    String   @unique // push service URL; identifies the device
+  p256dh      String
+  auth        String
+  userAgent   String?  @map("user_agent")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@map("push_subscriptions")
 }

@@ -4,6 +4,7 @@ import { updateStockPriceCache, isStockPriceError } from '@/lib/api/stock-price'
 import { syncMoneytorForHouseholdAndLog } from '@/lib/api/moneytor-sync';
 import { MoneytorApiError } from '@/lib/api/moneytor';
 import { withCronLog } from '@/lib/utils/cron-logger';
+import { sendPushToHousehold } from '@/lib/notifications/push';
 import { drainSuggestions, type DrainResult } from '@/lib/ai/drain-suggestions';
 import {
   logBoiPrimeFetch,
@@ -248,6 +249,12 @@ async function syncMoneytor(results: {
           : { error: err instanceof Error ? err.message : 'Unknown error' };
       console.error(`Moneytor sync failed for household ${householdId}:`, err);
       results.moneytor.failures.push({ householdId, ...error });
+      await sendPushToHousehold(householdId, {
+        title: 'Bank sync failed',
+        body: `Today's Moneytor sync didn't go through: ${error.error}`,
+        url: '/labs/sync-log',
+        tag: 'moneytor-sync',
+      });
 
       // If the token is expired or revoked, stop early — every subsequent
       // household call would hit the same failure.

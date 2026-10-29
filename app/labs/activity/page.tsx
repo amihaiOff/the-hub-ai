@@ -11,6 +11,7 @@ import {
   Pencil,
   RotateCw,
   Trash2,
+  UtensilsCrossed,
 } from 'lucide-react';
 
 interface GeneralLogEntry {
@@ -40,7 +41,10 @@ function formatTs(iso: string): string {
   });
 }
 
-const SUBJECT_LABELS: Record<string, string> = { budget_report: 'Budget report' };
+const SUBJECT_LABELS: Record<string, string> = {
+  budget_report: 'Budget report',
+  weekly_summary: 'Weekly summary',
+};
 
 function typeMeta(type: string): {
   icon: React.ComponentType<{ className?: string }>;
@@ -66,6 +70,8 @@ function typeMeta(type: string): {
       return { icon: CheckCircle2, label: 'Report ready' };
     case 'report_failed':
       return { icon: AlertCircle, label: 'Report incomplete' };
+    case 'weekly_eating_out':
+      return { icon: UtensilsCrossed, label: 'Weekly eating out' };
     case 'report_handoff_failed':
       return { icon: AlertCircle, label: 'Report stalled' };
     default:

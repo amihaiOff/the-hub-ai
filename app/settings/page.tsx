@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import Link from 'next/link';
 import {
   BookOpen,
+  Bell,
   FileText,
   ChevronRight,
   Download,
@@ -57,6 +58,12 @@ const settingsLinks = [
     title: 'Wiki Prompt',
     description: 'System prompt for wiki source summarization',
     icon: BookOpen,
+  },
+  {
+    href: '/settings/notifications',
+    title: 'Notifications',
+    description: 'Phone notifications for sync failures and weekly spending',
+    icon: Bell,
   },
   {
     href: '/settings/report-prompt',

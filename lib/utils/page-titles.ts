@@ -39,6 +39,7 @@ const SETTINGS_SUBPAGES: Record<string, string> = {
   '/settings/data-sync': 'Data sync',
   '/settings/wiki-prompt': 'Wiki prompt',
   '/settings/report-prompt': 'Report prompt',
+  '/settings/notifications': 'Notifications',
 };
 
 /**
