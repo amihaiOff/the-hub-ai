@@ -27,6 +27,8 @@ export async function POST(request: NextRequest) {
   const { endpoint, keys } = parsed.data;
   const data = {
     householdId: context.activeHousehold.id,
+    // Whoever is signed in on this device gets its personal pushes (habits).
+    userId: context.user.id,
     p256dh: keys.p256dh,
     auth: keys.auth,
     userAgent: request.headers.get('user-agent')?.slice(0, 300) ?? null,

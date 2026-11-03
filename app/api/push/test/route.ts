@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       url: '/settings/notifications',
       tag: 'test',
     },
-    parsed.data.endpoint
+    { endpoint: parsed.data.endpoint }
   );
   return NextResponse.json({ success: true, data: { delivered } });
 }

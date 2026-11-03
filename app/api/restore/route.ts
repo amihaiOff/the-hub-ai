@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
       '2.9',
       '3.0',
       '3.1',
+      '3.2', // + habits, habit_logs
     ];
     if (!supportedVersions.includes(metadata.schemaVersion)) {
       return NextResponse.json(
@@ -184,6 +185,8 @@ export async function POST(request: NextRequest) {
     const taskTags = await parseFile<Record<string, unknown>>('task_tags.json');
     const tasks = await parseFile<Record<string, unknown>>('tasks.json');
     const taskShares = await parseFile<Record<string, unknown>>('task_shares.json');
+    const habits = await parseFile<Record<string, unknown>>('habits.json');
+    const habitLogs = await parseFile<Record<string, unknown>>('habit_logs.json');
     const generalLogs = await parseFile<Record<string, unknown>>('general_logs.json');
     // Schema version 2.3+ (empty for older backups).
     const pages = await parseFile<Record<string, unknown>>('pages.json');
@@ -217,6 +220,8 @@ export async function POST(request: NextRequest) {
     console.log('Deleting existing data...');
     // Tasks module (children first: shares → tasks → tags/categories). Deleting
     // tasks cascades the implicit task↔tag join rows.
+    await prisma.habitLog.deleteMany();
+    await prisma.habit.deleteMany();
     await prisma.taskShare.deleteMany();
     await prisma.task.deleteMany();
     await prisma.taskTag.deleteMany();
@@ -1205,6 +1210,42 @@ export async function POST(request: NextRequest) {
           userId: ts.userId as string,
           canEdit: (ts.canEdit as boolean) ?? true,
           createdAt: new Date(ts.createdAt as string),
+        },
+      });
+    }
+
+    // 44a. Habits (after users + households), then their logs.
+    for (const h of habits) {
+      await prisma.habit.create({
+        data: {
+          id: h.id as string,
+          householdId: h.householdId as string,
+          ownerId: h.ownerId as string,
+          title: h.title as string,
+          icon: (h.icon as string | null) ?? null,
+          color: (h.color as string | null) ?? null,
+          notify: (h.notify as boolean) ?? true,
+          weekdays: (h.weekdays as number[]) ?? [],
+          timeMinutes: h.timeMinutes as number,
+          intervalWeeks: (h.intervalWeeks as number) ?? 1,
+          startDate: new Date(h.startDate as string),
+          sortOrder: (h.sortOrder as number | undefined) ?? 0,
+          archivedAt: h.archivedAt ? new Date(h.archivedAt as string) : null,
+          lastNotifiedOn: h.lastNotifiedOn ? new Date(h.lastNotifiedOn as string) : null,
+          createdAt: new Date(h.createdAt as string),
+          updatedAt: new Date(h.updatedAt as string),
+        },
+      });
+    }
+    for (const l of habitLogs) {
+      await prisma.habitLog.create({
+        data: {
+          id: l.id as string,
+          habitId: l.habitId as string,
+          date: new Date(l.date as string),
+          status: l.status as 'DONE' | 'NOT_DONE',
+          createdAt: new Date(l.createdAt as string),
+          updatedAt: new Date(l.updatedAt as string),
         },
       });
     }

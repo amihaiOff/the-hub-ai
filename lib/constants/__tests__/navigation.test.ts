@@ -16,6 +16,7 @@ import {
   ListChecks,
   FlaskConical,
   BookOpen,
+  CalendarCheck,
 } from 'lucide-react';
 
 // The clickable nav entries (headers filtered out).
@@ -25,7 +26,7 @@ describe('Navigation Constants', () => {
   describe('navItems array structure', () => {
     it('should have valid structure for every link item', () => {
       expect(Array.isArray(navItems)).toBe(true);
-      expect(linkItems).toHaveLength(10);
+      expect(linkItems).toHaveLength(11);
 
       linkItems.forEach((item) => {
         expect(typeof item.href).toBe('string');
@@ -53,6 +54,7 @@ describe('Navigation Constants', () => {
     const expectedItems = [
       { label: 'Dashboard', href: '/', icon: LayoutDashboard },
       { label: 'Tasks', href: '/tasks', icon: ListChecks },
+      { label: 'Habits', href: '/habits', icon: CalendarCheck },
       { label: 'Wiki', href: '/wiki', icon: BookOpen },
       { label: 'Shopping', href: '/shopping', icon: ShoppingCart },
       { label: 'Portfolio', href: '/portfolio', icon: TrendingUp },

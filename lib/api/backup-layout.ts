@@ -83,6 +83,8 @@ const FOLDER_BY_FILE: Record<string, BackupFolder> = {
   'task_categories.json': 'tasks',
   'task_tags.json': 'tasks',
   'task_shares.json': 'tasks',
+  'habits.json': 'tasks',
+  'habit_logs.json': 'tasks',
 
   'shopping_items.json': 'shopping',
   'shopping_categories.json': 'shopping',

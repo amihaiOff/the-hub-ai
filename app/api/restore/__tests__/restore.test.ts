@@ -78,6 +78,8 @@ const mockPrisma = {
   taskTag: createMockFns('taskTag'),
   task: { ...createMockFns('task'), update: jest.fn() },
   taskShare: createMockFns('taskShare'),
+  habit: createMockFns('habit'),
+  habitLog: createMockFns('habitLog'),
   page: createMockFns('page'),
   pageTab: createMockFns('pageTab'),
   wikiConcept: createMockFns('wikiConcept'),

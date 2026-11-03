@@ -39,6 +39,8 @@ model User {
 
   // Tasks module
   ownedTasks Task[]      @relation("TaskOwner")
+  habits     Habit[]
+  pushSubscriptions PushSubscription[]
   taskShares TaskShare[]
 
   // Pages (Notion-like documents) authored by this user
@@ -158,6 +160,7 @@ model Household {
 
   // Tasks module
   tasks          Task[]
+  habits         Habit[]
   taskCategories TaskCategory[]
   taskTags       TaskTag[]
 
@@ -1808,10 +1811,65 @@ model PushSubscription {
   p256dh      String
   auth        String
   userAgent   String?  @map("user_agent")
+  // Who was signed in when this device registered. Personal pushes (habit
+  // reminders) go only to the owner's devices; household pushes ignore it.
+  userId      String?  @map("user_id")
   createdAt   DateTime @default(now()) @map("created_at")
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([householdId])
+  @@index([userId])
   @@map("push_subscriptions")
+}
+
+// Habit - a personal recurring habit (owner-only, never shared). Occurs on
+// `weekdays` at `timeMinutes` (Israel time) every `intervalWeeks` weeks,
+// counted from the week of `startDate` (a Sunday).
+model Habit {
+  id             String    @id @default(cuid())
+  householdId    String    @map("household_id")
+  ownerId        String    @map("owner_id")
+  title          String
+  icon           String?
+  color          String?
+  notify         Boolean   @default(true)
+  weekdays       Int[] // 0 = Sunday … 6 = Saturday
+  timeMinutes    Int       @map("time_minutes") // minutes after midnight, 15-min steps
+  intervalWeeks  Int       @default(1) @map("interval_weeks") // 1–4
+  startDate      DateTime  @map("start_date") @db.Date
+  sortOrder      Int       @default(0) @map("sort_order")
+  archivedAt     DateTime? @map("archived_at")
+  // Israel-local day the reminder was last sent — stops a double send.
+  lastNotifiedOn DateTime? @map("last_notified_on") @db.Date
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  household Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  logs      HabitLog[]
+
+  @@index([householdId, ownerId])
+  @@map("habits")
+}
+
+enum HabitLogStatus {
+  DONE
+  NOT_DONE
+}
+
+// One answer for one scheduled day. Missed / upcoming are derived, not stored.
+model HabitLog {
+  id        String         @id @default(cuid())
+  habitId   String         @map("habit_id")
+  date      DateTime       @db.Date // Israel-local day of the occurrence
+  status    HabitLogStatus
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+  @@map("habit_logs")
 }

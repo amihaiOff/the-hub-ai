@@ -19,6 +19,10 @@ export interface PushMessage {
   url?: string;
   /** Same tag replaces an earlier notification instead of stacking. */
   tag?: string;
+  /** Buttons on the notification (Android / desktop Chrome); handled in sw.js. */
+  actions?: { action: string; title: string }[];
+  /** Extra data the service worker needs to act on a button press. */
+  data?: Record<string, string>;
 }
 
 export function pushConfigured(): boolean {
@@ -56,15 +60,19 @@ export function isPushEndpoint(endpoint: string): boolean {
 export async function sendPushToHousehold(
   householdId: string,
   message: PushMessage,
-  /** Only this device (e.g. "send a test" from its own Settings page). */
-  endpoint?: string
+  /**
+   * `endpoint`: only this device (e.g. "send a test" from its own Settings page).
+   * `userId`: only devices that person registered (personal reminders).
+   */
+  only: { endpoint?: string; userId?: string } = {}
 ): Promise<number> {
   if (!pushConfigured()) {
     console.warn('Push not sent: VAPID keys are not configured.');
     return 0;
   }
   const subs = await prisma.pushSubscription
-    .findMany({ where: { householdId, ...(endpoint ? { endpoint } : {}) } })
+    // Personal pushes follow the person to whichever household the device is in.
+    .findMany({ where: only.userId ? { userId: only.userId } : { householdId, ...only } })
     .catch(() => []);
   const payload = JSON.stringify(message);
   const options = {

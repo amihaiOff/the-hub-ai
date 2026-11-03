@@ -146,7 +146,8 @@ self.addEventListener('push', (event) => {
       icon: '/icons/icon-192.png',
       badge: '/icons/icon-192.png',
       tag: data.tag,
-      data: { url: data.url || '/' },
+      actions: Array.isArray(data.actions) ? data.actions : [],
+      data: { ...(data.data || {}), url: data.url || '/' },
     })
   );
 });
@@ -155,6 +156,24 @@ self.addEventListener('push', (event) => {
 // notification's page) or opens a new one. Only same-origin pages are opened.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const { habitId, date } = event.notification.data || {};
+  // Habit reminder buttons: record the answer without opening the app. If
+  // that fails (offline, signed out), open the Habits page instead.
+  if ((event.action === 'done' || event.action === 'not_done') && habitId && date) {
+    event.waitUntil(
+      fetch(`/api/habits/${encodeURIComponent(habitId)}/log`, {
+        method: 'PUT',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, status: event.action === 'done' ? 'DONE' : 'NOT_DONE' }),
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error(String(res.status));
+        })
+        .catch(() => self.clients.openWindow('/habits'))
+    );
+    return;
+  }
   let target = new URL(event.notification.data?.url || '/', self.location.origin);
   if (target.origin !== self.location.origin) target = new URL('/', self.location.origin);
   const href = target.href;

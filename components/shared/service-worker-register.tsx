@@ -13,9 +13,12 @@ export function ServiceWorkerRegister() {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
 
     const register = () => {
-      navigator.serviceWorker.register('/sw.js').catch((error) => {
-        console.error('Service worker registration failed:', error);
-      });
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then(relinkPushSubscription)
+        .catch((error) => {
+          console.error('Service worker registration failed:', error);
+        });
     };
 
     if (document.readyState === 'complete') {
@@ -27,4 +30,20 @@ export function ServiceWorkerRegister() {
   }, []);
 
   return null;
+}
+
+/**
+ * Re-send this device's existing push subscription so the server links it to
+ * whoever is signed in now (personal habit reminders go to the owner's
+ * devices only). Idempotent upsert; a 401 before sign-in is harmless.
+ */
+async function relinkPushSubscription(reg: ServiceWorkerRegistration) {
+  if (!('PushManager' in window) || Notification.permission !== 'granted') return;
+  const sub = await reg.pushManager.getSubscription().catch(() => null);
+  if (!sub) return;
+  await fetch('/api/push', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(sub.toJSON()),
+  }).catch(() => undefined);
 }

@@ -16,6 +16,7 @@ import { CurrencySelector, type DashboardCurrency } from '@/components/dashboard
 import { MoneytorBalancesCard } from '@/components/dashboard/moneytor-balances-card';
 import { TotalWorthCard } from '@/components/dashboard/total-worth-card';
 import { TasksSummaryCard } from '@/components/dashboard/tasks-summary-card';
+import { TodayHabitsCard } from '@/components/dashboard/today-habits-card';
 import { DashboardNotesCard } from '@/components/dashboard/dashboard-notes-card';
 import { cn } from '@/lib/utils';
 
@@ -57,6 +58,9 @@ export default function DashboardPage() {
 
       {/* Tasks — what needs your attention right now, so it sits at the top. */}
       <TasksSummaryCard />
+
+      {/* Today's habits — hidden on days with nothing scheduled. */}
+      <TodayHabitsCard />
 
       {/* Notes — a lightweight scratchpad for later processing. Household-shared. */}
       <DashboardNotesCard />

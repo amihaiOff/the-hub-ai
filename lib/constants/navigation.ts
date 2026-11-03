@@ -26,6 +26,7 @@ import {
   Activity,
   DollarSign,
   BookOpen,
+  CalendarCheck,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -56,6 +57,7 @@ export function isNavHeader(entry: NavEntry): entry is NavHeader {
 export const navItems: NavEntry[] = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/tasks', label: 'Tasks', icon: ListChecks },
+  { href: '/habits', label: 'Habits', icon: CalendarCheck },
   { href: '/wiki', label: 'Wiki', icon: BookOpen },
   {
     href: '/shopping',

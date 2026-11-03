@@ -102,13 +102,14 @@ describe('POST /api/push', () => {
     expect(mockPrisma.pushSubscription.upsert).not.toHaveBeenCalled();
   });
 
-  it('upserts by endpoint with the active household id', async () => {
+  it('upserts by endpoint with the active household and signed-in user', async () => {
     const res = await POST(req('POST', validSub, { 'user-agent': 'Pixel Chrome' }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ success: true });
 
     const data = {
       householdId: 'household-1',
+      userId: 'user-1',
       p256dh: 'p256dh-key',
       auth: 'auth-key',
       userAgent: 'Pixel Chrome',
@@ -215,7 +216,7 @@ describe('POST /api/push/test', () => {
     expect(mockSend).toHaveBeenCalledWith(
       'household-1',
       expect.objectContaining({ title: 'The Hub', url: '/settings/notifications' }),
-      ENDPOINT
+      { endpoint: ENDPOINT }
     );
   });
 });

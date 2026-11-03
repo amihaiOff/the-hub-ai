@@ -74,6 +74,8 @@ export async function GET(request: NextRequest) {
       taskCategories,
       taskTags,
       taskShares,
+      habits,
+      habitLogs,
       riseupCategories,
       payeeCategoryRules,
       insurancePolicies,
@@ -133,6 +135,8 @@ export async function GET(request: NextRequest) {
       prisma.taskCategory.findMany(),
       prisma.taskTag.findMany(),
       prisma.taskShare.findMany(),
+      prisma.habit.findMany(),
+      prisma.habitLog.findMany(),
       prisma.riseupCategory.findMany(),
       prisma.payeeCategoryRule.findMany(),
       prisma.insurancePolicy.findMany(),
@@ -167,7 +171,7 @@ export async function GET(request: NextRequest) {
     // Create backup metadata
     const metadata = {
       backupDate: new Date().toISOString(),
-      schemaVersion: '3.1',
+      schemaVersion: '3.2',
       createdBy: user?.email ?? 'scheduled-backup',
       counts: {
         users: users.length,
@@ -199,6 +203,8 @@ export async function GET(request: NextRequest) {
         taskCategories: taskCategories.length,
         taskTags: taskTags.length,
         taskShares: taskShares.length,
+        habits: habits.length,
+        habitLogs: habitLogs.length,
         riseupCategories: riseupCategories.length,
         payeeCategoryRules: payeeCategoryRules.length,
         insurancePolicies: insurancePolicies.length,
@@ -328,6 +334,8 @@ export async function GET(request: NextRequest) {
     );
     zip.file(pathInArchive('task_tags.json'), JSON.stringify(taskTags, jsonSerializer, 2));
     zip.file(pathInArchive('task_shares.json'), JSON.stringify(taskShares, jsonSerializer, 2));
+    zip.file(pathInArchive('habits.json'), JSON.stringify(habits, jsonSerializer, 2));
+    zip.file(pathInArchive('habit_logs.json'), JSON.stringify(habitLogs, jsonSerializer, 2));
     zip.file(
       pathInArchive('riseup_categories.json'),
       JSON.stringify(riseupCategories, jsonSerializer, 2)

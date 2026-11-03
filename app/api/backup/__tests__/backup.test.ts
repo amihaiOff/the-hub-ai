@@ -52,6 +52,8 @@ jest.mock('@/lib/db', () => ({
     taskCategory: { findMany: jest.fn() },
     taskTag: { findMany: jest.fn() },
     taskShare: { findMany: jest.fn() },
+    habit: { findMany: jest.fn() },
+    habitLog: { findMany: jest.fn() },
     riseupCategory: { findMany: jest.fn() },
     payeeCategoryRule: { findMany: jest.fn() },
     insurancePolicy: { findMany: jest.fn() },
@@ -341,6 +343,8 @@ describe('Backup API', () => {
       (mockPrisma.taskCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.taskTag.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.taskShare.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.habit.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.habitLog.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce(mockRiseupCategories);
       (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.insurancePolicy.findMany as jest.Mock).mockResolvedValueOnce([]);
@@ -447,7 +451,7 @@ describe('Backup API', () => {
       // Verify metadata content
       const metadataContent = await zip.file(pathInArchive('metadata.json'))!.async('string');
       const metadata = JSON.parse(metadataContent);
-      expect(metadata.schemaVersion).toBe('3.1');
+      expect(metadata.schemaVersion).toBe('3.2');
       expect(metadata.createdBy).toBe('test@example.com');
       expect(metadata.counts).toEqual({
         users: 1,
@@ -479,6 +483,8 @@ describe('Backup API', () => {
         taskCategories: 0,
         taskTags: 0,
         taskShares: 0,
+        habits: 0,
+        habitLogs: 0,
         riseupCategories: 1,
         payeeCategoryRules: 0,
         insurancePolicies: 0,
@@ -557,6 +563,8 @@ describe('Backup API', () => {
       (mockPrisma.taskCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.taskTag.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.taskShare.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.habit.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.habitLog.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.insurancePolicy.findMany as jest.Mock).mockResolvedValueOnce([]);
@@ -653,6 +661,8 @@ describe('Backup API', () => {
       (mockPrisma.taskCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.taskTag.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.taskShare.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.habit.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.habitLog.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.riseupCategory.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.payeeCategoryRule.findMany as jest.Mock).mockResolvedValueOnce([]);
       (mockPrisma.insurancePolicy.findMany as jest.Mock).mockResolvedValueOnce([]);

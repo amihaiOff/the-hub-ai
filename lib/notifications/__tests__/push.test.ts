@@ -102,11 +102,23 @@ describe('sendPushToHousehold', () => {
     expect(mockPrisma.pushSubscription.delete).not.toHaveBeenCalled();
   });
 
+  it("targets a person's devices in any household when userId is passed", async () => {
+    mockPrisma.pushSubscription.findMany.mockResolvedValue([subs[0]]);
+    mockSend.mockResolvedValue({});
+
+    await expect(sendPushToHousehold('hh-1', message, { userId: 'user-1' })).resolves.toBe(1);
+    expect(mockPrisma.pushSubscription.findMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1' },
+    });
+  });
+
   it('only targets the given endpoint when one is passed', async () => {
     mockPrisma.pushSubscription.findMany.mockResolvedValue([subs[1]]);
     mockSend.mockResolvedValue({});
 
-    await expect(sendPushToHousehold('hh-1', message, 'https://push.example/2')).resolves.toBe(1);
+    await expect(
+      sendPushToHousehold('hh-1', message, { endpoint: 'https://push.example/2' })
+    ).resolves.toBe(1);
     expect(mockPrisma.pushSubscription.findMany).toHaveBeenCalledWith({
       where: { householdId: 'hh-1', endpoint: 'https://push.example/2' },
     });
