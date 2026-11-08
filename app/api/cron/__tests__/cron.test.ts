@@ -89,6 +89,9 @@ describe('Daily Tasks Cron', () => {
     jest.clearAllMocks();
     // Reset environment
     delete process.env.CRON_SECRET;
+    // The Moneytor sync step isn't mocked here; a key leaking in from the
+    // machine's environment would run it and crash the job.
+    delete process.env.MONEYTOR_API_TOKEN;
   });
 
   afterEach(() => {
