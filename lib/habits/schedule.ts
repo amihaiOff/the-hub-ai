@@ -20,8 +20,8 @@ export type HabitLogStatus = 'DONE' | 'NOT_DONE';
 const DAY_MS = 86_400_000;
 export const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const dayOfWeek = (ymd: string) => new Date(`${ymd}T00:00:00Z`).getUTCDay();
-const sundayOf = (ymd: string) => addDays(ymd, -dayOfWeek(ymd));
+export const dayOfWeek = (ymd: string) => new Date(`${ymd}T00:00:00Z`).getUTCDay();
+export const sundayOf = (ymd: string) => addDays(ymd, -dayOfWeek(ymd));
 
 /** Israel "now": the local day plus minutes after midnight. */
 export function israelClock(now: Date) {
