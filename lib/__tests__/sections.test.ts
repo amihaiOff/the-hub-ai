@@ -104,12 +104,9 @@ describe('canAccessPath', () => {
       expect(canAccessPath('/tasks', ['bogus', 'tasks'])).toBe(true);
     });
 
-    // KNOWN BUG (reported, not fixed here): SECTIONS[id] is a plain-object
-    // lookup, so a prototype key such as 'constructor' resolves to a function
-    // and `section.pages` throws. The API validates ids via
-    // allowedSectionsSchema, but /api/restore copies allowedSections from the
-    // backup unvalidated. Flip to `it` once canAccessPath uses Object.hasOwn.
-    it.failing('treats prototype keys as unknown section ids', () => {
+    // Prototype keys (e.g. 'constructor') must not resolve to a section —
+    // /api/restore copies allowedSections from a backup unvalidated.
+    it('treats prototype keys as unknown section ids', () => {
       expect(canAccessPath('/tasks', ['constructor'])).toBe(false);
     });
 

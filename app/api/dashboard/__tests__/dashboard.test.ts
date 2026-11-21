@@ -59,6 +59,7 @@ jest.mock('@/lib/api/exchange-rates', () => ({
 import { prisma } from '@/lib/db';
 import { getCurrentContext } from '@/lib/auth-utils';
 import { getStockPrices } from '@/lib/api/stock-price';
+import { householdVisibleWhere } from '@/lib/utils/household-scope';
 import { GET } from '../route';
 
 const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
@@ -235,6 +236,22 @@ describe('Dashboard API', () => {
       expect(data.data.pension.accountsCount).toBe(0);
       expect(data.data.assets.netValue).toBe(0);
       expect(data.data.assets.itemsCount).toBe(0);
+    });
+
+    it('scopes stock accounts to the active household (shared with the Portfolio page)', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com', name: 'Test User' };
+
+      mockGetCurrentContext.mockResolvedValueOnce(makeContext(mockUser));
+      (mockPrisma.stockAccount.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.pensionAccount.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (mockPrisma.miscAsset.findMany as jest.Mock).mockResolvedValueOnce([]);
+      mockGetStockPrices.mockResolvedValueOnce(new Map());
+
+      const response = await GET();
+
+      expect(response.status).toBe(200);
+      const where = (mockPrisma.stockAccount.findMany as jest.Mock).mock.calls[0][0].where;
+      expect(where).toEqual(householdVisibleWhere('household-1'));
     });
 
     it('should handle stocks with missing prices (default to 0)', async () => {
