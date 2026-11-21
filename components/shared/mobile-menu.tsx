@@ -140,7 +140,7 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
   const { allowedSections, restricted, canAccess } = useSectionAccess();
   const user = useUser();
   const syncMoneytor = useSyncMoneytor();
-  const { data: activityUnreadCount } = useGeneralLogUnreadCount();
+  const { data: activityUnreadCount } = useGeneralLogUnreadCount(canAccess('/labs'));
 
   const handleNavClick = () => {
     onOpenChange(false);

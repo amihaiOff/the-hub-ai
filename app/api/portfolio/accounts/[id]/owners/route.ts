@@ -3,6 +3,7 @@ import { getCurrentContext } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { z } from 'zod';
 import { validateCuid } from '@/lib/api/validation';
+import { isStockAccountInHousehold } from '@/lib/utils/household-scope';
 
 const updateOwnersSchema = z.object({
   profileIds: z.array(z.string().cuid()).min(1),
@@ -31,13 +32,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       select: { profileId: true },
     });
 
-    // Verify user has access (at least one owner must be in user's household)
+    // Verify the account is visible to the active household
     const profileIds = owners.map((o) => o.profileId);
-    const hasAccess = profileIds.some((pid) =>
-      context.householdProfiles.some((hp) => hp.id === pid)
-    );
-
-    if (!hasAccess && owners.length > 0) {
+    if (!(await isStockAccountInHousehold(id, context.activeHousehold.id))) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
@@ -119,13 +116,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       select: { profileId: true },
     });
 
-    // Check current ownership
+    // The account must already be visible to the active household (legacy
+    // owner-less accounts count via their creator user — no claiming strangers')
     const currentOwnerIds = currentOwners.map((o) => o.profileId);
-    const hasAccess =
-      currentOwnerIds.length === 0 ||
-      currentOwnerIds.some((pid) => context.householdProfiles.some((hp) => hp.id === pid));
-
-    if (!hasAccess) {
+    if (!(await isStockAccountInHousehold(id, context.activeHousehold.id))) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 

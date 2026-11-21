@@ -10,8 +10,9 @@ interface UnreadCountResponse {
  * Small poll of the general-log unread count for the nav badge dot.
  * Refetches on window focus so opening the tab clears/updates promptly.
  */
-export function useGeneralLogUnreadCount() {
+export function useGeneralLogUnreadCount(enabled = true) {
   return useQuery({
+    enabled,
     queryKey: ['labs', 'general-log-unread'],
     queryFn: async (): Promise<number> => {
       const res = await fetch('/api/labs/general-log/unread-count');

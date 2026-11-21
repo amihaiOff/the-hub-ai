@@ -150,7 +150,7 @@ export function Sidebar() {
   const { allowedSections, restricted, canAccess } = useSectionAccess();
   const user = useUser();
   const { data: countData } = useUncategorizedCount();
-  const { data: activityUnreadCount } = useGeneralLogUnreadCount();
+  const { data: activityUnreadCount } = useGeneralLogUnreadCount(canAccess('/labs'));
   const syncMoneytor = useSyncMoneytor();
   const uncategorizedCount = countData?.uncategorized ?? 0;
 

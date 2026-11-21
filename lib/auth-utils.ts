@@ -3,7 +3,7 @@ import { stackServerApp } from '@/stack/server';
 import { isAuthBypassed } from '@/lib/auth-env';
 import { prisma } from '@/lib/db';
 import { acceptPendingInvitesForUser } from '@/lib/invites';
-import { canAccessPath } from '@/lib/sections';
+import { canAccessPath, isRestricted } from '@/lib/sections';
 import type { HouseholdRole } from '@prisma/client';
 
 export interface CurrentUser {
@@ -66,70 +66,80 @@ let devUserCreated = false;
  * @returns The current user with guaranteed id, or null if not authenticated
  */
 export async function getCurrentUser(): Promise<CurrentUser | null> {
-  const user = await resolveSignedInUser();
+  const user = await getSignedInUser();
   if (!user) return null;
 
-  // Accept any pending household invite BEFORE the section check below, so an
-  // invitee limited to some sections is limited from their very first request.
-  if (user.email) {
-    await acceptPendingInvitesForUser(user.id, user.email, user.name);
-  }
-
-  if (!(await canUserAccessCurrentPath(user.id))) {
-    return null;
+  // No household context here, so apply the most restrictive rule: the path
+  // must be allowed by EVERY membership (an unrestricted one allows all).
+  const memberships = await prisma.householdMember.findMany({
+    where: { profile: { userId: user.id } },
+    select: { allowedSections: true },
+  });
+  if (memberships.some((m) => isRestricted(m.allowedSections))) {
+    const pathname = await currentPathname();
+    if (!pathname || !memberships.every((m) => canAccessPath(pathname, m.allowedSections))) {
+      console.warn(`Section access denied for user ${user.id} on ${pathname ?? '(unknown path)'}`);
+      return null;
+    }
   }
   return user;
 }
 
 /**
- * A pending invite or an existing household membership is an implicit
- * allowlist grant, so an admin never has to edit ALLOWED_EMAILS to let an
- * invited member in (or keep them in after the invite is accepted).
+ * Signed-in, allowlisted user with any pending invites accepted. Invites are
+ * accepted BEFORE any section check, so an invitee limited to some sections is
+ * limited from their very first request. Section checks are the caller's job.
  */
-export async function hasInviteOrMembership(email: string): Promise<boolean> {
-  const normalized = email.trim().toLowerCase();
-  const [invite, member] = await Promise.all([
-    prisma.householdInvite.findFirst({
-      where: { email: normalized, acceptedAt: null, expiresAt: { gt: new Date() } },
-      select: { id: true },
-    }),
-    prisma.user.findFirst({
-      where: {
-        email: { equals: normalized, mode: 'insensitive' },
-        profile: { householdMemberships: { some: {} } },
-      },
-      select: { id: true },
-    }),
-  ]);
-  return !!invite || !!member;
+async function getSignedInUser(): Promise<CurrentUser | null> {
+  const user = await resolveSignedInUser();
+  if (user?.email) {
+    await acceptPendingInvitesForUser(user.id, user.email, user.name);
+  }
+  return user;
 }
 
 /**
- * Section restriction (HouseholdMember.allowedSections, see lib/sections.ts).
- * The request path comes from the `x-pathname` header that proxy.ts stamps on
- * every /api request. A restricted user whose path is unknown is denied.
- *
- * ponytail: union of the user's restricted memberships — exact for one
- * household; make it per-active-household if a restricted user ever joins two.
+ * Invite-based allowlist grant: a pending invite for this email, or an
+ * accepted one whose household this email still belongs to. So an admin never
+ * edits ALLOWED_EMAILS for invitees — and removing an invitee from the
+ * household is what revokes them. Plain self-onboarded users get no grant, so
+ * ALLOWED_EMAILS still revokes them.
  */
-async function canUserAccessCurrentPath(userId: string): Promise<boolean> {
-  const memberships = await prisma.householdMember.findMany({
-    where: { profile: { userId } },
-    select: { allowedSections: true },
+export async function hasInviteOrMembership(email: string): Promise<boolean> {
+  const normalized = email.trim().toLowerCase();
+  const invite = await prisma.householdInvite.findFirst({
+    where: {
+      email: normalized,
+      OR: [
+        { acceptedAt: null, expiresAt: { gt: new Date() } },
+        {
+          acceptedAt: { not: null },
+          household: {
+            members: {
+              some: {
+                profile: { user: { email: { equals: normalized, mode: 'insensitive' } } },
+              },
+            },
+          },
+        },
+      ],
+    },
+    select: { id: true },
   });
-  if (memberships.length === 0 || memberships.some((m) => m.allowedSections.length === 0)) {
-    return true; // no membership yet (onboarding) or unrestricted somewhere
-  }
-  const allowed = memberships.flatMap((m) => m.allowedSections);
-  let pathname: string | null = null;
+  return !!invite;
+}
+
+/**
+ * Request path for section checks (HouseholdMember.allowedSections, see
+ * lib/sections.ts), from the `x-pathname` header proxy.ts stamps on every /api
+ * request. null outside a request scope — callers deny restricted users then.
+ */
+async function currentPathname(): Promise<string | null> {
   try {
-    pathname = (await headers()).get('x-pathname');
+    return (await headers()).get('x-pathname');
   } catch {
-    pathname = null; // outside a request scope
+    return null;
   }
-  if (pathname && canAccessPath(pathname, allowed)) return true;
-  console.warn(`Section access denied for user ${userId} on ${pathname ?? '(unknown path)'}`);
-  return false;
 }
 
 async function resolveSignedInUser(): Promise<CurrentUser | null> {
@@ -183,7 +193,7 @@ async function resolveSignedInUser(): Promise<CurrentUser | null> {
     return null;
   }
 
-  // Check email allowlist (if configured), plus the invite/membership grant.
+  // Check email allowlist (if configured), plus the invite grant.
   if (ALLOWED_EMAILS.length > 0 && !ALLOWED_EMAILS.includes(email.toLowerCase())) {
     if (!(await hasInviteOrMembership(email))) {
       console.warn(`Sign-in denied for email: ${email} - not in allowlist`);
@@ -226,12 +236,12 @@ export function isDevAuthMode() {
 export async function getCurrentContext(
   activeHouseholdId?: string
 ): Promise<CurrentContext | null> {
-  const user = await getCurrentUser();
+  const user = await getSignedInUser();
   if (!user) {
     return null;
   }
 
-  // (Pending invites were already accepted by getCurrentUser, so a fresh
+  // (Pending invites were already accepted by getSignedInUser, so a fresh
   // sign-in with an invite waiting skips onboarding.)
 
   // Get profile with household memberships
@@ -275,6 +285,15 @@ export async function getCurrentContext(
   // If no households, this shouldn't happen after migration but handle gracefully
   if (!activeHousehold) {
     return null;
+  }
+
+  // Section restriction applies per household: the active one decides.
+  if (isRestricted(activeHousehold.allowedSections)) {
+    const pathname = await currentPathname();
+    if (!pathname || !canAccessPath(pathname, activeHousehold.allowedSections)) {
+      console.warn(`Section access denied for user ${user.id} on ${pathname ?? '(unknown path)'}`);
+      return null;
+    }
   }
 
   // Get all profiles in the active household

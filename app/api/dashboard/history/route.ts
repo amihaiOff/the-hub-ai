@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentContext } from '@/lib/auth-utils';
+import { householdVisibleWhere } from '@/lib/utils/household-scope';
 import { prisma } from '@/lib/db';
 import { getStockPrices, isStockPriceError } from '@/lib/api/stock-price';
 import {
@@ -91,7 +92,8 @@ export async function GET() {
 async function computeCurrentValues(userId: string, householdId: string | null) {
   const [stockAccounts, pensionAccounts, miscAssets, moneytor] = await Promise.all([
     prisma.stockAccount.findMany({
-      where: { userId },
+      // Household-shared, matching the Portfolio page.
+      where: householdId ? householdVisibleWhere(householdId) : { userId },
       include: { holdings: true },
     }),
     prisma.pensionAccount.findMany({
