@@ -361,6 +361,7 @@ export async function POST(request: NextRequest) {
           householdId: hm.householdId as string,
           profileId: hm.profileId as string,
           role: hm.role as HouseholdRole,
+          allowedSections: (hm.allowedSections as string[] | undefined) ?? [],
           joinedAt: new Date(hm.joinedAt as string),
         },
       });
@@ -1426,6 +1427,7 @@ export async function POST(request: NextRequest) {
           householdId: hi.householdId as string,
           email: hi.email as string,
           role: hi.role as HouseholdRole,
+          allowedSections: (hi.allowedSections as string[] | undefined) ?? [],
           suggestedName: (hi.suggestedName as string | null) ?? null,
           suggestedColor: (hi.suggestedColor as string | null) ?? null,
           invitedByProfileId: hi.invitedByProfileId as string,

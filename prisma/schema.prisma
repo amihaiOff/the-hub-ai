@@ -38,10 +38,10 @@ model User {
   netWorthSnapshots NetWorthSnapshot[]
 
   // Tasks module
-  ownedTasks Task[]      @relation("TaskOwner")
-  habits     Habit[]
+  ownedTasks        Task[]             @relation("TaskOwner")
+  habits            Habit[]
   pushSubscriptions PushSubscription[]
-  taskShares TaskShare[]
+  taskShares        TaskShare[]
 
   // Pages (Notion-like documents) authored by this user
   ownedPages Page[] @relation("PageOwner")
@@ -249,11 +249,13 @@ enum HouseholdRole {
 }
 
 model HouseholdMember {
-  id          String        @id @default(cuid())
-  householdId String        @map("household_id")
-  profileId   String        @map("profile_id")
-  role        HouseholdRole @default(member)
-  joinedAt    DateTime      @default(now()) @map("joined_at")
+  id              String        @id @default(cuid())
+  householdId     String        @map("household_id")
+  profileId       String        @map("profile_id")
+  role            HouseholdRole @default(member)
+  // Section ids from lib/sections.ts this member may see. Empty = everything.
+  allowedSections String[]      @default([]) @map("allowed_sections")
+  joinedAt        DateTime      @default(now()) @map("joined_at")
 
   // Relations
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
@@ -273,6 +275,8 @@ model HouseholdInvite {
   // Stored lowercased for case-insensitive matching on sign-in.
   email              String
   role               HouseholdRole @default(member)
+  // Copied onto the membership at accept time (see HouseholdMember.allowedSections).
+  allowedSections    String[]      @default([]) @map("allowed_sections")
   // Optional profile name / color to apply at accept time; falls back to
   // the invitee's display name and the default palette.
   suggestedName      String?       @map("suggested_name")
@@ -630,17 +634,17 @@ model BudgetCategoryGroup {
 
 // Budget Categories - individual budget categories within groups
 model BudgetCategory {
-  id          String   @id @default(cuid())
-  name        String
-  groupId     String   @map("group_id")
-  budget      Decimal? @db.Decimal(18, 2) // Monthly budget amount (null = no budget)
-  isMust      Boolean  @default(false) @map("is_must") // Essential vs discretionary
-  reportExcluded    Boolean @default(false) @map("report_excluded") // Left out of monthly reports (income and expense)
-  reportEveryMonths Int     @default(1) @map("report_every_months") // 2 = billed every other month; reports judge it on its average
-  sortOrder   Int      @default(0) @map("sort_order")
-  householdId String   @map("household_id")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id                String   @id @default(cuid())
+  name              String
+  groupId           String   @map("group_id")
+  budget            Decimal? @db.Decimal(18, 2) // Monthly budget amount (null = no budget)
+  isMust            Boolean  @default(false) @map("is_must") // Essential vs discretionary
+  reportExcluded    Boolean  @default(false) @map("report_excluded") // Left out of monthly reports (income and expense)
+  reportEveryMonths Int      @default(1) @map("report_every_months") // 2 = billed every other month; reports judge it on its average
+  sortOrder         Int      @default(0) @map("sort_order")
+  householdId       String   @map("household_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
   // Relations
   group                 BudgetCategoryGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)

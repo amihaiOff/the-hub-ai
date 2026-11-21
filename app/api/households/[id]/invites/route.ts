@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { allowedSectionsSchema } from '@/lib/sections';
 import { getCurrentContext, isHouseholdAdmin } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { validateCuid } from '@/lib/api/validation';
@@ -14,6 +15,7 @@ const createInviteSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/)
     .optional()
     .nullable(),
+  allowedSections: allowedSectionsSchema.optional().default([]),
 });
 
 /**
@@ -44,6 +46,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       id: i.id,
       email: i.email,
       role: i.role,
+      allowedSections: i.allowedSections,
       suggestedName: i.suggestedName,
       suggestedColor: i.suggestedColor,
       createdAt: i.createdAt,
@@ -79,7 +82,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { status: 400 }
       );
     }
-    const { role, suggestedName, suggestedColor } = validation.data;
+    const { role, suggestedName, suggestedColor, allowedSections } = validation.data;
     const email = validation.data.email.trim().toLowerCase();
 
     // Guard: if an existing household member already owns this email, no
@@ -101,6 +104,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       where: { householdId_email: { householdId, email } },
       update: {
         role,
+        allowedSections,
         suggestedName: suggestedName ?? null,
         suggestedColor: suggestedColor ?? null,
         expiresAt: inviteExpiryFromNow(),
@@ -113,6 +117,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         householdId,
         email,
         role,
+        allowedSections,
         suggestedName: suggestedName ?? null,
         suggestedColor: suggestedColor ?? null,
         expiresAt: inviteExpiryFromNow(),
@@ -126,6 +131,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         id: invite.id,
         email: invite.email,
         role: invite.role,
+        allowedSections: invite.allowedSections,
         suggestedName: invite.suggestedName,
         suggestedColor: invite.suggestedColor,
         createdAt: invite.createdAt,

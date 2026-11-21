@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
+import { householdVisibleWhere } from '@/lib/utils/household-scope';
 import { prisma } from '@/lib/db';
 import { getStockPrices, isStockPriceError } from '@/lib/api/stock-price';
 import {
@@ -16,15 +17,16 @@ import { fetchExchangeRates, convertPrice } from '@/lib/api/exchange-rates';
 export async function GET() {
   try {
     // Get current user (dev user in local mode, or authenticated user in production)
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    const userId = user.id;
+    const userId = context.user.id;
+    const householdId = context.activeHousehold.id;
 
     // Fetch all accounts with holdings, cash balances, and owners for the user
     const accounts = await prisma.stockAccount.findMany({
-      where: { userId },
+      where: householdVisibleWhere(householdId),
       include: {
         holdings: true,
         cashBalances: true,

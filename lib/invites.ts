@@ -64,6 +64,7 @@ export async function acceptPendingInvitesForUser(
           householdId: invite.householdId,
           profileId: existingProfile.id,
           role: invite.role,
+          allowedSections: invite.allowedSections,
         },
       });
       await prisma.householdInvite.update({
@@ -87,6 +88,7 @@ export async function acceptPendingInvitesForUser(
         householdId: invite.householdId,
         profileId: profile.id,
         role: invite.role,
+        allowedSections: invite.allowedSections,
       },
     });
     await prisma.householdInvite.update({

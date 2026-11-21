@@ -3,14 +3,20 @@ import { getCurrentContext, isHouseholdAdmin } from '@/lib/auth-utils';
 import { prisma } from '@/lib/db';
 import { z } from 'zod';
 import { validateCuids } from '@/lib/api/validation';
+import { allowedSectionsSchema } from '@/lib/sections';
 
-const updateRoleSchema = z.object({
-  role: z.enum(['admin', 'member']),
-});
+const updateMemberSchema = z
+  .object({
+    role: z.enum(['admin', 'member']).optional(),
+    allowedSections: allowedSectionsSchema.optional(),
+  })
+  .refine((d) => d.role !== undefined || d.allowedSections !== undefined, {
+    message: 'Nothing to update',
+  });
 
 /**
  * PUT /api/households/[id]/members/[profileId]
- * Update member role (admin/owner only)
+ * Update member role and/or allowed sections (admin/owner only; never the owner)
  */
 export async function PUT(
   request: NextRequest,
@@ -56,7 +62,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const validation = updateRoleSchema.safeParse(body);
+    const validation = updateMemberSchema.safeParse(body);
 
     if (!validation.success) {
       return NextResponse.json(
@@ -65,7 +71,7 @@ export async function PUT(
       );
     }
 
-    const { role } = validation.data;
+    const { role, allowedSections } = validation.data;
 
     const updatedMembership = await prisma.householdMember.update({
       where: {
@@ -74,7 +80,7 @@ export async function PUT(
           profileId,
         },
       },
-      data: { role },
+      data: { role, allowedSections },
       include: {
         profile: {
           select: {
@@ -94,6 +100,7 @@ export async function PUT(
         id: updatedMembership.profile.id,
         name: updatedMembership.profile.name,
         role: updatedMembership.role,
+        allowedSections: updatedMembership.allowedSections,
       },
     });
   } catch (error) {

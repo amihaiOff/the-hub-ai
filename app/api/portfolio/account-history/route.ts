@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
+import { householdVisibleWhere } from '@/lib/utils/household-scope';
 import { prisma } from '@/lib/db';
 import { fetchExchangeRates, convertPrice, type ExchangeRates } from '@/lib/api/exchange-rates';
 
@@ -42,8 +43,8 @@ const DEFAULT_RATES: ExchangeRates = { USD: 3.7, EUR: 4.0, GBP: 4.6, ILS: 1 };
  */
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
     const since = days > 0 ? new Date(Date.now() - days * 86_400_000) : new Date(0);
 
     const accounts = await prisma.stockAccount.findMany({
-      where: { userId: user.id },
+      where: householdVisibleWhere(context.activeHousehold.id),
       include: { holdings: true, cashBalances: true },
       orderBy: { createdAt: 'asc' },
     });

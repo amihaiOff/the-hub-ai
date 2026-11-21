@@ -13,7 +13,14 @@ import { cn } from '@/lib/utils';
 import { Logo } from './logo';
 import { AreasNav } from './areas-nav';
 import { Button } from '@/components/ui/button';
-import { navItems, settingsItem, isNavHeader, type NavItem } from '@/lib/constants/navigation';
+import {
+  navItems,
+  settingsItem,
+  isNavHeader,
+  filterNavForSections,
+  type NavItem,
+} from '@/lib/constants/navigation';
+import { useSectionAccess } from '@/lib/contexts/household-context';
 
 function NavItemComponent({
   item,
@@ -140,6 +147,7 @@ function NavItemComponent({
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { allowedSections, restricted, canAccess } = useSectionAccess();
   const user = useUser();
   const { data: countData } = useUncategorizedCount();
   const { data: activityUnreadCount } = useGeneralLogUnreadCount();
@@ -160,7 +168,7 @@ export function Sidebar() {
             A thin scrollbar appears only when content overflows so users
             discover that the nav scrolls. */}
         <nav className="sidebar-scroll min-h-0 flex-1 space-y-1 overflow-y-auto p-4">
-          {navItems.map((entry) => {
+          {filterNavForSections(navItems, allowedSections).map((entry) => {
             const node = isNavHeader(entry) ? (
               <p
                 key={entry.header}
@@ -183,7 +191,7 @@ export function Sidebar() {
               return (
                 <div key="tasks-with-areas">
                   {node}
-                  <AreasNav variant="desktop" />
+                  {canAccess('/areas') && <AreasNav variant="desktop" />}
                 </div>
               );
             }
@@ -194,26 +202,27 @@ export function Sidebar() {
         {/* Bottom action row: Settings (left) + Sync (right), icon-only.
             Sync is a global manual Moneytor pull; it spins while pending. */}
         <div className="flex items-center justify-between p-4 pt-0">
-          {(() => {
-            const isActive = pathname === settingsItem.href;
-            const Icon = settingsItem.icon;
-            return (
-              <Link
-                href={settingsItem.href}
-                aria-current={isActive ? 'page' : undefined}
-                aria-label={settingsItem.label}
-                title={settingsItem.label}
-                className={cn(
-                  'flex h-10 w-10 items-center justify-center rounded-lg transition-all',
-                  isActive
-                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                    : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
-                )}
-              >
-                <Icon className="h-5 w-5" />
-              </Link>
-            );
-          })()}
+          {!restricted &&
+            (() => {
+              const isActive = pathname === settingsItem.href;
+              const Icon = settingsItem.icon;
+              return (
+                <Link
+                  href={settingsItem.href}
+                  aria-current={isActive ? 'page' : undefined}
+                  aria-label={settingsItem.label}
+                  title={settingsItem.label}
+                  className={cn(
+                    'flex h-10 w-10 items-center justify-center rounded-lg transition-all',
+                    isActive
+                      ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                      : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                </Link>
+              );
+            })()}
           <button
             type="button"
             onClick={() => syncMoneytor.mutate()}

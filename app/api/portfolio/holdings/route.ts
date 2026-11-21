@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
+import { isStockAccountInHousehold } from '@/lib/utils/household-scope';
 import { prisma } from '@/lib/db';
 import { getStockPrice, isStockPriceError } from '@/lib/api/stock-price';
 import { createHoldingSchema } from '@/lib/validations/portfolio';
@@ -13,8 +14,8 @@ import { getFirstZodError } from '@/lib/validations/common';
 export async function POST(request: NextRequest) {
   try {
     // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Authorization check - verify user owns this account
-    if (account.userId !== user.id) {
+    if (!(await isStockAccountInHousehold(account.id, context.activeHousehold.id))) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 

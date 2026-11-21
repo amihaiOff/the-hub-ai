@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
+import { householdVisibleWhere } from '@/lib/utils/household-scope';
 import { prisma } from '@/lib/db';
 import { createAccountSchema } from '@/lib/validations/portfolio';
 import { getFirstZodError } from '@/lib/validations/common';
@@ -11,8 +12,8 @@ import { getFirstZodError } from '@/lib/validations/common';
 export async function POST(request: NextRequest) {
   try {
     // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -35,7 +36,8 @@ export async function POST(request: NextRequest) {
         name,
         broker: broker || null,
         currency,
-        userId: user.id,
+        userId: context.user.id,
+        owners: { create: { profileId: context.profile.id } },
       },
     });
 
@@ -59,14 +61,14 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   try {
     // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get accounts only for the authenticated user (authorization enforced by query)
     const accounts = await prisma.stockAccount.findMany({
-      where: { userId: user.id },
+      where: householdVisibleWhere(context.activeHousehold.id),
       include: {
         _count: {
           select: { holdings: true },

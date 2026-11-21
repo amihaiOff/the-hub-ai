@@ -13,6 +13,8 @@ export interface HouseholdMember {
   image: string | null;
   color: string | null;
   role: 'owner' | 'admin' | 'member';
+  /** Section ids (lib/sections.ts) this member may see; empty = everything. */
+  allowedSections: string[];
   hasUser: boolean;
   joinedAt: string;
 }
@@ -25,6 +27,7 @@ export interface HouseholdInvite {
   id: string;
   email: string;
   role: 'admin' | 'member';
+  allowedSections: string[];
   suggestedName: string | null;
   suggestedColor: string | null;
   createdAt: string;
@@ -182,7 +185,7 @@ export function useAddHouseholdMember() {
 }
 
 /**
- * Update a household member's role
+ * Update a household member's role and/or allowed sections
  */
 export function useUpdateHouseholdMember() {
   const queryClient = useQueryClient();
@@ -191,13 +194,14 @@ export function useUpdateHouseholdMember() {
     mutationFn: async (params: {
       householdId: string;
       profileId: string;
-      role: 'admin' | 'member';
+      role?: 'admin' | 'member';
+      allowedSections?: string[];
     }): Promise<{ id: string; name: string; role: string }> => {
-      const { householdId, profileId, role } = params;
+      const { householdId, profileId, ...body } = params;
       const response = await fetch(`/api/households/${householdId}/members/${profileId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role }),
+        body: JSON.stringify(body),
       });
       const result = await response.json();
       if (!response.ok || !result.success) {
@@ -258,6 +262,7 @@ export function useCreateHouseholdInvite() {
       householdId: string;
       email: string;
       role?: 'admin' | 'member';
+      allowedSections?: string[];
       suggestedName?: string | null;
       suggestedColor?: string | null;
     }): Promise<HouseholdInvite> => {

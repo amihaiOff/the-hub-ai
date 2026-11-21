@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { hasInviteOrMembership } from '@/lib/auth-utils';
 
 // Email allowlist - only these emails can access the app
 const ALLOWED_EMAILS =
@@ -24,18 +24,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ allowed: true });
     }
 
-    // Pending household invite acts as an implicit allowlist grant so an
-    // admin doesn't have to edit the env var every time.
-    const invited = await prisma.householdInvite.findFirst({
-      where: {
-        email: normalizedEmail,
-        acceptedAt: null,
-        expiresAt: { gt: new Date() },
-      },
-      select: { id: true },
-    });
-
-    return NextResponse.json({ allowed: !!invited });
+    // A pending invite or an existing household membership is an implicit
+    // allowlist grant (see hasInviteOrMembership).
+    return NextResponse.json({ allowed: await hasInviteOrMembership(normalizedEmail) });
   } catch {
     return NextResponse.json({ allowed: false }, { status: 500 });
   }

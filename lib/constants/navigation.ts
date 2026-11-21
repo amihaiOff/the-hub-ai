@@ -29,6 +29,7 @@ import {
   CalendarCheck,
   type LucideIcon,
 } from 'lucide-react';
+import { canAccessPath, isRestricted } from '@/lib/sections';
 
 export interface NavSubItem {
   href: string;
@@ -114,5 +115,21 @@ export const navItems: NavEntry[] = [
     ],
   },
 ];
+
+/**
+ * Nav entries a section-restricted member may see: items whose page (or any
+ * sub-page) they can access, minus group headers left with nothing under them.
+ */
+export function filterNavForSections(
+  entries: NavEntry[],
+  allowedSections: readonly string[]
+): NavEntry[] {
+  if (!isRestricted(allowedSections)) return entries;
+  const can = (href: string) => canAccessPath(href, allowedSections);
+  const items = entries.filter(
+    (e) => isNavHeader(e) || can(e.href) || !!e.subItems?.some((s) => can(s.href))
+  );
+  return items.filter((e, i) => !isNavHeader(e) || (!!items[i + 1] && !isNavHeader(items[i + 1])));
+}
 
 export const settingsItem: NavItem = { href: '/settings', label: 'Settings', icon: Settings };

@@ -68,6 +68,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           image: m.profile.image,
           color: m.profile.color,
           role: m.role,
+          allowedSections: m.allowedSections,
           hasUser: m.profile.userId !== null,
           joinedAt: m.joinedAt,
         })),

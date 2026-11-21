@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useUser } from '@/lib/hooks/use-auth';
+import { canAccessPath, isRestricted } from '@/lib/sections';
 
 export interface HouseholdProfile {
   id: string;
@@ -18,6 +19,8 @@ export interface Household {
   name: string;
   description: string | null;
   role: 'owner' | 'admin' | 'member';
+  /** Section ids (lib/sections.ts) the current user may see; empty = all. */
+  allowedSections?: string[];
 }
 
 export interface CurrentProfile {
@@ -213,4 +216,18 @@ export function useNeedsOnboarding() {
 export function useIsHouseholdAdmin() {
   const { activeHousehold } = useHouseholdContext();
   return activeHousehold?.role === 'owner' || activeHousehold?.role === 'admin';
+}
+
+/**
+ * The current user's section restriction in the active household (see
+ * lib/sections.ts). UI-only — the server enforces the same rule in getCurrentUser.
+ */
+export function useSectionAccess() {
+  const { activeHousehold } = useHouseholdContext();
+  const allowedSections = activeHousehold?.allowedSections ?? [];
+  return {
+    allowedSections,
+    restricted: isRestricted(allowedSections),
+    canAccess: (pathname: string) => canAccessPath(pathname, allowedSections),
+  };
 }

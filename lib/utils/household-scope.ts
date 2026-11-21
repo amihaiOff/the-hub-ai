@@ -1,3 +1,5 @@
+import { prisma } from '@/lib/db';
+
 /**
  * Household-visibility Prisma `where` fragment for legacy user-owned models
  * (PensionAccount, MiscAsset — anything with `userId` + `owners: <M>Owner[]`).
@@ -46,4 +48,16 @@ export function householdVisibleWhere(householdId: string) {
       },
     ],
   };
+}
+
+/** Is this stock account visible to the household? (Ownership check for portfolio writes.) */
+export async function isStockAccountInHousehold(
+  accountId: string,
+  householdId: string
+): Promise<boolean> {
+  const account = await prisma.stockAccount.findFirst({
+    where: { id: accountId, ...householdVisibleWhere(householdId) },
+    select: { id: true },
+  });
+  return !!account;
 }

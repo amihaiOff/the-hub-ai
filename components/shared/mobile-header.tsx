@@ -5,6 +5,7 @@ import { Menu, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FavoritesDrawer } from '@/components/favorites/favorites-drawer';
 import { Logo } from './logo';
+import { useSectionAccess } from '@/lib/contexts/household-context';
 
 interface MobileHeaderProps {
   onMenuClick: () => void;
@@ -22,6 +23,8 @@ interface MobileHeaderProps {
  */
 export function MobileHeader({ onMenuClick }: MobileHeaderProps) {
   const [favoritesOpen, setFavoritesOpen] = useState(false);
+  // Favourites can point anywhere, so a section-restricted member doesn't get them.
+  const showFavorites = useSectionAccess().canAccess('/api/favorites');
 
   return (
     <header
@@ -34,16 +37,20 @@ export function MobileHeader({ onMenuClick }: MobileHeaderProps) {
       <Logo />
       {/* `ml-auto` is load-bearing: the header is a plain flex row with no
           `justify-between` and nothing else on the right. */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="ml-auto"
-        onClick={() => setFavoritesOpen(true)}
-        aria-label="Open favourites"
-      >
-        <Star className="h-5 w-5" />
-      </Button>
-      <FavoritesDrawer open={favoritesOpen} onOpenChange={setFavoritesOpen} />
+      {showFavorites && (
+        <>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="ml-auto"
+            onClick={() => setFavoritesOpen(true)}
+            aria-label="Open favourites"
+          >
+            <Star className="h-5 w-5" />
+          </Button>
+          <FavoritesDrawer open={favoritesOpen} onOpenChange={setFavoritesOpen} />
+        </>
+      )}
     </header>
   );
 }

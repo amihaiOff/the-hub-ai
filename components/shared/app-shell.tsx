@@ -8,7 +8,8 @@ import { MobileHeader } from './mobile-header';
 import { MobileMenu } from './mobile-menu';
 import { DesktopTabsBar } from './desktop-tabs-bar';
 
-import { useNeedsOnboarding } from '@/lib/contexts/household-context';
+import { useNeedsOnboarding, useSectionAccess } from '@/lib/contexts/household-context';
+import { firstAllowedPage } from '@/lib/sections';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -33,6 +34,7 @@ export function AppShell({ children }: AppShellProps) {
   const router = useRouter();
   const { user, isLoading: isAuthLoading } = useAuthState();
   const { needsOnboarding, isLoading: isProfileLoading } = useNeedsOnboarding();
+  const { allowedSections, canAccess } = useSectionAccess();
 
   // Check if current path is public (no auth/profile required)
   const isPublicPath = isPublicPathname(pathname);
@@ -54,13 +56,20 @@ export function AppShell({ children }: AppShellProps) {
     }
   }, [user, isProfileLoading, needsOnboarding, isPublicPath, router]);
 
+  // A section-restricted member on a page outside their sections (incl. the
+  // dashboard at '/') is sent to their first allowed section.
+  const isBlockedPath = !isPublicPath && !canAccess(pathname);
+  useEffect(() => {
+    if (isBlockedPath) router.replace(firstAllowedPage(allowedSections));
+  }, [isBlockedPath, allowedSections, router]);
+
   // Don't render shell UI for public paths (auth, onboarding, handler)
   if (isPublicPath) {
     return <div className="bg-background min-h-screen">{children}</div>;
   }
 
   // Show loading state while checking auth or profile
-  if (isLoading || !user) {
+  if (isLoading || !user || isBlockedPath) {
     return (
       <div className="bg-background flex min-h-screen items-center justify-center">
         <div className="text-muted-foreground animate-pulse">Loading...</div>

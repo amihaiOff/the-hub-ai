@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { ProfileAvatar } from '@/components/shared/profile-avatar';
+import { SECTIONS, SECTION_IDS } from '@/lib/sections';
 import { useHouseholdContext } from '@/lib/contexts/household-context';
 import {
   useHousehold,
@@ -53,6 +54,7 @@ export default function HouseholdSettingsPage() {
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSections, setInviteSections] = useState<string[]>([]);
 
   const isOwner = activeHousehold?.role === 'owner';
   const isAdmin = activeHousehold?.role === 'admin' || isOwner;
@@ -87,14 +89,33 @@ export default function HouseholdSettingsPage() {
     }
   };
 
+  const handleSectionsChange = async (profileId: string, allowedSections: string[]) => {
+    if (!activeHousehold) return;
+    try {
+      await updateMember.mutateAsync({
+        householdId: activeHousehold.id,
+        profileId,
+        allowedSections,
+      });
+      refetchHousehold();
+    } catch (error) {
+      console.error('Error updating member sections:', error);
+    }
+  };
+
   const handleInvite = async () => {
     if (!activeHousehold) return;
     const email = inviteEmail.trim();
     if (!email) return;
     setInviteError(null);
     try {
-      await createInvite.mutateAsync({ householdId: activeHousehold.id, email });
+      await createInvite.mutateAsync({
+        householdId: activeHousehold.id,
+        email,
+        allowedSections: inviteSections,
+      });
       setInviteEmail('');
+      setInviteSections([]);
     } catch (err) {
       setInviteError(err instanceof Error ? err.message : 'Failed to send invite');
     }
@@ -228,6 +249,13 @@ export default function HouseholdSettingsPage() {
                   </Badge>
                   {!member.hasUser && <span className="text-xs">No login</span>}
                 </div>
+                {isAdmin && member.id !== profile?.id && member.role !== 'owner' && (
+                  <SectionPicker
+                    value={member.allowedSections ?? []}
+                    disabled={updateMember.isPending}
+                    onChange={(next) => handleSectionsChange(member.id, next)}
+                  />
+                )}
               </div>
               {isAdmin && member.id !== profile?.id && member.role !== 'owner' && (
                 <DropdownMenu>
@@ -299,6 +327,7 @@ export default function HouseholdSettingsPage() {
                 )}
               </Button>
             </div>
+            <SectionPicker value={inviteSections} onChange={setInviteSections} />
             {inviteError && <p className="text-destructive text-sm">{inviteError}</p>}
 
             {invites && invites.length > 0 && (
@@ -312,7 +341,8 @@ export default function HouseholdSettingsPage() {
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{inv.email}</div>
                       <div className="text-muted-foreground text-xs">
-                        Expires {new Date(inv.expiresAt).toLocaleDateString()}
+                        Expires {new Date(inv.expiresAt).toLocaleDateString()} ·{' '}
+                        {sectionsSummary(inv.allowedSections)}
                       </div>
                     </div>
                     <Badge variant="secondary" className="text-xs">
@@ -359,6 +389,52 @@ export default function HouseholdSettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function sectionsSummary(allowed: string[] | undefined): string {
+  if (!allowed || allowed.length === 0) return 'Access to everything';
+  return 'Only ' + allowed.map((id) => SECTIONS[id as keyof typeof SECTIONS]?.label ?? id).join(', ');
+}
+
+/**
+ * Toggle chips for the sections a member may see. Nothing selected = everything
+ * (settings, labs and backups stay owner/full-access only).
+ */
+function SectionPicker({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string[];
+  onChange: (next: string[]) => void;
+  disabled?: boolean;
+}) {
+  const toggle = (id: string) =>
+    onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
+  return (
+    <div className="mt-2 space-y-1.5">
+      <div className="text-muted-foreground text-xs">{sectionsSummary(value)}</div>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Allowed sections">
+        {SECTION_IDS.map((id) => {
+          const on = value.includes(id);
+          return (
+            <Button
+              key={id}
+              type="button"
+              size="sm"
+              variant={on ? 'default' : 'outline'}
+              className="h-7 rounded-full px-3 text-xs"
+              aria-pressed={on}
+              disabled={disabled}
+              onClick={() => toggle(id)}
+            >
+              {SECTIONS[id].label}
+            </Button>
+          );
+        })}
+      </div>
     </div>
   );
 }

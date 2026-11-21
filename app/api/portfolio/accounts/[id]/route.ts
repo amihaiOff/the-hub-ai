@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
+import { isStockAccountInHousehold } from '@/lib/utils/household-scope';
 import { prisma } from '@/lib/db';
 import { updateAccountSchema } from '@/lib/validations/portfolio';
 import { getFirstZodError } from '@/lib/validations/common';
@@ -15,8 +16,8 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Authorization check - verify user owns this account
-    if (account.userId !== user.id) {
+    if (!(await isStockAccountInHousehold(account.id, context.activeHousehold.id))) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
@@ -60,8 +61,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -88,7 +89,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     // Authorization check - verify user owns this account
-    if (existing.userId !== user.id) {
+    if (!(await isStockAccountInHousehold(existing.id, context.activeHousehold.id))) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
@@ -126,8 +127,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     // Authentication check
-    const user = await getCurrentUser();
-    if (!user) {
+    const context = await getCurrentContext();
+    if (!context) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -143,7 +144,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Authorization check - verify user owns this account
-    if (existing.userId !== user.id) {
+    if (!(await isStockAccountInHousehold(existing.id, context.activeHousehold.id))) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 

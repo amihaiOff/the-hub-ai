@@ -17,7 +17,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { navItems, settingsItem, isNavHeader, type NavItem } from '@/lib/constants/navigation';
+import {
+  navItems,
+  settingsItem,
+  isNavHeader,
+  filterNavForSections,
+  type NavItem,
+} from '@/lib/constants/navigation';
+import { useSectionAccess } from '@/lib/contexts/household-context';
 import { AreasNav } from './areas-nav';
 
 interface MobileMenuProps {
@@ -130,6 +137,7 @@ function MobileNavItem({
 
 export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
   const pathname = usePathname();
+  const { allowedSections, restricted, canAccess } = useSectionAccess();
   const user = useUser();
   const syncMoneytor = useSyncMoneytor();
   const { data: activityUnreadCount } = useGeneralLogUnreadCount();
@@ -171,7 +179,7 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
 
           {/* Navigation */}
           <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-            {navItems.map((entry) => {
+            {filterNavForSections(navItems, allowedSections).map((entry) => {
               const node = isNavHeader(entry) ? (
                 <p
                   key={entry.header}
@@ -192,7 +200,9 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
                 return (
                   <div key="tasks-with-areas">
                     {node}
-                    <AreasNav variant="mobile" onNavigate={handleNavClick} />
+                    {canAccess('/areas') && (
+                      <AreasNav variant="mobile" onNavigate={handleNavClick} />
+                    )}
                   </div>
                 );
               }
@@ -204,27 +214,28 @@ export function MobileMenu({ open, onOpenChange }: MobileMenuProps) {
               mirrors the desktop sidebar. Sync keeps the menu open so the
               user sees the spinner. */}
           <div className="flex items-center justify-between p-4 pt-0">
-            {(() => {
-              const isActive = pathname === settingsItem.href;
-              const Icon = settingsItem.icon;
-              return (
-                <Link
-                  href={settingsItem.href}
-                  onClick={handleNavClick}
-                  aria-current={isActive ? 'page' : undefined}
-                  aria-label={settingsItem.label}
-                  title={settingsItem.label}
-                  className={cn(
-                    'flex h-11 w-11 items-center justify-center rounded-lg transition-all',
-                    isActive
-                      ? 'bg-accent text-accent-foreground'
-                      : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                </Link>
-              );
-            })()}
+            {!restricted &&
+              (() => {
+                const isActive = pathname === settingsItem.href;
+                const Icon = settingsItem.icon;
+                return (
+                  <Link
+                    href={settingsItem.href}
+                    onClick={handleNavClick}
+                    aria-current={isActive ? 'page' : undefined}
+                    aria-label={settingsItem.label}
+                    title={settingsItem.label}
+                    className={cn(
+                      'flex h-11 w-11 items-center justify-center rounded-lg transition-all',
+                      isActive
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </Link>
+                );
+              })()}
             <button
               type="button"
               onClick={handleSync}
