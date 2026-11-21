@@ -5,20 +5,22 @@
 
 import { NextRequest } from 'next/server';
 
-// Route now checks for pending invites in the DB; stub prisma so tests
-// don't require a real database connection.
-jest.mock('@/lib/db', () => ({
-  prisma: {
-    householdInvite: {
-      findFirst: jest.fn().mockResolvedValue(null),
-    },
-  },
+// The route delegates the invite/membership grant to auth-utils'
+// hasInviteOrMembership (unit-tested in lib/__tests__/auth-utils.test.ts).
+const mockHasInviteOrMembership = jest.fn();
+jest.mock('@/lib/auth-utils', () => ({
+  hasInviteOrMembership: (...args: unknown[]) => mockHasInviteOrMembership(...args),
 }));
 
 // Need to set up env before importing the route
 const originalEnv = process.env.ALLOWED_EMAILS;
 
 describe('Check Email API', () => {
+  beforeEach(() => {
+    mockHasInviteOrMembership.mockReset();
+    mockHasInviteOrMembership.mockResolvedValue(false);
+  });
+
   afterEach(() => {
     // Restore original env
     if (originalEnv !== undefined) {
@@ -191,6 +193,74 @@ describe('Check Email API', () => {
 
       expect(response.status).toBe(500);
       expect(data.allowed).toBe(false);
+    });
+
+    it('allows a non-allowlisted email with a pending invite or household membership', async () => {
+      process.env.ALLOWED_EMAILS = 'allowed@example.com';
+      jest.resetModules();
+      mockHasInviteOrMembership.mockResolvedValue(true);
+      const { POST } = await import('../route');
+
+      const request = new NextRequest('http://localhost:3001/api/auth/check-email', {
+        method: 'POST',
+        body: JSON.stringify({ email: '  Member@Example.com ' }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.allowed).toBe(true);
+      expect(mockHasInviteOrMembership).toHaveBeenCalledWith('member@example.com');
+    });
+
+    it('does not consult invites/memberships for an allowlisted email', async () => {
+      process.env.ALLOWED_EMAILS = 'allowed@example.com';
+      jest.resetModules();
+      const { POST } = await import('../route');
+
+      const request = new NextRequest('http://localhost:3001/api/auth/check-email', {
+        method: 'POST',
+        body: JSON.stringify({ email: 'allowed@example.com' }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      await POST(request);
+      expect(mockHasInviteOrMembership).not.toHaveBeenCalled();
+    });
+
+    it('does not grant via invites when the allowlist is unconfigured', async () => {
+      delete process.env.ALLOWED_EMAILS;
+      jest.resetModules();
+      mockHasInviteOrMembership.mockResolvedValue(true);
+      const { POST } = await import('../route');
+
+      const request = new NextRequest('http://localhost:3001/api/auth/check-email', {
+        method: 'POST',
+        body: JSON.stringify({ email: 'member@example.com' }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const data = await (await POST(request)).json();
+      expect(data.allowed).toBe(false);
+    });
+
+    it('returns 500 / not allowed when the invite lookup fails', async () => {
+      process.env.ALLOWED_EMAILS = 'allowed@example.com';
+      jest.resetModules();
+      mockHasInviteOrMembership.mockRejectedValue(new Error('db down'));
+      const { POST } = await import('../route');
+
+      const request = new NextRequest('http://localhost:3001/api/auth/check-email', {
+        method: 'POST',
+        body: JSON.stringify({ email: 'member@example.com' }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(500);
+      expect((await response.json()).allowed).toBe(false);
     });
   });
 });

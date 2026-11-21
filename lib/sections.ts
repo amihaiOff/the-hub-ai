@@ -66,8 +66,9 @@ export function canAccessPath(
   if (!isRestricted(allowedSections)) return true;
   if (ALWAYS_ALLOWED.some((p) => matches(pathname, p))) return true;
   return allowedSections!.some((id) => {
+    if (!Object.hasOwn(SECTIONS, id)) return false; // unknown / prototype keys
     const section = SECTIONS[id as SectionId];
-    return !!section && [...section.pages, ...section.api].some((p) => matches(pathname, p));
+    return [...section.pages, ...section.api].some((p) => matches(pathname, p));
   });
 }
 

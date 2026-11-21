@@ -40,6 +40,7 @@ import {
   useHouseholdContext,
   useNeedsOnboarding,
   useIsHouseholdAdmin,
+  useSectionAccess,
 } from '../household-context';
 
 describe('HouseholdContext', () => {
@@ -630,6 +631,45 @@ describe('HouseholdContext', () => {
       await waitFor(() => {
         expect(result.current).toBe(false);
       });
+    });
+  });
+
+  describe('useSectionAccess', () => {
+    function respondWith(allowedSections: string[] | undefined) {
+      mockUseUser.mockReturnValue({ id: 'user-1', displayName: 'Test User' });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            ...mockContextResponse,
+            data: {
+              ...mockContextResponse.data,
+              activeHousehold: { ...mockContextResponse.data.activeHousehold, allowedSections },
+            },
+          }),
+      });
+    }
+
+    it('is unrestricted when the active household has no allowedSections', async () => {
+      respondWith(undefined);
+      const { result } = renderHook(() => useSectionAccess(), { wrapper: createWrapper() });
+
+      await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+      expect(result.current.restricted).toBe(false);
+      expect(result.current.allowedSections).toEqual([]);
+      expect(result.current.canAccess('/settings')).toBe(true);
+    });
+
+    it('reflects a restricted active household', async () => {
+      respondWith(['shopping']);
+      const { result } = renderHook(() => useSectionAccess(), { wrapper: createWrapper() });
+
+      await waitFor(() => expect(result.current.restricted).toBe(true));
+      expect(result.current.allowedSections).toEqual(['shopping']);
+      expect(result.current.canAccess('/shopping')).toBe(true);
+      expect(result.current.canAccess('/api/shopping/items')).toBe(true);
+      expect(result.current.canAccess('/budget')).toBe(false);
+      expect(result.current.canAccess('/settings')).toBe(false);
     });
   });
 });

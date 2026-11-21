@@ -395,7 +395,9 @@ export default function HouseholdSettingsPage() {
 
 function sectionsSummary(allowed: string[] | undefined): string {
   if (!allowed || allowed.length === 0) return 'Access to everything';
-  return 'Only ' + allowed.map((id) => SECTIONS[id as keyof typeof SECTIONS]?.label ?? id).join(', ');
+  return (
+    'Only ' + allowed.map((id) => SECTIONS[id as keyof typeof SECTIONS]?.label ?? id).join(', ')
+  );
 }
 
 /**

@@ -4,10 +4,10 @@
  */
 
 // Mock the auth-utils module
-const mockGetCurrentUser = jest.fn();
+const mockGetCurrentContext = jest.fn();
 
 jest.mock('@/lib/auth-utils', () => ({
-  getCurrentUser: () => mockGetCurrentUser(),
+  getCurrentContext: () => mockGetCurrentContext(),
 }));
 
 // Mock Prisma client
@@ -53,6 +53,32 @@ jest.mock('@/lib/api/exchange-rates', () => ({
   fetchExchangeRates: jest.fn().mockResolvedValue({ USD: 3.6, EUR: 3.9, GBP: 4.5, ILS: 1 }),
 }));
 
+import type { CurrentContext } from '@/lib/auth-utils';
+import { householdVisibleWhere } from '@/lib/utils/household-scope';
+
+// getCurrentContext fixture. Portfolio routes are household-scoped: they read
+// user.id, profile.id and activeHousehold.id from the context.
+const HOUSEHOLD_ID = 'household-1';
+function asContext(
+  user: { id: string; email?: string | null; name?: string | null } | null
+): CurrentContext | null {
+  if (!user) return null;
+  const household = { id: HOUSEHOLD_ID, name: 'Home', description: null, role: 'owner' as const };
+  return {
+    user: { id: user.id, email: user.email ?? null, name: user.name ?? null },
+    profile: {
+      id: `profile-${user.id}`,
+      name: user.name ?? 'Me',
+      image: null,
+      color: null,
+      userId: user.id,
+    },
+    households: [household],
+    activeHousehold: household,
+    householdProfiles: [],
+  };
+}
+
 import { GET } from '../route';
 
 describe('Portfolio API', () => {
@@ -75,7 +101,7 @@ describe('Portfolio API', () => {
 
   describe('GET /api/portfolio', () => {
     it('returns 401 when user is not authenticated', async () => {
-      mockGetCurrentUser.mockResolvedValue(null);
+      mockGetCurrentContext.mockResolvedValue(asContext(null));
 
       const response = await GET();
       const data = await response.json();
@@ -86,7 +112,7 @@ describe('Portfolio API', () => {
     });
 
     it('returns empty data when no accounts exist', async () => {
-      mockGetCurrentUser.mockResolvedValue(mockUser);
+      mockGetCurrentContext.mockResolvedValue(asContext(mockUser));
       mockPrisma.stockAccount.findMany.mockResolvedValue([]);
       mockGetStockPrices.mockResolvedValue(new Map());
 
@@ -99,7 +125,7 @@ describe('Portfolio API', () => {
     });
 
     it('returns portfolio summary with accounts', async () => {
-      mockGetCurrentUser.mockResolvedValue(mockUser);
+      mockGetCurrentContext.mockResolvedValue(asContext(mockUser));
       mockPrisma.stockAccount.findMany.mockResolvedValue([
         {
           id: 'account-1',
@@ -156,7 +182,7 @@ describe('Portfolio API', () => {
     });
 
     it('fetches prices for all unique symbols', async () => {
-      mockGetCurrentUser.mockResolvedValue(mockUser);
+      mockGetCurrentContext.mockResolvedValue(asContext(mockUser));
       mockPrisma.stockAccount.findMany.mockResolvedValue([
         {
           id: 'account-1',
@@ -197,7 +223,7 @@ describe('Portfolio API', () => {
     });
 
     it('handles price fetch errors gracefully', async () => {
-      mockGetCurrentUser.mockResolvedValue(mockUser);
+      mockGetCurrentContext.mockResolvedValue(asContext(mockUser));
       mockPrisma.stockAccount.findMany.mockResolvedValue([
         {
           id: 'account-1',
@@ -221,8 +247,40 @@ describe('Portfolio API', () => {
       expect(data.success).toBe(true);
     });
 
+    it('scopes accounts to the active household, not the signed-in user', async () => {
+      mockGetCurrentContext.mockResolvedValue(asContext(mockUser));
+      // An account created by ANOTHER household member (userId differs) is
+      // still returned: visibility is decided by the household filter.
+      mockPrisma.stockAccount.findMany.mockResolvedValue([
+        {
+          id: 'account-partner',
+          name: 'Partner Account',
+          broker: null,
+          currency: 'USD',
+          userId: 'partner-user',
+          holdings: [],
+          cashBalances: [],
+          owners: [],
+        },
+      ]);
+      mockGetStockPrices.mockResolvedValue(new Map());
+
+      const response = await GET();
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      const where = mockPrisma.stockAccount.findMany.mock.calls[0][0].where;
+      expect(where).toEqual(householdVisibleWhere(HOUSEHOLD_ID));
+      expect(where).not.toHaveProperty('userId');
+      expect(data.success).toBe(true);
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { calculatePortfolioSummary } = require('@/lib/utils/portfolio');
+      const summarised = (calculatePortfolioSummary as jest.Mock).mock.calls[0][0];
+      expect(summarised.map((a: { id: string }) => a.id)).toEqual(['account-partner']);
+    });
+
     it('handles database error', async () => {
-      mockGetCurrentUser.mockResolvedValue(mockUser);
+      mockGetCurrentContext.mockResolvedValue(asContext(mockUser));
       mockPrisma.stockAccount.findMany.mockRejectedValue(new Error('Database error'));
 
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();

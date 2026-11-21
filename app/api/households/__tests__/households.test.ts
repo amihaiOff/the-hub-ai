@@ -390,6 +390,7 @@ describe('Households API', () => {
         members: [
           {
             role: 'owner',
+            allowedSections: ['finances'],
             joinedAt: new Date('2024-01-01'),
             profile: {
               id: 'cm1234567890abcdefghij',
@@ -418,6 +419,7 @@ describe('Households API', () => {
       expect(data.data.members).toHaveLength(1);
       expect(data.data.members[0].role).toBe('owner');
       expect(data.data.members[0].hasUser).toBe(true);
+      expect(data.data.members[0].allowedSections).toEqual(['finances']);
     });
 
     it('should return 500 on internal error', async () => {

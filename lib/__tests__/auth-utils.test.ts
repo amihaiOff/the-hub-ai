@@ -19,6 +19,32 @@ const mockGetUser = jest.fn();
 const mockUpsert = jest.fn();
 const mockProfileFindUnique = jest.fn();
 const mockHouseholdMemberFindMany = jest.fn();
+// The section guard in getCurrentUser also calls householdMember.findMany
+// (with `select: { allowedSections }`). Route that call to its own mock so the
+// existing getCurrentContext tests keep their mockResolvedValueOnce ordering.
+const mockSectionMembershipsFindMany = jest.fn();
+const mockUserFindFirst = jest.fn();
+const mockInviteFindFirst = jest.fn();
+const mockHeadersGet = jest.fn();
+const mockHeaders = jest.fn();
+
+jest.mock('next/headers', () => ({
+  headers: (...args: unknown[]) => mockHeaders(...args),
+}));
+
+function resetSectionMocks() {
+  mockSectionMembershipsFindMany.mockReset();
+  mockSectionMembershipsFindMany.mockResolvedValue([]); // no membership = unrestricted
+  mockUserFindFirst.mockReset();
+  mockUserFindFirst.mockResolvedValue(null);
+  mockInviteFindFirst.mockReset();
+  mockInviteFindFirst.mockResolvedValue(null);
+  mockHeadersGet.mockReset();
+  mockHeadersGet.mockReturnValue(null);
+  mockHeaders.mockReset();
+  mockHeaders.mockResolvedValue({ get: mockHeadersGet });
+}
+resetSectionMocks();
 
 // Setup mocks that will be used by all dynamic imports
 jest.mock('@/stack/server', () => ({
@@ -31,15 +57,19 @@ jest.mock('@/lib/db', () => ({
   prisma: {
     user: {
       upsert: mockUpsert,
+      findFirst: (...args: unknown[]) => mockUserFindFirst(...args),
     },
     profile: {
       findUnique: mockProfileFindUnique,
     },
     householdMember: {
-      findMany: mockHouseholdMemberFindMany,
+      findMany: (args: { select?: { allowedSections?: boolean } }) =>
+        args?.select?.allowedSections
+          ? mockSectionMembershipsFindMany(args)
+          : mockHouseholdMemberFindMany(args),
     },
     householdInvite: {
-      findFirst: jest.fn().mockResolvedValue(null),
+      findFirst: (...args: unknown[]) => mockInviteFindFirst(...args),
       findMany: jest.fn().mockResolvedValue([]),
       update: jest.fn(),
       delete: jest.fn(),
@@ -61,6 +91,7 @@ describe('Auth Utils', () => {
     // Reset mocks
     mockGetUser.mockReset();
     mockUpsert.mockReset();
+    resetSectionMocks();
     mockProfileFindUnique.mockReset();
     mockHouseholdMemberFindMany.mockReset();
     // Reset module cache to get fresh devUserCreated state
@@ -436,6 +467,7 @@ describe('Security Verification Summary', () => {
   beforeEach(() => {
     mockGetUser.mockReset();
     mockUpsert.mockReset();
+    resetSectionMocks();
     jest.resetModules();
     setNodeEnv(originalNodeEnv || 'test');
     delete process.env.SKIP_AUTH;
@@ -552,6 +584,7 @@ describe('Profile/Household Context', () => {
   beforeEach(() => {
     mockGetUser.mockReset();
     mockUpsert.mockReset();
+    resetSectionMocks();
     mockProfileFindUnique.mockReset();
     mockHouseholdMemberFindMany.mockReset();
     jest.resetModules();
@@ -971,6 +1004,286 @@ describe('Profile/Household Context', () => {
       expect(context).not.toBeNull();
       expect(context?.user.id).toBe('dev-user-local');
       expect(context?.profile.id).toBe('dev-profile');
+    });
+  });
+});
+
+describe('Section restriction', () => {
+  const originalAllowed = process.env.ALLOWED_EMAILS;
+
+  beforeEach(() => {
+    mockGetUser.mockReset();
+    mockUpsert.mockReset();
+    mockProfileFindUnique.mockReset();
+    mockHouseholdMemberFindMany.mockReset();
+    resetSectionMocks();
+    jest.resetModules();
+    delete process.env.VERCEL_ENV;
+    delete process.env.VERCEL;
+    delete process.env.ALLOWED_EMAILS;
+    // Dev bypass: deterministic signed-in user without Stack Auth.
+    setNodeEnv('development');
+    process.env.SKIP_AUTH = 'true';
+    mockUpsert.mockResolvedValue({});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  afterAll(() => {
+    setNodeEnv(originalNodeEnv || 'test');
+    if (originalSkipAuth !== undefined) process.env.SKIP_AUTH = originalSkipAuth;
+    else delete process.env.SKIP_AUTH;
+    if (originalAllowed !== undefined) process.env.ALLOWED_EMAILS = originalAllowed;
+    else delete process.env.ALLOWED_EMAILS;
+  });
+
+  function setPath(path: string | null) {
+    mockHeadersGet.mockImplementation((name: string) => (name === 'x-pathname' ? path : null));
+  }
+
+  describe('getCurrentUser (most restrictive across memberships)', () => {
+    it('queries the signed-in user’s memberships for allowedSections', async () => {
+      const { getCurrentUser } = await import('../auth-utils');
+      await getCurrentUser();
+
+      expect(mockSectionMembershipsFindMany).toHaveBeenCalledWith({
+        where: { profile: { userId: 'dev-user-local' } },
+        select: { allowedSections: true },
+      });
+    });
+
+    it('returns null for a restricted user on a denied x-pathname', async () => {
+      mockSectionMembershipsFindMany.mockResolvedValue([{ allowedSections: ['finances'] }]);
+      setPath('/api/tasks');
+
+      const { getCurrentUser } = await import('../auth-utils');
+      expect(await getCurrentUser()).toBeNull();
+    });
+
+    it('returns the user for a restricted user on an allowed x-pathname', async () => {
+      mockSectionMembershipsFindMany.mockResolvedValue([{ allowedSections: ['finances'] }]);
+      setPath('/api/portfolio/accounts/abc');
+
+      const { getCurrentUser } = await import('../auth-utils');
+      expect(await getCurrentUser()).toEqual({
+        id: 'dev-user-local',
+        email: 'dev@localhost',
+        name: 'Dev User',
+      });
+    });
+
+    it('allows always-allowed infrastructure paths for a restricted user', async () => {
+      mockSectionMembershipsFindMany.mockResolvedValue([{ allowedSections: ['shopping'] }]);
+      setPath('/api/context');
+
+      const { getCurrentUser } = await import('../auth-utils');
+      expect(await getCurrentUser()).not.toBeNull();
+    });
+
+    it('returns null for a restricted user when the x-pathname header is missing', async () => {
+      mockSectionMembershipsFindMany.mockResolvedValue([{ allowedSections: ['finances'] }]);
+      setPath(null);
+
+      const { getCurrentUser } = await import('../auth-utils');
+      expect(await getCurrentUser()).toBeNull();
+    });
+
+    it('returns null for a restricted user when headers() throws (no request scope)', async () => {
+      mockSectionMembershipsFindMany.mockResolvedValue([{ allowedSections: ['finances'] }]);
+      mockHeaders.mockRejectedValue(new Error('outside request scope'));
+
+      const { getCurrentUser } = await import('../auth-utils');
+      expect(await getCurrentUser()).toBeNull();
+    });
+
+    it('returns the user for an unrestricted member without reading headers', async () => {
+      mockSectionMembershipsFindMany.mockResolvedValue([{ allowedSections: [] }]);
+
+      const { getCurrentUser } = await import('../auth-utils');
+      expect(await getCurrentUser()).not.toBeNull();
+      expect(mockHeaders).not.toHaveBeenCalled();
+    });
+
+    it('returns the user with no membership yet (onboarding) without reading headers', async () => {
+      mockSectionMembershipsFindMany.mockResolvedValue([]);
+
+      const { getCurrentUser } = await import('../auth-utils');
+      expect(await getCurrentUser()).not.toBeNull();
+      expect(mockHeaders).not.toHaveBeenCalled();
+    });
+
+    it('denies when ANY membership is restricted and disallows the path (unrestricted elsewhere)', async () => {
+      // Unrestricted in their own household, limited to shopping in another.
+      mockSectionMembershipsFindMany.mockResolvedValue([
+        { allowedSections: [] },
+        { allowedSections: ['shopping'] },
+      ]);
+      setPath('/api/tasks');
+
+      const { getCurrentUser } = await import('../auth-utils');
+      expect(await getCurrentUser()).toBeNull();
+    });
+
+    it('allows a path permitted by EVERY membership', async () => {
+      mockSectionMembershipsFindMany.mockResolvedValue([
+        { allowedSections: [] },
+        { allowedSections: ['shopping'] },
+      ]);
+      setPath('/api/shopping/items');
+
+      const { getCurrentUser } = await import('../auth-utils');
+      expect(await getCurrentUser()).not.toBeNull();
+    });
+
+    it('does not union two restricted memberships', async () => {
+      mockSectionMembershipsFindMany.mockResolvedValue([
+        { allowedSections: ['finances'] },
+        { allowedSections: ['shopping'] },
+      ]);
+      setPath('/api/shopping');
+
+      const { getCurrentUser } = await import('../auth-utils');
+      expect(await getCurrentUser()).toBeNull();
+    });
+  });
+
+  describe('getCurrentContext (active household decides)', () => {
+    // Own household (unrestricted) + a second household limited to shopping.
+    const profile = {
+      id: 'p1',
+      name: 'Dev',
+      image: null,
+      color: null,
+      userId: 'dev-user-local',
+      householdMemberships: [
+        {
+          role: 'owner',
+          allowedSections: [],
+          household: { id: 'own', name: 'Own', description: null },
+        },
+        {
+          role: 'member',
+          allowedSections: ['shopping'],
+          household: { id: 'shared', name: 'Shared', description: null },
+        },
+      ],
+    };
+
+    beforeEach(() => {
+      mockProfileFindUnique.mockResolvedValue(profile);
+      mockHouseholdMemberFindMany.mockResolvedValue([]);
+    });
+
+    it('does not run the cross-membership getCurrentUser check', async () => {
+      setPath('/api/tasks');
+      const { getCurrentContext } = await import('../auth-utils');
+      await getCurrentContext('own');
+      expect(mockSectionMembershipsFindMany).not.toHaveBeenCalled();
+    });
+
+    it('allows /api/tasks with the unrestricted household active', async () => {
+      setPath('/api/tasks');
+      const { getCurrentContext } = await import('../auth-utils');
+      const context = await getCurrentContext('own');
+      expect(context?.activeHousehold.id).toBe('own');
+      expect(context?.activeHousehold.allowedSections).toEqual([]);
+      expect(context?.households.map((h) => h.allowedSections)).toEqual([[], ['shopping']]);
+    });
+
+    it('denies /api/tasks with the restricted household active', async () => {
+      setPath('/api/tasks');
+      const { getCurrentContext } = await import('../auth-utils');
+      expect(await getCurrentContext('shared')).toBeNull();
+      expect(mockHouseholdMemberFindMany).not.toHaveBeenCalled();
+    });
+
+    it('allows an in-section path with the restricted household active', async () => {
+      setPath('/api/shopping/items');
+      const { getCurrentContext } = await import('../auth-utils');
+      expect((await getCurrentContext('shared'))?.activeHousehold.id).toBe('shared');
+    });
+
+    it('denies the restricted household when x-pathname is missing', async () => {
+      setPath(null);
+      const { getCurrentContext } = await import('../auth-utils');
+      expect(await getCurrentContext('shared')).toBeNull();
+    });
+
+    it('does not read headers when the active household is unrestricted', async () => {
+      const { getCurrentContext } = await import('../auth-utils');
+      expect(await getCurrentContext('own')).not.toBeNull();
+      expect(mockHeaders).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('allowlist grant via invite (pending or accepted + still a member)', () => {
+    beforeEach(() => {
+      setNodeEnv('production');
+      delete process.env.SKIP_AUTH;
+      process.env.ALLOWED_EMAILS = 'owner@example.com';
+      mockGetUser.mockResolvedValue({ primaryEmail: 'Member@Example.com', displayName: 'M' });
+      mockUpsert.mockResolvedValue({ id: 'user-m', email: 'member@example.com', name: 'M' });
+    });
+
+    it('denies a non-allowlisted email with no matching invite', async () => {
+      const { getCurrentUser } = await import('../auth-utils');
+      expect(await getCurrentUser()).toBeNull();
+      expect(mockUpsert).not.toHaveBeenCalled();
+    });
+
+    it('admits a non-allowlisted email once its invite was accepted and they remain a member', async () => {
+      // The query's accepted-invite branch matched.
+      mockInviteFindFirst.mockResolvedValue({ id: 'inv-accepted' });
+
+      const { getCurrentUser } = await import('../auth-utils');
+      expect(await getCurrentUser()).toEqual({
+        id: 'user-m',
+        email: 'member@example.com',
+        name: 'M',
+      });
+    });
+
+    it('hasInviteOrMembership issues one invite query covering pending and accepted-and-still-member', async () => {
+      const { hasInviteOrMembership } = await import('../auth-utils');
+
+      expect(await hasInviteOrMembership('  Member@Example.com ')).toBe(false);
+      expect(mockInviteFindFirst).toHaveBeenCalledTimes(1);
+      expect(mockUserFindFirst).not.toHaveBeenCalled();
+
+      const { where } = mockInviteFindFirst.mock.calls[0][0];
+      expect(where.email).toBe('member@example.com');
+      expect(where.OR).toEqual([
+        { acceptedAt: null, expiresAt: { gt: expect.any(Date) } },
+        {
+          acceptedAt: { not: null },
+          household: {
+            members: {
+              some: {
+                profile: {
+                  user: { email: { equals: 'member@example.com', mode: 'insensitive' } },
+                },
+              },
+            },
+          },
+        },
+      ]);
+      // Pending branch must only accept unexpired invites.
+      expect(where.OR[0].expiresAt.gt.getTime()).toBeGreaterThan(Date.now() - 5000);
+
+      mockInviteFindFirst.mockResolvedValueOnce({ id: 'inv-1' });
+      expect(await hasInviteOrMembership('member@example.com')).toBe(true);
+    });
+
+    it('gives a self-onboarded user (membership, no invite) no grant', async () => {
+      // They have a household of their own, but no invite row matches.
+      mockUserFindFirst.mockResolvedValue({ id: 'user-m' });
+      mockInviteFindFirst.mockResolvedValue(null);
+
+      const { hasInviteOrMembership } = await import('../auth-utils');
+      expect(await hasInviteOrMembership('member@example.com')).toBe(false);
     });
   });
 });

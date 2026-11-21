@@ -17,6 +17,7 @@ jest.mock('@/lib/db', () => ({
   prisma: {
     stockAccount: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
     },
     stockAccountOwner: {
       findMany: jest.fn(),
@@ -33,7 +34,24 @@ jest.mock('@/lib/api/validation', () => ({
 }));
 
 import { prisma } from '@/lib/db';
+import { householdVisibleWhere } from '@/lib/utils/household-scope';
 import { GET, PUT } from '../[id]/owners/route';
+
+const ACCOUNT_ID = 'cm1234567890accountabc';
+const HOUSEHOLD_ID = 'cm1234567890household1';
+
+// isStockAccountInHousehold (real) runs prisma.stockAccount.findFirst with the
+// household-visibility filter. Simulate the DB: only ids in `visible` match,
+// and only when the query is actually scoped to the active household.
+function mockHouseholdAccounts(visible: string[]) {
+  (prisma.stockAccount.findFirst as jest.Mock).mockImplementation(
+    async (args: { where: { id: string } }) => {
+      const { id, ...rest } = args.where;
+      const scoped = JSON.stringify(rest) === JSON.stringify(householdVisibleWhere(HOUSEHOLD_ID));
+      return scoped && visible.includes(id) ? { id } : null;
+    }
+  );
+}
 
 import { NextResponse } from 'next/server';
 
@@ -47,6 +65,7 @@ const invalidCuid = () => ({
 describe('Stock Account Owners API', () => {
   beforeEach(() => {
     jest.resetAllMocks();
+    mockHouseholdAccounts([ACCOUNT_ID]);
     // Default: accept valid CUIDs
     mockValidateCuid.mockImplementation((id: string) => {
       if (id && id.length >= 20 && id.startsWith('c')) {
@@ -128,7 +147,8 @@ describe('Stock Account Owners API', () => {
       expect(data.error).toBe('Unauthorized');
     });
 
-    it('should return 403 when no owner is in user household', async () => {
+    it('should return 403 when the account is not visible to the active household', async () => {
+      mockHouseholdAccounts([]);
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
 
       // Mock returns only profileId (API uses select: { profileId: true })
@@ -254,7 +274,8 @@ describe('Stock Account Owners API', () => {
       expect(data.error).toBe('Account not found');
     });
 
-    it('should return 403 when no current owner is in user household', async () => {
+    it('should return 403 when the account is not visible to the active household', async () => {
+      mockHouseholdAccounts([]);
       mockGetCurrentContext.mockResolvedValueOnce(mockContext);
 
       const account = {
@@ -565,6 +586,72 @@ describe('Stock Account Owners API', () => {
       expect(response.status).toBe(500);
       expect(data.success).toBe(false);
       expect(data.error).toBe('Failed to update owners');
+    });
+  });
+
+  describe('household visibility', () => {
+    it('GET checks visibility against the active household', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (prisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce([]);
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/portfolio/accounts/${ACCOUNT_ID}/owners`
+      );
+      const response = await GET(request, { params: Promise.resolve({ id: ACCOUNT_ID }) });
+
+      expect(response.status).toBe(200);
+      expect(prisma.stockAccount.findFirst).toHaveBeenCalledWith({
+        where: { id: ACCOUNT_ID, ...householdVisibleWhere(HOUSEHOLD_ID) },
+        select: { id: true },
+      });
+    });
+
+    it('PUT refuses to claim an owner-less account from another household', async () => {
+      // Previously any household could claim an account with no owners.
+      mockHouseholdAccounts([]);
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (prisma.stockAccount.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: ACCOUNT_ID,
+        name: 'Stranger Account',
+      });
+      (prisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce([]);
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/portfolio/accounts/${ACCOUNT_ID}/owners`,
+        { method: 'PUT', body: JSON.stringify({ profileIds: ['cm1234567890abcdefghij'] }) }
+      );
+      const response = await PUT(request, { params: Promise.resolve({ id: ACCOUNT_ID }) });
+
+      expect(response.status).toBe(403);
+      expect(prisma.stockAccountOwner.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.stockAccountOwner.create).not.toHaveBeenCalled();
+    });
+
+    it('PUT lets a member re-assign an account owned only by another household member', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      (prisma.stockAccount.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: ACCOUNT_ID,
+        name: 'Partner Account',
+      });
+      (prisma.stockAccountOwner.findMany as jest.Mock).mockResolvedValueOnce([
+        { profileId: 'cm1234567890profile2abc' },
+      ]);
+      (prisma.stockAccountOwner.deleteMany as jest.Mock).mockResolvedValueOnce({});
+      (prisma.stockAccountOwner.create as jest.Mock).mockResolvedValue({});
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/portfolio/accounts/${ACCOUNT_ID}/owners`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            profileIds: ['cm1234567890abcdefghij', 'cm1234567890profile2abc'],
+          }),
+        }
+      );
+      const response = await PUT(request, { params: Promise.resolve({ id: ACCOUNT_ID }) });
+
+      expect(response.status).toBe(200);
+      expect(prisma.stockAccountOwner.create).toHaveBeenCalledTimes(2);
     });
   });
 });

@@ -3,7 +3,14 @@
  * Tests navItems structure, ordering, and the Finances section header.
  */
 
-import { navItems, settingsItem, isNavHeader, NavItem } from '../navigation';
+import {
+  navItems,
+  settingsItem,
+  isNavHeader,
+  filterNavForSections,
+  NavItem,
+  NavEntry,
+} from '../navigation';
 import {
   LayoutDashboard,
   TrendingUp,
@@ -102,5 +109,67 @@ describe('Navigation Constants', () => {
       expect(testItem.href).toBe('/test');
       expect(testItem.label).toBe('Test');
     });
+  });
+});
+
+describe('filterNavForSections', () => {
+  const labels = (entries: NavEntry[]) =>
+    entries.map((e) => (isNavHeader(e) ? `# ${e.header}` : e.label));
+
+  it('returns the same entries untouched for an unrestricted member', () => {
+    expect(filterNavForSections(navItems, [])).toBe(navItems);
+  });
+
+  it('finances + shopping → Shopping, Finances header, Portfolio..Budget only', () => {
+    expect(labels(filterNavForSections(navItems, ['finances', 'shopping']))).toEqual([
+      'Shopping',
+      '# Finances',
+      'Portfolio',
+      'Pension',
+      'Assets',
+      'Insurance',
+      'Budget',
+    ]);
+  });
+
+  it('hides Dashboard, Tasks, Labs, Habits and Wiki for finances + shopping', () => {
+    const result = labels(filterNavForSections(navItems, ['finances', 'shopping']));
+    for (const hidden of ['Dashboard', 'Tasks', 'Labs', 'Habits', 'Wiki']) {
+      expect(result).not.toContain(hidden);
+    }
+  });
+
+  it('drops a header left with nothing under it (no dangling Finances header)', () => {
+    const result = filterNavForSections(navItems, ['shopping', 'tasks']);
+    expect(labels(result)).toEqual(['Tasks', 'Shopping']);
+    expect(result.some(isNavHeader)).toBe(false);
+  });
+
+  it('never ends with a header', () => {
+    for (const ids of [['dashboard'], ['wiki'], ['finances'], ['habits', 'finances']]) {
+      const result = filterNavForSections(navItems, ids);
+      expect(result.length).toBeGreaterThan(0);
+      expect(isNavHeader(result[result.length - 1])).toBe(false);
+    }
+  });
+
+  it('keeps an item when only one of its sub-pages is reachable', () => {
+    const entries: NavEntry[] = [
+      {
+        href: '/somewhere-else',
+        label: 'Mixed',
+        icon: Settings,
+        subItems: [
+          { href: '/nope', label: 'Nope', icon: Settings },
+          { href: '/shopping/items', label: 'Items', icon: Settings },
+        ],
+      },
+      { href: '/nope', label: 'Hidden', icon: Settings },
+    ];
+    expect(labels(filterNavForSections(entries, ['shopping']))).toEqual(['Mixed']);
+  });
+
+  it('ignores unknown section ids (nothing visible)', () => {
+    expect(filterNavForSections(navItems, ['bogus'])).toEqual([]);
   });
 });

@@ -70,6 +70,21 @@ jest.mock('@/components/favorites/favorites-drawer', () => ({
   },
 }));
 
+// Section access comes from the household context. Stub the hook (the real
+// provider drags in Stack Auth + /api/context) but keep the real path rules
+// from lib/sections so restricted/unrestricted behaviour is genuine.
+let mockAllowedSections: string[] = [];
+jest.mock('@/lib/contexts/household-context', () => {
+  const { canAccessPath, isRestricted } = jest.requireActual('@/lib/sections');
+  return {
+    useSectionAccess: () => ({
+      allowedSections: mockAllowedSections,
+      restricted: isRestricted(mockAllowedSections),
+      canAccess: (p: string) => canAccessPath(p, mockAllowedSections),
+    }),
+  };
+});
+
 // Import after mocks
 import { MobileHeader } from '../mobile-header';
 
@@ -90,6 +105,7 @@ function renderHeader(onMenuClick: () => void) {
 describe('MobileHeader', () => {
   beforeEach(() => {
     jest.resetAllMocks();
+    mockAllowedSections = [];
     mockFetch.mockResolvedValue({ ok: true, json: async () => ({ success: true, data: [] }) });
   });
 
@@ -219,6 +235,24 @@ describe('MobileHeader', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Open favourites' }));
 
       expect(mockOnMenuClick).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Section restriction', () => {
+    it('hides the favourites star for a member limited to sections without favourites', () => {
+      mockAllowedSections = ['shopping'];
+      renderHeader(jest.fn());
+
+      expect(screen.queryByRole('button', { name: 'Open favourites' })).not.toBeInTheDocument();
+      // The hamburger still renders.
+      expect(screen.getByRole('button', { name: 'Open menu' })).toBeInTheDocument();
+    });
+
+    it('keeps the favourites star when the dashboard section (which owns /api/favorites) is allowed', () => {
+      mockAllowedSections = ['dashboard', 'shopping'];
+      renderHeader(jest.fn());
+
+      expect(screen.getByRole('button', { name: 'Open favourites' })).toBeInTheDocument();
     });
   });
 });

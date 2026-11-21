@@ -577,6 +577,152 @@ describe('Household Members API', () => {
     });
   });
 
+  describe('PUT /api/households/[id]/members/[profileId] — allowedSections', () => {
+    const HH = 'cm1234567890household1';
+    const PID = 'cm1234567890newprofile';
+    const url = `http://localhost:3000/api/households/${HH}/members/${PID}`;
+    const params = { params: Promise.resolve({ id: HH, profileId: PID }) };
+
+    function asAdminWithMember(role: 'member' | 'admin' | 'owner' = 'member') {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      mockIsHouseholdAdmin.mockReturnValueOnce(true);
+      (prisma.householdMember.findUnique as jest.Mock).mockResolvedValueOnce({
+        householdId: HH,
+        profileId: PID,
+        role,
+      });
+    }
+
+    it('sets allowedSections without touching the role', async () => {
+      asAdminWithMember();
+      (prisma.householdMember.update as jest.Mock).mockResolvedValueOnce({
+        householdId: HH,
+        profileId: PID,
+        role: 'member',
+        allowedSections: ['finances', 'shopping'],
+        profile: { id: PID, name: 'Kid', image: null, color: null, userId: 'user-456' },
+      });
+
+      const response = await PUT(
+        new NextRequest(url, {
+          method: 'PUT',
+          body: JSON.stringify({ allowedSections: ['finances', 'shopping'] }),
+        }),
+        params
+      );
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.allowedSections).toEqual(['finances', 'shopping']);
+      const call = (prisma.householdMember.update as jest.Mock).mock.calls[0][0];
+      expect(call.where).toEqual({ householdId_profileId: { householdId: HH, profileId: PID } });
+      expect(call.data.allowedSections).toEqual(['finances', 'shopping']);
+      // role omitted → Prisma ignores undefined, so the role is left as-is
+      expect(call.data.role).toBeUndefined();
+    });
+
+    it('clears a restriction with an empty list', async () => {
+      asAdminWithMember();
+      (prisma.householdMember.update as jest.Mock).mockResolvedValueOnce({
+        role: 'member',
+        allowedSections: [],
+        profile: { id: PID, name: 'Kid', image: null, color: null, userId: null },
+      });
+
+      const response = await PUT(
+        new NextRequest(url, { method: 'PUT', body: JSON.stringify({ allowedSections: [] }) }),
+        params
+      );
+
+      expect(response.status).toBe(200);
+      expect((prisma.householdMember.update as jest.Mock).mock.calls[0][0].data).toEqual(
+        expect.objectContaining({ allowedSections: [] })
+      );
+    });
+
+    it('updates role and allowedSections together', async () => {
+      asAdminWithMember();
+      (prisma.householdMember.update as jest.Mock).mockResolvedValueOnce({
+        role: 'admin',
+        allowedSections: ['tasks'],
+        profile: { id: PID, name: 'Kid', image: null, color: null, userId: null },
+      });
+
+      const response = await PUT(
+        new NextRequest(url, {
+          method: 'PUT',
+          body: JSON.stringify({ role: 'admin', allowedSections: ['tasks'] }),
+        }),
+        params
+      );
+
+      expect(response.status).toBe(200);
+      expect((prisma.householdMember.update as jest.Mock).mock.calls[0][0].data).toEqual({
+        role: 'admin',
+        allowedSections: ['tasks'],
+      });
+    });
+
+    it('rejects restricting the owner', async () => {
+      asAdminWithMember('owner');
+
+      const response = await PUT(
+        new NextRequest(url, {
+          method: 'PUT',
+          body: JSON.stringify({ allowedSections: ['shopping'] }),
+        }),
+        params
+      );
+
+      expect(response.status).toBe(400);
+      expect(prisma.householdMember.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unknown section id', async () => {
+      asAdminWithMember();
+
+      const response = await PUT(
+        new NextRequest(url, {
+          method: 'PUT',
+          body: JSON.stringify({ allowedSections: ['finances', 'settings'] }),
+        }),
+        params
+      );
+
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toBe('Invalid data');
+      expect(prisma.householdMember.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects an empty body (nothing to update)', async () => {
+      asAdminWithMember();
+
+      const response = await PUT(
+        new NextRequest(url, { method: 'PUT', body: JSON.stringify({}) }),
+        params
+      );
+
+      expect(response.status).toBe(400);
+      expect(prisma.householdMember.update).not.toHaveBeenCalled();
+    });
+
+    it('forbids a non-admin from restricting members', async () => {
+      mockGetCurrentContext.mockResolvedValueOnce(mockContext);
+      mockIsHouseholdAdmin.mockReturnValueOnce(false);
+
+      const response = await PUT(
+        new NextRequest(url, {
+          method: 'PUT',
+          body: JSON.stringify({ allowedSections: ['shopping'] }),
+        }),
+        params
+      );
+
+      expect(response.status).toBe(403);
+      expect(prisma.householdMember.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe('DELETE /api/households/[id]/members/[profileId]', () => {
     it('should return 400 for invalid CUID format', async () => {
       const request = new NextRequest(

@@ -17,7 +17,7 @@ jest.mock('@/lib/db', () => ({
 }));
 
 jest.mock('@/lib/auth-utils', () => ({
-  getCurrentUser: jest.fn(),
+  getCurrentContext: jest.fn(),
 }));
 
 jest.mock('@/lib/api/exchange-rates', () => {
@@ -26,11 +26,37 @@ jest.mock('@/lib/api/exchange-rates', () => {
 });
 
 import { prisma } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth-utils';
+import { getCurrentContext } from '@/lib/auth-utils';
 import { fetchExchangeRates } from '@/lib/api/exchange-rates';
+import type { CurrentContext } from '@/lib/auth-utils';
+import { householdVisibleWhere } from '@/lib/utils/household-scope';
+
+// getCurrentContext fixture. Portfolio routes are household-scoped: they read
+// user.id, profile.id and activeHousehold.id from the context.
+const HOUSEHOLD_ID = 'household-1';
+function asContext(
+  user: { id: string; email?: string | null; name?: string | null } | null
+): CurrentContext | null {
+  if (!user) return null;
+  const household = { id: HOUSEHOLD_ID, name: 'Home', description: null, role: 'owner' as const };
+  return {
+    user: { id: user.id, email: user.email ?? null, name: user.name ?? null },
+    profile: {
+      id: `profile-${user.id}`,
+      name: user.name ?? 'Me',
+      image: null,
+      color: null,
+      userId: user.id,
+    },
+    households: [household],
+    activeHousehold: household,
+    householdProfiles: [],
+  };
+}
+
 import { GET } from '../route';
 
-const mockGetCurrentUser = getCurrentUser as jest.MockedFunction<typeof getCurrentUser>;
+const mockGetCurrentContext = getCurrentContext as jest.MockedFunction<typeof getCurrentContext>;
 const mockFetchRates = fetchExchangeRates as jest.MockedFunction<typeof fetchExchangeRates>;
 const mockPrisma = prisma as unknown as {
   stockAccount: { findMany: jest.Mock };
@@ -53,15 +79,15 @@ beforeEach(() => {
 
 describe('GET /api/portfolio/account-history', () => {
   it('returns 401 when unauthenticated', async () => {
-    mockGetCurrentUser.mockResolvedValueOnce(null);
+    mockGetCurrentContext.mockResolvedValueOnce(asContext(null));
     const res = await GET(req());
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ ok: false, error: 'Unauthorized' });
     expect(mockPrisma.stockAccount.findMany).not.toHaveBeenCalled();
   });
 
-  it('scopes the account query to the current user and returns empty when no holdings', async () => {
-    mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+  it('scopes the account query to the active household and returns empty when no holdings', async () => {
+    mockGetCurrentContext.mockResolvedValueOnce(asContext(mockUser));
     mockPrisma.stockAccount.findMany.mockResolvedValueOnce([
       { id: 'acc-1', holdings: [], cashBalances: [] },
     ]);
@@ -71,7 +97,7 @@ describe('GET /api/portfolio/account-history', () => {
 
     expect(res.status).toBe(200);
     expect(mockPrisma.stockAccount.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId: 'user-1' } })
+      expect.objectContaining({ where: householdVisibleWhere(HOUSEHOLD_ID) })
     );
     // No symbols anywhere → short-circuits before touching price history.
     expect(mockPrisma.stockPriceHistory.findMany).not.toHaveBeenCalled();
@@ -79,7 +105,7 @@ describe('GET /api/portfolio/account-history', () => {
   });
 
   it('computes daily ILS value = quantity*price*rate + cash, using fetched rates', async () => {
-    mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+    mockGetCurrentContext.mockResolvedValueOnce(asContext(mockUser));
     mockPrisma.stockAccount.findMany.mockResolvedValueOnce([
       {
         id: 'acc-1',
@@ -116,7 +142,7 @@ describe('GET /api/portfolio/account-history', () => {
   it('falls back to DEFAULT_RATES (USD 3.7) when fetchExchangeRates returns null', async () => {
     mockFetchRates.mockReset();
     mockFetchRates.mockResolvedValueOnce(null);
-    mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+    mockGetCurrentContext.mockResolvedValueOnce(asContext(mockUser));
     mockPrisma.stockAccount.findMany.mockResolvedValueOnce([
       {
         id: 'acc-1',
@@ -134,7 +160,7 @@ describe('GET /api/portfolio/account-history', () => {
   });
 
   it('range=ALL removes the lower time bound (since epoch 0)', async () => {
-    mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+    mockGetCurrentContext.mockResolvedValueOnce(asContext(mockUser));
     mockPrisma.stockAccount.findMany.mockResolvedValueOnce([
       { id: 'acc-1', holdings: [{ symbol: 'AAPL', quantity: 1 }], cashBalances: [] },
     ]);
@@ -148,7 +174,7 @@ describe('GET /api/portfolio/account-history', () => {
   });
 
   it('unknown range falls back to 1Y semantics but echoes the raw range', async () => {
-    mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+    mockGetCurrentContext.mockResolvedValueOnce(asContext(mockUser));
     mockPrisma.stockAccount.findMany.mockResolvedValueOnce([]);
     const res = await GET(req('?range=BOGUS'));
     const body = await res.json();
@@ -158,7 +184,7 @@ describe('GET /api/portfolio/account-history', () => {
   });
 
   it('collapses multiple same-day prices to the last one and converts non-ILS cash', async () => {
-    mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+    mockGetCurrentContext.mockResolvedValueOnce(asContext(mockUser));
     mockPrisma.stockAccount.findMany.mockResolvedValueOnce([
       {
         id: 'acc-1',
@@ -178,7 +204,7 @@ describe('GET /api/portfolio/account-history', () => {
   });
 
   it('skips dates where any holding lacks a price on/before that date', async () => {
-    mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+    mockGetCurrentContext.mockResolvedValueOnce(asContext(mockUser));
     mockPrisma.stockAccount.findMany.mockResolvedValueOnce([
       {
         id: 'acc-1',
@@ -205,7 +231,7 @@ describe('GET /api/portfolio/account-history', () => {
   });
 
   it('infers native currency from symbol suffix (.TA=ILS, .L=GBP, .DE=EUR)', async () => {
-    mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+    mockGetCurrentContext.mockResolvedValueOnce(asContext(mockUser));
     mockPrisma.stockAccount.findMany.mockResolvedValueOnce([
       {
         id: 'acc-1',
@@ -230,7 +256,7 @@ describe('GET /api/portfolio/account-history', () => {
   });
 
   it('produces no points when a holding has no price rows at all', async () => {
-    mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+    mockGetCurrentContext.mockResolvedValueOnce(asContext(mockUser));
     mockPrisma.stockAccount.findMany.mockResolvedValueOnce([
       {
         id: 'acc-1',
@@ -252,7 +278,7 @@ describe('GET /api/portfolio/account-history', () => {
   });
 
   it('returns 500 when the database query throws', async () => {
-    mockGetCurrentUser.mockResolvedValueOnce(mockUser);
+    mockGetCurrentContext.mockResolvedValueOnce(asContext(mockUser));
     mockPrisma.stockAccount.findMany.mockRejectedValueOnce(new Error('db down'));
     const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const res = await GET(req());

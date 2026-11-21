@@ -17,7 +17,24 @@ jest.mock('next/navigation', () => ({
 
 // AreasNav is data-driven (pages hooks + router) and covered elsewhere; stub it
 // so these MobileMenu tests stay focused on the static nav.
-jest.mock('../areas-nav', () => ({ AreasNav: () => null }));
+jest.mock('../areas-nav', () => ({
+  AreasNav: () => <div data-testid="areas-nav" />,
+}));
+
+// Section access comes from the household context. Stub the hook (the real
+// provider needs Stack Auth + /api/context) but keep the real path rules from
+// lib/sections so restricted behaviour is genuine.
+let mockAllowedSections: string[] = [];
+jest.mock('@/lib/contexts/household-context', () => {
+  const { canAccessPath, isRestricted } = jest.requireActual('@/lib/sections');
+  return {
+    useSectionAccess: () => ({
+      allowedSections: mockAllowedSections,
+      restricted: isRestricted(mockAllowedSections),
+      canAccess: (p: string) => canAccessPath(p, mockAllowedSections),
+    }),
+  };
+});
 
 // Mock @stackframe/stack
 const mockUser = {
@@ -189,9 +206,14 @@ jest.mock('@/lib/constants/navigation', () => ({
     { href: '/portfolio', label: 'Portfolio', icon: createMockIcon('icon-trending-up') },
     { href: '/pension', label: 'Pension', icon: createMockIcon('icon-building2') },
     { href: '/assets', label: 'Assets', icon: createMockIcon('icon-wallet') },
+    // Tasks hosts the nested AreasNav.
+    { href: '/tasks', label: 'Tasks', icon: createMockIcon('icon-tasks') },
   ],
   settingsItem: { href: '/settings', label: 'Settings', icon: createMockIcon('icon-settings') },
   isNavHeader: (entry: { header?: string }) => 'header' in entry,
+  // Real filter (unit-tested in lib/constants/__tests__/navigation.test.ts).
+  filterNavForSections: (...args: unknown[]) =>
+    jest.requireActual('@/lib/constants/navigation').filterNavForSections(...args),
 }));
 
 // Mock @/lib/utils
@@ -206,8 +228,9 @@ jest.mock('@/lib/hooks/use-moneytor', () => ({
 }));
 
 // Same story for the general-log unread badge — no provider in tests.
+const mockUseGeneralLogUnreadCount = jest.fn();
 jest.mock('@/lib/hooks/use-general-log', () => ({
-  useGeneralLogUnreadCount: () => ({ data: 0 }),
+  useGeneralLogUnreadCount: (enabled?: boolean) => mockUseGeneralLogUnreadCount(enabled),
 }));
 
 // Mock HouseholdSwitcher component which uses HouseholdContext
@@ -239,6 +262,8 @@ describe('MobileMenu', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     mockPathname.mockReturnValue('/');
+    mockAllowedSections = [];
+    mockUseGeneralLogUnreadCount.mockReturnValue({ data: 0 });
   });
 
   describe('Open/Close state', () => {
@@ -368,6 +393,52 @@ describe('MobileMenu', () => {
       const settingsLink = screen.getByRole('link', { name: 'Settings' });
       expect(settingsLink).toHaveAttribute('href', '/settings');
       expect(screen.getByTestId('icon-settings')).toBeInTheDocument();
+    });
+  });
+
+  describe('Section restriction', () => {
+    it('shows everything (incl. Settings and AreasNav) for an unrestricted member', () => {
+      render(<MobileMenu open={true} onOpenChange={jest.fn()} />);
+
+      expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
+      expect(screen.getByTestId('areas-nav')).toBeInTheDocument();
+      expect(mockUseGeneralLogUnreadCount).toHaveBeenCalledWith(true);
+    });
+
+    it('limits nav to the allowed sections and hides Settings for a restricted member', () => {
+      mockAllowedSections = ['finances'];
+      render(<MobileMenu open={true} onOpenChange={jest.fn()} />);
+
+      expect(screen.getByRole('link', { name: 'Portfolio' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Pension' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Assets' })).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Tasks' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
+      expect(screen.queryByTestId('areas-nav')).not.toBeInTheDocument();
+    });
+
+    it('does not poll the Labs activity badge when /labs is not allowed', () => {
+      mockAllowedSections = ['finances'];
+      render(<MobileMenu open={true} onOpenChange={jest.fn()} />);
+
+      expect(mockUseGeneralLogUnreadCount).toHaveBeenCalledWith(false);
+    });
+
+    it('hides AreasNav under Tasks when the areas section is not allowed', () => {
+      mockAllowedSections = ['tasks'];
+      render(<MobileMenu open={true} onOpenChange={jest.fn()} />);
+
+      expect(screen.getByRole('link', { name: 'Tasks' })).toBeInTheDocument();
+      expect(screen.queryByTestId('areas-nav')).not.toBeInTheDocument();
+    });
+
+    it('shows AreasNav under Tasks when both tasks and areas are allowed', () => {
+      mockAllowedSections = ['tasks', 'areas'];
+      render(<MobileMenu open={true} onOpenChange={jest.fn()} />);
+
+      expect(screen.getByTestId('areas-nav')).toBeInTheDocument();
     });
   });
 });
