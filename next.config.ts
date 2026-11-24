@@ -29,6 +29,14 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // The MCP connector consent screen must never be framed (clickjacking "Allow").
+        source: '/oauth/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+        ],
+      },
+      {
         // Never let the browser's HTTP cache pin an old service worker — this
         // ensures updated SW logic (e.g. cache rules) is picked up promptly.
         source: '/sw.js',

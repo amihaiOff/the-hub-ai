@@ -18,8 +18,9 @@ interface AppShellProps {
 // Paths that don't require authentication or profile. '/share' is the
 // public link-sharing view (app/share/[token]) — a page-owner-issued token
 // stands in for a session there, so it must never hit the sign-in redirect
-// or render the authed sidebar/nav.
-const PUBLIC_PATHS = ['/auth', '/onboarding', '/handler', '/share'];
+// or render the authed sidebar/nav. '/oauth' is the MCP connector's consent
+// screen, which checks the session server-side itself.
+const PUBLIC_PATHS = ['/auth', '/onboarding', '/handler', '/share', '/oauth'];
 
 // Exact-segment match — this is the only auth gate in the app (no
 // middleware.ts), so a plain `startsWith` would also whitelist a future

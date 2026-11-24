@@ -333,6 +333,10 @@ BACKUP_TOKEN="..."                       # Lets the scheduled Drive backup fetch
                                          # CAN PULL THE ENTIRE DATABASE — keep it as closely held as
                                          # API_SECRET. Separate from the agent/pages tokens so it can be
                                          # rotated on its own. See apps-script/drive-backup/README.md
+MCP_AUTH_SECRET="..."                    # 32+ random chars. Signs the Hub MCP connector's OAuth
+                                         # clients/codes/tokens (Claude acting as a user via
+                                         # /api/mcp). Rotating it disconnects every Claude connection.
+                                         # Use a DIFFERENT value per environment (preview vs prod).
 SKIP_AUTH="true"                         # DEV ONLY - bypasses OAuth locally and on preview.
                                          # Always ignored in Vercel production.
 NEXT_PUBLIC_SKIP_AUTH="true"             # DEV ONLY - the client half of the above. Must be
@@ -561,6 +565,27 @@ npx prisma db push
 - **Email allowlist** - only specified emails can access (configured in auth callback)
 - **Stock prices cached 6 hours** - don't over-fetch external APIs
 - **Net worth snapshots bi-weekly** - not daily (to reduce database growth)
+
+## Hub MCP Connector (Claude controls the app)
+
+`/api/mcp` is a remote MCP server so Claude (claude.ai, mobile, Claude Code) can
+use the app as the user who connected it. Add it as a custom connector with URL
+`https://the-hub-ai-ten.vercel.app/api/mcp`; Claude Code: `claude mcp add --transport
+http hub <url>` then `/mcp` to sign in.
+
+- **Auth:** stateless OAuth 2.1 (DCR + PKCE) in `app/oauth/*` + `app/.well-known/*`,
+  tokens signed with `MCP_AUTH_SECRET` (`lib/mcp/tokens.ts`). `resolveSignedInUser`
+  in `lib/auth-utils.ts` accepts the access token in place of a session, so every
+  API route works for Claude with its normal validation + section limits.
+- **Tools** (`lib/mcp/server.ts`): curated budget/tasks/net-worth tools, plus
+  `list_app_actions` / `call_app_action` over `lib/mcp/catalog.json` — generated
+  from the API routes. **After adding/changing API routes run `npm run mcp:catalog`**
+  (a unit test fails while it's stale).
+- **Never allowed** (enforced in `proxy.ts` for any MCP token, list in
+  `lib/mcp/blocked.ts`): deleting Areas pages/sections, backup/restore, deleting the
+  household, changing members or creating invites, public page shares, the stored
+  Anthropic key, and internal areas (cron, agent, debug, widget). Only Claude's own
+  callbacks (claude.ai/claude.com + localhost) can register as clients.
 
 ## Agent Task Backlog ("for Claude")
 

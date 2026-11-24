@@ -4,6 +4,7 @@ import { isAuthBypassed } from '@/lib/auth-env';
 import { prisma } from '@/lib/db';
 import { acceptPendingInvitesForUser } from '@/lib/invites';
 import { canAccessPath, isRestricted } from '@/lib/sections';
+import { MCP_TOKEN_PREFIX, verifyMcpToken, type McpAccess } from '@/lib/mcp/tokens';
 import type { HouseholdRole } from '@prisma/client';
 
 export interface CurrentUser {
@@ -90,7 +91,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
  * accepted BEFORE any section check, so an invitee limited to some sections is
  * limited from their very first request. Section checks are the caller's job.
  */
-async function getSignedInUser(): Promise<CurrentUser | null> {
+export async function getSignedInUser(): Promise<CurrentUser | null> {
   const user = await resolveSignedInUser();
   if (user?.email) {
     await acceptPendingInvitesForUser(user.id, user.email, user.name);
@@ -142,6 +143,31 @@ async function currentPathname(): Promise<string | null> {
   }
 }
 
+/** Email allowlist (if configured), plus the invite grant. */
+async function isEmailAllowed(email: string): Promise<boolean> {
+  if (ALLOWED_EMAILS.length === 0 || ALLOWED_EMAILS.includes(email.toLowerCase())) return true;
+  return hasInviteOrMembership(email);
+}
+
+/** The MCP access token on the current request, or null if there isn't one. */
+async function currentMcpBearer(): Promise<string | null> {
+  try {
+    const auth = (await headers()).get('authorization');
+    return auth?.startsWith(`Bearer ${MCP_TOKEN_PREFIX}`) ? auth.slice(7) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** User behind an MCP access token — re-checked against the allowlist every call. */
+async function resolveMcpUser(token: string): Promise<CurrentUser | null> {
+  const claims = verifyMcpToken<McpAccess>('access', token);
+  if (!claims) return null;
+  const user = await prisma.user.findUnique({ where: { id: claims.uid } });
+  if (!user?.email || !(await isEmailAllowed(user.email))) return null;
+  return { id: user.id, email: user.email, name: user.name };
+}
+
 async function resolveSignedInUser(): Promise<CurrentUser | null> {
   if (isAuthBypassed()) {
     // Ensure dev user exists in database (only once per server lifecycle)
@@ -173,6 +199,12 @@ async function resolveSignedInUser(): Promise<CurrentUser | null> {
     };
   }
 
+  // Claude via the Hub MCP connector: a signed access token stands in for the
+  // session cookie, acting as the user who approved the connection. A present
+  // but invalid token never falls back to cookies.
+  const mcpToken = await currentMcpBearer();
+  if (mcpToken) return resolveMcpUser(mcpToken);
+
   // Production: require proper authentication via Stack Auth.
   // No client means either the env vars aren't configured or the bypass was
   // refused for this environment. Treat that as "not signed in" so callers
@@ -193,12 +225,9 @@ async function resolveSignedInUser(): Promise<CurrentUser | null> {
     return null;
   }
 
-  // Check email allowlist (if configured), plus the invite grant.
-  if (ALLOWED_EMAILS.length > 0 && !ALLOWED_EMAILS.includes(email.toLowerCase())) {
-    if (!(await hasInviteOrMembership(email))) {
-      console.warn(`Sign-in denied for email: ${email} - not in allowlist`);
-      return null;
-    }
+  if (!(await isEmailAllowed(email))) {
+    console.warn(`Sign-in denied for email: ${email} - not in allowlist`);
+    return null;
   }
 
   const dbUser = await prisma.user.upsert({

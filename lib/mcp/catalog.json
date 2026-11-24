@@ -1,0 +1,1686 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/assets/items/{id}/owners",
+    "area": "assets",
+    "summary": "GET /api/assets/items/[id]/owners Get current owners of a misc asset"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/assets/items/{id}/owners",
+    "area": "assets",
+    "summary": "PUT /api/assets/items/[id]/owners Update owners of a misc asset (replace all owners)"
+  },
+  {
+    "method": "GET",
+    "path": "/api/assets/items/{id}",
+    "area": "assets",
+    "summary": "GET /api/assets/items/[id] Get a single misc asset"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/assets/items/{id}",
+    "area": "assets",
+    "summary": "PUT /api/assets/items/[id] Update a misc asset",
+    "body": {
+      "module": "assets",
+      "schema": "updateAssetSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/assets/items/{id}",
+    "area": "assets",
+    "summary": "DELETE /api/assets/items/[id] Delete a misc asset"
+  },
+  {
+    "method": "POST",
+    "path": "/api/assets/items",
+    "area": "assets",
+    "summary": "POST /api/assets/items Create a new misc asset",
+    "body": {
+      "module": "assets",
+      "schema": "createAssetSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/assets/items",
+    "area": "assets",
+    "summary": "GET /api/assets/items Get all misc assets for the authenticated user"
+  },
+  {
+    "method": "GET",
+    "path": "/api/assets",
+    "area": "assets",
+    "summary": "GET /api/assets Get the active household's misc-assets summary — every item visible to any member, per H1 of the codebase review. Also uses integer-cents accumulation on totals."
+  },
+  {
+    "method": "PUT",
+    "path": "/api/budget/account-names/{id}",
+    "area": "budget",
+    "summary": "PUT /api/budget/account-names/[id] Rename an existing account-number → name mapping.",
+    "body": {
+      "module": "budget",
+      "schema": "updateBudgetAccountNameSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/budget/account-names/{id}",
+    "area": "budget",
+    "summary": "DELETE /api/budget/account-names/[id] Remove an account-number → name mapping."
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/account-names/identifiers",
+    "area": "budget",
+    "summary": "GET /api/budget/account-names/identifiers Returns the distinct payment identifiers found on the household's transactions, each with a transaction count and a sample payee name. Used by the settings UI to offer a pick-list so the user can recognize which account/card each opaque identifier belongs to"
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/account-names",
+    "area": "budget",
+    "summary": "GET /api/budget/account-names List all account-number → name mappings for the household."
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/account-names",
+    "area": "budget",
+    "summary": "POST /api/budget/account-names Create a new account-number → name mapping for the household.",
+    "body": {
+      "module": "budget",
+      "schema": "createBudgetAccountNameSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/analysis",
+    "area": "budget",
+    "summary": "GET /api/budget/analysis Get budget analysis data for a date range: monthly totals, group/category breakdowns, tag spending",
+    "query": ["month", "startDate", "endDate"],
+    "body": {
+      "module": "budget",
+      "schema": "analysisQuerySchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/categories/{id}",
+    "area": "budget",
+    "summary": "GET /api/budget/categories/[id] Get a specific category with transaction count"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/budget/categories/{id}",
+    "area": "budget",
+    "summary": "PUT /api/budget/categories/[id] Update a category",
+    "body": {
+      "module": "budget",
+      "schema": "updateCategorySchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/budget/categories/{id}",
+    "area": "budget",
+    "summary": "DELETE /api/budget/categories/[id] Delete a category (transactions become uncategorized)"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/budget/categories/merge",
+    "area": "budget",
+    "summary": "PUT /api/budget/categories/merge Merge source category into target category. Moves all transactions, payees, rules, and Riseup mappings. Adds source budget to target budget. Deletes source category.",
+    "body": {
+      "module": "budget",
+      "schema": "mergeCategoriesSchema"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/categories/reorder",
+    "area": "budget",
+    "summary": "POST /api/budget/categories/reorder Bulk update sort orders for categories",
+    "body": {
+      "module": "budget",
+      "schema": "reorderCategoriesSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/categories",
+    "area": "budget",
+    "summary": "GET /api/budget/categories Get all categories for the current household (optionally filtered by group)",
+    "query": ["groupId"]
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/categories",
+    "area": "budget",
+    "summary": "POST /api/budget/categories Create a new category",
+    "body": {
+      "module": "budget",
+      "schema": "createCategorySchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/categorization-logs",
+    "area": "budget",
+    "summary": "GET /api/budget/categorization-logs Recent AI categorization queries for the household (newest first)."
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/category-groups/{id}",
+    "area": "budget",
+    "summary": "GET /api/budget/category-groups/[id] Get a specific category group with its categories"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/budget/category-groups/{id}",
+    "area": "budget",
+    "summary": "PUT /api/budget/category-groups/[id] Update a category group",
+    "body": {
+      "module": "budget",
+      "schema": "updateCategoryGroupSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/budget/category-groups/{id}",
+    "area": "budget",
+    "summary": "DELETE /api/budget/category-groups/[id] Delete a category group (cascades to categories and their transactions become uncategorized)"
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/category-groups/reorder",
+    "area": "budget",
+    "summary": "POST /api/budget/category-groups/reorder Bulk update sort orders for category groups",
+    "body": {
+      "module": "budget",
+      "schema": "reorderGroupsSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/category-groups",
+    "area": "budget",
+    "summary": "GET /api/budget/category-groups Get all category groups with their categories for the current household"
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/category-groups",
+    "area": "budget",
+    "summary": "POST /api/budget/category-groups Create a new category group",
+    "body": {
+      "module": "budget",
+      "schema": "createCategoryGroupSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/budget/cc-generic-payees/{id}",
+    "area": "budget",
+    "summary": "DELETE /api/budget/cc-generic-payees/[id] Remove a generic CC payee name."
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/cc-generic-payees",
+    "area": "budget",
+    "summary": "GET /api/budget/cc-generic-payees List all generic CC payee names for the household."
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/cc-generic-payees",
+    "area": "budget",
+    "summary": "POST /api/budget/cc-generic-payees Add a new generic CC payee name for the household."
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/payee-rules/{id}/apply",
+    "area": "budget",
+    "summary": "POST /api/budget/payee-rules/[id]/apply Apply a single rule to existing payees and their transactions. Updates payee default category AND re-categorizes existing transactions."
+  },
+  {
+    "method": "PUT",
+    "path": "/api/budget/payee-rules/{id}",
+    "area": "budget",
+    "summary": "PUT /api/budget/payee-rules/[id] Update a payee category rule",
+    "body": {
+      "module": "budget",
+      "schema": "updatePayeeCategoryRuleSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/budget/payee-rules/{id}",
+    "area": "budget",
+    "summary": "DELETE /api/budget/payee-rules/[id] Delete a payee category rule"
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/payee-rules/apply",
+    "area": "budget",
+    "summary": "POST /api/budget/payee-rules/apply Bulk-apply all active rules to existing payees and their transactions. Updates payee default categories AND re-categorizes existing transactions."
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/payee-rules",
+    "area": "budget",
+    "summary": "GET /api/budget/payee-rules List all payee category rules for the current household"
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/payee-rules",
+    "area": "budget",
+    "summary": "POST /api/budget/payee-rules Create a new payee category rule",
+    "body": {
+      "module": "budget",
+      "schema": "createPayeeCategoryRuleSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/payees/{id}",
+    "area": "budget",
+    "summary": "GET /api/budget/payees/[id] Get a specific payee"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/budget/payees/{id}",
+    "area": "budget",
+    "summary": "PUT /api/budget/payees/[id] Update a payee",
+    "body": {
+      "module": "budget",
+      "schema": "updatePayeeSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/budget/payees/{id}",
+    "area": "budget",
+    "summary": "DELETE /api/budget/payees/[id] Delete a payee (transactions become orphaned payee-wise via SetNull)"
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/payees",
+    "area": "budget",
+    "summary": "GET /api/budget/payees Get all payees for the current household with transaction counts. Blacklisted payees are hidden by default; pass `?include=blacklisted` to return ONLY blacklisted ones (used by the Blacklist tab).",
+    "query": ["include"]
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/payees",
+    "area": "budget",
+    "summary": "POST /api/budget/payees Create a new payee",
+    "body": {
+      "module": "budget",
+      "schema": "createPayeeSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/reports/{month}",
+    "area": "budget",
+    "summary": "GET /api/budget/reports/[month] — the full report for one cycle."
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/reports/continue",
+    "area": "budget",
+    "summary": "POST /api/budget/reports/continue { id } Internal: runs the next ≤300s step of a report's agent and hands off to a fresh invocation if it isn't finished. Answers immediately so the caller only waits for the acknowledgement. Protected by CRON_SECRET in production."
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/reports",
+    "area": "budget",
+    "summary": "GET /api/budget/reports Months that have a report, newest first. Also the automatic recovery path: a report stuck in \"generating\" (its hand-off to the next run was lost) is resumed from its saved progress. The Budget layout calls this on every Budget page, so no extra cron is needed."
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/reports/run",
+    "area": "budget",
+    "summary": "POST /api/budget/reports/run { month } Generate (or regenerate) the report for a closed cycle. The numbers are saved before this returns; the agent then runs in its own invocations (POST /api/budget/reports/continue), so the tab polls until it's ready."
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/riseup-categories/apply",
+    "area": "budget",
+    "summary": "POST /api/budget/riseup-categories/apply Re-apply Riseup category → budget category mappings to existing uncategorized transactions that have a riseupCategory stored on their payee or via a matching riseup category name."
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/riseup-categories",
+    "area": "budget",
+    "summary": "GET /api/budget/riseup-categories Get all Riseup categories for the household (excluding deleted ones by default)",
+    "query": ["includeDeleted"]
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/riseup-categories",
+    "area": "budget",
+    "summary": "POST /api/budget/riseup-categories Bulk-create Riseup category records (skips already-known and deleted ones) Body: { categoryNames: string[] }"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/budget/riseup-categories",
+    "area": "budget",
+    "summary": "PUT /api/budget/riseup-categories Update mapping: assign a Riseup category to a budget category Body: { id: string, budgetCategoryId: string | null }"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/budget/riseup-categories",
+    "area": "budget",
+    "summary": "DELETE /api/budget/riseup-categories Soft-delete a Riseup category (won't be re-added on future imports) Body: { id: string }"
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/savings",
+    "area": "budget",
+    "summary": "GET /api/budget/savings Returns monthly savings data grouped by year"
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/savings",
+    "area": "budget",
+    "summary": "POST /api/budget/savings Create a savings transaction Body: { month: \"YYYY-MM\", amount: number }"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/budget/savings",
+    "area": "budget",
+    "summary": "PUT /api/budget/savings Update a month's savings (replaces all transactions for that month with one) Body: { month: \"YYYY-MM\", amount: number }"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/budget/savings",
+    "area": "budget",
+    "summary": "DELETE /api/budget/savings Delete all savings transactions for a given month Body: { month: \"YYYY-MM\" }"
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/summary",
+    "area": "budget",
+    "summary": "GET /api/budget/summary Get monthly budget summary with spending by category",
+    "query": ["month"],
+    "body": {
+      "module": "budget",
+      "schema": "summaryQuerySchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/tags/{id}",
+    "area": "budget",
+    "summary": "GET /api/budget/tags/[id] Get a specific tag with transaction count"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/budget/tags/{id}",
+    "area": "budget",
+    "summary": "PUT /api/budget/tags/[id] Update a tag",
+    "body": {
+      "module": "budget",
+      "schema": "updateTagSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/budget/tags/{id}",
+    "area": "budget",
+    "summary": "DELETE /api/budget/tags/[id] Delete a tag (removes from all transactions)"
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/tags",
+    "area": "budget",
+    "summary": "GET /api/budget/tags Get all tags for the current household with transaction counts"
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/tags",
+    "area": "budget",
+    "summary": "POST /api/budget/tags Create a new tag",
+    "body": {
+      "module": "budget",
+      "schema": "createTagSchema"
+    }
+  },
+  {
+    "method": "PUT",
+    "path": "/api/budget/tags",
+    "area": "budget",
+    "summary": "PUT /api/budget/tags/merge Merge multiple tags into one (move all transactions to target, delete sources)",
+    "body": {
+      "module": "budget",
+      "schema": "mergeTagsSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/transactions/{id}",
+    "area": "budget",
+    "summary": "GET /api/budget/transactions/[id] Get a specific transaction"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/budget/transactions/{id}",
+    "area": "budget",
+    "summary": "PUT /api/budget/transactions/[id] Update a transaction",
+    "body": {
+      "module": "budget",
+      "schema": "updateTransactionSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/budget/transactions/{id}",
+    "area": "budget",
+    "summary": "DELETE /api/budget/transactions/[id] Delete a transaction"
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/transactions/{id}/suggestion",
+    "area": "budget",
+    "summary": "POST /api/budget/transactions/[id]/suggestion approve → apply the AI-suggested category (categoryId = suggestedCategoryId) and make it this payee's default category (unless the payee is flagged neverDefault or blacklisted), so future transactions from the same payee are auto-categorized during inges"
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/transactions/bulk",
+    "area": "budget",
+    "summary": "POST /api/budget/transactions/bulk Bulk create transactions (e.g., from import)",
+    "body": {
+      "module": "budget",
+      "schema": "bulkTransactionSchema"
+    }
+  },
+  {
+    "method": "PUT",
+    "path": "/api/budget/transactions/bulk",
+    "area": "budget",
+    "summary": "PUT /api/budget/transactions/bulk Bulk categorize transactions",
+    "body": {
+      "module": "budget",
+      "schema": "bulkCategorizeSchema"
+    }
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/budget/transactions/bulk",
+    "area": "budget",
+    "summary": "PATCH /api/budget/transactions/bulk Bulk assign a tag to transactions (additive — existing tags are kept)",
+    "body": {
+      "module": "budget",
+      "schema": "bulkAssignTagSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/budget/transactions/bulk",
+    "area": "budget",
+    "summary": "DELETE /api/budget/transactions/bulk Bulk delete transactions",
+    "body": {
+      "module": "budget",
+      "schema": "bulkDeleteSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/transactions/counts",
+    "area": "budget",
+    "query": ["month"]
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/transactions/dedupe-twins",
+    "area": "budget",
+    "summary": "POST /api/budget/transactions/dedupe-twins"
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/transactions/import-csv",
+    "area": "budget",
+    "summary": "POST /api/budget/transactions/import-csv Accept a Riseup CSV file upload (multipart/form-data), parse it server-side, and import the transactions. Enables programmatic uploads without the UI.",
+    "body": {
+      "module": "budget",
+      "schema": "importBulkSchema"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/transactions/import",
+    "area": "budget",
+    "summary": "POST /api/budget/transactions/import Import transactions from Riseup CSV with payee resolution and category matching.",
+    "body": {
+      "module": "budget",
+      "schema": "importBulkSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/budget/transactions",
+    "area": "budget",
+    "summary": "GET /api/budget/transactions Get transactions with optional filtering",
+    "query": [
+      "month",
+      "startDate",
+      "endDate",
+      "type",
+      "categoryId",
+      "payeeId",
+      "profileId",
+      "source",
+      "paymentMethod",
+      "limit",
+      "offset",
+      "tagIds",
+      "uncategorized",
+      "pendingSuggestion",
+      "accountNumber"
+    ],
+    "body": {
+      "module": "budget",
+      "schema": "transactionFiltersSchema"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/transactions",
+    "area": "budget",
+    "summary": "POST /api/budget/transactions Create a new transaction",
+    "body": {
+      "module": "budget",
+      "schema": "createTransactionSchema"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/transactions/split",
+    "area": "budget",
+    "summary": "POST /api/budget/transactions/split Split a transaction into multiple transactions",
+    "body": {
+      "module": "budget",
+      "schema": "createSplitSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/budget/transactions/split",
+    "area": "budget",
+    "summary": "DELETE /api/budget/transactions/split Unsplit a transaction (delete children and mark parent as not split)",
+    "query": ["transactionId"]
+  },
+  {
+    "method": "POST",
+    "path": "/api/budget/transactions/suggest",
+    "area": "budget"
+  },
+  {
+    "method": "GET",
+    "path": "/api/context",
+    "area": "context",
+    "summary": "GET /api/context Get the current user's context including profile, households, and household profiles",
+    "query": ["householdId"]
+  },
+  {
+    "method": "GET",
+    "path": "/api/dashboard/history",
+    "area": "dashboard",
+    "summary": "GET /api/dashboard/history Get net worth history data for the chart Uses database snapshots when available, falls back to generated mock data. Always appends a real-time \"today\" data point so the graph matches the dashboard cards."
+  },
+  {
+    "method": "GET",
+    "path": "/api/dashboard/notes",
+    "area": "dashboard"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/dashboard/notes",
+    "area": "dashboard"
+  },
+  {
+    "method": "GET",
+    "path": "/api/dashboard",
+    "area": "dashboard",
+    "summary": "GET /api/dashboard Get aggregated dashboard data: net worth from stocks, pension, and assets"
+  },
+  {
+    "method": "GET",
+    "path": "/api/exchange-rates",
+    "area": "exchange-rates"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/favorites/{id}",
+    "area": "favorites",
+    "summary": "DELETE /api/favorites/[id] Un-star a destination. There is no PATCH: favourites can't be renamed and ordering goes through /api/favorites/reorder."
+  },
+  {
+    "method": "POST",
+    "path": "/api/favorites/reorder",
+    "area": "favorites",
+    "summary": "POST /api/favorites/reorder Bulk-update the sortOrder of the current user's favourites. Drives the order in the favourites drawer, which reads them ordered by sortOrder.",
+    "body": {
+      "module": "favorites",
+      "schema": "reorderFavoritesSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/favorites",
+    "area": "favorites",
+    "summary": "GET /api/favorites The current user's favourites in the active household, in display order."
+  },
+  {
+    "method": "POST",
+    "path": "/api/favorites",
+    "area": "favorites",
+    "summary": "POST /api/favorites Star a destination. Body carries exactly one of `pageId` or `route`.",
+    "body": {
+      "module": "favorites",
+      "schema": "createFavoriteSchema"
+    }
+  },
+  {
+    "method": "PUT",
+    "path": "/api/habits/{id}/log",
+    "area": "habits",
+    "summary": "PUT /api/habits/[id]/log — mark one scheduled day Done / Not done, or clear it (`status: null`). Used by the page, the dashboard card and the notification's buttons (service worker, same-origin session cookie).",
+    "body": {
+      "module": "habits",
+      "schema": "setHabitLogSchema"
+    }
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/habits/{id}",
+    "area": "habits",
+    "summary": "PATCH /api/habits/[id] — edit fields; `archived: true/false` archives or restores.",
+    "body": {
+      "module": "habits",
+      "schema": "updateHabitSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/habits/{id}",
+    "area": "habits",
+    "summary": "DELETE /api/habits/[id] — permanent, history included. Only from the archive."
+  },
+  {
+    "method": "GET",
+    "path": "/api/habits/logs",
+    "area": "habits",
+    "summary": "GET /api/habits/logs?from&to — the user's answers in a calendar range (archived habits too).",
+    "body": {
+      "module": "habits",
+      "schema": "habitLogsQuerySchema"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/api/habits/reorder",
+    "area": "habits",
+    "summary": "POST /api/habits/reorder — `ids` is the full active list in its new order.",
+    "body": {
+      "module": "habits",
+      "schema": "reorderHabitsSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/habits",
+    "area": "habits",
+    "summary": "GET /api/habits — the signed-in user's habits. `?archived=1` lists the archive.",
+    "query": ["archived"]
+  },
+  {
+    "method": "POST",
+    "path": "/api/habits",
+    "area": "habits",
+    "summary": "POST /api/habits — new habits go to the bottom of the list.",
+    "body": {
+      "module": "habits",
+      "schema": "createHabitSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/households/{id}/invites/{inviteId}",
+    "area": "households",
+    "summary": "DELETE /api/households/[id]/invites/[inviteId] Revoke a pending invite. Admin only."
+  },
+  {
+    "method": "GET",
+    "path": "/api/households/{id}/invites",
+    "area": "households",
+    "summary": "GET /api/households/[id]/invites List pending (unaccepted, unexpired) invites for a household. Admin only."
+  },
+  {
+    "method": "GET",
+    "path": "/api/households/{id}",
+    "area": "households",
+    "summary": "GET /api/households/[id] Get household details with members"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/households/{id}",
+    "area": "households",
+    "summary": "PUT /api/households/[id] Update household (admin/owner only)"
+  },
+  {
+    "method": "GET",
+    "path": "/api/households",
+    "area": "households",
+    "summary": "GET /api/households List all households the current user belongs to"
+  },
+  {
+    "method": "POST",
+    "path": "/api/households",
+    "area": "households",
+    "summary": "POST /api/households Create a new household and add current user's profile as owner"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/insurance/{id}",
+    "area": "insurance",
+    "summary": "DELETE /api/insurance/[id] Delete a specific insurance policy"
+  },
+  {
+    "method": "POST",
+    "path": "/api/insurance/import",
+    "area": "insurance",
+    "summary": "POST /api/insurance/import Accept multipart file upload of Excel (.xlsx), parse it and import policies under the specified profile."
+  },
+  {
+    "method": "GET",
+    "path": "/api/insurance",
+    "area": "insurance",
+    "summary": "GET /api/insurance Returns all insurance policies for the household, grouped by profileId"
+  },
+  {
+    "method": "POST",
+    "path": "/api/insurance",
+    "area": "insurance",
+    "summary": "POST /api/insurance Create a single insurance policy"
+  },
+  {
+    "method": "GET",
+    "path": "/api/labs/ai-usage/days",
+    "area": "labs",
+    "query": ["month"]
+  },
+  {
+    "method": "GET",
+    "path": "/api/labs/ai-usage",
+    "area": "labs"
+  },
+  {
+    "method": "GET",
+    "path": "/api/labs/dropped-transactions",
+    "area": "labs",
+    "summary": "GET /api/labs/dropped-transactions Returns recent drop-log entries for the active household — budget rows that were removed because their Moneytor row disappeared on a re-sync."
+  },
+  {
+    "method": "POST",
+    "path": "/api/labs/general-log/mark-read",
+    "area": "labs",
+    "summary": "POST /api/labs/general-log/mark-read Marks all unread general-log entries for the active household as read. Called when the user opens the Activity page."
+  },
+  {
+    "method": "GET",
+    "path": "/api/labs/general-log",
+    "area": "labs",
+    "summary": "GET /api/labs/general-log Returns the active household's general log (rename events, hard-deletes, etc.), newest first, plus an unreadCount for the nav-badge dot."
+  },
+  {
+    "method": "GET",
+    "path": "/api/labs/general-log/unread-count",
+    "area": "labs",
+    "summary": "GET /api/labs/general-log/unread-count Lightweight endpoint powering the nav badge dot on Labs. Returns the count of unread general-log entries for the active household."
+  },
+  {
+    "method": "GET",
+    "path": "/api/labs/sync-log",
+    "area": "labs",
+    "summary": "GET /api/labs/sync-log Returns the active household's last N Moneytor sync attempts (manual + cron), newest first. The full MoneytorSyncSummary is included so the UI can break results out per section (transactions, accounts, portfolio, pension, real estate, etc.)."
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/moneytor/accounts/{id}",
+    "area": "moneytor",
+    "summary": "PATCH /api/moneytor/accounts/[id] Update editable per-account metadata. Today only `customSubtitle`, but structured to make it easy to add more fields (custom group, sort order, …)."
+  },
+  {
+    "method": "GET",
+    "path": "/api/moneytor/accounts/history",
+    "area": "moneytor",
+    "summary": "GET /api/moneytor/accounts/history?range=1Y Daily timeseries of Moneytor account balances per (productId). Returns both `points` (aggregate balance per date — sum of all accounts) and per-account series so the dashboard can render sparklines.",
+    "query": ["range"]
+  },
+  {
+    "method": "GET",
+    "path": "/api/moneytor/accounts",
+    "area": "moneytor",
+    "summary": "GET /api/moneytor/accounts Returns the active household's Moneytor accounts (bank + debt for now), with per-form totals so the dashboard widget doesn't need to recompute."
+  },
+  {
+    "method": "POST",
+    "path": "/api/moneytor/force-resync",
+    "area": "moneytor",
+    "summary": "POST /api/moneytor/force-resync Destructively re-pulls Moneytor transactions for a date range. Used when Moneytor has corrected upstream data and the upsert-based incremental sync doesn't surface the fix locally.",
+    "body": {
+      "module": "budget",
+      "schema": "forceResyncMoneytorSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/moneytor/insurance",
+    "area": "moneytor",
+    "summary": "GET /api/moneytor/insurance Returns the active household's Moneytor insurance policies plus premium totals."
+  },
+  {
+    "method": "GET",
+    "path": "/api/moneytor/pension/history",
+    "area": "moneytor",
+    "summary": "GET /api/moneytor/pension/history Returns monthly snapshots grouped by month, with per-type totals for charting. Each fund track has its own snapshot row per month — we sum per (month, productType) so the chart has one line per type."
+  },
+  {
+    "method": "GET",
+    "path": "/api/moneytor/pension",
+    "area": "moneytor",
+    "summary": "GET /api/moneytor/pension Returns all pension + hishtalmut funds (no aggregation — one row per Moneytor route) with per-type totals."
+  },
+  {
+    "method": "GET",
+    "path": "/api/moneytor/portfolio/history",
+    "area": "moneytor",
+    "summary": "GET /api/moneytor/portfolio/history?range=1Y Returns a per-day total value timeseries built from moneytor_stock_snapshots. Each point = sum of totalWorthInBase + accountCash across all snapshots on that date.",
+    "query": ["range"]
+  },
+  {
+    "method": "GET",
+    "path": "/api/moneytor/portfolio",
+    "area": "moneytor",
+    "summary": "GET /api/moneytor/portfolio Returns Moneytor stock holdings in the PortfolioSummary shape consumed by /portfolio. All account totals are reported in ILS (Moneytor's base currency). Per-holding stockPrice and avgCostBasis are in the stock's native currency (rendered as bare numbers by the page), whil"
+  },
+  {
+    "method": "GET",
+    "path": "/api/moneytor/real-estate",
+    "area": "moneytor",
+    "summary": "GET /api/moneytor/real-estate Returns the active household's Moneytor real-estate properties, plus a total `balanceInBase` so the dashboard / assets page can show a summary without recomputing."
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/moneytor/stocks/{productId}",
+    "area": "moneytor",
+    "summary": "DELETE /api/moneytor/stocks/[productId]"
+  },
+  {
+    "method": "GET",
+    "path": "/api/moneytor/stocks",
+    "area": "moneytor",
+    "summary": "GET /api/moneytor/stocks Returns all stock holdings synced from Moneytor for the active household, grouped by Moneytor account (productId/accountName)."
+  },
+  {
+    "method": "POST",
+    "path": "/api/moneytor/sync",
+    "area": "moneytor",
+    "summary": "POST /api/moneytor/sync Manual sync — pulls transactions + stock holdings from Moneytor for the active household. The same sync runs automatically once a day from the daily-tasks cron for every household."
+  },
+  {
+    "method": "GET",
+    "path": "/api/moneytor/transactions",
+    "area": "moneytor",
+    "summary": "GET /api/moneytor/transactions List Moneytor-synced transactions with filters.",
+    "query": ["month", "startDate", "endDate", "category", "type", "search", "limit", "offset"]
+  },
+  {
+    "method": "POST",
+    "path": "/api/onboarding",
+    "area": "onboarding",
+    "summary": "POST /api/onboarding Complete the onboarding process for a new user Creates profile, household, and optional family member profiles"
+  },
+  {
+    "method": "POST",
+    "path": "/api/pages/{id}/ops",
+    "area": "pages",
+    "summary": "POST /api/pages/[id]/ops",
+    "body": {
+      "module": "page-ops",
+      "schema": "pageOpsRequestSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/pages/{id}",
+    "area": "pages"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/pages/{id}",
+    "area": "pages",
+    "body": {
+      "module": "pages",
+      "schema": "updatePageSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/pages/{id}/share",
+    "area": "pages",
+    "summary": "GET /api/pages/[id]/share The owner's own read of the current share state (used by the Share dialog on open). Session-only — same reasoning as POST/DELETE below: the general `GET /api/pages/[id]` deliberately omits `shareToken` from its response (see that route) so a caller in via the scoped `AGENT_"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/pages/{id}/share",
+    "area": "pages",
+    "summary": "DELETE /api/pages/[id]/share Turns sharing off. The old link stops working immediately — its token no longer matches any row."
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/pages/{id}/tabs/{tabId}",
+    "area": "pages",
+    "summary": "PATCH /api/pages/[id]/tabs/[tabId] Partial update (title / content / sortOrder) — only keys the client sends are touched, so an autosave that sends just `{ content }` never clobbers the title.",
+    "body": {
+      "module": "pages",
+      "schema": "updatePageTabSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/pages/{id}/tabs/{tabId}",
+    "area": "pages",
+    "summary": "DELETE /api/pages/[id]/tabs/[tabId] Removes a tab. Refuses to delete the last remaining tab — a page must always keep at least one."
+  },
+  {
+    "method": "POST",
+    "path": "/api/pages/{id}/tabs",
+    "area": "pages",
+    "summary": "POST /api/pages/[id]/tabs Create a new tab on a page. It sorts to the end; default title \"Tab N\".",
+    "body": {
+      "module": "pages",
+      "schema": "createPageTabSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/pages",
+    "area": "pages",
+    "summary": "GET /api/pages Lists the active household's pages, ordered for the sidebar (manual sort, then most-recently-updated). Content is omitted from the list to keep the payload small — the editor fetches a single page's content separately."
+  },
+  {
+    "method": "POST",
+    "path": "/api/pages",
+    "area": "pages",
+    "summary": "POST /api/pages Create a page. Owner = current user, household = active household. New pages sort to the top (sortOrder one below the current minimum).",
+    "body": {
+      "module": "pages",
+      "schema": "createPageSchema"
+    }
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/pages/sections/{id}",
+    "area": "pages",
+    "body": {
+      "module": "pages",
+      "schema": "updatePageSectionSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/pages/sections",
+    "area": "pages",
+    "summary": "GET /api/pages/sections Lists the active household's page sections, ordered for the Areas popup."
+  },
+  {
+    "method": "POST",
+    "path": "/api/pages/sections",
+    "area": "pages",
+    "summary": "POST /api/pages/sections Create a section. New sections sort at the end of the list.",
+    "body": {
+      "module": "pages",
+      "schema": "createPageSectionSchema"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/api/pages/upload",
+    "area": "pages",
+    "summary": "POST /api/pages/upload Uploads a single image (multipart form field `file`) to Vercel Blob and returns its public URL for embedding in a page. Requires a `BLOB_READ_WRITE_TOKEN` in the environment; without it we return a clear error the editor surfaces (and falls back to URL-embed)."
+  },
+  {
+    "method": "GET",
+    "path": "/api/pension/accounts/{id}/owners",
+    "area": "pension",
+    "summary": "GET /api/pension/accounts/[id]/owners Get current owners of a pension account"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/pension/accounts/{id}/owners",
+    "area": "pension",
+    "summary": "PUT /api/pension/accounts/[id]/owners Update owners of a pension account (replace all owners)"
+  },
+  {
+    "method": "GET",
+    "path": "/api/pension/accounts/{id}",
+    "area": "pension",
+    "summary": "GET /api/pension/accounts/[id] Get a single pension account with its deposits (household-scoped)."
+  },
+  {
+    "method": "PUT",
+    "path": "/api/pension/accounts/{id}",
+    "area": "pension",
+    "summary": "PUT /api/pension/accounts/[id] Update a pension account (household-scoped write).",
+    "body": {
+      "module": "pension",
+      "schema": "updatePensionAccountSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/pension/accounts/{id}",
+    "area": "pension",
+    "summary": "DELETE /api/pension/accounts/[id] Delete a pension account and all its deposits (household-scoped)."
+  },
+  {
+    "method": "POST",
+    "path": "/api/pension/accounts",
+    "area": "pension",
+    "summary": "POST /api/pension/accounts Create a new pension account"
+  },
+  {
+    "method": "GET",
+    "path": "/api/pension/accounts",
+    "area": "pension",
+    "summary": "GET /api/pension/accounts Get all pension accounts for the authenticated user"
+  },
+  {
+    "method": "GET",
+    "path": "/api/pension/deposits/{id}",
+    "area": "pension",
+    "summary": "GET /api/pension/deposits/[id] Get a single deposit (household-scoped)."
+  },
+  {
+    "method": "PUT",
+    "path": "/api/pension/deposits/{id}",
+    "area": "pension",
+    "summary": "PUT /api/pension/deposits/[id] Update a deposit (household-scoped write).",
+    "body": {
+      "module": "pension",
+      "schema": "updateDepositSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/pension/deposits/{id}",
+    "area": "pension",
+    "summary": "DELETE /api/pension/deposits/[id] Delete a deposit (household-scoped)."
+  },
+  {
+    "method": "POST",
+    "path": "/api/pension/deposits/bulk",
+    "area": "pension",
+    "summary": "POST /api/pension/deposits/bulk Create multiple pension deposits at once",
+    "body": {
+      "module": "pension",
+      "schema": "bulkDepositSchema"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/api/pension/deposits",
+    "area": "pension",
+    "summary": "POST /api/pension/deposits Add a new deposit to a pension account. The account must be visible to the caller's household (H1 of the codebase review).",
+    "body": {
+      "module": "pension",
+      "schema": "createDepositSchema"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/api/pension/parse-pdf",
+    "area": "pension",
+    "summary": "POST /api/pension/parse-pdf Upload and parse a pension PDF file to extract deposit data"
+  },
+  {
+    "method": "GET",
+    "path": "/api/pension",
+    "area": "pension",
+    "summary": "GET /api/pension Get the active household's pension summary — every account visible to any member, per H1 of the codebase review (pension is a household asset)."
+  },
+  {
+    "method": "GET",
+    "path": "/api/portfolio/account-history",
+    "area": "portfolio",
+    "summary": "GET /api/portfolio/account-history?range=1Y",
+    "query": ["range"]
+  },
+  {
+    "method": "PUT",
+    "path": "/api/portfolio/accounts/{id}/cash/{cashId}",
+    "area": "portfolio",
+    "summary": "PUT /api/portfolio/accounts/[id]/cash/[cashId] Update a specific cash balance",
+    "body": {
+      "module": "portfolio",
+      "schema": "updateCashBalanceSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/portfolio/accounts/{id}/cash/{cashId}",
+    "area": "portfolio",
+    "summary": "DELETE /api/portfolio/accounts/[id]/cash/[cashId] Delete a specific cash balance"
+  },
+  {
+    "method": "GET",
+    "path": "/api/portfolio/accounts/{id}/cash",
+    "area": "portfolio",
+    "summary": "GET /api/portfolio/accounts/[id]/cash Get all cash balances for an account"
+  },
+  {
+    "method": "POST",
+    "path": "/api/portfolio/accounts/{id}/cash",
+    "area": "portfolio",
+    "summary": "POST /api/portfolio/accounts/[id]/cash Add or update a cash balance for an account If balance for currency already exists, it updates it",
+    "body": {
+      "module": "portfolio",
+      "schema": "createCashBalanceSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/portfolio/accounts/{id}/owners",
+    "area": "portfolio",
+    "summary": "GET /api/portfolio/accounts/[id]/owners Get current owners of a stock account"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/portfolio/accounts/{id}/owners",
+    "area": "portfolio",
+    "summary": "PUT /api/portfolio/accounts/[id]/owners Update owners of a stock account (replace all owners)"
+  },
+  {
+    "method": "GET",
+    "path": "/api/portfolio/accounts/{id}",
+    "area": "portfolio",
+    "summary": "GET /api/portfolio/accounts/[id] Get a single account with its holdings"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/portfolio/accounts/{id}",
+    "area": "portfolio",
+    "summary": "PUT /api/portfolio/accounts/[id] Update an account",
+    "body": {
+      "module": "portfolio",
+      "schema": "updateAccountSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/portfolio/accounts/{id}",
+    "area": "portfolio",
+    "summary": "DELETE /api/portfolio/accounts/[id] Delete an account and all its holdings"
+  },
+  {
+    "method": "POST",
+    "path": "/api/portfolio/accounts",
+    "area": "portfolio",
+    "summary": "POST /api/portfolio/accounts Create a new stock account",
+    "body": {
+      "module": "portfolio",
+      "schema": "createAccountSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/portfolio/accounts",
+    "area": "portfolio",
+    "summary": "GET /api/portfolio/accounts Get all accounts for the authenticated user (without holdings detail)"
+  },
+  {
+    "method": "GET",
+    "path": "/api/portfolio/holdings/{id}",
+    "area": "portfolio",
+    "summary": "GET /api/portfolio/holdings/[id] Get a single holding"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/portfolio/holdings/{id}",
+    "area": "portfolio",
+    "summary": "PUT /api/portfolio/holdings/[id] Update a holding's quantity and/or cost basis",
+    "body": {
+      "module": "portfolio",
+      "schema": "updateHoldingSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/portfolio/holdings/{id}",
+    "area": "portfolio",
+    "summary": "DELETE /api/portfolio/holdings/[id] Delete a holding"
+  },
+  {
+    "method": "POST",
+    "path": "/api/portfolio/holdings",
+    "area": "portfolio",
+    "summary": "POST /api/portfolio/holdings Add a new stock holding to an account Also fetches and caches the current stock price from Yahoo Finance",
+    "body": {
+      "module": "portfolio",
+      "schema": "createHoldingSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/portfolio",
+    "area": "portfolio",
+    "summary": "GET /api/portfolio Get user's portfolio with all accounts and holdings"
+  },
+  {
+    "method": "GET",
+    "path": "/api/profiles/{id}",
+    "area": "profiles",
+    "summary": "GET /api/profiles/[id] Get profile details"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/profiles/{id}",
+    "area": "profiles",
+    "summary": "PUT /api/profiles/[id] Update profile (own profile or admin/owner can update non-user profiles)"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/profiles/{id}",
+    "area": "profiles",
+    "summary": "DELETE /api/profiles/[id] Delete non-user profile (admin/owner only)"
+  },
+  {
+    "method": "GET",
+    "path": "/api/profiles",
+    "area": "profiles",
+    "summary": "GET /api/profiles List all profiles in the active household",
+    "query": ["householdId"]
+  },
+  {
+    "method": "POST",
+    "path": "/api/profiles",
+    "area": "profiles",
+    "summary": "POST /api/profiles Create a non-user profile in the active household (admin/owner only)",
+    "query": ["householdId"]
+  },
+  {
+    "method": "POST",
+    "path": "/api/push",
+    "area": "push",
+    "summary": "POST /api/push — register this browser/phone for the household's notifications."
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/push",
+    "area": "push",
+    "summary": "DELETE /api/push — stop notifications on this browser/phone."
+  },
+  {
+    "method": "POST",
+    "path": "/api/push/test",
+    "area": "push",
+    "summary": "POST /api/push/test { endpoint } — send a test notification to THIS device only."
+  },
+  {
+    "method": "GET",
+    "path": "/api/settings/billing-cycle",
+    "area": "settings"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/settings/billing-cycle",
+    "area": "settings"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/settings/partner-contacts/{id}",
+    "area": "settings"
+  },
+  {
+    "method": "GET",
+    "path": "/api/settings/partner-contacts",
+    "area": "settings"
+  },
+  {
+    "method": "POST",
+    "path": "/api/settings/partner-contacts",
+    "area": "settings"
+  },
+  {
+    "method": "GET",
+    "path": "/api/settings/report-prompt",
+    "area": "settings",
+    "summary": "GET/PUT /api/settings/report-prompt — the monthly report agent's prompt."
+  },
+  {
+    "method": "PUT",
+    "path": "/api/settings/report-prompt",
+    "area": "settings"
+  },
+  {
+    "method": "GET",
+    "path": "/api/settings/snapshot-day",
+    "area": "settings"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/settings/snapshot-day",
+    "area": "settings"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/settings/sync-aliases/{kind}/{id}",
+    "area": "settings",
+    "summary": "PATCH /api/settings/sync-aliases/[kind]/[id] Updates the user-defined canonical ID for a synced Moneytor entity. Empty string or null clears the alias. When set, the sync reconciler matches this row to any incoming payload whose stableKey equals this value — this lets the user manually collapse re-l"
+  },
+  {
+    "method": "GET",
+    "path": "/api/settings/sync-aliases",
+    "area": "settings",
+    "summary": "GET /api/settings/sync-aliases Lists every Moneytor-synced entity (bank/debt account, pension fund, real estate property) for the active household along with its current user-defined canonical ID + the auto-computed stableKey. The Settings UI uses this to let the user pin an alias so re-linked entri"
+  },
+  {
+    "method": "GET",
+    "path": "/api/settings/wiki-prompt",
+    "area": "settings"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/settings/wiki-prompt",
+    "area": "settings"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/shopping/cart/{id}",
+    "area": "shopping",
+    "summary": "PUT /api/shopping/cart/[id] Update a cart item (toggle checked, update quantity).",
+    "body": {
+      "module": "shopping",
+      "schema": "updateCartItemSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/shopping/cart/{id}",
+    "area": "shopping",
+    "summary": "DELETE /api/shopping/cart/[id] Remove a single item from the cart."
+  },
+  {
+    "method": "POST",
+    "path": "/api/shopping/cart/deliver",
+    "area": "shopping",
+    "summary": "POST /api/shopping/cart/deliver Mark the cart as delivered. Checked items are \"delivered\" (removed from cart, lastPurchasedAt updated), except for missingItemIds which stay in cart unchecked. Default items are re-added to the cart if not already present.",
+    "body": {
+      "module": "shopping",
+      "schema": "deliverCartSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/shopping/cart",
+    "area": "shopping",
+    "summary": "GET /api/shopping/cart Get all cart items with item name and category info. Ordered by category sortOrder then item name."
+  },
+  {
+    "method": "POST",
+    "path": "/api/shopping/cart",
+    "area": "shopping",
+    "summary": "POST /api/shopping/cart Add an item to the cart. If already in cart, increment quantity.",
+    "body": {
+      "module": "shopping",
+      "schema": "addToCartSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/shopping/cart",
+    "area": "shopping",
+    "summary": "DELETE /api/shopping/cart Clear all checked items from the cart."
+  },
+  {
+    "method": "GET",
+    "path": "/api/shopping/categories",
+    "area": "shopping",
+    "summary": "GET /api/shopping/categories Get all shopping categories for the household. Auto-seeds default categories if none exist."
+  },
+  {
+    "method": "POST",
+    "path": "/api/shopping/categories",
+    "area": "shopping",
+    "summary": "POST /api/shopping/categories Create a new shopping category.",
+    "body": {
+      "module": "shopping",
+      "schema": "createShoppingCategorySchema"
+    }
+  },
+  {
+    "method": "PUT",
+    "path": "/api/shopping/items/{id}",
+    "area": "shopping",
+    "summary": "PUT /api/shopping/items/[id] Update a shopping item's properties.",
+    "body": {
+      "module": "shopping",
+      "schema": "updateShoppingItemSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/shopping/items/{id}",
+    "area": "shopping",
+    "summary": "DELETE /api/shopping/items/[id] Delete a shopping item from the master list. Cascades to remove associated cart items."
+  },
+  {
+    "method": "GET",
+    "path": "/api/shopping/items",
+    "area": "shopping",
+    "summary": "GET /api/shopping/items List all shopping items with category info and cart status. Supports ?search= query param for case-insensitive filtering.",
+    "query": ["search"]
+  },
+  {
+    "method": "POST",
+    "path": "/api/shopping/items",
+    "area": "shopping",
+    "summary": "POST /api/shopping/items Create a new shopping item.",
+    "body": {
+      "module": "shopping",
+      "schema": "createShoppingItemSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/shopping/items/warnings",
+    "area": "shopping",
+    "summary": "GET /api/shopping/warnings Get items where warningDays is set and the item hasn't been purchased within that threshold. Returns items that should be suggested for purchase."
+  },
+  {
+    "method": "GET",
+    "path": "/api/stocks/price/{symbol}",
+    "area": "stocks"
+  },
+  {
+    "method": "GET",
+    "path": "/api/stocks/search",
+    "area": "stocks",
+    "query": ["q"]
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/task-categories/{id}",
+    "area": "task-categories",
+    "body": {
+      "module": "tasks",
+      "schema": "updateTaskCategorySchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/task-categories/{id}",
+    "area": "task-categories"
+  },
+  {
+    "method": "POST",
+    "path": "/api/task-categories/reorder",
+    "area": "task-categories",
+    "summary": "POST /api/task-categories/reorder Bulk-update the sortOrder of task categories. The order set here drives the category order everywhere categories are listed (kanban grouping, pickers), since those all read categories ordered by sortOrder.",
+    "body": {
+      "module": "tasks",
+      "schema": "reorderTaskCategoriesSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/task-categories",
+    "area": "task-categories",
+    "summary": "GET /api/task-categories Lists the household's categories. Token-reachable so an agent can discover the valid ids before referencing one on a task; every mutation below stays session-only, because there's no upsert-by-name and names are unique per household — letting an agent invent categories would"
+  },
+  {
+    "method": "POST",
+    "path": "/api/task-categories",
+    "area": "task-categories",
+    "body": {
+      "module": "tasks",
+      "schema": "createTaskCategorySchema"
+    }
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/task-tags/{id}",
+    "area": "task-tags",
+    "body": {
+      "module": "tasks",
+      "schema": "updateTaskTagSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/task-tags/{id}",
+    "area": "task-tags"
+  },
+  {
+    "method": "GET",
+    "path": "/api/task-tags",
+    "area": "task-tags",
+    "summary": "GET /api/task-tags Lists the household's tags. Token-reachable so an agent can discover the valid ids before referencing one on a task; every mutation below stays session-only, because there's no upsert-by-name and names are unique per household — letting an agent invent tags would just mean a strea"
+  },
+  {
+    "method": "POST",
+    "path": "/api/task-tags",
+    "area": "task-tags",
+    "body": {
+      "module": "tasks",
+      "schema": "createTaskTagSchema"
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/tasks/{id}",
+    "area": "tasks"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/tasks/{id}",
+    "area": "tasks",
+    "summary": "PATCH /api/tasks/[id] Session-only on purpose, like DELETE below. The scoped agent token's write surface is deliberately create-only: editing would let a token holder overwrite the title or notes of any task in the household, which is data loss without needing a delete verb. Widen this to `resolveTa",
+    "body": {
+      "module": "tasks",
+      "schema": "updateTaskSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/tasks/{id}",
+    "area": "tasks",
+    "summary": "DELETE /api/tasks/[id] Session-only on purpose: `resolveTasksAccess` (and so the scoped agent token) deliberately does not reach here — destructive verbs stay behind a real browser session. Don't \"tidy\" this into the resolver like its GET/PATCH siblings. Same asymmetry as the Areas Pages routes."
+  },
+  {
+    "method": "GET",
+    "path": "/api/tasks",
+    "area": "tasks",
+    "summary": "GET /api/tasks Lists tasks in the active household that are visible to the current user (owned by them OR shared with them). Filters are optional query params.",
+    "query": [
+      "status",
+      "priority",
+      "type",
+      "categoryId",
+      "assigneeId",
+      "tagId",
+      "parentTaskId",
+      "search"
+    ],
+    "body": {
+      "module": "tasks",
+      "schema": "taskFiltersSchema"
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/api/tasks",
+    "area": "tasks",
+    "summary": "POST /api/tasks Create a task. Owner = current user, household = active household. Enforces the one-level sub-task invariant (parent must be top-level).",
+    "body": {
+      "module": "tasks",
+      "schema": "createTaskSchema"
+    }
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/wiki/concepts/{id}/projects/{projectId}",
+    "area": "wiki",
+    "summary": "DELETE /api/wiki/concepts/[id]/projects/[projectId] — unfile a source."
+  },
+  {
+    "method": "POST",
+    "path": "/api/wiki/concepts/{id}/projects",
+    "area": "wiki"
+  },
+  {
+    "method": "POST",
+    "path": "/api/wiki/concepts/{id}/re-summarize",
+    "area": "wiki"
+  },
+  {
+    "method": "GET",
+    "path": "/api/wiki/concepts/{id}",
+    "area": "wiki",
+    "summary": "Single wiki concept — full read + editable fields + delete."
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/wiki/concepts/{id}",
+    "area": "wiki"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/wiki/concepts/{id}",
+    "area": "wiki"
+  },
+  {
+    "method": "GET",
+    "path": "/api/wiki/concepts",
+    "area": "wiki",
+    "summary": "GET /api/wiki/concepts — list every concept in the active household. POST /api/wiki/concepts — create a manual concept (typically a Project). The LLM Source ingest lives at /api/wiki/sources."
+  },
+  {
+    "method": "POST",
+    "path": "/api/wiki/concepts",
+    "area": "wiki"
+  },
+  {
+    "method": "POST",
+    "path": "/api/wiki/questions/{id}/attempt",
+    "area": "wiki",
+    "summary": "POST /api/wiki/questions/[id]/attempt — record a radio-pick for scoring."
+  },
+  {
+    "method": "POST",
+    "path": "/api/wiki/sources",
+    "area": "wiki"
+  }
+]
