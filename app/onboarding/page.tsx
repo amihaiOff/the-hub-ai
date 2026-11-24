@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '@/lib/hooks/use-auth';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,6 +31,7 @@ const PROFILE_COLORS = [
 export default function OnboardingPage() {
   const user = useUser();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState<Step>('welcome');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +67,10 @@ export default function OnboardingPage() {
     setFamilyMembers(familyMembers.filter((_, i) => i !== index));
   };
 
+  // The household context is cached (staleTime 60s) as "no profile yet";
+  // refresh it before leaving or AppShell bounces straight back here.
+  const refreshContext = () => queryClient.invalidateQueries({ queryKey: ['context'] });
+
   const handleComplete = async () => {
     setIsSubmitting(true);
     setError(null);
@@ -88,6 +94,7 @@ export default function OnboardingPage() {
         const data = await response.json();
         // If user already has a profile, just redirect to dashboard
         if (response.status === 400 && data.error === 'User already has a profile') {
+          await refreshContext();
           router.replace('/');
           return;
         }
@@ -98,7 +105,8 @@ export default function OnboardingPage() {
       setStep('complete');
 
       // Redirect to dashboard after short delay
-      setTimeout(() => {
+      setTimeout(async () => {
+        await refreshContext();
         router.push('/');
         router.refresh();
       }, 2000);
