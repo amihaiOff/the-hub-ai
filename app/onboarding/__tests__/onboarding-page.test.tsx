@@ -27,6 +27,11 @@ jest.mock('@/lib/hooks/use-auth', () => ({
   useUser: () => ({ id: 'user-1', displayName: 'Dana', primaryEmail: 'dana@example.com' }),
 }));
 
+let mockOnboardingState = { needsOnboarding: true, isLoading: false };
+jest.mock('@/lib/contexts/household-context', () => ({
+  useNeedsOnboarding: () => mockOnboardingState,
+}));
+
 function jsonResponse(status: number, body: unknown): Response {
   return {
     ok: status >= 200 && status < 300,
@@ -178,6 +183,30 @@ describe('OnboardingPage context invalidation', () => {
     expect(screen.getByText('Database down')).toBeInTheDocument();
     expect(invalidateSpy).not.toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+});
+
+describe('OnboardingPage — already set up', () => {
+  afterEach(() => {
+    mockOnboardingState = { needsOnboarding: true, isLoading: false };
+    mockReplace.mockClear();
+  });
+
+  it('sends a user who already has a profile into the app', () => {
+    mockOnboardingState = { needsOnboarding: false, isLoading: false };
+    renderPage();
+    expect(mockReplace).toHaveBeenCalledWith('/');
+  });
+
+  it('waits for the context to load before deciding', () => {
+    mockOnboardingState = { needsOnboarding: false, isLoading: true };
+    renderPage();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('stays put for a user who still needs onboarding', () => {
+    renderPage();
     expect(mockReplace).not.toHaveBeenCalled();
   });
 });

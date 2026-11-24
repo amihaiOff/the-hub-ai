@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useUser } from '@/lib/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
+import { useNeedsOnboarding } from '@/lib/contexts/household-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,6 +33,13 @@ export default function OnboardingPage() {
   const user = useUser();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { needsOnboarding, isLoading: isContextLoading } = useNeedsOnboarding();
+
+  // Someone who already has a profile (e.g. an invite was accepted on sign-in)
+  // doesn't belong here — submitting would be refused. Send them into the app.
+  useEffect(() => {
+    if (!isContextLoading && !needsOnboarding) router.replace('/');
+  }, [isContextLoading, needsOnboarding, router]);
   const [step, setStep] = useState<Step>('welcome');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
