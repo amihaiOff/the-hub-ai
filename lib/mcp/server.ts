@@ -92,6 +92,89 @@ export function findAction(method: string, path: string): CatalogAction | undefi
   });
 }
 
+/** Rewrite a successful `{ data }` JSON response; anything else passes through untouched. */
+function mapData(res: ApiResult, fn: (data: unknown) => unknown): ApiResult {
+  if (!res.ok) return res;
+  try {
+    const json = JSON.parse(res.text);
+    return { ...res, text: JSON.stringify({ ...json, data: fn(json.data) }) };
+  } catch {
+    return res;
+  }
+}
+
+type Ref = { id?: string; name?: string } | null | undefined;
+interface RawTask {
+  id: string;
+  title: string;
+  notes?: string | null;
+  done: boolean;
+  status?: string;
+  priority?: string;
+  type?: string | null;
+  dueDate?: string | null;
+  parentTaskId?: string | null;
+  customFields?: unknown[] | null;
+  category?: Ref;
+  assignee?: Ref;
+  tags?: Ref[];
+  children?: RawTask[];
+}
+
+const ref = (r: Ref) => (r?.id ? { id: r.id, name: r.name } : undefined);
+const NOTES_MAX = 300;
+
+/**
+ * The fields Claude needs to reason about and act on a task: ids + names for
+ * category/assignee/tags, subtasks in the same shape. Drops colors, icons,
+ * timestamps and sharing.
+ */
+export function slimTask(t: RawTask): Record<string, unknown> {
+  const notesCut = !!t.notes && t.notes.length > NOTES_MAX;
+  return {
+    id: t.id,
+    title: t.title,
+    done: t.done,
+    ...(t.status && { status: t.status }),
+    ...(t.priority && { priority: t.priority }),
+    ...(t.type && { type: t.type }),
+    ...(t.dueDate && { dueDate: t.dueDate }),
+    ...(ref(t.category) && { category: ref(t.category) }),
+    ...(ref(t.assignee) && { assignee: ref(t.assignee) }),
+    ...(t.tags?.length && { tags: t.tags.map(ref).filter(Boolean) }),
+    ...(t.parentTaskId && { parentTaskId: t.parentTaskId }),
+    ...(t.notes && { notes: notesCut ? `${t.notes.slice(0, NOTES_MAX)}…` : t.notes }),
+    ...(notesCut && { notesTruncated: true }),
+    ...(t.customFields?.length && { customFields: t.customFields }),
+    ...(t.children?.length && { subtasks: t.children.map(slimTask) }),
+  };
+}
+
+/** Open = not done, or done but still has an open subtask. */
+export function isOpenTask(t: RawTask): boolean {
+  return !t.done || !!t.children?.some((c) => !c.done);
+}
+
+/** Budget summary without the per-category transaction lists and daily series. */
+export function slimBudgetSummary(data: unknown): unknown {
+  if (!data || typeof data !== 'object') return data;
+  const { categoryGroups, ...rest } = data as {
+    dailySpent?: unknown;
+    categoryGroups?: { categories?: { transactions?: unknown[] }[] }[];
+  };
+  delete rest.dailySpent;
+  return {
+    ...rest,
+    categoryGroups: categoryGroups?.map((g) => ({
+      ...g,
+      categories: g.categories?.map(({ transactions, ...c }) => ({
+        ...c,
+        transactionCount: transactions?.length ?? 0,
+      })),
+    })),
+  };
+}
+
 const monthSchema = z.string().regex(/^\d{4}-\d{2}$/, 'YYYY-MM');
 const idSchema = z.string().min(1);
 
@@ -105,11 +188,20 @@ export function createHubMcpServer(api: ApiCaller): McpServer {
     'get_budget_summary',
     {
       description:
-        'Budget for one month: income, spending and budget vs. actual per category and group. Months are billing-cycle months (YYYY-MM).',
-      inputSchema: { month: monthSchema },
+        'Budget for one month: income, spending and budget vs. actual per category and group, with a transaction count per category. Months are billing-cycle months (YYYY-MM). For the transactions themselves use search_transactions (e.g. by categoryId, or uncategorized: true), or set includeTransactions.',
+      inputSchema: {
+        month: monthSchema,
+        includeTransactions: z
+          .boolean()
+          .optional()
+          .describe('Include every transaction and the daily series (large).'),
+      },
       annotations: { readOnlyHint: true },
     },
-    ({ month }) => get('/api/budget/summary', { month })
+    async ({ month, includeTransactions }) => {
+      const res = await api('GET', '/api/budget/summary', { query: { month } });
+      return toResult(includeTransactions ? res : mapData(res, slimBudgetSummary));
+    }
   );
 
   server.registerTool(
@@ -169,11 +261,23 @@ export function createHubMcpServer(api: ApiCaller): McpServer {
     'list_tasks',
     {
       description:
-        'List tasks, optionally filtered (search text, status, priority, type, category, assignee, tag). Each task has a `done` flag.',
-      inputSchema: taskFiltersSchema.shape,
+        'List open tasks (and completed ones that still have open subtasks), with ids for category/assignee/tags and subtasks. Filter by search text, status, priority, type, categoryId, assigneeId or tagId. Set includeDone to also get completed tasks. Notes over 300 chars are cut (notesTruncated) — read the full task with call_app_action GET /api/tasks/{id}.',
+      inputSchema: {
+        ...taskFiltersSchema.shape,
+        includeDone: z.boolean().optional().describe('Also return completed tasks.'),
+      },
       annotations: { readOnlyHint: true },
     },
-    (args) => get('/api/tasks', args)
+    async ({ includeDone, ...filters }) => {
+      const res = await api('GET', '/api/tasks', { query: filters });
+      return toResult(
+        mapData(res, (data) =>
+          Array.isArray(data)
+            ? (data as RawTask[]).filter((t) => includeDone || isOpenTask(t)).map(slimTask)
+            : data
+        )
+      );
+    }
   );
 
   server.registerTool(

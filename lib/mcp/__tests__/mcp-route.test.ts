@@ -80,6 +80,131 @@ describe('/api/mcp', () => {
     expect(body.result.content[0].text).toContain('Invalid path');
   });
 
+  describe('response slimming', () => {
+    const respond = (body: unknown, status = 200) =>
+      fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(body), { status }));
+    const toolText = async (res: Response) => {
+      const body = await res.json();
+      return { result: body.result, text: body.result.content[0].text as string };
+    };
+
+    const tasks = [
+      {
+        id: 't1',
+        title: 'Open task',
+        done: false,
+        priority: 'high',
+        color: '#fff',
+        createdAt: '2026-01-01T00:00:00Z',
+        category: { id: 'c1', name: 'Home', color: '#000' },
+        children: [{ id: 's1', title: 'Sub', done: true, createdAt: 'x' }],
+      },
+      { id: 't2', title: 'Done task', done: true, priority: 'low' },
+      {
+        id: 't3',
+        title: 'Done parent, open child',
+        done: true,
+        children: [{ id: 's3', title: 'Still open', done: false }],
+      },
+    ];
+
+    it('list_tasks drops done tasks by default and slims each task', async () => {
+      respond({ success: true, data: tasks });
+      const { result, text } = await toolText(await POST(callTool('list_tasks', {})));
+      expect(result.isError).toBe(false);
+      const json = JSON.parse(text);
+      expect(json.success).toBe(true);
+      expect(json.data).toEqual([
+        {
+          id: 't1',
+          title: 'Open task',
+          done: false,
+          priority: 'high',
+          category: { id: 'c1', name: 'Home' },
+          subtasks: [{ id: 's1', title: 'Sub', done: true }],
+        },
+        {
+          id: 't3',
+          title: 'Done parent, open child',
+          done: true,
+          subtasks: [{ id: 's3', title: 'Still open', done: false }],
+        },
+      ]);
+      expect(json.data.map((t: { id: string }) => t.id)).not.toContain('t2');
+    });
+
+    it('list_tasks keeps done tasks with includeDone and does not forward it as a query param', async () => {
+      respond({ success: true, data: tasks });
+      const { text } = await toolText(
+        await POST(callTool('list_tasks', { includeDone: true, search: 'x' }))
+      );
+      expect(JSON.parse(text).data.map((t: { id: string }) => t.id)).toEqual(['t1', 't2', 't3']);
+      const url = new URL(String(fetchMock.mock.calls[0][0]));
+      expect(url.pathname).toBe('/api/tasks');
+      expect(url.searchParams.get('search')).toBe('x');
+      expect(url.searchParams.has('includeDone')).toBe(false);
+    });
+
+    const summary = {
+      month: '2026-10',
+      totalIncome: 1000.5,
+      dailySpent: [{ day: 1, amount: 10 }],
+      categoryGroups: [
+        {
+          id: 'g1',
+          name: 'Food',
+          categories: [
+            { id: 'c1', name: 'Groceries', spent: 0.3, transactions: [{ id: 'x1' }, { id: 'x2' }] },
+            { id: 'c2', name: 'Dining', spent: 0 },
+          ],
+        },
+      ],
+    };
+
+    it('get_budget_summary slims by default', async () => {
+      respond({ success: true, data: summary });
+      const { text } = await toolText(
+        await POST(callTool('get_budget_summary', { month: '2026-10' }))
+      );
+      const data = JSON.parse(text).data;
+      expect(data.dailySpent).toBeUndefined();
+      expect(data.totalIncome).toBe(1000.5);
+      expect(data.categoryGroups[0].categories).toEqual([
+        { id: 'c1', name: 'Groceries', spent: 0.3, transactionCount: 2 },
+        { id: 'c2', name: 'Dining', spent: 0, transactionCount: 0 },
+      ]);
+    });
+
+    it('get_budget_summary returns the raw response with includeTransactions (not forwarded)', async () => {
+      respond({ success: true, data: summary });
+      const { text } = await toolText(
+        await POST(callTool('get_budget_summary', { month: '2026-10', includeTransactions: true }))
+      );
+      expect(JSON.parse(text)).toEqual({ success: true, data: summary });
+      expect(String(fetchMock.mock.calls[0][0])).toBe(
+        'http://localhost:3001/api/budget/summary?month=2026-10'
+      );
+    });
+
+    it.each([
+      ['list_tasks', {}],
+      ['get_budget_summary', { month: '2026-10' }],
+    ])('%s passes an error response through unchanged', async (name, args) => {
+      const errBody = { success: false, error: 'boom', data: [{ id: 'z', done: true }] };
+      respond(errBody, 500);
+      const { result, text } = await toolText(await POST(callTool(name, args)));
+      expect(result.isError).toBe(true);
+      expect(text).toBe(`HTTP 500: ${JSON.stringify(errBody)}`);
+    });
+
+    it('list_tasks passes a non-JSON success body through unchanged', async () => {
+      fetchMock.mockResolvedValueOnce(new Response('not json', { status: 200 }));
+      const { result, text } = await toolText(await POST(callTool('list_tasks', {})));
+      expect(result.isError).toBe(false);
+      expect(text).toBe('not json');
+    });
+  });
+
   it('call_app_action refuses paths that are not catalog actions', async () => {
     const res = await POST(callTool('call_app_action', { method: 'GET', path: '/api/backup' }));
     const body = await res.json();

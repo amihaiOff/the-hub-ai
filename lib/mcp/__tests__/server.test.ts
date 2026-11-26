@@ -1,4 +1,4 @@
-import { bodyJsonSchema, findAction } from '../server';
+import { bodyJsonSchema, findAction, isOpenTask, slimBudgetSummary, slimTask } from '../server';
 import catalog from '../catalog.json';
 import type { CatalogAction } from '../build-catalog';
 
@@ -100,5 +100,90 @@ describe('bodyJsonSchema', () => {
       .filter((a) => a.body && bodyJsonSchema(a) === undefined)
       .map((a) => `${a.method} ${a.path} (${a.body!.module}.${a.body!.schema})`);
     expect(unresolved).toEqual([]);
+  });
+});
+
+describe('slimTask', () => {
+  it('keeps key fields with ids, slims subtasks the same way, flags cut notes', () => {
+    const slim = slimTask({
+      id: 't1',
+      title: 'Fill form',
+      done: false,
+      status: '',
+      priority: 'HIGH',
+      type: null,
+      dueDate: '2026-12-01T00:00:00.000Z',
+      category: { id: 'c', name: 'Mila' },
+      assignee: { id: 'p', name: 'Hodaya' },
+      tags: [{ id: 'g', name: 'gan' }, null],
+      notes: 'x'.repeat(400),
+      customFields: [],
+      children: [{ id: 's1', title: 'Sub', done: true, priority: 'LOW', dueDate: '2026-12-02' }],
+    });
+    expect(slim).toEqual({
+      id: 't1',
+      title: 'Fill form',
+      done: false,
+      priority: 'HIGH',
+      dueDate: '2026-12-01T00:00:00.000Z',
+      category: { id: 'c', name: 'Mila' },
+      assignee: { id: 'p', name: 'Hodaya' },
+      tags: [{ id: 'g', name: 'gan' }],
+      notes: 'x'.repeat(300) + '…',
+      notesTruncated: true,
+      subtasks: [{ id: 's1', title: 'Sub', done: true, priority: 'LOW', dueDate: '2026-12-02' }],
+    });
+  });
+
+  it('omits empty optional fields', () => {
+    expect(slimTask({ id: 't', title: 'T', done: true, tags: [], children: [] })).toEqual({
+      id: 't',
+      title: 'T',
+      done: true,
+    });
+  });
+});
+
+describe('isOpenTask', () => {
+  it('treats a done parent with an open subtask as open', () => {
+    expect(isOpenTask({ id: 'a', title: 'A', done: false })).toBe(true);
+    expect(isOpenTask({ id: 'a', title: 'A', done: true })).toBe(false);
+    expect(
+      isOpenTask({
+        id: 'a',
+        title: 'A',
+        done: true,
+        children: [{ id: 'b', title: 'B', done: false }],
+      })
+    ).toBe(true);
+  });
+});
+
+describe('slimBudgetSummary', () => {
+  it('replaces transaction lists with counts and drops the daily series', () => {
+    const out = slimBudgetSummary({
+      month: '2026-11',
+      totalSpent: 10,
+      dailySpent: [{ date: '2026-11-01', amount: 10 }],
+      categoryGroups: [
+        {
+          name: 'Food',
+          categories: [
+            { categoryName: 'Wolt', spent: 10, transactions: [{ id: 'x' }, { id: 'y' }] },
+          ],
+        },
+      ],
+    });
+    expect(out).toEqual({
+      month: '2026-11',
+      totalSpent: 10,
+      categoryGroups: [
+        { name: 'Food', categories: [{ categoryName: 'Wolt', spent: 10, transactionCount: 2 }] },
+      ],
+    });
+  });
+
+  it('passes non-objects through', () => {
+    expect(slimBudgetSummary(null)).toBeNull();
   });
 });
